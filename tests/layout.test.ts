@@ -6,7 +6,8 @@ import { computeHops, segmentEnds } from '../src/builder/lines';
 import { compile } from '../src/engine/compiler';
 import { buildStarterGrid } from '../src/game/starter';
 import { buildFanGrid, buildShuttleGrid } from '../src/game/gridUtils';
-import { DRAG_SLOP, GestureHandlers, GestureTracker } from '../src/builder/gestures';
+import { DRAG_SLOP, GestureHandlers, GestureTracker, LONG_PRESS_MS } from '../src/builder/gestures';
+import { vi } from 'vitest';
 
 describe('layout', () => {
   it('fits the Shuttle with tappable cells (>= 44 game px) fully inside the grid area', () => {
@@ -183,5 +184,34 @@ describe('gesture tracker', () => {
     const { el, log } = setup();
     el.fire('wheel', { clientX: 5, clientY: 6, deltaY: 120, preventDefault() { /* noop */ } });
     expect(log).toEqual(['wheel 120']);
+  });
+
+  it('a press held still fires a long press, and its release is not a tap', () => {
+    vi.useFakeTimers();
+    try {
+      const el = new FakeEl();
+      const log: string[] = [];
+      const h: GestureHandlers = {
+        onTap: () => log.push('tap'), onDoubleTap: () => log.push('double'), onDrag: () => log.push('drag'),
+        onPinch: () => log.push('pinch'), onWheel: () => log.push('wheel'), canDrag: () => true,
+        onLongPress: (x, y) => log.push(`long ${x},${y}`), onLongPressEnd: () => log.push('long end'),
+      };
+      const g = new GestureTracker(el as any, (x, y) => ({ x, y }), h, () => Date.now());
+      g.attach();
+      const ev = (x: number, y: number) => ({ pointerId: 1, clientX: x, clientY: y, pointerType: 'touch', preventDefault() { /* noop */ } });
+      el.fire('pointerdown', ev(50, 60));
+      vi.advanceTimersByTime(LONG_PRESS_MS + 10);
+      el.fire('pointerup', ev(50, 60));
+      expect(log).toEqual(['long 50,60', 'long end']);
+
+      log.length = 0;
+      el.fire('pointerdown', ev(50, 60)); // moving cancels the long press
+      el.fire('pointermove', ev(50 + DRAG_SLOP + 5, 60));
+      vi.advanceTimersByTime(LONG_PRESS_MS + 10);
+      el.fire('pointerup', ev(50 + DRAG_SLOP + 5, 60));
+      expect(log.some(l => l.startsWith('long'))).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

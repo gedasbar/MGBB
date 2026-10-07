@@ -9,7 +9,10 @@
     "build:single": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "balance": "vitest run tests/balance.test.ts"
+    "balance": "vitest run tests/balance.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "node e2e/builder.e2e.cjs && node e2e/builder-extra.e2e.cjs && node e2e/browser.e2e.cjs",
+    "audit": "vite-node scripts/block-audit.ts"
   },
   "devDependencies": {
     "@vitest/ui": "^2.1.2",

@@ -255,3 +255,30 @@ describe('builder persistence', () => {
     expect(m.pasteLayout(clip).ok).toBe(false);
   });
 });
+
+describe('builder model: hulls', () => {
+  it('switching hulls keeps a separate pair of circuits per hull and remembers the active hull', () => {
+    const storage = memStorage();
+    const m = new BuilderModel(storage);
+    expect(m.hullId).toBe('shuttle');
+    expect(m.switchHull('fan').ok).toBe(true);
+    expect(m.grid.w).toBe(9);
+    expect(m.grid.cells.filter(c => c.blockId).length).toBe(0); // the Fan hull starts empty
+    expect(m.place(4, 4, 'splitter_3').ok).toBe(true);
+    expect(m.compiled.stats.projectilesPerPulse).toBe(1);
+    expect(m.switchHull('shuttle').ok).toBe(true);
+    expect(m.grid.cells.filter(c => c.blockId).length).toBe(3);
+
+    m.switchHull('fan');
+    const again = new BuilderModel(storage);
+    expect(again.hullId).toBe('fan');
+    expect(again.cellAt(4, 4)?.blockId).toBe('splitter_3');
+  });
+
+  it('refuses an unknown hull and ignores an unknown saved hull', () => {
+    const m = new BuilderModel(null);
+    expect(m.switchHull('nope').ok).toBe(false);
+    const bad = new BuilderModel(memStorage({ [STORAGE_KEY]: JSON.stringify({ version: 2, activeHull: 'nope', hulls: {} }) }));
+    expect(bad.hullId).toBe('shuttle');
+  });
+});

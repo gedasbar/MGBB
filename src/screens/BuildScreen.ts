@@ -3,7 +3,8 @@ import { CONFIG } from '../config';
 import { Screen, ScreenManager } from './ScreenManager';
 import { FlyScreen } from './FlyScreen';
 import { clientToGame } from '../input';
-import { BLOCKS } from '../data/blocks';
+import { BLOCKS, MOD_LABEL } from '../data/blocks';
+import { HULL_INFO } from '../game/gridUtils';
 import { describeBlock, rotationToDir } from '../engine/compilerTypes';
 import { CompiledShip, Grid } from '../engine/compiler';
 import { BuilderModel, statsDelta } from '../builder/model';
@@ -17,7 +18,18 @@ import {
   COLORS, drawTabIcon, drawToolIcon, TabIcon, ToolIcon,
 } from '../builder/draw';
 import { InfoPanel, Inspector, makeText, StatsStrip, Toast, UIButton } from '../builder/ui';
+import { Rect } from '../builder/layout';
 import { Picker, REMOVE_TILE } from '../builder/picker';
+
+const HOVER_MS = 800;
+
+function fmtNum(n: number): string {
+  return Math.abs(n - Math.round(n)) < 0.005 ? String(Math.round(n)) : n.toFixed(1);
+}
+
+function cellCenterOf(v: View, cx: number, cy: number) {
+  return { x: v.ox + (cx + 0.5) * v.scale, y: v.oy + (cy + 0.5) * v.scale };
+}
 
 const FACING_WORD: Record<string, string> = { N: 'up', E: 'right', S: 'down', W: 'left' };
 const HELP_TEXT =
@@ -52,6 +64,12 @@ export class BuildScreen implements Screen {
   private unsubscribe: (() => void) | null = null;
   private preview: { x: number; y: number; blockId: string | null; grid: Grid; compiled: CompiledShip } | null = null;
   private viewBeforePicker: View | null = null;
+  private tip = new Container();
+  private tipBg = new Graphics();
+  private tipText = makeText('', 13, 0xffffff, { lineHeight: 17 });
+  private hover: { x: number; y: number; since: number } | null = null;
+  private hullPanel = new Container();
+  private hullRows: { id: string; rect: Rect }[] = [];
 
   constructor(private sm: ScreenManager) {
     this.model = getBuilderModel();
@@ -62,7 +80,10 @@ export class BuildScreen implements Screen {
     this.buildHud();
     this.dim.rect(0, LAYOUT.gridArea.y, VIEW_W, LAYOUT.sheet.y - LAYOUT.gridArea.y).fill({ color: 0x000000, alpha: 0.28 });
     this.dim.visible = false;
-    this.container.addChild(this.dim, this.picker.container, this.stats.container, this.info.container, this.toast.container);
+    this.tip.visible = false;
+    this.tip.addChild(this.tipBg, this.tipText);
+    this.hullPanel.visible = false;
+    this.container.addChild(this.dim, this.picker.container, this.stats.container, this.tip, this.hullPanel, this.info.container, this.toast.container);
 
     this.gridR.setView(this.view);
     this.refresh();
@@ -81,6 +102,9 @@ export class BuildScreen implements Screen {
         onPinch: (f, cx, cy) => this.zoom(f, cx, cy),
         onWheel: (dy, x, y) => this.handleWheel(dy, x, y),
         canDrag: (x, y) => this.canDrag(x, y),
+        onMove: (x, y) => this.handleHover(x, y),
+        onLongPress: (x, y) => this.handleLongPress(x, y),
+        onLongPressEnd: () => this.hideTip(),
       },
     );
     this.gestures.attach();
@@ -96,6 +120,7 @@ export class BuildScreen implements Screen {
   update(dt: number, _frameTime: number, now: number) {
     this.gridR.tick(now);
     this.toast.update(dt * 1000);
+    if (this.hover && !this.tip.visible && performance.now() - this.hover.since > HOVER_MS) this.showLedger(this.hover.x, this.hover.y);
   }
 
   // ------------------------------------------------------------------ HUD construction
@@ -134,7 +159,7 @@ export class BuildScreen implements Screen {
 
     // Top bar buttons.
     this.addButton(new UIButton({
-      id: 'ship', rect: { x: 6, y: 4, w: 44, h: 44 }, onTap: () => this.toast.show('Ship picker: coming soon'),
+      id: 'ship', rect: { x: 6, y: 4, w: 44, h: 44 }, onTap: () => this.openHullPanel(),
       draw: (g, b) => { g.circle(22, 22, 21).fill(0x707070).stroke({ color: 0x1b1b1b, width: 2 }); const ic = new Graphics(); drawToolIcon(ic, 'ship', 30, 0xffffff); ic.position.set(22, 22); g.addChild(ic); void b; },
     }));
     this.addButton(new UIButton({
@@ -232,6 +257,7 @@ export class BuildScreen implements Screen {
   // ------------------------------------------------------------------ rendering
   /** Redraws everything that depends on the model, the selection or the picker preview. */
   refresh() {
+    this.hideTip();
     const src = this.preview ?? { grid: this.model.grid, compiled: this.model.compiled };
     this.gridR.render(src.grid, src.compiled, { selected: this.selected, ghost: this.preview ? { x: this.preview.x, y: this.preview.y } : null });
     const delta = this.preview ? statsDelta(this.model.compiled.stats, this.preview.compiled.stats) : undefined;
@@ -309,6 +335,9 @@ export class BuildScreen implements Screen {
         toast: this.toast.message,
         inspector: { title: this.inspector.titleText, body: this.inspector.bodyText },
         statsStrip: this.stats.texts(),
+        ledger: this.tip.visible ? this.tipText.text : null,
+        hull: this.model.hullId,
+        hullPanelOpen: this.hullPanel.visible,
       }),
     };
   }
@@ -337,12 +366,14 @@ export class BuildScreen implements Screen {
   }
 
   private canDrag(x: number, y: number): boolean {
-    if (this.info.isOpen) return false;
+    if (this.info.isOpen || this.hullPanel.visible) return false;
     if (this.picker.isOpen) return this.picker.inList(x, y);
     return inRect(LAYOUT.gridArea, x, y) && !this.buttonAt(x, y);
   }
 
   private handleDrag(dx: number, dy: number) {
+    this.hideTip();
+    this.hover = null;
     if (this.picker.isOpen) { this.picker.scrollBy(-dy); return; }
     this.view = panBy(this.view, dx, dy);
     this.applyView();
@@ -355,6 +386,8 @@ export class BuildScreen implements Screen {
   }
 
   handleTap(x: number, y: number) {
+    this.hideTip();
+    if (this.hullPanel.visible) { this.tapHullPanel(x, y); return; }
     if (this.info.isOpen) { this.info.hide(); return; }
     if (this.picker.isOpen) {
       if (this.picker.tap(x, y)) return;
@@ -375,6 +408,8 @@ export class BuildScreen implements Screen {
   }
 
   handleDoubleTap(x: number, y: number) {
+    this.hideTip();
+    if (this.hullPanel.visible) { this.tapHullPanel(x, y); return; }
     if (this.info.isOpen) { this.info.hide(); return; }
     if (this.picker.isOpen) {
       if (this.picker.doubleTap(x, y)) return;
@@ -462,6 +497,93 @@ export class BuildScreen implements Screen {
       `Est. DPS: expected damage per second, counting chance blocks at their average.`,
       s.warnings,
     );
+  }
+
+  // ------------------------------------------------------------------ ledger tooltip
+  private cellUnder(x: number, y: number): { x: number; y: number } | null {
+    if (this.picker.isOpen || this.info.isOpen || this.hullPanel.visible) return null;
+    if (!inRect(LAYOUT.gridArea, x, y) || this.buttonAt(x, y)) return null;
+    return cellFromPoint(this.view, this.model.grid.w, this.model.grid.h, x, y);
+  }
+
+  private handleHover(x: number, y: number) {
+    const c = this.cellUnder(x, y);
+    if (!c) { this.hover = null; this.hideTip(); return; }
+    if (!this.hover || this.hover.x !== c.x || this.hover.y !== c.y) {
+      this.hideTip();
+      this.hover = { x: c.x, y: c.y, since: performance.now() };
+    }
+  }
+
+  private handleLongPress(x: number, y: number) {
+    const c = this.cellUnder(x, y);
+    if (c) this.showLedger(c.x, c.y);
+  }
+
+  /** Text of the packet after a cell, or null if no signal passes it. */
+  ledgerText(cx: number, cy: number): string | null {
+    const info = this.model.compiled.cellInfo[cy * this.model.grid.w + cx];
+    const l = info?.ledger;
+    if (!info?.onPath || !l) return null;
+    const dmg = Math.abs(l.expectedDamage - l.damage) > 0.005
+      ? `Damage ${fmtNum(l.damage)} (average ${fmtNum(l.expectedDamage)} with chance blocks)`
+      : `Damage ${fmtNum(l.damage)}`;
+    const mods = l.mods.length ? l.mods.map(m => MOD_LABEL[m] ?? m).join(', ') : 'none';
+    return `After this cell\n${dmg}\nPure ${Math.round(l.pure * 100)}% · Projectiles ${l.count}\nModifiers: ${mods}`;
+  }
+
+  private showLedger(cx: number, cy: number) {
+    const text = this.ledgerText(cx, cy);
+    if (!text) return;
+    this.tipText.text = text;
+    const w = Math.min(VIEW_W - 8, this.tipText.width + 20);
+    const h = this.tipText.height + 14;
+    const centre = cellCenterOf(this.view, cx, cy);
+    const x = Math.max(4, Math.min(VIEW_W - 4 - w, centre.x - w / 2));
+    let y = centre.y - this.view.scale / 2 - h - 6;
+    if (y < LAYOUT.gridArea.y) y = centre.y + this.view.scale / 2 + 6;
+    this.tipBg.clear().roundRect(x, y, w, h, 8).fill({ color: 0x101010, alpha: 0.95 }).stroke({ color: COLORS.red, width: 1.5 });
+    this.tipText.position.set(x + 10, y + 7);
+    this.tip.visible = true;
+  }
+
+  private hideTip() {
+    this.tip.visible = false;
+  }
+
+  // ------------------------------------------------------------------ hull panel
+  private openHullPanel() {
+    for (const ch of this.hullPanel.removeChildren()) ch.destroy({ children: true });
+    this.hullRows = [];
+    const dim = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill({ color: 0x000000, alpha: 0.6 });
+    const panel = new Graphics().roundRect(16, 150, VIEW_W - 32, 90 + HULL_INFO.length * 84, 14).fill(0x2a2a2a).stroke({ color: COLORS.red, width: 2 });
+    const title = makeText('Choose a hull', 20, 0xffffff, { fontWeight: 'bold' });
+    title.position.set(32, 164);
+    this.hullPanel.addChild(dim, panel, title);
+    HULL_INFO.forEach((h, i) => {
+      const rect: Rect = { x: 28, y: 204 + i * 84, w: VIEW_W - 56, h: 72 };
+      const active = h.id === this.model.hullId;
+      const row = new Graphics().roundRect(rect.x, rect.y, rect.w, rect.h, 10).fill(active ? 0x4b5a4b : 0x3d3d3d).stroke({ color: active ? COLORS.green : 0x777777, width: active ? 3 : 1.5 });
+      const name = makeText(active ? `${h.name} (current)` : h.name, 20, 0xffffff, { fontWeight: 'bold' });
+      name.position.set(rect.x + 14, rect.y + 10);
+      const desc = makeText(h.desc, 14, 0xd0d0d0, { wordWrap: true, wordWrapWidth: rect.w - 28 });
+      desc.position.set(rect.x + 14, rect.y + 38);
+      this.hullPanel.addChild(row, name, desc);
+      this.hullRows.push({ id: h.id, rect });
+    });
+    this.hullPanel.visible = true;
+  }
+
+  private tapHullPanel(x: number, y: number) {
+    const row = this.hullRows.find(r => inRect(r.rect, x, y));
+    this.hullPanel.visible = false;
+    if (!row || row.id === this.model.hullId) return;
+    const res = this.model.switchHull(row.id);
+    if (!res.ok) { this.toast.show(res.error); return; }
+    this.selected = null;
+    this.fit();
+    this.refresh();
+    this.toast.show(`Hull: ${HULL_INFO.find(h => h.id === row.id)?.name ?? row.id}`, 1400);
   }
 
   // ------------------------------------------------------------------ actions

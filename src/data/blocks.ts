@@ -213,6 +213,11 @@ for (const [id, name, max] of [
   register({ id, name, category: 'passive', maxLevel: max, outputs: [], desc: `${name}.`, shown: false, hideReason: PASSIVE });
 }
 
+/** Friendly names of projectile modifiers, for the ledger tooltip. */
+export const MOD_LABEL: Record<string, string> = {
+  piercing: 'Piercing', bouncing: 'Bouncing', aoe_circle: 'AoE - Circle', shield_breaker: 'Shield-Breaker',
+};
+
 /** Blocks the player can place, in picker order. */
 export function pickerBlocks(): BlockDef[] {
   return Object.values(BLOCKS).filter(b => b.shown);

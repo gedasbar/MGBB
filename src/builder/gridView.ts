@@ -29,6 +29,7 @@ export class GridRenderer {
   private overlayG = new Graphics();
   private maskG = new Graphics();
   private segments: CompiledShip['segments'] = [];
+  private hops = new Set<string>();
   private dim = 1;
 
   constructor() {
@@ -49,8 +50,8 @@ export class GridRenderer {
     this.segments = compiled.segments;
     this.drawCells(grid);
     this.linesG.clear();
-    const hops = computeHops(compiled.segments);
-    drawLines(this.linesG, compiled.segments, hops);
+    this.hops = computeHops(compiled.segments);
+    drawLines(this.linesG, compiled.segments, this.hops);
     this.capsG.clear();
     drawCaps(this.capsG, compiled.segments);
     this.drawBlocks(grid, compiled, opts);
@@ -60,7 +61,7 @@ export class GridRenderer {
   /** Animated dashes; called every frame. */
   tick(timeMs: number) {
     this.flowG.clear();
-    drawFlow(this.flowG, this.segments, timeMs, this.dim);
+    drawFlow(this.flowG, this.segments, timeMs, this.hops, this.dim);
   }
 
   private drawCells(grid: Grid) {

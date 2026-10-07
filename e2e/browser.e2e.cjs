@@ -1,5 +1,6 @@
 // Browser end-to-end checks. Requires the Vite dev server: `npm run dev`.
 // Run: node e2e/browser.e2e.cjs   (exits non-zero on any failure)
+const lib = require('./lib.cjs');
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
@@ -30,10 +31,10 @@ async function pixelAt(page, x, y) {
 }
 
 async function openGame(browser, viewport) {
-  const page = await browser.newPage({ viewport });
-  page.on('pageerror', (err) => { check(false, `page error: ${err.message}`); });
-  await page.goto(URL);
-  await page.waitForFunction(() => !!window.__mgbm);
+  // The game starts on the Build screen: press FLY with the default circuit to reach the Fly screen.
+  const { page } = await lib.openGame(browser, { viewport });
+  await lib.tap(page, 468, 789);
+  await page.waitForFunction(() => !!window.__mgbm && !!window.__mgbm.world);
   await page.waitForTimeout(300);
   return page;
 }

@@ -13,14 +13,18 @@ export interface GestureHandlers {
   canDrag(x: number, y: number): boolean;
   /** Hover (mouse only). */
   onMove?(x: number, y: number): void;
+  /** Press held still for LONG_PRESS_MS; the release that follows is not a tap. */
+  onLongPress?(x: number, y: number): void;
+  onLongPressEnd?(): void;
 }
 
 export const DRAG_SLOP = 10;
-export const DOUBLE_TAP_MS = 320;
+export const DOUBLE_TAP_MS = 400;
 export const DOUBLE_TAP_DIST = 32;
 export const TAP_MAX_MS = 600;
+export const LONG_PRESS_MS = 450;
 
-interface Pt { x: number; y: number; sx: number; sy: number; t: number; dragging: boolean; drag: boolean }
+interface Pt { x: number; y: number; sx: number; sy: number; t: number; dragging: boolean; drag: boolean; long: boolean; timer: ReturnType<typeof setTimeout> | null }
 
 export class GestureTracker {
   private pts = new Map<number, Pt>();
@@ -39,7 +43,17 @@ export class GestureTracker {
   attach() {
     const down = (e: PointerEvent) => {
       const g = this.toGame(e.clientX, e.clientY);
-      this.pts.set(e.pointerId, { x: g.x, y: g.y, sx: g.x, sy: g.y, t: this.now(), dragging: false, drag: this.h.canDrag(g.x, g.y) });
+      const pt: Pt = { x: g.x, y: g.y, sx: g.x, sy: g.y, t: this.now(), dragging: false, drag: this.h.canDrag(g.x, g.y), long: false, timer: null };
+      if (this.h.onLongPress) {
+        pt.timer = setTimeout(() => {
+          pt.timer = null;
+          if (this.pts.get(e.pointerId) === pt && this.pts.size === 1 && !pt.dragging && Math.hypot(pt.x - pt.sx, pt.y - pt.sy) <= DRAG_SLOP) {
+            pt.long = true;
+            this.h.onLongPress!(pt.x, pt.y);
+          }
+        }, LONG_PRESS_MS);
+      }
+      this.pts.set(e.pointerId, pt);
       if (this.pts.size === 2) {
         this.pinched = true;
         this.pinchDist = this.distance();
@@ -66,6 +80,7 @@ export class GestureTracker {
         this.pinchDist = d;
         return;
       }
+      if (Math.hypot(g.x - p.sx, g.y - p.sy) > DRAG_SLOP && p.timer) { clearTimeout(p.timer); p.timer = null; }
       if (!p.dragging && Math.hypot(g.x - p.sx, g.y - p.sy) > DRAG_SLOP) p.dragging = p.drag;
       if (p.dragging) this.h.onDrag(dx, dy, g.x, g.y);
     };
@@ -73,6 +88,8 @@ export class GestureTracker {
       const p = this.pts.get(e.pointerId);
       this.pts.delete(e.pointerId);
       if (!p) return;
+      if (p.timer) { clearTimeout(p.timer); p.timer = null; }
+      if (p.long) { this.h.onLongPressEnd?.(); if (this.pts.size === 0) { this.pinched = false; this.pinchDist = 0; } return; }
       if (this.pts.size === 0) {
         const wasPinch = this.pinched;
         this.pinched = false;
@@ -84,6 +101,9 @@ export class GestureTracker {
       }
     };
     const cancel = (e: PointerEvent) => {
+      const p = this.pts.get(e.pointerId);
+      if (p?.timer) clearTimeout(p.timer);
+      if (p?.long) this.h.onLongPressEnd?.();
       this.pts.delete(e.pointerId);
       if (this.pts.size === 0) { this.pinched = false; this.pinchDist = 0; }
     };
@@ -99,6 +119,7 @@ export class GestureTracker {
   detach() {
     for (const [n, f] of this.bound) this.el.removeEventListener(n, f);
     this.bound = [];
+    for (const p of this.pts.values()) if (p.timer) clearTimeout(p.timer);
     this.pts.clear();
   }
 

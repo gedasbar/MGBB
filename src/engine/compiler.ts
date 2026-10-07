@@ -52,8 +52,21 @@ export interface Segment {
   reason?: string;
 }
 
+/** What the projectile looks like after passing a cell (first signal through the cell). */
+export interface Ledger {
+  damage: number;
+  /** Expected damage, counting chance blocks at their average. */
+  expectedDamage: number;
+  pure: number;
+  count: number;
+  /** Modifier types on the packet, in path order. */
+  mods: string[];
+  chanceBlocks: number;
+}
+
 export interface CellInfo {
   onPath: boolean;
+  ledger?: Ledger;
   /** Travel directions of the signals entering this cell. */
   inDirs: Dir[];
   outDirs: Dir[];
@@ -81,6 +94,17 @@ export interface CompiledShip {
 }
 
 const STEP_CAP = 500;
+
+function ledgerOf(p: Packet): Ledger {
+  return {
+    damage: p.damage,
+    expectedDamage: evalDamage(p),
+    pure: p.pure,
+    count: p.count,
+    mods: p.mods.map(m => m.type),
+    chanceBlocks: p.gates.length,
+  };
+}
 const DELTA: Record<Dir, { dx: number; dy: number }> = {
   N: { dx: 0, dy: -1 }, E: { dx: 1, dy: 0 }, S: { dx: 0, dy: 1 }, W: { dx: -1, dy: 0 },
 };
@@ -176,6 +200,7 @@ export function compile(grid: Grid): CompiledShip {
           closeRun(to);
           info.onPath = true;
           info.inDirs.push(dir);
+          if (!info.ledger) info.ledger = ledgerOf(sig.packet);
           recipes.push({ direction: eFacing, x: nx, y: ny, packet: sig.packet });
           break;
         }
@@ -193,6 +218,7 @@ export function compile(grid: Grid): CompiledShip {
           info.onPath = true;
           info.inDirs.push(dir);
           info.outDirs.push(dir);
+          if (!info.ledger) info.ledger = ledgerOf(sig.packet);
           x = nx;
           y = ny;
           continue;
@@ -226,6 +252,7 @@ export function compile(grid: Grid): CompiledShip {
 
         const packet = clonePacket(sig.packet);
         def.transform?.(packet, cell.level);
+        if (!info.ledger) info.ledger = ledgerOf(packet);
         const outs = [...def.outputs].sort((a, b) => REL_ORDER[a] - REL_ORDER[b]);
         if (outs.length === 0) {
           warnings.push(`Signal ends inside ${def.name} at ${cellLabel(nx, ny)}: it has no output.`);

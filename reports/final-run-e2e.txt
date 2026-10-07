@@ -1,0 +1,139 @@
+== node e2e/builder.e2e.cjs
+PASS  fit view is the documented one: {"scale":48,"ox":6,"oy":204}
+PASS  default circuit reaches the ejector with 101 damage
+PASS  stats strip reads ["101","1","4","404","0"]
+PASS  there is no palette on the Build screen
+PASS  default circuit: red line pixels at every expected cell centre
+PASS  default circuit (off-route cells): no red where there should be no line
+PASS  all 19 buttons are at least 44x44 game px
+PASS  no button is clipped off screen
+PASS  no text smaller than 11px
+PASS  tap blocked cell -> inspector "A solid block. Projectiles won't pass it."
+PASS  tap generator -> "Generator: Projectile dispenser. Fires a pulse of projectiles up the circuit continuously."
+PASS  tap ejector -> "Ejector: Ejector. Projectiles leave the ship here."
+PASS  double tap on a blocked cell opens nothing and changes nothing
+PASS  double tap on void opens nothing
+PASS  Clear all empties the grid
+PASS  empty Shuttle: red line pixels at every expected cell centre
+PASS  warning counted in the strip: 1
+PASS  double tap on an empty cell opens the picker
+PASS  inspector strip stays visible above the sheet (and shows the cell)
+PASS  picker lists 14 placeable blocks (no Remove tile on an empty cell): 14
+PASS  tiles are at least 44 px: 104
+PASS  pure_converter is not visible before scrolling (visible: 9 tiles)
+PASS  independently computed Turn Right tile position hits the real tile
+PASS  dragging the list scrolls it (scrollY 208) and reveals pure_converter
+PASS  mouse wheel scrolls the list back to the top
+PASS  tap Turn Right tile -> "Turn Right · no ejector reached: Turns the signal 90° to the right."
+PASS  preview: line runs east along row 9 through the ghost Turn Right
+PASS  preview: line no longer continues straight up from the ghost block
+PASS  preview did not place anything
+PASS  double tap on the tile closes the sheet
+PASS  Turn Right placed at (6,9) in auto mode
+PASS  view is restored after the sheet closes
+PASS  Turn Right placed: line goes up col 6 then east along row 9: red line pixels at every expected cell centre
+PASS  Turn Right placed: nothing continues up column 6: no red where there should be no line
+PASS  picker opened for (9,9)
+PASS  with Turn Left at (9,9) the circuit reaches the ejector
+PASS  journey of the reference screenshot: red line pixels at every expected cell centre
+PASS  damage is still 1 with no damage block: strip 1
+PASS  Flat+ on the line changes the stats: ["101","1","4","404","0"] (was ["1","1","4","4","0"])
+PASS  selected block shows "Flat + · Orientation: auto"
+PASS  green "auto" badge pixel at the block's corner: [255,255,255]
+PASS  Flat+ off the line does not change the stats
+PASS  off-line block says: "Adds +100 damage to each projectile. No signal reaches this block."
+PASS  "no signal" mark (red ring and slash) drawn at the corner of the off-line block: 88 red pixels
+PASS  Rotate CW -> manual, rotation 90
+PASS  rotated Flat+ blocks the line: no recipe
+PASS  inspector: "Flat + · Orientation: manual (facing right)"
+PASS  padlock (yellow) at the block's corner: [255,211,77]
+PASS  warning triangle on the block's edge: [0,0,0]
+PASS  line still reaches the rotated block: red line pixels at every expected cell centre
+PASS  line stops at the rotated block: no red where there should be no line
+PASS  Rotate CCW -> faces up again, line passes, damage 101
+PASS  Auto-orient returns the block to auto mode and the line passes
+PASS  four Rotate CW presses return to the starting orientation
+PASS  rotation changed the grid
+PASS  Undo reverts the rotation (and the line passes again)
+PASS  circuit valid again after undo
+PASS  Redo re-applies the rotation (line blocked again)
+PASS  wheel zoom in: scale 48 -> 87.5
+PASS  drag pans the grid (-211,-15) -> (-311,-85)
+PASS  Fit button restores the fitted view
+PASS  circuit (blocks, rotations, manual flags) persists across a reload
+PASS  a manual rotation persists across a reload
+PASS  A/B toggle switches to the empty circuit B
+PASS  toggling back restores circuit A unchanged
+PASS  copy toast: "Layout copied"
+PASS  paste restores the copied layout
+PASS  pasting junk shows an error toast and changes nothing: "Clipboard does not contain a layout"
+PASS  stub tab shows "Coming soon"
+PASS  FLY switches to the Fly screen
+PASS  ship fires 1 stream(s) of 101 damage; strip said 1 x 101
+PASS  projectiles in flight carry [101] damage
+PASS  5 projectiles alive after 1.2 s
+PASS  Back to Build shows the same circuit the player left
+PASS  toast: "Your circuit doesn't reach an ejector"
+PASS  still on the Build screen
+
+ALL PASSED  (76 passed, 0 failed)
+
+== node e2e/builder-extra.e2e.cjs
+PASS  hover over Flat+ shows the packet after it: "After this cell\nDamage 101\nPure 0% · Projectiles 1\nModifiers: none"
+PASS  hover before Flat+ shows damage 1: "After this cell\nDamage 1\nPure 0% · Projectiles 1\nModifiers: none"
+PASS  hover over a cell with no signal shows no ledger
+PASS  the tooltip hides when the pointer leaves the grid
+PASS  long press on (9,3) shows the ledger: "After this cell\nDamage 101\nPure 0% · Projectiles 1\nModifiers: none"
+PASS  releasing hides the ledger
+PASS  a long press does not select the cell
+PASS  occupied cell: Remove tile first, current block highlighted ({"open":true,"first":"__remove","selected":"flat_plus"})
+PASS  tapping the Remove tile explains it: "Remove: Clears this cell and returns the block to your inventory."
+PASS  preview shows the delta against the current circuit: "1 −100"
+PASS  the X button closes the sheet without changes
+PASS  closing restores the view
+PASS  picker opened again
+PASS  tapping the dimmed area closes the sheet
+PASS  nothing changed
+PASS  Remove tile removes the block and returns it: {"placed":0,"avail":20,"owned":20}
+PASS  preview of Flat+ shows the new numbers with deltas: ["101 +100","1","4","404 +400","0"]
+PASS  ship button opens the hull picker
+PASS  choosing Fan switches the hull: fan
+PASS  Fan hull is fitted to the screen (cell 58.67)
+PASS  crossing circuit reaches two ejectors: 2
+PASS  the vertical line runs straight through the crossing cell
+PASS  the horizontal line hops over it (arc above the crossing)
+PASS  the horizontal line has a gap under the hop (no red or dash pixels there): [[182,97,97],[148,115,115]]
+PASS  the horizontal line continues on both sides of the crossing
+PASS  Splitter 3 with two turns reaches all three ejectors: 3 projectiles per pulse
+PASS  stats strip shows 3 projectiles per pulse: ["1","3","4","12","0"]
+PASS  red line pixels along all three branches
+PASS  every one of 6 pulses fired 3 projectiles: [3,3,3,3,3,3]
+PASS  pulse rate 3.8/s matches the strip (4/s)
+
+ALL PASSED  (30 passed, 0 failed)
+
+== node e2e/browser.e2e.cjs
+
+[wide] viewport 1600x900, canvas rect {"left":547,"top":0,"width":506,"height":900}, scale 0.9370
+PASS  [wide] mouse screen (648.2, 674.9) -> expected game (108.0, 720.0), ship (108.0, 720.0), error 0.00px
+PASS  [wide] pixel under cursor is ship green: rgb(0,255,0)
+PASS  [wide] mouse screen (800.0, 809.8) -> expected game (270.0, 864.0), ship (270.0, 864.0), error 0.00px
+PASS  [wide] pixel under cursor is ship green: rgb(0,255,0)
+PASS  [wide] mouse screen (951.8, 540.0) -> expected game (432.0, 576.0), ship (432.0, 576.0), error 0.00px
+PASS  [wide] pixel under cursor is ship green: rgb(0,255,0)
+
+[narrow] viewport 400x900, canvas rect {"left":0,"top":94.5,"width":400,"height":711}, scale 0.7406
+PASS  [narrow] mouse screen (80.0, 627.8) -> expected game (108.0, 720.0), ship (108.0, 720.0), error 0.00px
+PASS  [narrow] pixel under cursor is ship green: rgb(0,255,0)
+PASS  [narrow] mouse screen (200.0, 734.4) -> expected game (270.0, 864.0), ship (270.0, 864.0), error 0.00px
+PASS  [narrow] pixel under cursor is ship green: rgb(0,255,0)
+PASS  [narrow] mouse screen (320.0, 521.1) -> expected game (432.0, 576.0), ship (432.0, 576.0), error 0.00px
+PASS  [narrow] pixel under cursor is ship green: rgb(0,255,0)
+PASS  compiled recipes in browser: 1, damage per shot [101]
+PASS  rock 1 died; children alive right after death: 2 (id2 hp111, id3 hp111)
+PASS  rock HP after each observed hit: [149,48] (start 250)
+PASS  captured hit screenshot
+PASS  captured split screenshot
+
+ALL PASSED
+

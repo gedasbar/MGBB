@@ -54,6 +54,13 @@ export function buildFanGrid(): Grid {
   return parseLayout(FAN_ROWS);
 }
 
+export interface HullInfo { id: string; name: string; desc: string }
+
+export const HULL_INFO: HullInfo[] = [
+  { id: 'shuttle', name: 'Shuttle', desc: '11 x 11 starter hull with one ejector.' },
+  { id: 'fan', name: 'Fan', desc: '9 x 8 open test hull with three ejectors, good for splitters.' },
+];
+
 export const HULL_BUILDERS: Record<string, () => Grid> = {
   shuttle: buildShuttleGrid,
   fan: buildFanGrid,

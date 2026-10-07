@@ -1,7 +1,7 @@
 import { compile, CompiledShip, CompileStats, Grid } from '../engine/compiler';
 import { normalizeRotation } from '../engine/compilerTypes';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
-import { cloneGrid } from '../game/gridUtils';
+import { cloneGrid, HULL_BUILDERS } from '../game/gridUtils';
 import {
   BlockEntry, decodeLayout, DEFAULT_HULL, encodeLayout, entriesFromGrid, gridFromEntries, LEGACY_KEY,
   loadBuilder, SavedBuilder, serializeBuilder, SlotId, STORAGE_KEY,
@@ -44,7 +44,7 @@ export class BuilderModel {
   private saved: SavedBuilder;
   private listeners = new Set<() => void>();
 
-  constructor(private storage: StorageLike | null = null, hullId = DEFAULT_HULL) {
+  constructor(private storage: StorageLike | null = null, hullId?: string) {
     let raw: string | null = null;
     let legacy: string | null = null;
     try {
@@ -54,7 +54,7 @@ export class BuilderModel {
       /* storage unavailable */
     }
     this.saved = loadBuilder(raw, legacy);
-    this.loadHull(hullId);
+    this.loadHull(hullId ?? this.saved.activeHull ?? DEFAULT_HULL);
     if ((!raw || legacy) && storage) this.persist(); // write the new format over a migrated save
   }
 
@@ -85,6 +85,7 @@ export class BuilderModel {
   }
 
   private persist() {
+    this.saved.activeHull = this.hullId;
     this.saved.hulls[this.hullId] = {
       active: this.active,
       slots: { A: entriesFromGrid(this.slots.A.grid), B: entriesFromGrid(this.slots.B.grid) },
@@ -216,6 +217,16 @@ export class BuilderModel {
     for (const c of this.grid.cells) {
       if (c.type === 'empty') { c.blockId = null; c.level = 1; c.rotation = 0; c.manual = false; }
     }
+    this.commit();
+    return { ok: true };
+  }
+
+  /** Switches the hull being built (each hull keeps its own A and B circuits). Undo history starts fresh. */
+  switchHull(hullId: string): EditResult {
+    if (!(hullId in HULL_BUILDERS)) return { ok: false, error: 'Unknown hull' };
+    if (hullId === this.hullId) return { ok: true };
+    this.persist();
+    this.loadHull(hullId);
     this.commit();
     return { ok: true };
   }

@@ -271,21 +271,65 @@ describe('compiler: the automatic red line', () => {
     expect(res.stats.estDps).toBeCloseTo(101 * res.stats.pulsesPerSecond, 6);
   });
 
-  it('compile of a busy 11x11 board takes < 5 ms on average (100 runs)', () => {
+  it('compile of a fully built 11x11 board (splitters everywhere) takes < 5 ms on average (100 runs)', () => {
     const g = open();
     fixed(g, 6, 11, 'generator', 'N');
     for (let col = 1; col <= 11; col++) fixed(g, col, 1, 'ejector', 'N');
-    const kinds = ['splitter_3', 'turn_r', 'turn_l', 'flat_plus', 'splitter_2', 'percent_mult'];
-    let n = 0;
     for (let row = 2; row <= 10; row++) {
-      for (let col = 1; col <= 11; col++) {
-        if (n++ % 2 === 0) put(g, col, row, kinds[(col * 7 + row * 3) % kinds.length]);
-      }
+      for (let col = 1; col <= 11; col++) put(g, col, row, (col + row) % 2 === 0 ? 'splitter_3' : 'splitter_2');
     }
+    const res = compile(g);
+    expect(res.segments.length).toBeGreaterThan(40); // the signal really does fan out across the board
     for (let i = 0; i < 10; i++) compile(g);
     const t0 = performance.now();
     for (let i = 0; i < 100; i++) compile(g);
     const avg = (performance.now() - t0) / 100;
     expect(avg).toBeLessThan(5);
+  });
+});
+
+describe('compiler: ledger (packet after each cell)', () => {
+  it('records the packet after every cell on the path, in path order', () => {
+    const g = routedShuttle();
+    put(g, 9, 6, 'flat_plus');
+    put(g, 9, 4, 'percent_mult', { level: 2 });
+    put(g, 9, 3, 'piercing');
+    const info = (c: number, r: number) => compile(g).cellInfo[idx(g, c, r)];
+    expect(info(6, 10).ledger).toMatchObject({ damage: 1, pure: 0, count: 1, mods: [] });
+    expect(info(9, 7).ledger?.damage).toBe(1); // before Flat+
+    expect(info(9, 6).ledger?.damage).toBe(101); // after Flat+
+    expect(info(9, 5).ledger?.damage).toBe(101);
+    expect(info(9, 4).ledger?.damage).toBe(202); // after x2
+    expect(info(9, 3).ledger?.mods).toEqual(['piercing']);
+    expect(info(9, 2).ledger).toMatchObject({ damage: 202, mods: ['piercing'] }); // arriving at the ejector
+    expect(info(3, 3).ledger).toBeUndefined(); // off the path
+  });
+
+  it('reports expected damage for chance blocks and the pure share', () => {
+    const g = routedShuttle();
+    put(g, 9, 6, 'lucky_strike');
+    put(g, 9, 5, 'pure_converter');
+    const l = compile(g).cellInfo[idx(g, 9, 4)].ledger!;
+    expect(l.damage).toBe(1);
+    expect(l.expectedDamage).toBeCloseTo(1.33, 6);
+    expect(l.chanceBlocks).toBe(1);
+    expect(l.pure).toBeCloseTo(0.15, 10);
+  });
+});
+
+describe('compiler: a crossing made by one generator and plain blocks', () => {
+  it('Splitter 3 + turns on the Fan hull: the west branch curls back and crosses the forward branch', () => {
+    const g = buildFanGrid(); // generator (5,10); ejectors (2,1) (5,1) (8,1)
+    put(g, 5, 8, 'splitter_3');
+    put(g, 2, 8, 'turn_r'); // heading W, right = N
+    put(g, 2, 5, 'turn_r'); // heading N, right = E: runs east along row 5, across column 5
+    put(g, 8, 5, 'turn_l'); // heading E, left = N: up to the right-hand ejector
+    const res = compile(g);
+    expect(res.recipes.map(r => r.x + 1).sort()).toEqual([5, 8]);
+    // The crossing cell (5,5) carries one vertical and one horizontal line, and nothing was cut.
+    expect(res.cellInfo[idx(g, 5, 5)].inDirs.sort()).toEqual(['E', 'N']);
+    expect(res.segments.some(s => s.kind === 'overlap' || s.kind === 'loop-cut')).toBe(false);
+    expect(res.warnings.length).toBe(1); // only the east branch dead-ends at the hull edge
+    expect(res.warnings[0]).toContain("doesn't reach an ejector");
   });
 });

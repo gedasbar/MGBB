@@ -107,21 +107,43 @@ export function drawCaps(g: Graphics, segments: Segment[]) {
   }
 }
 
-/** Animated dashes travelling along live segments in their direction of travel. */
-export function drawFlow(g: Graphics, segments: Segment[], timeMs: number, dim = 1) {
+/** Animated dashes travelling along live segments in their direction of travel (they skip the hop gaps). */
+export function drawFlow(g: Graphics, segments: Segment[], timeMs: number, hops: Set<string>, dim = 1) {
   const period = 24;
   const dash = 9;
   const off = ((timeMs / 1000) * 48) % period;
+  const gapHalf = S * 0.17 + 2;
   for (const s of segments) {
     if (s.kind !== 'live') continue;
     const { a, b } = segmentEnds(s);
     const len = Math.hypot(b.x - a.x, b.y - a.y);
     const d = DIR_VEC[s.dir];
+    // Distances along the segment that are under a hop.
+    const gaps: number[] = [];
+    if (s.dir === 'E' || s.dir === 'W') {
+      for (let cx = Math.min(s.fromCell.x, s.toCell.x) + 1; cx < Math.max(s.fromCell.x, s.toCell.x); cx++) {
+        if (hops.has(`${cx},${s.fromCell.y}`)) gaps.push(Math.abs((cx + 0.5) * S - a.x));
+      }
+    }
     for (let p = off - period; p < len; p += period) {
-      const p0 = Math.max(0, p);
+      let p0 = Math.max(0, p);
       const p1 = Math.min(len, p + dash);
       if (p1 <= p0) continue;
-      g.moveTo(a.x + d.x * p0, a.y + d.y * p0).lineTo(a.x + d.x * p1, a.y + d.y * p1);
+      // Cut the dash around any hop.
+      const pieces: [number, number][] = [[p0, p1]];
+      for (const gc of gaps) {
+        for (let i = pieces.length - 1; i >= 0; i--) {
+          const [lo, hi] = pieces[i];
+          if (hi <= gc - gapHalf || lo >= gc + gapHalf) continue;
+          pieces.splice(i, 1);
+          if (lo < gc - gapHalf) pieces.push([lo, gc - gapHalf]);
+          if (hi > gc + gapHalf) pieces.push([gc + gapHalf, hi]);
+        }
+      }
+      for (const [lo, hi] of pieces) {
+        p0 = lo;
+        g.moveTo(a.x + d.x * p0, a.y + d.y * p0).lineTo(a.x + d.x * hi, a.y + d.y * hi);
+      }
     }
   }
   g.stroke({ color: 0xffe0e0, width: 2, alpha: 0.9 * dim, cap: 'round' });

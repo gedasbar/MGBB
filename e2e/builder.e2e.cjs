@@ -299,6 +299,8 @@ async function placeViaPicker(page, col, row, tileKey) {
   // ------------------------------------------------------------------ 12. FLY
   const expected = (await state(page)).stats;
   await tap(page, ...FLY);
+  // In Fly the ship follows the pointer, so keep it in the lower play area like a player would.
+  await page.mouse.move(...Object.values(await lib.gameToClient(page, 270, 800)));
   await page.waitForTimeout(1200);
   const fly = await page.evaluate(() => ({ recipes: window.__mgbm.state().recipes, damage: window.__mgbm.state().damagePerShot, projectiles: window.__mgbm.state().projectiles, hasWorld: !!window.__mgbm.world, buildScreen: !!window.__mgbm.buildScreen }));
   check(fly.hasWorld && !fly.buildScreen, 'FLY switches to the Fly screen');

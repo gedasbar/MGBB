@@ -23,6 +23,8 @@ export interface HullSave {
 
 export interface SavedBuilder {
   version: 2;
+  /** Hull shown on the Build screen. */
+  activeHull?: string;
   hulls: Record<string, HullSave>;
 }
 
@@ -145,6 +147,7 @@ export function loadBuilder(raw: string | null, legacyRaw: string | null = null)
         for (const hullId of Object.keys(HULL_BUILDERS)) {
           if (data.hulls[hullId]) out.hulls[hullId] = sanitizeHullSave(data.hulls[hullId], hullId);
         }
+        if (typeof data.activeHull === 'string' && data.activeHull in HULL_BUILDERS) out.activeHull = data.activeHull;
         return out;
       }
     } catch {

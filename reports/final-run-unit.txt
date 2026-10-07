@@ -1,0 +1,22 @@
+== tsc --noEmit
+exit code 0
+
+== vitest run
+ ✓ tests/save.test.ts (3 tests) 5ms
+ ✓ tests/balance.test.ts (1 test) 4ms
+ ✓ tests/damage.test.ts (2 tests) 7ms
+ ✓ tests/boss.test.ts (2 tests) 3ms
+ ✓ tests/projectiles.test.ts (1 test) 5ms
+ ✓ tests/mitosis.test.ts (4 tests) 4ms
+ ✓ tests/phase1.test.ts (3 tests) 5ms
+ ✓ tests/system.test.ts (1 test) 72ms
+ ✓ tests/builderModel.test.ts (19 tests) 35ms
+ ✓ tests/e2e.world.test.ts (5 tests) 39ms
+ ✓ tests/layout.test.ts (16 tests) 16ms
+ ✓ tests/compiler.test.ts (23 tests) 178ms
+ ✓ tests/blockAudit.test.ts (31 tests) 313ms
+ Test Files  13 passed (13)
+      Tests  111 passed (111)
+
+== npm run audit (compile timing)
+11x11 fully built board: 505 segments, average compile 0.417 ms over 1000 runs (limit 5 ms)

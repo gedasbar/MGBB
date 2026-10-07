@@ -27,26 +27,28 @@ async function gameToClient(page, gx, gy) {
   };
 }
 
+/** Moves the mouse somewhere neutral (the title bar) so a hover tooltip never lingers over the grid. */
+async function park(page) {
+  const p = await gameToClient(page, 270, 8);
+  await page.mouse.move(p.x, p.y);
+}
+
 async function tap(page, gx, gy, { pause = 120 } = {}) {
   const p = await gameToClient(page, gx, gy);
   await page.mouse.move(p.x, p.y);
   await page.mouse.down();
   await page.waitForTimeout(30);
   await page.mouse.up();
+  await park(page);
   await page.waitForTimeout(pause);
 }
 
-/** Two quick taps (a double tap). */
+/** Two quick taps (a double tap): Playwright sends both press/release pairs back to back. */
 async function doubleTap(page, gx, gy, { pause = 200 } = {}) {
   const p = await gameToClient(page, gx, gy);
   await page.mouse.move(p.x, p.y);
-  await page.mouse.down();
-  await page.waitForTimeout(25);
-  await page.mouse.up();
-  await page.waitForTimeout(70);
-  await page.mouse.down();
-  await page.waitForTimeout(25);
-  await page.mouse.up();
+  await page.mouse.click(p.x, p.y, { clickCount: 2 });
+  await park(page);
   await page.waitForTimeout(pause);
 }
 
@@ -57,6 +59,7 @@ async function drag(page, gx0, gy0, gx1, gy1, steps = 12) {
   await page.mouse.down();
   await page.mouse.move(b.x, b.y, { steps });
   await page.mouse.up();
+  await park(page);
   await page.waitForTimeout(150);
 }
 
@@ -64,6 +67,7 @@ async function wheel(page, gx, gy, deltaY) {
   const p = await gameToClient(page, gx, gy);
   await page.mouse.move(p.x, p.y);
   await page.mouse.wheel(0, deltaY);
+  await park(page);
   await page.waitForTimeout(150);
 }
 
@@ -146,6 +150,6 @@ async function shot(page, name) {
 }
 
 module.exports = {
-  chromium, URL, OUT, VIEW, check, counts, gameToClient, tap, doubleTap, drag, wheel,
+  chromium, URL, OUT, VIEW, check, counts, gameToClient, park, tap, doubleTap, drag, wheel,
   pixelAtClient, pixelsAtClient, countInRegion, isRedLine, openGame, state, shot,
 };
