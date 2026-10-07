@@ -101,6 +101,27 @@ async function pixelsAtClient(page, points) {
   }, { b64: png.toString('base64'), points });
 }
 
+/** Counts pixels in a square region (game coords, +-half game px) whose colour satisfies `pred` (a function source string `([r,g,b]) => bool`). */
+async function countInRegion(page, gx, gy, half, predSrc) {
+  const a = await gameToClient(page, gx - half, gy - half);
+  const b = await gameToClient(page, gx + half, gy + half);
+  const png = await page.screenshot({ clip: { x: a.x, y: a.y, width: Math.max(1, b.x - a.x), height: Math.max(1, b.y - a.y) } });
+  return page.evaluate(async ({ b64, predSrc }) => {
+    const pred = eval(predSrc);
+    const img = new Image();
+    img.src = 'data:image/png;base64,' + b64;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const d = ctx.getImageData(0, 0, c.width, c.height).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (pred([d[i], d[i + 1], d[i + 2]])) n++;
+    return n;
+  }, { b64: png.toString('base64'), predSrc });
+}
+
 /** "Red line" pixels: strongly red, little green/blue. */
 const isRedLine = ([r, g, b]) => r > 200 && g < 110 && b < 110;
 
@@ -126,5 +147,5 @@ async function shot(page, name) {
 
 module.exports = {
   chromium, URL, OUT, VIEW, check, counts, gameToClient, tap, doubleTap, drag, wheel,
-  pixelAtClient, pixelsAtClient, isRedLine, openGame, state, shot,
+  pixelAtClient, pixelsAtClient, countInRegion, isRedLine, openGame, state, shot,
 };

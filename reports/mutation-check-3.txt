@@ -1,0 +1,13 @@
+Mutation check 3a - compilerTypes.relToDir: swap left and right
+[31m⎯⎯⎯⎯⎯⎯[1m[7m Failed Tests 44 [27m[22m⎯⎯⎯⎯⎯⎯⎯[39m
+[2m Test Files [22m [1m[31m3 failed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m44 failed[39m[22m[2m | [22m[1m[32m24 passed[39m[22m[90m (68)[39m
+
+Mutation check 3b - compiler: manual blocks accept a signal from any side
+[31m⎯⎯⎯⎯⎯⎯⎯[1m[7m Failed Tests 3 [27m[22m⎯⎯⎯⎯⎯⎯⎯[39m
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m34 passed[39m[22m[90m (37)[39m
+
+After restoring both files:
+[2m Test Files [22m [1m[32m13 passed[39m[22m[90m (13)[39m
+[2m      Tests [22m [1m[32m105 passed[39m[22m[90m (105)[39m

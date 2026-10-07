@@ -31,6 +31,11 @@ export const CATEGORY_COLOR: Record<string, number> = {
   passive: 0xb0b0b0,
 };
 
+/** Pixi connects a new arc to the previous path point (the origin on a fresh path), so always start it explicitly. */
+export function arcPath(g: Graphics, x: number, y: number, r: number, a0: number, a1: number, anticlockwise = false) {
+  g.moveTo(x + Math.cos(a0) * r, y + Math.sin(a0) * r).arc(x, y, r, a0, a1, anticlockwise);
+}
+
 /** Diagonal hatching clipped to a rectangle. */
 export function hatch(g: Graphics, x: number, y: number, w: number, h: number, step: number, color: number, width: number, alpha = 1) {
   for (let c = step; c < w + h; c += step) {
@@ -70,7 +75,8 @@ export function drawWarn(g: Graphics, cx: number, cy: number, s: number) {
 /** Small padlock for manual-orientation blocks. */
 export function drawLock(g: Graphics, cx: number, cy: number, s: number) {
   g.roundRect(cx - s / 2, cy - s * 0.1, s, s * 0.62, s * 0.12).fill(0xffd34d).stroke({ color: 0x000000, width: Math.max(1, s * 0.08) });
-  g.arc(cx, cy - s * 0.1, s * 0.3, Math.PI, 0).stroke({ color: 0xffd34d, width: Math.max(1.5, s * 0.14) });
+  arcPath(g, cx, cy - s * 0.1, s * 0.3, Math.PI, 0);
+  g.stroke({ color: 0xffd34d, width: Math.max(1.5, s * 0.14) });
   g.circle(cx, cy + s * 0.2, s * 0.09).fill(0x000000);
 }
 
@@ -85,8 +91,8 @@ export function drawAutoBadge(g: Graphics, cx: number, cy: number, s: number) {
 
 /** "No signal" mark: a circle with a slash. */
 export function drawNoSignal(g: Graphics, cx: number, cy: number, s: number) {
-  g.circle(cx, cy, s * 0.5).fill({ color: 0x000000, alpha: 0.55 }).stroke({ color: 0xff6666, width: Math.max(1.2, s * 0.12) });
-  g.moveTo(cx - s * 0.36, cy + s * 0.36).lineTo(cx + s * 0.36, cy - s * 0.36).stroke({ color: 0xff6666, width: Math.max(1.2, s * 0.12) });
+  g.circle(cx, cy, s * 0.5).fill({ color: 0x000000, alpha: 0.6 }).stroke({ color: 0xff5a5a, width: Math.max(1.5, s * 0.15) });
+  g.moveTo(cx - s * 0.36, cy + s * 0.36).lineTo(cx + s * 0.36, cy - s * 0.36).stroke({ color: 0xff5a5a, width: Math.max(1.5, s * 0.15) });
 }
 
 function circularArrow(g: Graphics, r: number, color: number, width: number, clockwise: boolean) {
@@ -94,7 +100,8 @@ function circularArrow(g: Graphics, r: number, color: number, width: number, clo
   const start = -Math.PI * 0.8;
   const end = Math.PI * 0.45;
   const mirror = (a: number) => (clockwise ? a : Math.PI - a);
-  g.arc(0, 0, r, mirror(start), mirror(end), !clockwise).stroke({ color, width, cap: 'round' });
+  arcPath(g, 0, 0, r, mirror(start), mirror(end), !clockwise);
+  g.stroke({ color, width, cap: 'round' });
   const a = mirror(end);
   const dir = clockwise ? a + Math.PI / 2 : a - Math.PI / 2;
   arrowHead(g, Math.cos(a) * r + Math.cos(dir) * r * 0.45, Math.sin(a) * r + Math.sin(dir) * r * 0.45, dir, r * 0.7, r * 0.42, color);
@@ -233,7 +240,8 @@ export function drawToolIcon(g: Graphics, kind: ToolIcon, s: number, color: numb
       break;
     case 'help':
       g.circle(0, 0, u * 0.85).stroke(line);
-      g.arc(0, -u * 0.18, u * 0.3, Math.PI * 1.05, Math.PI * 2.25).stroke(line);
+      arcPath(g, 0, -u * 0.18, u * 0.3, Math.PI * 1.05, Math.PI * 2.25);
+      g.stroke(line);
       g.moveTo(0, u * 0.12).lineTo(0, u * 0.25).stroke(line);
       g.circle(0, u * 0.52, w * 0.6).fill(color);
       break;
@@ -259,8 +267,10 @@ export function drawTabIcon(g: Graphics, kind: TabIcon, s: number, color: number
       break;
     case 'shop':
       g.circle(0, 0, u * 0.85).stroke({ color, width: w });
-      g.arc(0, -u * 0.22, u * 0.3, Math.PI * 0.2, Math.PI * 1.5, true).stroke({ color, width: w, cap: 'round' });
-      g.arc(0, u * 0.22, u * 0.3, -Math.PI * 0.5, Math.PI * 0.8).stroke({ color, width: w, cap: 'round' });
+      arcPath(g, 0, -u * 0.22, u * 0.3, Math.PI * 0.2, Math.PI * 1.5, true);
+      g.stroke({ color, width: w, cap: 'round' });
+      arcPath(g, 0, u * 0.22, u * 0.3, -Math.PI * 0.5, Math.PI * 0.8);
+      g.stroke({ color, width: w, cap: 'round' });
       g.moveTo(0, -u * 0.62).lineTo(0, u * 0.62).stroke({ color, width: w * 0.8 });
       break;
     case 'captain':

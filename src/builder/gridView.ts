@@ -157,10 +157,10 @@ export class GridRenderer {
       const x = c.x * S;
       const y = c.y * S;
       // Mode marker, top-right: lock = manual, A = auto.
-      if (info.orientationMode === 'manual') drawLock(g, x + S - 11, y + 12, 14);
-      else drawAutoBadge(g, x + S - 11, y + 11, 12);
+      if (info.orientationMode === 'manual') drawLock(g, x + S - 12, y + 13, 18);
+      else drawAutoBadge(g, x + S - 12, y + 12, 15);
       if (info.warning) drawWarn(g, x + S / 2, y + S - 8, 20);
-      else if (!info.onPath && !(opts.ghost && opts.ghost.x === c.x && opts.ghost.y === c.y)) drawNoSignal(g, x + 11, y + S - 11, 15);
+      else if (!info.onPath && !(opts.ghost && opts.ghost.x === c.x && opts.ghost.y === c.y)) drawNoSignal(g, x + 12, y + S - 12, 18);
     }
     for (let i = 0; i < compiled.cellInfo.length; i++) {
       const c = grid.cells[i];
