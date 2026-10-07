@@ -1,0 +1,25 @@
+{
+  "name": "mitosis-gun-builder",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:single": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "balance": "vitest run tests/balance.test.ts"
+  },
+  "devDependencies": {
+    "@vitest/ui": "^2.1.2",
+    "playwright": "^1.63.0",
+    "typescript": "~5.5.3",
+    "vite": "^5.4.1",
+    "vite-plugin-singlefile": "^2.0.2",
+    "vitest": "^2.1.2"
+  },
+  "dependencies": {
+    "pixi.js": "^8.3.4"
+  }
+}
