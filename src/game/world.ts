@@ -4,6 +4,8 @@ import { MitosisSystem } from '../engine/mitosis';
 import { ProjectileSystem } from '../engine/projectiles';
 import { SpatialHash } from '../engine/spatialHash';
 import { compile, EjectorRecipe, Grid } from '../engine/compiler';
+import { evalDamage } from '../engine/compilerTypes';
+import { rng } from '../rng';
 import { PointerState } from '../input';
 import { buildStarterGrid, ROCK_HP, ROCK_RADIUS } from './starter';
 
@@ -74,10 +76,16 @@ export class World {
     return this.mitosis.spawn('mitotic_rock', 1, hp, x, y, ROCK_RADIUS);
   }
 
-  /** Fire one pulse: one projectile per compiled ejector recipe. */
+  /** Fire one pulse: one projectile per compiled ejector recipe (chance gates may drop or boost it). */
   fire() {
     for (let rIdx = 0; rIdx < this.recipes.length; rIdx++) {
       const r = this.recipes[rIdx];
+      // Chance blocks (Lucky Strike, Jackpot, Gambler's Gate) are rolled per projectile.
+      let damage = r.packet.damage;
+      if (r.packet.gates.length > 0) {
+        damage = evalDamage(r.packet, () => rng.combat.next());
+        if (damage <= 0) continue;
+      }
       const speed = PROJECTILE_SPEED * (r.packet.speedMul || 1);
       let vx = 0;
       let vy = 0;
@@ -85,7 +93,7 @@ export class World {
       else if (r.direction === 'S') vy = speed;
       else if (r.direction === 'E') vx = speed;
       else vx = -speed;
-      this.pool.spawn(this.shipX, this.shipY - 15, vx, vy, r.packet.damage, r.packet.pure || 0, rIdx);
+      this.pool.spawn(this.shipX, this.shipY - 15, vx, vy, damage, r.packet.pure || 0, rIdx);
     }
   }
 

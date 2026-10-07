@@ -1,440 +1,527 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 import { CONFIG } from '../config';
 import { Screen, ScreenManager } from './ScreenManager';
-import { compile, Grid, CompiledShip } from '../engine/compiler';
-import { buildShuttleGrid } from '../game/gridUtils';
-import { BLOCKS } from '../data/blocks';
 import { FlyScreen } from './FlyScreen';
+import { clientToGame } from '../input';
+import { BLOCKS } from '../data/blocks';
+import { describeBlock, rotationToDir } from '../engine/compilerTypes';
+import { CompiledShip, Grid } from '../engine/compiler';
+import { BuilderModel, statsDelta } from '../builder/model';
+import { getBuilderModel } from '../builder/session';
+import { GestureTracker } from '../builder/gestures';
+import { GridRenderer } from '../builder/gridView';
+import {
+  cellFromPoint, clampView, fitView, inRect, LAYOUT, MIN_TAP, panBy, panToReveal, View, VIEW_H, VIEW_W, zoomAt,
+} from '../builder/layout';
+import {
+  COLORS, drawTabIcon, drawToolIcon, TabIcon, ToolIcon,
+} from '../builder/draw';
+import { InfoPanel, Inspector, makeText, StatsStrip, Toast, UIButton } from '../builder/ui';
+import { Picker, REMOVE_TILE } from '../builder/picker';
 
+const FACING_WORD: Record<string, string> = { N: 'up', E: 'right', S: 'down', W: 'left' };
+const HELP_TEXT =
+  'Tap a cell to inspect it. Double-tap an empty cell to open the block picker; tap a tile to preview it, double-tap it to place it.\n\n' +
+  'The red line is automatic: it leaves the generator and runs straight until a block changes it, ending at an ejector. ' +
+  'Blocks on the line follow it (auto). Rotate a block to lock its facing (padlock); Auto-orient makes it follow the line again.\n\n' +
+  'Drag to pan, pinch or use the wheel to zoom, and use the corner-arrows button to fit the hull.';
 
-const CELL_SIZE = 44; 
-const GRID_OFF_X = 28;
-const GRID_OFF_Y = 160;
-
-const PALETTE = ['straight', 'turn_l', 'turn_r', 'splitter_2', 'splitter_3', 'crossover', 'flat_plus', 'percent_mult', 'piercing', 'bouncing', 'aoe_circle'];
-
-const CAT_COLORS: Record<string, number> = {
-  pathing: 0x2266aa,
-  damage: 0xaa3322,
-  modifier: 0xaa2288
-};
-
-const DESC_MAP: Record<string, (l: number) => string> = {
-  generator: () => 'Produces packets.',
-  ejector: () => 'Ejects packets into space.',
-  straight: () => 'Moves signal straight.',
-  turn_l: () => 'Turns signal left.',
-  turn_r: () => 'Turns signal right.',
-  splitter_2: () => 'Splits signal into 2 streams.',
-  splitter_3: () => 'Splits signal into 3 streams.',
-  crossover: () => 'Allows two signals to cross without intersecting.',
-  flat_plus: (l) => `Adds ${100 * l} flat damage.`,
-  percent_mult: (l) => `Multiplies damage by ${100 + 10 * l}%.`,
-  piercing: () => 'Projectiles pierce 1 additional enemy.',
-  bouncing: () => 'Projectiles bounce 1 additional time.',
-  aoe_circle: () => 'Projectiles explode in an area of effect.'
-};
-
+/**
+ * The circuit builder. All state lives in BuilderModel; this screen only renders it and turns
+ * pointer gestures into model edits.
+ */
 export class BuildScreen implements Screen {
   container = new Container();
-  grid!: Grid;
-  
-  gridLayer = new Container();
-  uiLayer = new Container();
-  ghostLayer = new Container();
-  traceLayer = new Container();
+  readonly model: BuilderModel;
+  view: View;
+  selected: { x: number; y: number } | null = null;
 
-  compiled!: CompiledShip;
+  private gridR = new GridRenderer();
+  private toast = new Toast();
+  private inspector = new Inspector();
+  private stats = new StatsStrip();
+  private info = new InfoPanel();
+  private picker = new Picker();
+  private dim = new Graphics();
+  private buttons: UIButton[] = [];
+  private toolbar: Record<string, UIButton> = {};
+  private abButton!: UIButton;
+  private undoButton!: UIButton;
+  private redoButton!: UIButton;
+  private gestures: GestureTracker | null = null;
+  private unsubscribe: (() => void) | null = null;
+  private preview: { x: number; y: number; blockId: string | null; grid: Grid; compiled: CompiledShip } | null = null;
+  private viewBeforePicker: View | null = null;
 
-  selectedPalette: string | null = null;
-  selectedCell: { x: number, y: number } | null = null;
-  
-  history: string[] = [];
-  historyIndex = -1;
+  constructor(private sm: ScreenManager) {
+    this.model = getBuilderModel();
+    this.view = fitView(this.model.grid.w, this.model.grid.h);
 
-  statsText!: Text;
-  inspectorText!: Text;
-  ghostGraphics = new Graphics();
-  
-  private wasPointerActive = false;
-  private nowTime = 0;
+    const bg = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill(COLORS.bg);
+    this.container.addChild(bg, this.gridR.container);
+    this.buildHud();
+    this.dim.rect(0, LAYOUT.gridArea.y, VIEW_W, LAYOUT.sheet.y - LAYOUT.gridArea.y).fill({ color: 0x000000, alpha: 0.28 });
+    this.dim.visible = false;
+    this.container.addChild(this.dim, this.picker.container, this.stats.container, this.info.container, this.toast.container);
 
-  constructor(private screenManager: ScreenManager) {
-    this.container.addChild(this.gridLayer, this.traceLayer, this.ghostLayer, this.uiLayer);
-    this.loadGrid();
-    this.saveState();
-    this.recompile();
-    this.buildUI();
+    this.gridR.setView(this.view);
+    this.refresh();
+    this.installDevHook();
   }
 
-  loadGrid() {
-    const saved = localStorage.getItem('mgbm_grid');
-    if (saved) {
-      try {
-        this.grid = JSON.parse(saved);
-        if (!this.grid.cells || this.grid.cells.length !== 121) throw new Error('Corrupt');
-        return;
-      } catch (e) {
-        console.warn('Grid load failed, resetting.');
-      }
-    }
-    this.grid = buildShuttleGrid();
+  // ------------------------------------------------------------------ lifecycle
+  init() {
+    this.gestures = new GestureTracker(
+      this.sm.app.canvas as HTMLCanvasElement,
+      (cx, cy) => clientToGame(cx, cy, this.sm.app.canvas.getBoundingClientRect(), CONFIG.VIEW.W, CONFIG.VIEW.H),
+      {
+        onTap: (x, y) => this.handleTap(x, y),
+        onDoubleTap: (x, y) => this.handleDoubleTap(x, y),
+        onDrag: (dx, dy) => this.handleDrag(dx, dy),
+        onPinch: (f, cx, cy) => this.zoom(f, cx, cy),
+        onWheel: (dy, x, y) => this.handleWheel(dy, x, y),
+        canDrag: (x, y) => this.canDrag(x, y),
+      },
+    );
+    this.gestures.attach();
+    this.unsubscribe = this.model.onChange(() => this.refresh());
   }
 
-  saveGrid() {
-    localStorage.setItem('mgbm_grid', JSON.stringify(this.grid));
+  destroy() {
+    this.gestures?.detach();
+    this.unsubscribe?.();
+    this.container.destroy({ children: true });
   }
 
-  saveState() {
-    const state = JSON.stringify(this.grid);
-    if (this.historyIndex >= 0 && this.history[this.historyIndex] === state) return;
-    this.history = this.history.slice(0, this.historyIndex + 1);
-    this.history.push(state);
-    this.historyIndex++;
-    this.saveGrid();
+  update(dt: number, _frameTime: number, now: number) {
+    this.gridR.tick(now);
+    this.toast.update(dt * 1000);
   }
 
-  undo() {
-    if (this.historyIndex > 0) {
-      this.historyIndex--;
-      this.grid = JSON.parse(this.history[this.historyIndex]);
-      this.recompile();
-      this.saveGrid();
-    }
+  // ------------------------------------------------------------------ HUD construction
+  private addButton(b: UIButton, parent: Container = this.container) {
+    this.buttons.push(b);
+    parent.addChild(b.container);
+    return b;
   }
 
-  redo() {
-    if (this.historyIndex < this.history.length - 1) {
-      this.historyIndex++;
-      this.grid = JSON.parse(this.history[this.historyIndex]);
-      this.recompile();
-      this.saveGrid();
-    }
+  private roundFace(g: Graphics, b: UIButton, icon: ToolIcon, color = COLORS.red) {
+    const { w, h } = b.rect;
+    g.roundRect(1, 1, w - 2, h - 2, 10).fill({ color: 0x1f1f1f, alpha: 0.82 }).stroke({ color: 0x000000, width: 1.5, alpha: 0.7 });
+    const ic = new Graphics();
+    drawToolIcon(ic, icon, Math.min(w, h) * 0.55, color);
+    ic.position.set(w / 2, h / 2);
+    g.addChild(ic);
   }
 
-  recompile() {
-    this.compiled = compile(this.grid);
-    this.drawGrid();
-    this.updateStats();
-  }
-  
-  updateStats() {
-    if (!this.statsText) return;
-    let totalDmg = 0;
-    for (const r of this.compiled.recipes) totalDmg += r.packet.damage;
-    const proj = this.compiled.recipes.length;
-    const pps = 3; // Basic Hull firerate
-    const dps = totalDmg * pps;
-    
-    let wasted = 0;
-    for (const c of this.grid.cells) {
-      if (c.type === 'empty' && c.blockId && !this.compiled.activePaths.has(`${c.x},${c.y}`)) {
-        wasted++;
-      }
-    }
-    
-    this.statsText.text = `Dmg/Shot: ${totalDmg.toFixed(1)} | Proj/Pulse: ${proj} | Pulses/sec: ${pps}\nDPS: ${dps.toFixed(1)} | Wasted: ${wasted} | Warns: ${this.compiled.warnings.length}\n(Hint: Maximize DPS by connecting more blocks to Ejectors)`;
-  }
+  private buildHud() {
+    const top = LAYOUT.top;
+    const hud = new Graphics()
+      .rect(top.x, top.y, top.w, top.h).fill(0x4f4f4f).rect(0, top.h - 1, VIEW_W, 1).fill(0x1a1a1a)
+      .rect(LAYOUT.toolbar.x, LAYOUT.toolbar.y, LAYOUT.toolbar.w, LAYOUT.toolbar.h).fill(0x2b2b2b)
+      .rect(LAYOUT.toolbar.x, LAYOUT.toolbar.y, LAYOUT.toolbar.w, 2).fill(0x7a1c1c)
+      .rect(LAYOUT.tabs.x, LAYOUT.tabs.y, LAYOUT.tabs.w, LAYOUT.tabs.h).fill(0x202020)
+      .rect(LAYOUT.tabs.x, LAYOUT.tabs.y, LAYOUT.tabs.w, 1).fill(0x000000);
+    this.container.addChild(hud, this.inspector.container);
 
-  buildUI() {
-    // Top Bar (Stats & Fly)
-    const topBar = new Graphics().rect(0, 0, CONFIG.VIEW.W, 100).fill(0x222222);
-    this.uiLayer.addChild(topBar);
+    const mode = makeText('Select', 32, COLORS.red, { fontWeight: 'bold', dropShadow: { color: 0x000000, alpha: 0.7, distance: 2, blur: 1, angle: Math.PI / 3 } });
+    mode.anchor.set(0.5);
+    mode.position.set(VIEW_W / 2, 27);
+    const money = makeText('0', 28, COLORS.magenta, { fontWeight: 'bold', dropShadow: { color: 0x000000, alpha: 0.6, distance: 2, blur: 1, angle: Math.PI / 3 } });
+    money.anchor.set(1, 0.5);
+    money.position.set(VIEW_W - 12, 27);
+    this.container.addChild(mode, money);
 
-    this.statsText = new Text({ text: '', style: { fill: 0xdddddd, fontSize: 13, lineHeight: 18 } });
-    this.statsText.position.set(10, 10);
-    this.uiLayer.addChild(this.statsText);
+    // Top bar buttons.
+    this.addButton(new UIButton({
+      id: 'ship', rect: { x: 6, y: 4, w: 44, h: 44 }, onTap: () => this.toast.show('Ship picker: coming soon'),
+      draw: (g, b) => { g.circle(22, 22, 21).fill(0x707070).stroke({ color: 0x1b1b1b, width: 2 }); const ic = new Graphics(); drawToolIcon(ic, 'ship', 30, 0xffffff); ic.position.set(22, 22); g.addChild(ic); void b; },
+    }));
+    this.addButton(new UIButton({
+      id: 'help', rect: { x: 56, y: 4, w: 44, h: 44 }, onTap: () => this.info.show('How the builder works', HELP_TEXT),
+      draw: (g, b) => { g.circle(22, 22, 21).fill(0x707070).stroke({ color: 0x1b1b1b, width: 2 }); const ic = new Graphics(); drawToolIcon(ic, 'help', 28, 0xeeeeee); ic.position.set(22, 22); g.addChild(ic); void b; },
+    }));
 
-    const flyBtn = this.createButton(CONFIG.VIEW.W - 100, 20, 80, 60, 'FLY', 0x22aa22);
-    this.uiLayer.addChild(flyBtn);
+    // Grid corner buttons.
+    const row = (i: number, fromRight = false) => ({
+      x: fromRight ? VIEW_W - 6 - 44 - i * 48 : 6 + i * 48, y: LAYOUT.gridArea.y + 6, w: MIN_TAP, h: MIN_TAP,
+    });
+    this.addButton(new UIButton({ id: 'fit', rect: row(0), onTap: () => this.fit(), draw: (g, b) => this.roundFace(g, b, 'fit', 0xffffff) }));
+    this.undoButton = this.addButton(new UIButton({ id: 'undo', rect: row(1), onTap: () => this.undo(), draw: (g, b) => this.roundFace(g, b, 'undo', 0xffffff) }));
+    this.redoButton = this.addButton(new UIButton({ id: 'redo', rect: row(2), onTap: () => this.redo(), draw: (g, b) => this.roundFace(g, b, 'redo', 0xffffff) }));
+    this.abButton = this.addButton(new UIButton({
+      id: 'ab', rect: row(0, true), onTap: () => this.toggleSlot(),
+      draw: (g, b) => {
+        const { w, h } = b.rect;
+        g.roundRect(1, 1, w - 2, h - 2, 10).fill({ color: 0x1f1f1f, alpha: 0.82 }).stroke({ color: COLORS.red, width: 2 });
+      },
+    }));
+    this.abLabel = makeText('A', 28, COLORS.red, { fontWeight: 'bold' });
+    this.abLabel.anchor.set(0.5);
+    this.abLabel.position.set(22, 22);
+    this.abButton.container.addChild(this.abLabel);
+    this.addButton(new UIButton({ id: 'paste', rect: row(1, true), onTap: () => void this.pasteLayout(), draw: (g, b) => this.roundFace(g, b, 'paste', 0xffffff) }));
+    this.addButton(new UIButton({ id: 'copy', rect: row(2, true), onTap: () => void this.copyLayout(), draw: (g, b) => this.roundFace(g, b, 'copy', 0xffffff) }));
 
-    // Toolbars
-    const tbY = 110;
-    this.uiLayer.addChild(this.createButton(10, tbY, 50, 40, 'Undo', 0x555555, () => this.undo()));
-    this.uiLayer.addChild(this.createButton(70, tbY, 50, 40, 'Redo', 0x555555, () => this.redo()));
-    this.uiLayer.addChild(this.createButton(130, tbY, 70, 40, 'Rot CW', 0x555555, () => this.rotateSelected(1)));
-    this.uiLayer.addChild(this.createButton(210, tbY, 70, 40, 'Rot CCW', 0x555555, () => this.rotateSelected(-1)));
-    this.uiLayer.addChild(this.createButton(290, tbY, 60, 40, 'Clear', 0xaa2222, () => this.clearSelected()));
-    this.uiLayer.addChild(this.createButton(360, tbY, 80, 40, 'Clear All', 0xaa2222, () => this.clearAll()));
+    // Toolbar: Clear cell, Rotate CCW, Auto-orient, Rotate CW, Clear all.
+    const defs: { id: string; icon: ToolIcon; label: string; act: () => void; needsBlock: boolean }[] = [
+      { id: 'clearCell', icon: 'clear', label: 'Clear cell', act: () => this.clearCell(), needsBlock: true },
+      { id: 'rotCCW', icon: 'ccw', label: 'Rotate left', act: () => this.rotate(-1), needsBlock: true },
+      { id: 'auto', icon: 'auto', label: 'Auto-orient', act: () => this.autoOrient(), needsBlock: true },
+      { id: 'rotCW', icon: 'cw', label: 'Rotate right', act: () => this.rotate(1), needsBlock: true },
+      { id: 'clearAll', icon: 'clearAll', label: 'Clear all', act: () => this.clearAll(), needsBlock: false },
+    ];
+    defs.forEach((d, i) => {
+      const b = new UIButton({
+        id: d.id, rect: { x: i * 108, y: LAYOUT.toolbar.y + 2, w: 108, h: LAYOUT.toolbar.h - 2 }, label: d.label, labelSize: 11, labelColor: 0xd8a0a0,
+        onTap: d.act,
+        draw: (g, bb) => {
+          const ic = new Graphics();
+          drawToolIcon(ic, d.icon, 26, COLORS.red);
+          ic.position.set(bb.rect.w / 2, 18);
+          g.addChild(ic);
+        },
+      });
+      this.toolbar[d.id] = this.addButton(b);
+    });
 
-    // Bottom Palette
-    const palY = 660;
-    const palBar = new Graphics().rect(0, palY, CONFIG.VIEW.W, CONFIG.VIEW.H - palY).fill(0x1a1a1a);
-    this.uiLayer.addChild(palBar);
+    // FLY pill.
+    const fly = new UIButton({
+      id: 'fly', rect: { x: VIEW_W - 134, y: LAYOUT.gridArea.y + LAYOUT.gridArea.h - 54, w: 124, h: 46 }, onTap: () => this.fly(),
+      draw: (g, b) => {
+        g.roundRect(0, 0, b.rect.w, b.rect.h, 23).fill(0xd8221a).stroke({ color: 0xffffff, width: 2.5, alpha: 0.9 });
+        g.poly([86, 12, 86, 34, 104, 23]).fill(0xffffff);
+      },
+    });
+    const flyLabel = makeText('FLY', 24, 0xffffff, { fontWeight: 'bold' });
+    flyLabel.anchor.set(0.5);
+    flyLabel.position.set(46, 23);
+    fly.container.addChild(flyLabel);
+    this.addButton(fly);
 
-    const inspBg = new Graphics().rect(0, palY, CONFIG.VIEW.W, 50).fill(0x111111);
-    this.uiLayer.addChild(inspBg);
-
-    this.inspectorText = new Text({ text: 'Select a block to inspect', style: { fill: 0xdddddd, fontSize: 13, wordWrap: true, wordWrapWidth: CONFIG.VIEW.W - 20 } });
-    this.inspectorText.position.set(10, palY + 5);
-    this.uiLayer.addChild(this.inspectorText);
-
-    this.ghostLayer.addChild(this.ghostGraphics);
-    
-    this.recompile();
-
-    if (import.meta.env.DEV) {
-      (window as any).__mgbm = {
-        buildScreen: this,
-        state: () => ({
-          projectiles: 0, recipes: this.compiled.recipes.length,
-          damagePerShot: this.compiled.recipes.map(r => r.packet.damage),
-        }),
-      };
-    }
-  }
-
-  createButton(x: number, y: number, w: number, h: number, label: string, color: number, _onClick?: () => void) {
-    const c = new Container();
-    c.position.set(x, y);
-    c.addChild(new Graphics().roundRect(0, 0, w, h, 8).fill(color));
-    const t = new Text({ text: label, style: { fill: 0xffffff, fontSize: 13, fontWeight: 'bold' } });
-    t.anchor.set(0.5);
-    t.position.set(w/2, h/2);
-    c.addChild(t);
-    return c;
-  }
-
-  rotateSelected(dir: number) {
-    if (!this.selectedCell) return;
-    const cell = this.grid.cells[this.selectedCell.y * 11 + this.selectedCell.x];
-    if (cell && cell.blockId && cell.type === 'empty') {
-      cell.rotation = (cell.rotation + dir + 4) % 4;
-      this.saveState();
-      this.recompile();
-    }
-  }
-
-  clearSelected() {
-    if (!this.selectedCell) return;
-    const cell = this.grid.cells[this.selectedCell.y * 11 + this.selectedCell.x];
-    if (cell && cell.blockId && cell.type === 'empty') {
-      cell.blockId = null;
-      this.saveState();
-      this.recompile();
-    }
-  }
-
-  clearAll() {
-    for (const c of this.grid.cells) {
-      if (c.type === 'empty' && c.blockId) c.blockId = null;
-    }
-    this.saveState();
-    this.recompile();
-  }
-
-  drawGrid() {
-    this.gridLayer.removeChildren();
-    
-    const bg = new Graphics().rect(GRID_OFF_X - 4, GRID_OFF_Y - 4, 11 * CELL_SIZE + 8, 11 * CELL_SIZE + 8).fill(0x111111);
-    this.gridLayer.addChild(bg);
-
-    for (const c of this.grid.cells) {
-      const g = new Graphics();
-      const px = GRID_OFF_X + c.x * CELL_SIZE;
-      const py = GRID_OFF_Y + c.y * CELL_SIZE;
-      g.position.set(px, py);
-
-      if (c.type === 'void') {
-        // empty space
-      } else if (c.type === 'blocked') {
-        g.rect(1, 1, CELL_SIZE-2, CELL_SIZE-2).fill(0x331111);
-      } else {
-        const isActive = this.compiled.activePaths.has(`${c.x},${c.y}`);
-        const isSelected = this.selectedCell?.x === c.x && this.selectedCell?.y === c.y;
-        
-        g.rect(1, 1, CELL_SIZE-2, CELL_SIZE-2).stroke({ color: isSelected ? 0xffff00 : 0x444444, width: 2 });
-        if (c.type === 'generator') g.rect(1, 1, CELL_SIZE-2, CELL_SIZE-2).fill(0x004400);
-        else if (c.type === 'ejector') g.rect(1, 1, CELL_SIZE-2, CELL_SIZE-2).fill(0x444400);
-        else g.rect(1, 1, CELL_SIZE-2, CELL_SIZE-2).fill(0x222222);
-
-        if (c.blockId) {
-          const bDef = BLOCKS[c.blockId];
-          const catCol = bDef ? CAT_COLORS[bDef.category] || 0x555555 : 0x555555;
-          const alpha = isActive ? 1 : 0.4;
-          
-          g.rect(2, 2, CELL_SIZE-4, CELL_SIZE-4).fill({ color: catCol, alpha });
-          
-          const t = new Text({ text: (bDef ? bDef.name.substring(0,3) : c.blockId.substring(0,3)).toUpperCase(), style: { fill: 0xffffff, fontSize: 10 } });
-          t.alpha = alpha;
-          t.anchor.set(0.5);
-          t.position.set(CELL_SIZE/2, CELL_SIZE/2);
-          g.addChild(t);
-
-          const dot = new Graphics().circle(0, 0, 3).fill({ color: 0xffffff, alpha });
-          if (c.rotation === 0) dot.position.set(CELL_SIZE/2, 6);
-          else if (c.rotation === 1) dot.position.set(CELL_SIZE - 6, CELL_SIZE/2);
-          else if (c.rotation === 2) dot.position.set(CELL_SIZE/2, CELL_SIZE - 6);
-          else dot.position.set(6, CELL_SIZE/2);
-          g.addChild(dot);
-
-          if (!isActive && c.type === 'empty') {
-            const noCon = new Text({ text: 'No Sig', style: { fill: 0xffaaaa, fontSize: 10, align: 'center', stroke: { color: 0x0, width: 2 } } });
-            noCon.anchor.set(0.5);
-            noCon.position.set(CELL_SIZE/2, CELL_SIZE/2 + 10);
-            g.addChild(noCon);
+    // Tab bar.
+    const tabs: { id: string; icon: TabIcon; label: string; color: number }[] = [
+      { id: 'tabBuild', icon: 'build', label: 'Build', color: COLORS.red },
+      { id: 'tabShop', icon: 'shop', label: 'Shop', color: COLORS.magenta },
+      { id: 'tabCaptain', icon: 'captain', label: 'Captain', color: COLORS.yellow },
+      { id: 'tabSkills', icon: 'skills', label: 'Skills', color: COLORS.orange },
+      { id: 'tabMap', icon: 'map', label: 'Map', color: COLORS.cyan },
+    ];
+    tabs.forEach((t, i) => {
+      const active = i === 0;
+      this.addButton(new UIButton({
+        id: t.id, rect: { x: i * 108, y: LAYOUT.tabs.y + 1, w: 108, h: LAYOUT.tabs.h - 1 }, label: t.label, labelSize: 12, labelColor: t.color,
+        onTap: () => { if (!active) this.toast.show('Coming soon'); },
+        draw: (g, b) => {
+          if (active) {
+            g.rect(0, 0, b.rect.w, b.rect.h).fill({ color: t.color, alpha: 0.14 });
+            g.rect(0, b.rect.h - 4, b.rect.w, 4).fill(t.color);
           }
-        }
-      }
-      this.gridLayer.addChild(g);
-    }
-    
-    // Draw Palette items
-    let px = 10, py = 720;
-    for (const id of PALETTE) {
-      const bDef = BLOCKS[id];
-      if (!bDef) continue;
-      
-      const isSel = this.selectedPalette === id;
-      const catCol = CAT_COLORS[bDef.category] || 0x555555;
-      
-      const pg = new Graphics();
-      pg.position.set(px, py);
-      pg.rect(0, 0, 60, 60).fill(catCol);
-      pg.rect(0, 0, 60, 60).stroke({ color: isSel ? 0xffff00 : 0x000000, width: isSel ? 3 : 1 });
-      
-      const lbl = new Text({ text: bDef.name, style: { fill: 0xffffff, fontSize: 10, wordWrap: true, wordWrapWidth: 56, align: 'center' } });
-      lbl.anchor.set(0.5);
-      lbl.position.set(30, 20);
-      pg.addChild(lbl);
-      
-      const cnt = new Text({ text: '99', style: { fill: 0xaaaaaa, fontSize: 10 } });
-      cnt.anchor.set(1, 1);
-      cnt.position.set(58, 58);
-      pg.addChild(cnt);
-      
-      this.gridLayer.addChild(pg);
-      
-      px += 70;
-      if (px > CONFIG.VIEW.W - 65) { px = 10; py += 70; }
-    }
-  }
-
-  setInspector(blockId: string | null, level: number = 1) {
-    if (!blockId) {
-      this.inspectorText.text = 'Select a block to inspect';
-      return;
-    }
-    const def = BLOCKS[blockId];
-    if (!def) return;
-    const descFn = DESC_MAP[blockId];
-    const desc = descFn ? descFn(level) : '';
-    this.inspectorText.text = `[${def.name}] ${def.category.toUpperCase()}\n${desc}`;
-  }
-
-  handlePointerClick(x: number, y: number) {
-    // FLY
-    if (y < 100 && x > CONFIG.VIEW.W - 100 && y > 20 && y < 80) {
-      this.screenManager.switchTo(new FlyScreen(this.screenManager, this.grid, () => {
-        this.screenManager.switchTo(new BuildScreen(this.screenManager));
+          const ic = new Graphics();
+          drawTabIcon(ic, t.icon, 26, t.color);
+          ic.position.set(b.rect.w / 2, 20);
+          ic.alpha = active ? 1 : 0.8;
+          g.addChild(ic);
+        },
       }));
+    });
+  }
+
+  private abLabel!: ReturnType<typeof makeText>;
+
+  // ------------------------------------------------------------------ rendering
+  /** Redraws everything that depends on the model, the selection or the picker preview. */
+  refresh() {
+    const src = this.preview ?? { grid: this.model.grid, compiled: this.model.compiled };
+    this.gridR.render(src.grid, src.compiled, { selected: this.selected, ghost: this.preview ? { x: this.preview.x, y: this.preview.y } : null });
+    const delta = this.preview ? statsDelta(this.model.compiled.stats, this.preview.compiled.stats) : undefined;
+    this.stats.set(src.compiled.stats, delta);
+    this.abLabel.text = this.model.active;
+    this.undoButton.setEnabled(this.model.canUndo);
+    this.redoButton.setEnabled(this.model.canRedo);
+    const hasBlock = !!this.selectedBlockCell();
+    for (const id of ['clearCell', 'rotCCW', 'auto', 'rotCW']) this.toolbar[id].setEnabled(hasBlock);
+    this.toolbar.clearAll.setEnabled(true);
+    if (!this.preview) this.updateInspector();
+  }
+
+  private selectedBlockCell() {
+    if (!this.selected) return null;
+    const c = this.model.cellAt(this.selected.x, this.selected.y);
+    return c && c.type === 'empty' && c.blockId ? c : null;
+  }
+
+  private updateInspector() {
+    const sel = this.selected;
+    if (!sel) {
+      this.inspector.set('Circuit builder', 'Tap a cell to inspect it. Double-tap an empty cell to build. The red line runs from the generator to an ejector.');
       return;
     }
-
-    // Toolbars
-    if (y > 110 && y < 150) {
-      if (x > 10 && x < 60) this.undo();
-      else if (x > 70 && x < 120) this.redo();
-      else if (x > 130 && x < 200) this.rotateSelected(1);
-      else if (x > 210 && x < 280) this.rotateSelected(-1);
-      else if (x > 290 && x < 350) this.clearSelected();
-      else if (x > 360 && x < 440) this.clearAll();
+    const cell = this.model.cellAt(sel.x, sel.y);
+    if (!cell) return;
+    switch (cell.type) {
+      case 'void':
+        this.inspector.set('Empty space', 'Outside the hull. Nothing can be built here.');
+        return;
+      case 'blocked':
+        this.inspector.set('Blocked cell', "A solid block. Projectiles won't pass it.");
+        return;
+      case 'generator':
+        this.inspector.set('Generator', describeBlock(BLOCKS.generator));
+        return;
+      case 'ejector':
+        this.inspector.set('Ejector', describeBlock(BLOCKS.ejector));
+        return;
+    }
+    if (!cell.blockId) {
+      this.inspector.set('Empty cell', 'Buildable. The red line passes straight through. Double-tap to build here.');
       return;
     }
-
-    // Palette
-    if (y > 720) {
-      let px = 10, py = 720;
-      for (const id of PALETTE) {
-        if (x >= px && x <= px + 60 && y >= py && y <= py + 60) {
-          this.selectedPalette = id;
-          this.selectedCell = null;
-          this.setInspector(id);
-          this.drawGrid();
-          return;
-        }
-        px += 70;
-        if (px > CONFIG.VIEW.W - 65) { px = 10; py += 70; }
-      }
+    const def = BLOCKS[cell.blockId];
+    const info = this.model.compiled.cellInfo[sel.y * this.model.grid.w + sel.x];
+    const facing = FACING_WORD[rotationToDir(info.effectiveRotation)];
+    const mode = info.orientationMode === 'auto' ? 'Orientation: auto' : `Orientation: manual (facing ${facing})`;
+    let body = describeBlock(def, cell.level);
+    let color = 0xffffff;
+    if (info.warning) {
+      body = `Warning: ${info.warning.toLowerCase()}. ${body}`;
+      color = COLORS.warn;
+    } else if (!info.onPath) {
+      body += ' No signal reaches this block.';
     }
+    this.inspector.set(`${def.name} · ${mode}`, body, color);
+  }
 
-    // Grid
-    const cx = Math.floor((x - GRID_OFF_X) / CELL_SIZE);
-    const cy = Math.floor((y - GRID_OFF_Y) / CELL_SIZE);
-    if (cx >= 0 && cx < 11 && cy >= 0 && cy < 11) {
-      const cell = this.grid.cells[cy * 11 + cx];
-      if (cell.type === 'empty') {
-        if (this.selectedPalette) {
-          cell.blockId = this.selectedPalette;
-          cell.rotation = 0;
-          this.selectedCell = { x: cx, y: cy };
-          this.selectedPalette = null; // Deselect palette to allow rotating
-          this.saveState();
-          this.recompile();
-          this.setInspector(cell.blockId, cell.level);
-        } else if (cell.blockId) {
-          this.selectedCell = { x: cx, y: cy };
-          this.drawGrid();
-          this.setInspector(cell.blockId, cell.level);
-        }
-      } else if (cell.blockId) {
-          this.selectedCell = { x: cx, y: cy };
-          this.drawGrid();
-          this.setInspector(cell.blockId, cell.level);
-      }
+  private installDevHook() {
+    if (!import.meta.env.DEV) return;
+    (window as any).__mgbm = {
+      screen: 'build',
+      buildScreen: this,
+      model: this.model,
+      state: () => ({
+        recipes: this.model.compiled.recipes.length,
+        damagePerShot: this.model.compiled.recipes.map(r => r.packet.damage),
+        stats: this.model.compiled.stats,
+        selected: this.selected,
+        active: this.model.active,
+        view: this.view,
+        pickerOpen: this.picker.isOpen,
+        toast: this.toast.message,
+        inspector: { title: this.inspector.titleText, body: this.inspector.bodyText },
+        statsStrip: this.stats.texts(),
+      }),
+    };
+  }
+
+  // ------------------------------------------------------------------ view
+  private applyView() {
+    this.view = clampView(this.view, this.model.grid.w, this.model.grid.h);
+    this.gridR.setView(this.view);
+  }
+
+  fit() {
+    this.view = fitView(this.model.grid.w, this.model.grid.h);
+    this.applyView();
+  }
+
+  private zoom(factor: number, cx: number, cy: number) {
+    if (this.picker.isOpen || this.info.isOpen) return;
+    this.view = zoomAt(this.view, factor, cx, cy);
+    this.applyView();
+  }
+
+  // ------------------------------------------------------------------ gestures
+  private buttonAt(x: number, y: number): UIButton | null {
+    for (let i = this.buttons.length - 1; i >= 0; i--) if (this.buttons[i].hit(x, y)) return this.buttons[i];
+    return null;
+  }
+
+  private canDrag(x: number, y: number): boolean {
+    if (this.info.isOpen) return false;
+    if (this.picker.isOpen) return this.picker.inList(x, y);
+    return inRect(LAYOUT.gridArea, x, y) && !this.buttonAt(x, y);
+  }
+
+  private handleDrag(dx: number, dy: number) {
+    if (this.picker.isOpen) { this.picker.scrollBy(-dy); return; }
+    this.view = panBy(this.view, dx, dy);
+    this.applyView();
+  }
+
+  private handleWheel(deltaY: number, x: number, y: number) {
+    if (this.info.isOpen) return;
+    if (this.picker.isOpen) { if (this.picker.inList(x, y)) this.picker.wheel(deltaY); return; }
+    if (inRect(LAYOUT.gridArea, x, y)) this.zoom(Math.exp(-deltaY * 0.0015), x, y);
+  }
+
+  handleTap(x: number, y: number) {
+    if (this.info.isOpen) { this.info.hide(); return; }
+    if (this.picker.isOpen) {
+      if (this.picker.tap(x, y)) return;
+      this.closePicker();
+      return;
+    }
+    const b = this.buttonAt(x, y);
+    if (b) {
+      if (b.enabled) b.spec.onTap();
+      else this.disabledHint(b.id);
+      return;
+    }
+    if (this.stats.hit(x, y)) { this.openStatsPanel(); return; }
+    if (inRect(LAYOUT.gridArea, x, y)) {
+      const c = cellFromPoint(this.view, this.model.grid.w, this.model.grid.h, x, y);
+      this.select(c);
     }
   }
 
-  update(_dt: number, _frameTime: number, now: number) {
-    this.nowTime = now;
-    const p = this.screenManager.input.pointer;
-    
-    if (p.active && !this.wasPointerActive) {
-      this.handlePointerClick(p.x, p.y);
+  handleDoubleTap(x: number, y: number) {
+    if (this.info.isOpen) { this.info.hide(); return; }
+    if (this.picker.isOpen) {
+      if (this.picker.doubleTap(x, y)) return;
+      this.closePicker();
+      return;
     }
-    this.wasPointerActive = p.active;
-
-    // Ghost
-    this.ghostGraphics.clear();
-    const cx = Math.floor((p.x - GRID_OFF_X) / CELL_SIZE);
-    const cy = Math.floor((p.y - GRID_OFF_Y) / CELL_SIZE);
-    if (cx >= 0 && cx < 11 && cy >= 0 && cy < 11 && this.selectedPalette) {
-      const cell = this.grid.cells[cy * 11 + cx];
-      const valid = cell.type === 'empty';
-      this.ghostGraphics.rect(GRID_OFF_X + cx * CELL_SIZE, GRID_OFF_Y + cy * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-        .fill({ color: valid ? 0x00ff00 : 0xff0000, alpha: 0.3 });
+    if (!this.buttonAt(x, y) && inRect(LAYOUT.gridArea, x, y)) {
+      const c = cellFromPoint(this.view, this.model.grid.w, this.model.grid.h, x, y);
+      if (c && this.model.cellAt(c.x, c.y)?.type === 'empty') {
+        this.select(c);
+        this.openPicker(c);
+        return;
+      }
     }
+    this.handleTap(x, y);
+  }
 
-    // Tracing
-    this.traceLayer.removeChildren();
-    
-    // Animate dash offset
-    const dashOffset = (this.nowTime / 15) % CELL_SIZE;
+  private disabledHint(id: string) {
+    if (id === 'undo' || id === 'redo') this.toast.show(`Nothing to ${id}`);
+    else this.toast.show('Select a block first');
+  }
 
-    for (const edge of this.compiled.edges) {
-      const g = new Graphics();
-      const sx = GRID_OFF_X + edge.x * CELL_SIZE + CELL_SIZE/2;
-      const sy = GRID_OFF_Y + edge.y * CELL_SIZE + CELL_SIZE/2;
-      
-      let dx = 0, dy = 0;
-      if (edge.outDir === 'N') dy = -CELL_SIZE;
-      else if (edge.outDir === 'E') dx = CELL_SIZE;
-      else if (edge.outDir === 'S') dy = CELL_SIZE;
-      else if (edge.outDir === 'W') dx = -CELL_SIZE;
+  // ------------------------------------------------------------------ selection and picker
+  select(c: { x: number; y: number } | null) {
+    this.selected = c;
+    this.refresh();
+  }
 
-      const alpha = edge.active ? 1 : 0.3;
-      const color = edge.active ? 0xff0000 : 0x880000;
+  openPicker(target: { x: number; y: number }) {
+    this.viewBeforePicker = { ...this.view };
+    const visible = { x: 0, y: LAYOUT.gridArea.y, w: VIEW_W, h: LAYOUT.sheet.y - 34 - LAYOUT.gridArea.y };
+    this.view = panToReveal(this.view, target.x, target.y, visible);
+    this.gridR.setView(this.view);
+    this.dim.visible = true;
+    this.stats.moveTo(LAYOUT.sheet.y - LAYOUT.stats.h);
+    this.picker.open(this.model, target, {
+      onHighlight: (id) => this.highlightTile(id),
+      onPlace: (id) => this.placeFromPicker(id),
+      onClose: () => this.closePicker(),
+      onMessage: (m) => this.toast.show(m),
+    });
+    this.refresh();
+  }
 
-      // Base line
-      g.moveTo(sx, sy).lineTo(sx + dx, sy + dy).stroke({ color, width: 3, alpha });
-      
-      // Moving dash (dot)
-      const dotT = (dashOffset / CELL_SIZE);
-      const dotX = sx + dx * dotT;
-      const dotY = sy + dy * dotT;
-      g.circle(dotX, dotY, 4).fill({ color: 0xffffff, alpha: alpha === 1 ? 1 : 0 });
-      
-      this.traceLayer.addChild(g);
+  closePicker() {
+    this.picker.close();
+    this.preview = null;
+    this.dim.visible = false;
+    this.stats.moveTo(LAYOUT.stats.y);
+    if (this.viewBeforePicker) { this.view = this.viewBeforePicker; this.viewBeforePicker = null; this.applyView(); }
+    this.refresh();
+  }
+
+  private highlightTile(id: string) {
+    const t = this.picker.target!;
+    this.picker.highlight(id);
+    const blockId = id === REMOVE_TILE ? null : id;
+    const p = this.model.previewPlace(t.x, t.y, blockId);
+    if (p) this.preview = { x: t.x, y: t.y, blockId, ...p };
+    this.refresh();
+    if (blockId) {
+      const def = BLOCKS[blockId];
+      const ok = p && p.compiled.recipes.length > 0;
+      this.inspector.set(ok ? def.name : `${def.name} · no ejector reached`, describeBlock(def, 1), ok ? 0xffffff : COLORS.warn);
+    } else {
+      this.inspector.set('Remove', 'Clears this cell and returns the block to your inventory.');
     }
+  }
+
+  private placeFromPicker(id: string) {
+    const t = this.picker.target!;
+    const res = id === REMOVE_TILE ? this.model.remove(t.x, t.y) : this.model.place(t.x, t.y, id);
+    this.closePicker();
+    if (!res.ok) this.toast.show(res.error);
+    else this.select(t);
+  }
+
+  private openStatsPanel() {
+    const s = this.model.compiled.stats;
+    this.info.show(
+      'Circuit stats',
+      `Dmg/shot: damage of one projectile after every block on its line.\n` +
+      `Proj/pulse: projectiles the ship fires each pulse, one per ejector the line reaches.\n` +
+      `Pulses/s: how many pulses the generator fires each second (${s.pulsesPerSecond}).\n` +
+      `Est. DPS: expected damage per second, counting chance blocks at their average.`,
+      s.warnings,
+    );
+  }
+
+  // ------------------------------------------------------------------ actions
+  private report(res: { ok: boolean; error?: string }) {
+    if (!res.ok && res.error) this.toast.show(res.error);
+  }
+
+  private clearCell() {
+    if (this.selected) this.report(this.model.remove(this.selected.x, this.selected.y) as any);
+  }
+
+  private rotate(steps: 1 | -1) {
+    if (this.selected) this.report(this.model.rotate(this.selected.x, this.selected.y, steps) as any);
+  }
+
+  private autoOrient() {
+    if (this.selected) this.report(this.model.autoOrient(this.selected.x, this.selected.y) as any);
+  }
+
+  private clearAll() {
+    this.report(this.model.clearAll() as any);
+  }
+
+  private undo() { this.model.undo(); }
+  private redo() { this.model.redo(); }
+
+  private toggleSlot() {
+    this.model.switchSlot(this.model.active === 'A' ? 'B' : 'A');
+    this.selected = null;
+    this.refresh();
+    this.toast.show(`Circuit ${this.model.active}`, 1200);
+  }
+
+  private async copyLayout() {
+    try {
+      await navigator.clipboard.writeText(this.model.copyLayout());
+      this.toast.show('Layout copied');
+    } catch {
+      this.toast.show("Couldn't copy: clipboard unavailable");
+    }
+  }
+
+  private async pasteLayout() {
+    let text: string;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      this.toast.show("Couldn't paste: clipboard unavailable");
+      return;
+    }
+    const res = this.model.pasteLayout(text);
+    if (res.ok) this.toast.show('Layout pasted');
+    else this.toast.show(res.error);
+  }
+
+  fly() {
+    if (this.model.compiled.recipes.length === 0) {
+      this.toast.show("Your circuit doesn't reach an ejector");
+      return;
+    }
+    this.sm.switchTo(new FlyScreen(this.sm, this.model.gridForFlight(), () => this.sm.switchTo(new BuildScreen(this.sm))));
   }
 }

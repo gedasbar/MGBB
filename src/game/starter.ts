@@ -1,26 +1,29 @@
-import { Grid, GridCell } from '../engine/compiler';
+import { Grid } from '../engine/compiler';
 import '../data/blocks';
+import { buildShuttleGrid } from './gridUtils';
 
 /** First-tier Mitotic Rock HP. Starter shot = 101 dmg → 3 hits to kill. */
 export const ROCK_HP = 250;
 export const ROCK_RADIUS = 20;
 
+/** Places a block by 1-indexed (col,row), as the hull diagram numbers cells. */
+export function place(grid: Grid, col: number, row: number, blockId: string, level = 1) {
+  const c = grid.cells[(row - 1) * grid.w + (col - 1)];
+  c.blockId = blockId;
+  c.level = level;
+  c.rotation = 0;
+  c.manual = false;
+}
+
 /**
- * Hard-coded starter circuit (vertical, column 5):
- *   y=2 Ejector (N)
- *   y=3 Flat+ L1   (+100 damage)
- *   y=4 Straight
- *   y=5 Generator (N)
+ * Default circuit of the Shuttle: the signal leaves the generator at (6,11), turns right at (6,9),
+ * turns left at (9,9) (column 10 is void, so a second turn is needed to reach the ejector), runs up
+ * column 9 through Flat+ at (9,6) and into the ejector at (9,2). Every block is in auto mode.
  */
 export function buildStarterGrid(): Grid {
-  const w = 11;
-  const h = 11;
-  const cells: GridCell[] = new Array(w * h).fill(null).map((_, i) => ({
-    x: i % w, y: Math.floor(i / w), blockId: null, level: 1, rotation: 0, type: 'empty' as const,
-  }));
-  cells[5 * w + 5] = { x: 5, y: 5, blockId: 'generator', level: 1, rotation: 0, type: 'generator', facing: 'N' };
-  cells[4 * w + 5] = { x: 5, y: 4, blockId: 'straight', level: 1, rotation: 0, type: 'empty' };
-  cells[3 * w + 5] = { x: 5, y: 3, blockId: 'flat_plus', level: 1, rotation: 0, type: 'empty' };
-  cells[2 * w + 5] = { x: 5, y: 2, blockId: 'ejector', level: 1, rotation: 0, type: 'ejector', facing: 'N' };
-  return { w, h, cells };
+  const g = buildShuttleGrid();
+  place(g, 6, 9, 'turn_r');
+  place(g, 9, 9, 'turn_l');
+  place(g, 9, 6, 'flat_plus');
+  return g;
 }

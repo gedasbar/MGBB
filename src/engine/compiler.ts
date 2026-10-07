@@ -1,14 +1,22 @@
-import { clonePacket, Dir, Packet, rotateDir } from './compilerTypes';
+import { CONFIG } from '../config';
 import { BLOCKS } from '../data/blocks';
+import {
+  clonePacket, Dir, DIRS, dirToRotation, evalDamage, newPacket, Packet, Rel, relToDir, Rotation, rotationToDir,
+} from './compilerTypes';
 
 export interface GridCell {
   x: number;
   y: number;
+  type: 'empty' | 'void' | 'blocked' | 'generator' | 'ejector';
+  /** Player-placed block; always null on fixed (non-empty) cells. */
   blockId: string | null;
   level: number;
-  rotation: number; // 0=0, 1=90, 2=180, 3=270 (CW)
-  type: 'empty' | 'void' | 'blocked' | 'generator' | 'ejector';
-  facing?: Dir; // For ejectors/generators if fixed
+  /** Stored orientation. Only meaningful for the signal when `manual` is true. */
+  rotation: Rotation;
+  /** true = the player rotated it by hand and it keeps its own orientation. */
+  manual: boolean;
+  /** Fixed facing of generators and ejectors. */
+  facing?: Dir;
 }
 
 export interface Grid {
@@ -24,200 +32,240 @@ export interface EjectorRecipe {
   packet: Packet;
 }
 
-export interface PathEdge {
+export type SegmentKind = 'live' | 'dead-end' | 'loop-cut' | 'overlap';
+
+export interface CellRef {
   x: number;
   y: number;
-  outDir: Dir;
-  active: boolean; // reaches an ejector
+}
+
+/**
+ * A straight piece of red line between two cell centres. Runs through empty cells are merged
+ * into one segment; a run ends at the first block, ejector or obstruction.
+ * For the non-live kinds `toCell` is the cell the signal could not enter (it may be off the grid).
+ */
+export interface Segment {
+  fromCell: CellRef;
+  toCell: CellRef;
+  dir: Dir;
+  kind: SegmentKind;
+  reason?: string;
+}
+
+export interface CellInfo {
+  onPath: boolean;
+  /** Travel directions of the signals entering this cell. */
+  inDirs: Dir[];
+  outDirs: Dir[];
+  effectiveRotation: Rotation;
+  orientationMode: 'auto' | 'manual';
+  warning?: string;
+}
+
+export interface CompileStats {
+  damagePerShot: number;
+  projectilesPerPulse: number;
+  pulsesPerSecond: number;
+  estDps: number;
+  wastedBlocks: number;
+  warnings: string[];
 }
 
 export interface CompiledShip {
   recipes: EjectorRecipe[];
   warnings: string[];
-  activePaths: Set<string>;
-  edges: PathEdge[];
+  segments: Segment[];
+  /** One entry per grid cell, row-major. */
+  cellInfo: CellInfo[];
+  stats: CompileStats;
 }
 
-function getCell(grid: Grid, x: number, y: number): GridCell | null {
-  if (x < 0 || x >= grid.w || y < 0 || y >= grid.h) return null;
-  return grid.cells[y * grid.w + x];
+const STEP_CAP = 500;
+const DELTA: Record<Dir, { dx: number; dy: number }> = {
+  N: { dx: 0, dy: -1 }, E: { dx: 1, dy: 0 }, S: { dx: 0, dy: 1 }, W: { dx: -1, dy: 0 },
+};
+const REL_ORDER: Record<Rel, number> = { L: 0, F: 1, R: 2 };
+
+export function cellLabel(x: number, y: number): string {
+  return `(${x + 1},${y + 1})`;
 }
 
-function dirToDelta(d: Dir) {
-  switch (d) {
-    case 'N': return { dx: 0, dy: -1 };
-    case 'E': return { dx: 1, dy: 0 };
-    case 'S': return { dx: 0, dy: 1 };
-    case 'W': return { dx: -1, dy: 0 };
-  }
+interface Signal {
+  x: number;
+  y: number;
+  dir: Dir;
+  packet: Packet;
+  /** (cell, direction) states this signal's own path has already been through. */
+  seen: Set<number>;
 }
 
+/** Pure and deterministic: the same grid always gives the same result. */
 export function compile(grid: Grid): CompiledShip {
+  const { w, h, cells } = grid;
+  const cellInfo: CellInfo[] = cells.map(c => ({
+    onPath: false, inDirs: [], outDirs: [], effectiveRotation: c.rotation, orientationMode: c.manual ? 'manual' : 'auto',
+  }));
+  const segments: Segment[] = [];
   const recipes: EjectorRecipe[] = [];
   const warnings: string[] = [];
-  const activePaths = new Set<string>();
-  const edges: PathEdge[] = [];
+  /** idx*2 + axis (0 = vertical, 1 = horizontal): which cell axes already carry a line. */
+  const claimed = new Set<number>();
 
-  function addEdge(x: number, y: number, outDir: Dir) {
-    edges.push({ x, y, outDir, active: false });
-  }
+  // Generators in a fixed order: top-to-bottom, left-to-right (cells are stored row-major).
+  for (let gi = 0; gi < cells.length; gi++) {
+    const gen = cells[gi];
+    if (gen.type !== 'generator') continue;
+    const facing: Dir = gen.facing ?? 'N';
+    cellInfo[gi].onPath = true;
+    cellInfo[gi].outDirs.push(facing);
+    let steps = 0;
+    const stack: Signal[] = [{ x: gen.x, y: gen.y, dir: facing, packet: newPacket(), seen: new Set() }];
 
-  // Find generators
-  const generators = grid.cells.filter(c => c.type === 'generator' || c.blockId === 'generator');
-  
-  // To detect cycles, we track visited paths (cell index + entering from direction)
-  // Or just visited cell index if a block can only be visited once.
-  // Wait, crossovers can be visited twice (H and V). So visited = cellIdx + axisLock?
-  // Actually, we can just trace depth-first. Set of "current path" for cycle detection.
-  
-  interface State {
-    x: number;
-    y: number;
-    movingDir: Dir;
-    packet: Packet;
-    pathSet: Set<string>;
-    history: { x: number, y: number, outDir: Dir }[];
-  }
-  
-  let queue: State[] = [];
-  
-  for (const gen of generators) {
-    const startPacket: Packet = {
-      damage: 1, pure: 0, count: 1, speedMul: 1, lifeMul: 1, sizeMul: 1,
-      mods: [], gates: [], tags: new Set()
-    };
-    const genOut = gen.facing || 'N'; 
-    const delta = dirToDelta(genOut);
-    queue.push({
-      x: gen.x + delta.dx, y: gen.y + delta.dy,
-      movingDir: genOut, packet: startPacket, pathSet: new Set(),
-      history: [{ x: gen.x, y: gen.y, outDir: genOut }]
-    });
-    addEdge(gen.x, gen.y, genOut);
-  }
+    while (stack.length > 0) {
+      const sig = stack.pop()!;
+      const dir = sig.dir;
+      const { dx, dy } = DELTA[dir];
+      const axis = dir === 'N' || dir === 'S' ? 0 : 1;
+      const runStart: CellRef = { x: sig.x, y: sig.y };
+      let x = sig.x;
+      let y = sig.y;
 
-  while (queue.length > 0) {
-    const nextQueue: State[] = [];
-    
-    // Group by cell
-    const cellGroups = new Map<string, State[]>();
-    for (const q of queue) {
-      const key = `${q.x},${q.y}`;
-      if (!cellGroups.has(key)) cellGroups.set(key, []);
-      cellGroups.get(key)!.push(q);
-    }
-    
-    for (const [key, states] of cellGroups.entries()) {
-      const [sx, sy] = key.split(',').map(Number);
-      const cell = getCell(grid, sx, sy);
-      
-      // Is it an ejector?
-      if (cell && (cell.type === 'ejector' || cell.blockId === 'ejector')) {
-        activePaths.add(`${sx},${sy}`);
-        for (const s of states) {
-          recipes.push({ direction: cell.facing || 'N', x: sx, y: sy, packet: s.packet });
-          // Mark history as active
-          for (const h of s.history) {
-            const edge = edges.find(e => e.x === h.x && e.y === h.y && e.outDir === h.outDir);
-            if (edge) edge.active = true;
-            activePaths.add(`${h.x},${h.y}`);
+      for (;;) {
+        const nx = x + dx;
+        const ny = y + dy;
+        const from: CellRef = { x, y };
+        const to: CellRef = { x: nx, y: ny };
+
+        const closeRun = (end: CellRef) => {
+          if (runStart.x !== end.x || runStart.y !== end.y) {
+            segments.push({ fromCell: { ...runStart }, toCell: end, dir, kind: 'live' });
           }
-        }
-        continue;
-      }
+        };
+        const stop = (kind: Exclude<SegmentKind, 'live'>, reason: string, warning: string) => {
+          closeRun(from);
+          segments.push({ fromCell: from, toCell: to, dir, kind, reason });
+          warnings.push(warning);
+        };
 
-      if (!cell || !cell.blockId || cell.type === 'blocked' || cell.type === 'void') {
-        continue;
-      }
-      
-      const bDef = BLOCKS[cell.blockId];
-      if (!bDef) continue;
-      
-      activePaths.add(`${sx},${sy}`);
-      
-      // If it's a merger, we merge packets that arrived at the same time
-      let mergedStates = states;
-      if (bDef.id === 'merger' && states.length > 1) {
-        const mergedPacket = clonePacket(states[0].packet);
-        for (let i = 1; i < states.length; i++) {
-          mergedPacket.damage += states[i].packet.damage;
-          mergedPacket.count += states[i].packet.count;
-          states[i].packet.mods.forEach(m => mergedPacket.mods.push(m));
-          states[i].packet.tags.forEach(t => mergedPacket.tags.add(t));
+        if (++steps > STEP_CAP) {
+          stop('dead-end', 'step cap', `Signal from the generator is longer than ${STEP_CAP} steps and was cut.`);
+          break;
         }
-        // Union pathSets
-        const mergedPathSet = new Set<string>();
-        states.forEach(s => s.pathSet.forEach(p => mergedPathSet.add(p)));
-        
-        mergedStates = [{
-          x: sx, y: sy, movingDir: states[0].movingDir, // taking first dir, might be slightly off for crossovers but mergers only output N
-          packet: mergedPacket, pathSet: mergedPathSet, history: states[0].history // roughly correct for merger
-        }];
-      }
+        const noEjector = (what: string) =>
+          `Signal doesn't reach an ejector: dead end at ${cellLabel(x, y)} (${what}).`;
 
-      for (const s of mergedStates) {
-        let oppositeGlobal: Dir;
-        if (s.movingDir === 'N') oppositeGlobal = 'S';
-        else if (s.movingDir === 'E') oppositeGlobal = 'W';
-        else if (s.movingDir === 'S') oppositeGlobal = 'N';
-        else oppositeGlobal = 'E';
-        
-        const localIn = rotateDir(oppositeGlobal, 4 - (cell.rotation % 4));
-        const portDef = bDef.ports[localIn];
-        
-        // Fix: Merger expects W or E in, N out (local). If inputs come from other ports, reject.
-        if (portDef !== 'in' && portDef !== 'both') {
-          warnings.push(`Rejection at ${sx},${sy}: portDef is ${portDef} for localIn ${localIn}`);
-          continue;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) {
+          stop('dead-end', 'edge', noEjector('hull edge'));
+          break;
         }
-        
-        const stepKey = `${sx},${sy},${localIn}`;
-        if (s.pathSet.has(stepKey)) {
-          warnings.push(`Cycle detected at ${sx},${sy}`);
-          continue;
-        }
-        
-        s.pathSet.add(stepKey);
-        
-        let results;
-        try {
-          results = bDef.apply(clonePacket(s.packet), localIn, cell.level, (cell as any).state || {});
-        } catch (e: any) {
-          warnings.push(`Error in block ${bDef.name} at ${sx},${sy}: ${e.message}`);
-          continue;
-        }
-        
-        for (const res of results) {
-          const globalOut = rotateDir(res.localOut, cell.rotation);
-          let targetX = sx;
-          let targetY = sy;
-          
-          if (bDef.id === 'portal_pair') {
-            // Find the other portal pair on the grid
-            const portals = grid.cells.filter(c => c.blockId === 'portal_pair');
-            if (portals.length === 2) {
-              const other = portals.find(c => c.x !== sx || c.y !== sy);
-              if (other) {
-                targetX = other.x;
-                targetY = other.y;
-              }
-            }
+        const nidx = ny * w + nx;
+        const cell = cells[nidx];
+        const info = cellInfo[nidx];
+
+        if (cell.type === 'void') { stop('dead-end', 'void', noEjector('empty space')); break; }
+        if (cell.type === 'blocked') { stop('dead-end', 'blocked', noEjector('solid block in the way')); break; }
+        if (cell.type === 'generator') { stop('dead-end', 'generator', noEjector('runs into a generator')); break; }
+
+        if (cell.type === 'ejector') {
+          const eFacing: Dir = cell.facing ?? 'N';
+          if (dir !== eFacing) {
+            info.warning = 'Ejector entered from the wrong side';
+            stop('dead-end', 'ejector wrong side', `Signal enters the ejector at ${cellLabel(nx, ny)} from the wrong side.`);
+            break;
           }
-          
-          const nextD = dirToDelta(globalOut);
-          const newHistory = [...s.history, { x: targetX, y: targetY, outDir: globalOut }];
-          nextQueue.push({
-            x: targetX + nextD.dx, y: targetY + nextD.dy,
-            movingDir: globalOut, packet: res.packet, pathSet: new Set(s.pathSet),
-            history: newHistory
-          });
-          addEdge(targetX, targetY, globalOut);
+          closeRun(to);
+          info.onPath = true;
+          info.inDirs.push(dir);
+          recipes.push({ direction: eFacing, x: nx, y: ny, packet: sig.packet });
+          break;
         }
+
+        const def = cell.blockId ? BLOCKS[cell.blockId] : undefined;
+
+        if (!def) {
+          // Empty buildable cell: an implicit straight piece.
+          const ck = nidx * 2 + axis;
+          if (claimed.has(ck)) {
+            stop('overlap', 'lines overlap', `Lines overlap at ${cellLabel(nx, ny)}: the later line was cut.`);
+            break;
+          }
+          claimed.add(ck);
+          info.onPath = true;
+          info.inDirs.push(dir);
+          info.outDirs.push(dir);
+          x = nx;
+          y = ny;
+          continue;
+        }
+
+        // A block.
+        if (cell.manual && dir !== rotationToDir(cell.rotation)) {
+          info.warning = 'Entered from the wrong side';
+          stop('dead-end', 'wrong side', `Signal enters ${def.name} at ${cellLabel(nx, ny)} from the wrong side.`);
+          break;
+        }
+        const stateKey = nidx * 4 + DIRS.indexOf(dir);
+        if (sig.seen.has(stateKey)) {
+          stop('loop-cut', 'feedback loop', `Feedback loop at ${cellLabel(nx, ny)}: the signal was cut.`);
+          break;
+        }
+        const ck = nidx * 2 + axis;
+        if (claimed.has(ck)) {
+          stop('overlap', 'lines overlap', `Lines overlap at ${cellLabel(nx, ny)}: the later line was cut.`);
+          break;
+        }
+        claimed.add(ck);
+        sig.seen.add(stateKey);
+        closeRun(to);
+
+        if (!info.onPath) {
+          info.onPath = true;
+          info.effectiveRotation = cell.manual ? cell.rotation : dirToRotation(dir);
+        }
+        info.inDirs.push(dir);
+
+        const packet = clonePacket(sig.packet);
+        def.transform?.(packet, cell.level);
+        const outs = [...def.outputs].sort((a, b) => REL_ORDER[a] - REL_ORDER[b]);
+        if (outs.length === 0) {
+          warnings.push(`Signal ends inside ${def.name} at ${cellLabel(nx, ny)}: it has no output.`);
+        }
+        const children: Signal[] = [];
+        for (const rel of outs) {
+          const od = relToDir(dir, rel);
+          info.outDirs.push(od);
+          children.push({ x: nx, y: ny, dir: od, packet: clonePacket(packet), seen: new Set(sig.seen) });
+        }
+        // Reverse so the left branch is walked first.
+        for (let i = children.length - 1; i >= 0; i--) stack.push(children[i]);
+        break;
       }
     }
-    
-    queue = nextQueue;
   }
 
-  return { recipes, warnings, activePaths, edges };
+  if (recipes.length === 0 && !warnings.some(wn => wn.startsWith('Signal doesn'))) {
+    warnings.push("No signal reaches an ejector.");
+  }
+
+  let wastedBlocks = 0;
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i].type === 'empty' && cells[i].blockId && !cellInfo[i].onPath) wastedBlocks++;
+  }
+  const pps = CONFIG.PULSE.BASE_RATE;
+  let dmgSum = 0;
+  let ev = 0;
+  for (const r of recipes) {
+    dmgSum += r.packet.damage;
+    ev += evalDamage(r.packet);
+  }
+  const stats: CompileStats = {
+    damagePerShot: recipes.length ? dmgSum / recipes.length : 0,
+    projectilesPerPulse: recipes.length,
+    pulsesPerSecond: pps,
+    estDps: ev * pps,
+    wastedBlocks,
+    warnings: [...warnings],
+  };
+
+  return { recipes, warnings, segments, cellInfo, stats };
 }

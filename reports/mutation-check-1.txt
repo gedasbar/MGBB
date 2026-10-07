@@ -1,0 +1,11 @@
+Mutation check 1 - compiler: disable implicit pass-through of empty cells
+(replaced the `if (!def)` empty-cell branch in src/engine/compiler.ts with an immediate dead end)
+
+Result with the mutation:
+  tests/compiler.test.ts      20 tests | 17 failed
+  tests/e2e.world.test.ts      5 tests |  2 failed
+  (19 failures in total, e.g. "empty Shuttle: one live run from G up to (6,2)...",
+   "Turn Right at (6,9)...", "crossing lines pass through each other...", "default circuit reaches the ejector...")
+
+After restoring src/engine/compiler.ts:
+  Test Files 2 passed | Tests 25 passed
