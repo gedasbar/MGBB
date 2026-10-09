@@ -18,6 +18,14 @@ export function fmtTime(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/** The wall-level variant of the summary: replaces the Free Fly rows and the "Fly again" button with "Retry". */
+export interface WallSummary {
+  won: boolean;
+  destroyed: number;
+  total: number;
+  onRetry: () => void;
+}
+
 /** Shown when the hull reaches 0. The run has already been banked into the progress by FlyScreen. */
 export class RunSummaryScreen implements Screen {
   container = new Container();
@@ -26,11 +34,11 @@ export class RunSummaryScreen implements Screen {
   private gestures: GestureTracker | null = null;
   private rows: { label: string; value: string; best: boolean }[];
 
-  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean }) {
+  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean }, readonly wall?: WallSummary) {
     const bg = new Graphics().rect(0, 0, CONFIG.VIEW.W, CONFIG.VIEW.H).fill(THEME.bg);
     this.container.addChild(bg);
 
-    const title = makeText('Run Summary', 32, THEME.text, { fontWeight: 'bold' });
+    const title = makeText(wall ? (wall.won ? 'Tier cleared' : 'Tier failed') : 'Run Summary', 32, THEME.text, { fontWeight: 'bold' });
     title.anchor.set(0.5);
     title.position.set(VIEW_W / 2, 70);
     const credits = makeText(`+${fmtBig(result.credits)}`, 80, THEME.currency, { fontWeight: 'bold' });
@@ -41,7 +49,11 @@ export class RunSummaryScreen implements Screen {
     creditsLabel.position.set(VIEW_W / 2, 250);
     this.container.addChild(title, credits, creditsLabel);
 
-    this.rows = [
+    this.rows = wall ? [
+      { label: 'Blocks destroyed', value: `${wall.destroyed} / ${wall.total} (${Math.round(wall.total ? (wall.destroyed / wall.total) * 100 : 100)}%)`, best: false },
+      { label: 'Time', value: fmtTime(result.time), best: false },
+      { label: 'Tier', value: String(result.tier), best: false },
+    ] : [
       { label: 'Kills', value: String(result.kills), best: false },
       { label: 'Time survived', value: fmtTime(result.time), best: marks.newBestTime },
       { label: 'Highest tier', value: String(result.tier), best: marks.newBestTier },
@@ -70,7 +82,9 @@ export class RunSummaryScreen implements Screen {
 
     for (const b of [
       textButton('summaryBuild', { x: 40, y: 640, w: 210, h: 64 }, 'Build', () => this.sm.switchTo(new BuildScreen(this.sm)), 24),
-      textButton('summaryFly', { x: 290, y: 640, w: 210, h: 64 }, 'Fly again', () => this.flyAgain(), 24),
+      wall
+        ? textButton('summaryRetry', { x: 290, y: 640, w: 210, h: 64 }, 'Retry', () => wall.onRetry(), 24)
+        : textButton('summaryFly', { x: 290, y: 640, w: 210, h: 64 }, 'Fly again', () => this.flyAgain(), 24),
     ]) {
       this.buttons.push(b);
       this.container.addChild(b.container);
@@ -80,7 +94,7 @@ export class RunSummaryScreen implements Screen {
     if (import.meta.env.DEV) {
       (window as any).__mgbm = {
         screen: 'summary',
-        state: () => ({ result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
+        state: () => ({ title: title.text, wall: wall ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
       };
     }
   }

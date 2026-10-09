@@ -6,6 +6,11 @@ import { InputManager } from './input';
 import { ScreenManager } from './screens/ScreenManager';
 import { BuildScreen } from './screens/BuildScreen';
 import { DebugPanel } from './debug/panel';
+import { debugHooks } from './debug/hooks';
+import { WallScreen } from './screens/WallScreen';
+import { getBuilderModel } from './builder/session';
+import { buildStarterGrid } from './game/starter';
+import { makeTestWall } from './wall/level';
 
 const perfDiv = document.createElement('div');
 perfDiv.style.position = 'absolute';
@@ -46,8 +51,15 @@ document.body.appendChild(perfDiv);
     }
   });
 
-  new DebugPanel().init();
   const screenManager = new ScreenManager(app, input);
+  // ?debug=1: the panel can start a test wall with the current circuit (the starter circuit if it has no ejector).
+  debugHooks.startWall = (o) => {
+    const model = getBuilderModel();
+    const grid = model.compiled.recipes.length > 0 ? model.gridForFlight() : buildStarterGrid();
+    const level = makeTestWall({ tier: o.tier, rows: o.rows ?? 8, armorFraction: o.armorFraction, shieldFraction: o.shieldFraction, gaps: 6 });
+    screenManager.switchTo(new WallScreen(screenManager, level, grid));
+  };
+  new DebugPanel().init();
   screenManager.switchTo(new BuildScreen(screenManager));
 
   const dt = 1 / 60;
@@ -62,7 +74,8 @@ document.body.appendChild(perfDiv);
     accumulator += frameTime;
     
     while (accumulator >= dt) {
-      screenManager.update(dt, frameTime, now);
+      // debugHooks.timeScale > 1 (?debug=1 only) runs extra simulation steps per tick.
+      for (let k = 0; k < debugHooks.timeScale; k++) screenManager.update(dt, k === 0 ? frameTime : 0, now);
       accumulator -= dt;
     }
 
