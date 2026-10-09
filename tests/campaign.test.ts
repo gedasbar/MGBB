@@ -94,3 +94,94 @@ describe('Level generator', () => {
     expect(rowsWithArmor.size).toBeLessThan(l.rows);
   });
 });
+
+import { applyWallRun, defaultProgress, isUnlocked, loadProgress, nextTier, ProgressStore, serializeProgress } from '../src/econ/progress';
+import { rewardPerBlock } from '../src/wall/level';
+
+const run = (tier: number, destroyed: number, total = 100, time = 60) => ({ tier, destroyed, total, time, credits: destroyed * rewardPerBlock(tier), kills: destroyed });
+
+describe('Campaign progress', () => {
+  it('unlocks in strict order: tier 1 is open, tier N needs tier N-1 cleared (spikes included)', () => {
+    const p = defaultProgress();
+    expect(isUnlocked(p, 1)).toBe(true);
+    expect(isUnlocked(p, 2)).toBe(false);
+    expect(nextTier(p)).toBe(1);
+    applyWallRun(p, run(1, 100));
+    expect(isUnlocked(p, 2)).toBe(true);
+    expect(isUnlocked(p, 3)).toBe(false);
+    expect(nextTier(p)).toBe(2);
+    applyWallRun(p, run(5, 100)); // clearing out of order (debug) does not open tier 4 or skip ahead
+    expect(isUnlocked(p, 4)).toBe(false);
+    expect(isUnlocked(p, 6)).toBe(true);
+    expect(isUnlocked(p, 101)).toBe(false);
+    expect(isUnlocked(p, 0)).toBe(false);
+    const spike = [...Array(100).keys()].map(i => generateLevel(i + 1)).find(l => l.spike)!;
+    expect(isUnlocked(p, spike.tier)).toBe(false); // not skippable
+  });
+
+  it('a Medal only comes with the first full clear of a tier; replays pay credits but no Medal', () => {
+    const p = defaultProgress();
+    let r = applyWallRun(p, run(1, 60));
+    expect(r.medal).toBe(false);
+    expect(p.medals).toBe(0);
+    expect(p.clearedTiers).toEqual([]);
+    expect(p.wallBestPct['1']).toBe(60);
+    const credits0 = p.credits;
+    expect(credits0).toBe(Math.floor(60 * rewardPerBlock(1)));
+    r = applyWallRun(p, run(1, 100, 100, 80));
+    expect(r.medal).toBe(true);
+    expect(p.medals).toBe(1);
+    expect(p.clearedTiers).toEqual([1]);
+    expect(p.highestCleared).toBe(1);
+    expect(p.wallBestTime['1']).toBe(80);
+    expect(p.credits).toBe(credits0 + Math.floor(100 * rewardPerBlock(1)));
+    r = applyWallRun(p, run(1, 100, 100, 70)); // replay: faster, pays again, no second Medal
+    expect(r.medal).toBe(false);
+    expect(p.medals).toBe(1);
+    expect(p.wallBestTime['1']).toBe(70);
+    expect(p.credits).toBe(credits0 + 2 * Math.floor(100 * rewardPerBlock(1)));
+    applyWallRun(p, run(1, 40)); // a worse replay changes no best
+    expect(p.wallBestPct['1']).toBe(100);
+    expect(p.wallBestTime['1']).toBe(70);
+    expect(p.runs).toBe(4);
+  });
+
+  it('a failed run saves its best percent (capped below 100) and pays credits', () => {
+    const p = defaultProgress();
+    applyWallRun(p, run(3, 99, 100));
+    expect(p.wallBestPct['3']).toBe(99);
+    applyWallRun(p, run(3, 94, 100));
+    expect(p.wallBestPct['3']).toBe(99);
+    expect(p.clearedTiers).toEqual([]);
+    expect(p.wallBestTime['3']).toBeUndefined();
+  });
+
+  it('the store banks a campaign run once, with the medal flag, and a debug wall without a tier gives no campaign progress', () => {
+    const store = new ProgressStore(null);
+    expect(store.recordWallRun({ credits: 10, kills: 5, tier: 1, destroyed: 5, total: 5, time: 12 })).toEqual({ medal: true });
+    expect(store.data.clearedTiers).toEqual([1]);
+    expect(store.recordWallRun({ credits: 3, kills: 3 })).toEqual({ medal: false });
+    expect(store.data.clearedTiers).toEqual([1]);
+    expect(store.data.credits).toBe(13);
+  });
+
+  it('migrates a save from before the campaign fields, and survives garbage in them', () => {
+    const old = { version: 1, credits: 123, owned: { turn_l: 2 }, levels: {}, ownedHulls: ['shuttle'], bestTier: 4, bestTime: 50, totalKills: 9, runs: 3 };
+    const p = loadProgress(JSON.stringify(old));
+    expect(p.version).toBe(2);
+    expect(p.credits).toBe(123);
+    expect(p.bestTier).toBe(4);
+    expect(p.clearedTiers).toEqual([]);
+    expect(p.medals).toBe(0);
+    expect(p.wallBestPct).toEqual({});
+    expect(p.highestCleared).toBe(0);
+    const bad = loadProgress(JSON.stringify({ ...old, clearedTiers: [3, 'x', 3, 500, 1], wallBestPct: { '1': 150, '2': 40, zz: 5 }, wallBestTime: 'no', medals: 99 }));
+    expect(bad.clearedTiers).toEqual([1, 3]);
+    expect(bad.wallBestPct).toEqual({ '2': 40 });
+    expect(bad.medals).toBe(2); // never more Medals than cleared tiers
+    expect(bad.highestCleared).toBe(3);
+    // round trip
+    const again = loadProgress(serializeProgress(bad));
+    expect(again).toEqual(bad);
+  });
+});

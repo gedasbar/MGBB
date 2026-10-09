@@ -25,7 +25,9 @@ export interface WallKillEvent { x: number; y: number; reward: number }
 export type WallState = 'playing' | 'won' | 'lost';
 
 /** What the world needs from the progress store at the end of a level. */
-export interface WallBank { recordWallRun(run: { credits: number; kills: number }): void }
+export interface WallBank {
+  recordWallRun(run: { credits: number; kills: number; tier?: number; destroyed?: number; total?: number; time?: number }): { medal: boolean } | void;
+}
 
 /** Ship position the pointer asks for, in world px (x) and screen px (y). */
 export interface ShipTarget { x: number; y: number }
@@ -148,6 +150,8 @@ export class WallWorld {
   destroyed = 0;
   creditsExact = 0;
   private banked = false;
+  /** True when banking this level awarded a first-clear Medal. */
+  medalEarned = false;
   autoFire = true;
   private pulseTimer = 0;
 
@@ -262,7 +266,12 @@ export class WallWorld {
   bank(store: WallBank): boolean {
     if (this.banked) return false;
     this.banked = true;
-    store.recordWallRun({ credits: this.credits, kills: this.destroyed });
+    const campaign = this.level.campaign;
+    const res = store.recordWallRun({
+      credits: this.credits, kills: this.destroyed,
+      ...(campaign ? { tier: this.level.tier, destroyed: this.destroyed, total: this.total, time: this.time } : {}),
+    });
+    this.medalEarned = !!(res && res.medal);
     return true;
   }
 
