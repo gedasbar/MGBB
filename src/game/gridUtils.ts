@@ -25,8 +25,8 @@ export function parseLayout(rows: string[]): Grid {
 }
 
 export const SHUTTLE_ROWS = [
-  '.....X.....',
-  '..X.X_X.E..',
+  '.....E.....',
+  '..E.E_E.E..',
   '.._______..',
   '.._____._..',
   '.._____._..',
