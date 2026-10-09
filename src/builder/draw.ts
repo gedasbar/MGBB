@@ -9,8 +9,6 @@ export const COLORS = {
   text: THEME.text,
   textDim: THEME.textDim,
   cell: THEME.cellFill,
-  voidFill: 0x3b3b3b,
-  voidHatch: 0x262626,
   warn: THEME.warn,
 };
 

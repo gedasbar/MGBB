@@ -20,4 +20,11 @@ export const THEME = {
   cellFill: 0x3a3a3d,
   cellGap: 0x2a2a2d,
   dim: 0x000000,
+  voidFill: 0x161618,
+  hullPanel: 0x2a2a2d,
+  hullDark: 0x161618,
+  bulletCasing: 0xd4d4d8,
+  bulletTip: 0x8c8c92,
+  reactorOuter: 0x55555a,
+  reactorMid: 0x8c8c92,
 } as const;

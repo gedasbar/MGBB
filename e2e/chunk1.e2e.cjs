@@ -281,8 +281,8 @@ async function lineAt(page, col, row, axis, ok = redish) {
     if (n > 0) voidReds.push(`(${c},${r}):${n}`);
   }
   check(voidReds.length === 0, `4: the former blocked cells (6,1) (3,2) (5,2) (7,2) show no red${voidReds.length ? ': ' + voidReds : ''}`);
-  const ejRed = await lib.countInRegion(page, OX + 8.5 * CELL, OY + 1.5 * CELL, 14, redHatch);
-  check(ejRed > 20, `4: positive control: the ejector at (9,2) does show red X pixels (${ejRed})`);
+  const ejRed = await lib.countInRegion(page, OX + 8.5 * CELL, OY + 1.5 * CELL, 14, '([r,g,b]) => r > 200 && g > 200 && b > 200');
+  check(ejRed > 20, `4: positive control: the ejector at (9,2) is the light-grey bullet (casing pixels) (${ejRed})`);
 
   // Old save in the browser: a legacy grid with blocked cells and blocks loads, keeps the blocks, and nothing is blocked.
   const legacy = { w: 11, h: 11, cells: [

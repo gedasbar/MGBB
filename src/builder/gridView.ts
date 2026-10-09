@@ -3,14 +3,58 @@ import { CellInfo, CompiledShip, Grid, GridCell } from '../engine/compiler';
 import { Dir, Rel } from '../engine/compilerTypes';
 import { BLOCKS } from '../data/blocks';
 import {
-  arrowHead, CATEGORY_COLOR, COLORS, drawBlockIcon, drawWarn, drawX, hatch,
+  CATEGORY_COLOR, COLORS, drawBlockIcon, drawWarn,
 } from './draw';
 import { THEME } from '../ui/theme';
 import { BASE_CELL as S, LAYOUT, View } from './layout';
 import { computeHops, drawCaps, drawFlow, drawLines } from './lines';
 
 const PAD = 1.5;
-const FACING_ANGLE: Record<Dir, number> = { N: -Math.PI / 2, E: 0, S: Math.PI / 2, W: Math.PI };
+
+/** Maps a point in "facing north" coordinates (y up is forward) to the cell's facing, relative to the cell centre. */
+function turn(f: Dir, lx: number, ly: number): [number, number] {
+  switch (f) {
+    case 'E': return [-ly, lx];
+    case 'S': return [-lx, -ly];
+    case 'W': return [ly, -lx];
+    default: return [lx, ly];
+  }
+}
+
+/** Filled axis-aligned (in local coordinates) rectangle, rotated to the facing. lx/ly are the local centre; hw/hh the half sizes. */
+function localRect(g: Graphics, cx: number, cy: number, f: Dir, lx: number, ly: number, hw: number, hh: number, color: number) {
+  const pts = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].flatMap(([dx, dy]) => {
+    const [px, py] = turn(f, lx + dx, ly + dy);
+    return [cx + px, cy + py];
+  });
+  g.poly(pts).fill(color);
+}
+
+/** Ejector: a bullet whose pointed tip is the exit; the flat base faces the incoming line. About a 10% margin all round. */
+export function drawBullet(g: Graphics, cx: number, cy: number, w: number, f: Dir) {
+  const half = w * 0.4; // half length of the bullet
+  const bw = w * 0.24; // half width
+  const tipStart = -half * 0.2; // casing runs from the base (+half) up to here
+  localRect(g, cx, cy, f, 0, (half + tipStart) / 2, bw, (half - tipStart) / 2, THEME.bulletCasing);
+  localRect(g, cx, cy, f, 0, tipStart + 1.5, bw, 1.5, THEME.hullDark);
+  const tip = [[-bw, tipStart], [bw, tipStart], [0, -half]].flatMap(([lx, ly]) => { const [px, py] = turn(f, lx, ly); return [cx + px, cy + py]; });
+  g.poly(tip).fill(THEME.bulletTip);
+  // Thin dark ring on the flat base, where the red line ends.
+  const ring = [[-bw + 2, half - 1], [bw - 2, half - 1], [bw - 2, half - 7], [-bw + 2, half - 7]].flatMap(([lx, ly]) => { const [px, py] = turn(f, lx, ly); return [cx + px, cy + py]; });
+  g.poly(ring).stroke({ color: THEME.hullDark, width: 1.5 });
+}
+
+/** Generator: three concentric squares (outer, middle, red core) and a flat emitter notch on the edge that faces the line. */
+export function drawReactor(g: Graphics, cx: number, cy: number, w: number, f: Dir) {
+  const o = w * 0.4;
+  localRect(g, cx, cy, f, 0, 0, o, o, THEME.reactorOuter);
+  localRect(g, cx, cy, f, 0, 0, o * 0.74, o * 0.74, THEME.hullDark);
+  localRect(g, cx, cy, f, 0, 0, o * 0.66, o * 0.66, THEME.reactorMid);
+  localRect(g, cx, cy, f, 0, 0, o * 0.4, o * 0.4, THEME.hullDark);
+  localRect(g, cx, cy, f, 0, 0, o * 0.32, o * 0.32, COLORS.red);
+  // Emitter notch: sits on the facing edge and protrudes slightly into the margin.
+  localRect(g, cx, cy, f, 0, -o - 1, w * 0.12, 3.5, THEME.reactorMid);
+}
 
 export interface RenderOpts {
   selected: { x: number; y: number } | null;
@@ -68,8 +112,12 @@ export class GridRenderer {
   private drawCells(grid: Grid) {
     const g = this.cellsG;
     g.clear();
-    g.rect(-3, -3, grid.w * S + 6, grid.h * S + 6).fill(THEME.cellGap);
-    for (const c of grid.cells) this.drawCell(g, c);
+    // Void cells are just this flat backdrop; every hull cell lays its own grid-line square over it.
+    g.rect(-3, -3, grid.w * S + 6, grid.h * S + 6).fill(THEME.voidFill);
+    for (const c of grid.cells) {
+      if (c.type !== 'void') g.rect(c.x * S, c.y * S, S, S).fill(THEME.cellGap);
+      this.drawCell(g, c);
+    }
   }
 
   private drawCell(g: Graphics, c: GridCell) {
@@ -80,27 +128,15 @@ export class GridRenderer {
     const cy = c.y * S + S / 2;
     switch (c.type) {
       case 'void':
-        g.rect(x, y, w, w).fill(COLORS.voidFill);
-        hatch(g, x, y, w, w, 9, COLORS.voidHatch, 2.5);
         break;
       case 'generator':
-        g.rect(x, y, w, w).fill(0x8c1414);
-        hatch(g, x, y, w, w, 9, 0xff4040, 3);
-        g.rect(x, y, w, w).stroke({ color: 0xff7070, width: 2 });
-        arrowHead(g, cx, y + 5, FACING_ANGLE[c.facing ?? 'N'] - (c.facing ? 0 : 0), 17, 11, 0xffd6d6);
+        g.rect(x, y, w, w).fill(THEME.hullPanel);
+        drawReactor(g, cx, cy, w, c.facing ?? 'N');
         break;
-      case 'ejector': {
-        g.rect(x, y, w, w).fill(0x701010);
-        hatch(g, x, y, w, w, 9, 0xe02828, 3);
-        g.rect(x, y, w, w).stroke({ color: 0xff7070, width: 2 });
-        drawX(g, cx, cy, 15, 0x000000, 11);
-        drawX(g, cx, cy, 15, COLORS.red, 6);
-        const f = c.facing ?? 'N';
-        const ex = cx + Math.cos(FACING_ANGLE[f]) * (w / 2 - 3);
-        const ey = cy + Math.sin(FACING_ANGLE[f]) * (w / 2 - 3);
-        arrowHead(g, ex, ey, FACING_ANGLE[f], 16, 11, 0xffd6d6);
+      case 'ejector':
+        g.rect(x, y, w, w).fill(THEME.hullPanel);
+        drawBullet(g, cx, cy, w, c.facing ?? 'N');
         break;
-      }
       default:
         g.rect(x, y, w, w).fill(COLORS.cell);
     }
