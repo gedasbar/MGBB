@@ -133,7 +133,7 @@ export class BuildScreen implements Screen {
   /** Flat rectangular button face: fill, outline and icon follow the enabled / selected state. */
   private flatFace(g: Graphics, b: UIButton, icon: ToolIcon, size = Math.min(b.rect.w, b.rect.h) * 0.55, iconY = b.rect.h / 2) {
     const { w, h } = b.rect;
-    const lit = b.active;
+    const lit = b.lit;
     const off = !b.enabled;
     g.rect(1, 1, w - 2, h - 2).fill(lit ? THEME.pressedFill : THEME.buttonFill).stroke({ color: off ? THEME.disabled : THEME.buttonLine, width: 1.5 });
     const ic = new Graphics();
@@ -183,7 +183,8 @@ export class BuildScreen implements Screen {
       id: 'ab', rect: row(0, true), onTap: () => this.toggleSlot(),
       draw: (g, b) => {
         const { w, h } = b.rect;
-        g.rect(1, 1, w - 2, h - 2).fill(THEME.buttonFill).stroke({ color: THEME.buttonLine, width: 1.5 });
+        g.rect(1, 1, w - 2, h - 2).fill(b.lit ? THEME.pressedFill : THEME.buttonFill).stroke({ color: THEME.buttonLine, width: 1.5 });
+        if (this.abLabel) this.abLabel.style.fill = b.lit ? THEME.pressedIcon : THEME.text;
       },
     }));
     this.abLabel = makeText('A', 28, THEME.text, { fontWeight: 'bold' });
@@ -214,11 +215,13 @@ export class BuildScreen implements Screen {
     const fly = new UIButton({
       id: 'fly', rect: { x: VIEW_W - 134, y: LAYOUT.gridArea.y + LAYOUT.gridArea.h - 54, w: 124, h: 46 }, onTap: () => this.fly(),
       draw: (g, b) => {
-        g.rect(0, 0, b.rect.w, b.rect.h).fill(THEME.pressedFill);
-        g.poly([86, 12, 86, 34, 104, 23]).fill(THEME.pressedIcon);
+        g.rect(0, 0, b.rect.w, b.rect.h).fill(b.lit ? THEME.buttonFill : THEME.pressedFill);
+        g.poly([86, 12, 86, 34, 104, 23]).fill(b.lit ? THEME.buttonIcon : THEME.pressedIcon);
+        if (this.flyLabel) this.flyLabel.style.fill = b.lit ? THEME.buttonIcon : THEME.pressedIcon;
       },
     });
     const flyLabel = makeText('FLY', 24, THEME.pressedIcon, { fontWeight: 'bold' });
+    this.flyLabel = flyLabel;
     flyLabel.anchor.set(0.5);
     flyLabel.position.set(46, 23);
     fly.container.addChild(flyLabel);
@@ -238,9 +241,10 @@ export class BuildScreen implements Screen {
         id: t.id, rect: { x: i * 108, y: LAYOUT.tabs.y + 1, w: 108, h: LAYOUT.tabs.h - 1 }, label: t.label, labelSize: 12, labelColor: active ? THEME.text : THEME.textDim,
         onTap: () => { if (!active) this.toast.show('Coming soon'); },
         draw: (g, b) => {
-          if (active) g.rect(b.rect.w / 2 - 19, 2, 38, 36).fill(THEME.pressedFill);
+          const on = active || b.lit;
+          if (on) g.rect(b.rect.w / 2 - 19, 2, 38, 36).fill(THEME.pressedFill);
           const ic = new Graphics();
-          drawTabIcon(ic, t.icon, 24, active ? THEME.pressedIcon : THEME.buttonIcon);
+          drawTabIcon(ic, t.icon, 24, on ? THEME.pressedIcon : THEME.buttonIcon);
           ic.position.set(b.rect.w / 2, 20);
           g.addChild(ic);
         },
@@ -249,6 +253,7 @@ export class BuildScreen implements Screen {
   }
 
   private abLabel!: ReturnType<typeof makeText>;
+  private flyLabel: ReturnType<typeof makeText> | null = null;
 
   // ------------------------------------------------------------------ rendering
   /** Redraws everything that depends on the model, the selection or the picker preview. */
@@ -388,7 +393,7 @@ export class BuildScreen implements Screen {
     }
     const b = this.buttonAt(x, y);
     if (b) {
-      if (b.enabled) b.spec.onTap();
+      if (b.enabled) { b.flash(); b.spec.onTap(); }
       else this.disabledHint(b.id);
       return;
     }

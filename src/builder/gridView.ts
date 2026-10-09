@@ -1,11 +1,12 @@
 import { Container, Graphics } from 'pixi.js';
 import { CellInfo, CompiledShip, Grid, GridCell } from '../engine/compiler';
-import { Dir, Rel } from '../engine/compilerTypes';
+import { Dir } from '../engine/compilerTypes';
 import { BLOCKS } from '../data/blocks';
 import {
-  CATEGORY_COLOR, COLORS, drawBlockIcon, drawWarn,
+  COLORS, drawWarn,
 } from './draw';
 import { THEME } from '../ui/theme';
+import { drawPlate } from '../ui/blockArt';
 import { BASE_CELL as S, LAYOUT, View } from './layout';
 import { computeHops, drawCaps, drawFlow, drawLines } from './lines';
 
@@ -142,36 +143,18 @@ export class GridRenderer {
     }
   }
 
-  private outputEdges(blockId: string): Rel[] {
-    return BLOCKS[blockId]?.outputs ?? [];
-  }
-
   private drawBlocks(grid: Grid, compiled: CompiledShip, opts: RenderOpts) {
     for (const ch of this.blocksC.removeChildren()) ch.destroy({ children: true });
     for (const c of grid.cells) {
       if (c.type !== 'empty' || !c.blockId) continue;
-      const def = BLOCKS[c.blockId];
-      if (!def) continue;
+      if (!BLOCKS[c.blockId]) continue;
       const info: CellInfo = compiled.cellInfo[c.y * grid.w + c.x];
       const isGhost = !!opts.ghost && opts.ghost.x === c.x && opts.ghost.y === c.y;
-      const box = new Container();
-      box.position.set(c.x * S + S / 2, c.y * S + S / 2);
-      box.rotation = (info.effectiveRotation * Math.PI) / 180;
       const g = new Graphics();
-      const color = CATEGORY_COLOR[def.category] ?? 0xffffff;
-      g.roundRect(-23, -23, 46, 46, 8).fill({ color: 0x1c1c1c, alpha: 0.94 }).stroke({ color, width: 2.5 });
-      drawBlockIcon(g, c.blockId, 34, color);
-      // Input notch on the back (south) edge and output ticks on the output edges.
-      g.poly([-10, S / 2 - 1, 10, S / 2 - 1, 0, S / 2 - 12]).fill(0x000000).stroke({ color: 0xffffff, width: 1, alpha: 0.6 });
-      for (const rel of this.outputEdges(c.blockId)) {
-        if (rel === 'F') g.moveTo(-9, -S / 2 + 2).lineTo(9, -S / 2 + 2);
-        else if (rel === 'L') g.moveTo(-S / 2 + 2, -9).lineTo(-S / 2 + 2, 9);
-        else g.moveTo(S / 2 - 2, -9).lineTo(S / 2 - 2, 9);
-      }
-      g.stroke({ color: COLORS.red, width: 4, cap: 'round' });
-      box.addChild(g);
-      box.alpha = isGhost ? 0.72 : info.onPath ? 1 : 0.5;
-      this.blocksC.addChild(box);
+      g.position.set(c.x * S + S / 2, c.y * S + S / 2);
+      drawPlate(g, c.blockId, S, info.effectiveRotation);
+      g.alpha = isGhost ? 0.6 : info.onPath ? 1 : 0.5;
+      this.blocksC.addChild(g);
     }
   }
 
@@ -192,7 +175,7 @@ export class GridRenderer {
       }
     }
     if (opts.ghost) {
-      g.rect(opts.ghost.x * S + 3, opts.ghost.y * S + 3, S - 6, S - 6).stroke({ color: 0x66f0ff, width: 3 });
+      g.rect(opts.ghost.x * S + 3, opts.ghost.y * S + 3, S - 6, S - 6).stroke({ color: THEME.select, width: THEME.selectWidth });
     }
     if (opts.selected) {
       g.rect(opts.selected.x * S + 1, opts.selected.y * S + 1, S - 2, S - 2).stroke({ color: THEME.select, width: THEME.selectWidth });

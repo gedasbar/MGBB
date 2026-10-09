@@ -2,7 +2,7 @@ import { Graphics } from 'pixi.js';
 import { Segment } from '../engine/compiler';
 import { Dir } from '../engine/compilerTypes';
 import { arrowHead, COLORS, drawWarn, drawX } from './draw';
-import { BASE_CELL as S } from './layout';
+import { BASE_CELL as S, EJECTOR_BASE_DIST, EMITTER_TIP_DIST } from './layout';
 
 export const DIR_VEC: Record<Dir, { x: number; y: number }> = {
   N: { x: 0, y: -1 }, E: { x: 1, y: 0 }, S: { x: 0, y: 1 }, W: { x: -1, y: 0 },
@@ -44,12 +44,19 @@ export function computeHops(segments: Segment[]): Set<string> {
   return out;
 }
 
-/** Content-space endpoints of a segment: live runs go centre to centre, other kinds stop at the cell edge. */
+/**
+ * Content-space endpoints of a segment: live runs go centre to centre, other kinds stop at the cell edge.
+ * A run leaving a generator starts at the tip of its emitter notch; a run into an ejector stops at the bullet's base.
+ */
 export function segmentEnds(s: Segment): { a: { x: number; y: number }; b: { x: number; y: number } } {
-  const a = centre(s.fromCell.x, s.fromCell.y);
-  if (s.kind === 'live') return { a, b: centre(s.toCell.x, s.toCell.y) };
   const d = DIR_VEC[s.dir];
-  return { a, b: { x: a.x + d.x * S * 0.5, y: a.y + d.y * S * 0.5 } };
+  const c = centre(s.fromCell.x, s.fromCell.y);
+  const a = s.fromGenerator ? { x: c.x + d.x * EMITTER_TIP_DIST, y: c.y + d.y * EMITTER_TIP_DIST } : c;
+  if (s.kind === 'live') {
+    const e = centre(s.toCell.x, s.toCell.y);
+    return { a, b: s.toEjector ? { x: e.x - d.x * EJECTOR_BASE_DIST, y: e.y - d.y * EJECTOR_BASE_DIST } : e };
+  }
+  return { a, b: { x: c.x + d.x * S * 0.5, y: c.y + d.y * S * 0.5 } };
 }
 
 function strokePath(g: Graphics, pts: [number, number][], hopsAt: number[], y: number, color: number, width: number, alpha: number) {

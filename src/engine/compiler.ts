@@ -50,6 +50,10 @@ export interface Segment {
   dir: Dir;
   kind: SegmentKind;
   reason?: string;
+  /** The segment leaves a generator (drawing starts at the emitter notch). */
+  fromGenerator?: boolean;
+  /** A live segment that ends in an ejector (drawing stops at the bullet's base). */
+  toEjector?: boolean;
 }
 
 /** What the projectile looks like after passing a cell (first signal through the cell). */
@@ -267,6 +271,12 @@ export function compile(grid: Grid): CompiledShip {
         break;
       }
     }
+  }
+
+  for (const s of segments) {
+    if (cells[s.fromCell.y * w + s.fromCell.x].type === 'generator') s.fromGenerator = true;
+    const tc = s.toCell;
+    if (s.kind === 'live' && cells[tc.y * w + tc.x].type === 'ejector') s.toEjector = true;
   }
 
   if (recipes.length === 0 && !warnings.some(wn => wn.startsWith('Signal doesn'))) {

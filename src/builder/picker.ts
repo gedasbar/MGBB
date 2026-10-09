@@ -2,7 +2,8 @@ import { Container, Graphics } from 'pixi.js';
 import { BLOCKS, CATEGORY_LABEL, pickerBlocks } from '../data/blocks';
 import { BlockCategory } from '../engine/compilerTypes';
 import { BuilderModel } from './model';
-import { CATEGORY_COLOR, drawBlockIcon, drawX } from './draw';
+import { CATEGORY_COLOR, drawX } from './draw';
+import { drawPlate } from '../ui/blockArt';
 import { inRect, LAYOUT, Rect } from './layout';
 import { makeText } from './ui';
 import { THEME } from '../ui/theme';
@@ -147,19 +148,19 @@ export class Picker {
       g.rect(t.x, t.y, t.w, t.h).fill({ color: THEME.buttonFill, alpha: avail > 0 ? 1 : 0.55 });
       g.rect(t.x, t.y, t.w, t.h).stroke({ color: sel ? THEME.select : t.id === currentId ? THEME.warn : color, width: sel ? 3 : 2, alpha: avail > 0 ? 1 : 0.4 });
       const icon = new Graphics();
-      icon.position.set(t.x + t.w / 2, t.y + 34);
+      icon.position.set(t.x + t.w / 2, t.y + 36);
       if (isRemove) drawX(icon, 0, 0, 14, THEME.bad, 5);
-      else drawBlockIcon(icon, t.id, 38, color);
+      else drawPlate(icon, t.id, 60, 0);
       icon.alpha = avail > 0 ? 1 : 0.4;
       this.listC.addChild(icon);
       const name = makeText(isRemove ? 'Remove' : def!.name, 13, THEME.text, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: t.w - 10 });
       name.anchor.set(0.5, 0);
-      name.position.set(t.x + t.w / 2, t.y + 62);
+      name.position.set(t.x + t.w / 2, t.y + 70);
       name.alpha = avail > 0 ? 1 : 0.5;
       this.listC.addChild(name);
       const count = makeText(isRemove ? 'returns it' : `×${avail}`, 12, avail > 0 ? THEME.textDim : THEME.bad, { fontWeight: 'bold' });
-      count.anchor.set(0.5, 1);
-      count.position.set(t.x + t.w / 2, t.y + t.h - 5);
+      if (isRemove) { count.anchor.set(0.5, 1); count.position.set(t.x + t.w / 2, t.y + t.h - 5); }
+      else { count.anchor.set(1, 0.5); count.position.set(t.x + t.w - 8, t.y + 36); }
       this.listC.addChild(count);
       if (t.id === currentId) {
         const here = makeText('here', 10, THEME.warn, { fontWeight: 'bold' });

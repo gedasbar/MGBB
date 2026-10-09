@@ -27,4 +27,8 @@ export const THEME = {
   bulletTip: 0x8c8c92,
   reactorOuter: 0x55555a,
   reactorMid: 0x8c8c92,
+  plateOuter: 0x55555a,
+  plateFace: 0x26262a,
+  mark: 0xd4d4d8,
+  markEdge: 0x161618,
 } as const;

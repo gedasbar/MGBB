@@ -24,6 +24,8 @@ export class UIButton {
   readonly container = new Container();
   enabled = true;
   active = false;
+  /** True for a moment after a press (see flash). */
+  private flashing = false;
   private face = new Graphics();
   private label: Text | null = null;
 
@@ -46,9 +48,21 @@ export class UIButton {
     return this.container.visible && inRect(this.spec.rect, x, y);
   }
 
+  /** Selected, or briefly pressed: faces draw their inverted (light fill, dark icon) look. */
+  get lit(): boolean { return this.active || this.flashing; }
+
+  /** Press feedback shared by every button: invert for a moment, then go back to the normal state. */
+  flash(ms = 120) {
+    this.flashing = true;
+    this.redraw();
+    setTimeout(() => {
+      this.flashing = false;
+      if (!this.container.destroyed) this.redraw();
+    }, ms);
+  }
+
   setEnabled(v: boolean) {
     this.enabled = v;
-    if (this.label) this.label.style.fill = v ? (this.spec.labelColor ?? THEME.textDim) : THEME.disabled;
     this.redraw();
   }
 
@@ -65,6 +79,7 @@ export class UIButton {
   redraw() {
     this.face.clear();
     this.spec.draw(this.face, this);
+    if (this.label) this.label.style.fill = !this.enabled ? THEME.disabled : this.flashing ? THEME.pressedIcon : (this.spec.labelColor ?? THEME.textDim);
   }
 }
 

@@ -26,6 +26,13 @@ export const FIT_MARGIN = 6;
 /** Cell size in content units; the grid container is scaled by view.scale / BASE_CELL. */
 export const BASE_CELL = 64;
 
+/** Hull art metrics shared by the cell drawings and the red line (content units; a hull cell art square is BASE_CELL - 3). */
+const ART_W = BASE_CELL - 3;
+/** Distance from an ejector's centre to its flat base: the red line stops here. */
+export const EJECTOR_BASE_DIST = ART_W * 0.4;
+/** Distance from a generator's centre to the tip of its emitter notch: the red line starts here. */
+export const EMITTER_TIP_DIST = ART_W * 0.4 + 4.5;
+
 export const MIN_SCALE = 16;
 export const MAX_SCALE = 160;
 
