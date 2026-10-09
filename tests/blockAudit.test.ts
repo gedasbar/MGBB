@@ -7,7 +7,8 @@ import { World } from '../src/game/world';
 import { buildFanGrid } from '../src/game/gridUtils';
 import { buildStarterGrid, place } from '../src/game/starter';
 import { rng } from '../src/rng';
-import { BuilderModel } from '../src/builder/model';
+
+import { richModel } from './helpers';
 
 /**
  * Block audit: every block offered in the picker must (a) compile correctly and (b) change what the ship
@@ -290,7 +291,7 @@ describe('the stats strip equals what the ship fires', () => {
   }
 
   it('the builder model reports the same numbers the Fly screen will fire', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     m.place(8, 4, 'percent_mult');
     const w = newWorld(m.gridForFlight());
     const idx = fireOnce(w);

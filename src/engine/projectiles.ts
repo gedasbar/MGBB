@@ -41,6 +41,14 @@ function wrapAngle(a: number): number {
 /** Armor-Piercer damage multiplier at a block level: x2 at level 1. */
 export const armorPierceMul = (level: number) => 1 + level;
 export const aoeRectSize = (level: number) => ({ w: AOE_RECT_W + 40 * (level - 1), h: AOE_RECT_H + 6 * (level - 1) });
+/** Piercing: each hit costs 1/level of the damage dealt. */
+export const pierceCostMul = (level: number) => 1 / level;
+/** Bouncing: every ricochet adds 10% damage per level above 1. */
+export const bounceDamageMul = (level: number) => 1 + 0.1 * (level - 1);
+/** AoE - Circle blast radius in px: 50 at level 1, +10 per level. */
+export const aoeCircleRadius = (level: number) => 50 + 10 * (level - 1);
+/** Shield-Breaker direct-damage multiplier: x1.5 at level 1, +0.5 per level. */
+export const shieldBreakMul = (level: number) => 1 + 0.5 * level;
 export const forkDamageFrac = (level: number) => 0.5 + 0.1 * (level - 1);
 
 export class ProjectileSystem {
@@ -138,14 +146,17 @@ export class ProjectileSystem {
       const pure = this.pool.pure[i];
       const mods = this.modsOf(i);
 
-      const isPiercing = mods.some(m => m.type === 'piercing');
-      const isBouncing = mods.some(m => m.type === 'bouncing');
+      const pierceMod = mods.find(m => m.type === 'piercing');
+      const isPiercing = !!pierceMod;
+      const bounceMod = mods.find(m => m.type === 'bouncing');
+      const isBouncing = !!bounceMod;
       const aoeMod = mods.find(m => m.type === 'aoe_circle');
       const rectMod = mods.find(m => m.type === 'aoe_rect');
       const forkMod = mods.find(m => m.type === 'fork_impact');
       const apMod = mods.find(m => m.type === 'armor_piercer');
       const armorPierce = apMod ? armorPierceMul(apMod.level ?? 1) : 0;
-      const isShieldBreaker = mods.some(m => m.type === 'shield_breaker');
+      const sbMod = mods.find(m => m.type === 'shield_breaker');
+      const isShieldBreaker = sbMod ? shieldBreakMul(sbMod.level ?? 1) : false;
       const hitR = PROJECTILE_RADIUS * this.pool.size[i];
 
       // Find hit target (projectile radius + enemy.radius)
@@ -168,7 +179,7 @@ export class ProjectileSystem {
 
       if (hitAny && target) {
         if (aoeMod) {
-          const radius = aoeMod.radius || 50;
+          const radius = aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1);
           const aoeCandidates = spatial.query(px, py, radius + 20); // 20 padding for enemy sizes
           for (const cid of aoeCandidates) {
             const ce = enemies.find(en => en.id === cid);
@@ -207,6 +218,7 @@ export class ProjectileSystem {
             // Bounce: keep full damage, pick new direction
             const angle = rng.combat.next() * Math.PI * 2;
             const speed = Math.sqrt(this.pool.vx[i]**2 + this.pool.vy[i]**2) || 200;
+            this.pool.damage[i] *= bounceDamageMul(bounceMod!.level ?? 1);
             this.pool.vx[i] = Math.cos(angle) * speed;
             this.pool.vy[i] = Math.sin(angle) * speed;
             // We'll advance it slightly to avoid re-colliding immediately?
@@ -214,7 +226,7 @@ export class ProjectileSystem {
             this.pool.y[i] += this.pool.vy[i] * 0.1;
           } else if (isPiercing) {
             const damageSpent = res.hpDamage; // actual hp taken
-            const drop = Math.max(damage * 0.1, damageSpent);
+            const drop = Math.max(damage * 0.1, damageSpent) * pierceCostMul(pierceMod!.level ?? 1);
             this.pool.damage[i] -= drop;
             if (this.pool.damage[i] <= 0) {
               this.pool.free(i);

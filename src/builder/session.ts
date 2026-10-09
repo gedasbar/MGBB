@@ -1,4 +1,5 @@
 import { BuilderModel } from './model';
+import { getProgressStore } from '../econ/progress';
 
 let shared: BuilderModel | null = null;
 
@@ -12,7 +13,7 @@ function safeStorage(): Storage | null {
 
 /** One builder model for the whole session, so undo history and the circuit survive a trip to the Fly screen. */
 export function getBuilderModel(): BuilderModel {
-  if (!shared) shared = new BuilderModel(safeStorage());
+  if (!shared) shared = new BuilderModel(safeStorage(), undefined, getProgressStore());
   return shared;
 }
 

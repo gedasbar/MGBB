@@ -7,7 +7,8 @@ import { compile, EjectorRecipe, Grid } from '../engine/compiler';
 import { evalDamage } from '../engine/compilerTypes';
 import { rng } from '../rng';
 import { PointerState } from '../input';
-import { buildStarterGrid, ROCK_HP, ROCK_RADIUS } from './starter';
+import { buildStarterGrid, ROCK_RADIUS } from './starter';
+import { leakDamage, rockHp, rockReward, tierOfTime } from '../econ/economy';
 
 export const TOUCH_OFFSET_Y = -40; // finger sits below the ship on touch
 export const PROJECTILE_SPEED = 600;
@@ -16,6 +17,8 @@ export const CONTACT_DAMAGE = 10;
 export const PX_PER_CELL = 14;
 
 export interface HitEvent { enemyId: number; damage: number; x: number; y: number; }
+/** An enemy body died: `reward` is the credits it paid (fractional; the run keeps the exact total). */
+export interface KillEvent { x: number; y: number; reward: number; generation: number; }
 export interface SplitEvent { parentId: number; x: number; y: number; childIds: number[]; }
 
 /**
@@ -40,6 +43,13 @@ export class World {
   gameOver = false;
 
   time = 0;
+  /** Bodies killed this run and the exact (fractional) credits they paid. */
+  kills = 0;
+  creditsExact = 0;
+  /** Highest tier reached this run. */
+  maxTier = 1;
+  /** Rocks that reached the bottom edge. */
+  leaks = 0;
   autoSpawn: boolean;
   private pulseTimer = 0;
   private spawnTimer = 0;
@@ -48,6 +58,7 @@ export class World {
   /** Events produced during the last update() calls; consumers clear them. */
   hits: HitEvent[] = [];
   splits: SplitEvent[] = [];
+  killEvents: KillEvent[] = [];
 
   constructor(opts: { grid?: Grid; autoSpawn?: boolean } = {}) {
     const compiled = compile(opts.grid ?? buildStarterGrid());
@@ -65,7 +76,19 @@ export class World {
     };
   }
 
+  /** Tier of the run: starts at 1 and rises by one every 15 seconds of survival. */
+  get tier(): number { return tierOfTime(this.time); }
+
+  /** Whole credits earned so far (the HUD number and the summary). */
+  get credits(): number { return Math.floor(this.creditsExact + 1e-9); }
+
   reset() {
+    this.time = 0;
+    this.kills = 0;
+    this.creditsExact = 0;
+    this.maxTier = 1;
+    this.leaks = 0;
+    this.killEvents.length = 0;
     this.hull = this.maxHull;
     this.invuln = 0;
     this.knockX = 0;
@@ -81,8 +104,10 @@ export class World {
     this.splits.length = 0;
   }
 
-  spawnRock(x: number, y: number, hp: number = ROCK_HP) {
-    return this.mitosis.spawn('mitotic_rock', 1, hp, x, y, ROCK_RADIUS);
+  spawnRock(x: number, y: number, hp: number = rockHp(this.tier)) {
+    const e = this.mitosis.spawn('mitotic_rock', 1, hp, x, y, ROCK_RADIUS);
+    if (e) e.tier = this.tier;
+    return e;
   }
 
   /** Fire one pulse: one projectile per compiled ejector recipe (chance gates may drop or boost it). */
@@ -111,6 +136,7 @@ export class World {
   update(dt: number, pointer: PointerState) {
     if (this.gameOver) return;
     this.time += dt;
+    if (this.tier > this.maxTier) this.maxTier = this.tier;
     if (this.invuln > 0) this.invuln -= dt;
 
     // --- Ship: pointer only. Mouse = exact, touch = small upward offset while pressed.
@@ -218,6 +244,10 @@ export class World {
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       if (e.hp <= 0) {
+        const reward = rockReward(e.tier, e.generation);
+        this.kills++;
+        this.creditsExact += reward;
+        this.killEvents.push({ x: e.x, y: e.y, reward, generation: e.generation });
         const firstChildId = this.mitosis.nextId;
         this.mitosis.handleDeath(e, -e.hp);
         const childIds: number[] = [];
@@ -230,9 +260,13 @@ export class World {
         }
         this.kicks.delete(e.id);
         this.splits.push({ parentId: e.id, x: e.x, y: e.y, childIds });
-      } else if (e.y > CONFIG.VIEW.H + 50) {
+      } else if (e.y >= CONFIG.VIEW.H) {
+        // Leak: the rock reached the bottom edge. It is removed and hurts the hull by its size.
         enemies.splice(i, 1);
         this.kicks.delete(e.id);
+        this.leaks++;
+        this.hull -= leakDamage(this.maxHull, e.generation);
+        if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
       }
     }
   }

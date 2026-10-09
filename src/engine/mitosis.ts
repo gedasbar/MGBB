@@ -16,6 +16,8 @@ export interface MitosisEnemy {
   vy: number;
   radius: number;
   cauterizedTimer: number;
+  /** Run tier the family was spawned at; children inherit it. Sets HP and reward. */
+  tier: number;
 }
 
 export class MitosisSystem {
@@ -42,7 +44,8 @@ export class MitosisSystem {
       vx: 0,
       vy: 0,
       radius,
-      cauterizedTimer: 0
+      cauterizedTimer: 0,
+      tier: 1
     };
 
     this.enemies.push(enemy);
@@ -118,7 +121,8 @@ export class MitosisSystem {
       const cx = parent.x + Math.cos(angle) * offset;
       const cy = parent.y + Math.sin(angle) * offset;
       
-      this.spawn(rule.childDefId, parent.generation + 1, childHp, cx, cy, childRadius);
+      const child = this.spawn(rule.childDefId, parent.generation + 1, childHp, cx, cy, childRadius);
+      if (child) child.tier = parent.tier;
     }
   }
 }

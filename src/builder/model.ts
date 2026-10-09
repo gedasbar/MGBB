@@ -1,15 +1,14 @@
 import { compile, CompiledShip, CompileStats, Grid } from '../engine/compiler';
 import { normalizeRotation } from '../engine/compilerTypes';
-import { BLOCKS, pickerBlocks } from '../data/blocks';
+import { BLOCKS } from '../data/blocks';
 import { cloneGrid, HULL_BUILDERS } from '../game/gridUtils';
+import { ProgressStore } from '../econ/progress';
 import {
   BlockEntry, decodeLayout, DEFAULT_HULL, encodeLayout, entriesFromGrid, gridFromEntries, LEGACY_KEY,
   loadBuilder, SavedBuilder, serializeBuilder, SlotId, STORAGE_KEY,
 } from './persist';
 
 export const UNDO_LIMIT = 50;
-/** Generous starting count of every placeable block. */
-export const STARTING_COUNT = 20;
 
 export interface StorageLike {
   getItem(k: string): string | null;
@@ -25,12 +24,6 @@ interface SlotState {
   redo: string[];
 }
 
-export function startingInventory(): Record<string, number> {
-  const inv: Record<string, number> = {};
-  for (const b of pickerBlocks()) inv[b.id] = STARTING_COUNT;
-  return inv;
-}
-
 /**
  * Headless builder state: two circuits per hull, undo/redo, inventory, persistence.
  * No rendering in here, so everything is unit-testable.
@@ -38,13 +31,17 @@ export function startingInventory(): Record<string, number> {
 export class BuilderModel {
   hullId = DEFAULT_HULL;
   active: SlotId = 'A';
-  readonly owned: Record<string, number> = startingInventory();
+  /** Credits, owned counts and block levels. Shared with the Shop. */
+  readonly store: ProgressStore;
+  /** Blocks removed from saved circuits because the player owns fewer than the circuit used. */
+  trimmed = 0;
   compiled!: CompiledShip;
   private slots!: Record<SlotId, SlotState>;
   private saved: SavedBuilder;
   private listeners = new Set<() => void>();
 
-  constructor(private storage: StorageLike | null = null, hullId?: string) {
+  constructor(private storage: StorageLike | null = null, hullId?: string, store?: ProgressStore) {
+    this.store = store ?? new ProgressStore(storage);
     let raw: string | null = null;
     let legacy: string | null = null;
     try {
@@ -55,10 +52,16 @@ export class BuilderModel {
     }
     this.saved = loadBuilder(raw, legacy);
     this.loadHull(hullId ?? this.saved.activeHull ?? DEFAULT_HULL);
-    if ((!raw || legacy) && storage) this.persist(); // write the new format over a migrated save
+    if ((!raw || legacy || this.trimmed > 0) && storage) this.persist(); // write the new format over a migrated save
   }
 
+  /** Owned count per block id (a live view of the progress object). */
+  get owned(): Record<string, number> { return this.store.data.owned; }
+
+  levelOf(blockId: string): number { return this.store.data.levels[blockId] ?? 1; }
+
   private loadHull(hullId: string) {
+    if (!this.store.data.ownedHulls.includes(hullId)) hullId = DEFAULT_HULL;
     this.hullId = hullId;
     const hs = this.saved.hulls[hullId] ?? { active: 'A' as SlotId, slots: { A: [], B: [] } };
     this.active = hs.active;
@@ -66,7 +69,49 @@ export class BuilderModel {
       A: { grid: gridFromEntries(hullId, hs.slots.A), undo: [], redo: [] },
       B: { grid: gridFromEntries(hullId, hs.slots.B), undo: [], redo: [] },
     };
+    for (const s of Object.values(this.slots)) this.syncLevels(s.grid);
+    this.trimmed += this.trimToInventory();
     this.compiled = compile(this.grid);
+  }
+
+  /** Every placed block takes its level from the saved progress. */
+  private syncLevels(g: Grid) {
+    for (const c of g.cells) if (c.blockId) c.level = this.levelOf(c.blockId);
+  }
+
+  /** Re-reads levels after an upgrade (or a progress reset) and recompiles. */
+  refreshLevels() {
+    for (const s of Object.values(this.slots)) this.syncLevels(s.grid);
+    this.commit();
+  }
+
+  /**
+   * Removes blocks a circuit uses beyond what is owned (the last ones in reading order go first) and
+   * returns how many were removed. Covers both circuits of the current hull.
+   */
+  trimToInventory(): number {
+    let removed = 0;
+    for (const s of Object.values(this.slots)) {
+      const used = new Map<string, number>();
+      for (const c of s.grid.cells) {
+        if (!c.blockId) continue;
+        const n = (used.get(c.blockId) ?? 0) + 1;
+        used.set(c.blockId, n);
+        if (n > (this.owned[c.blockId] ?? 0)) {
+          c.blockId = null; c.level = 1; c.rotation = 0; c.manual = false;
+          removed++;
+        }
+      }
+    }
+    return removed;
+  }
+
+  /** Trims, recompiles and saves; returns how many blocks were removed. */
+  enforceInventory(): number {
+    const n = this.trimToInventory();
+    if (n > 0) { for (const s of Object.values(this.slots)) { s.undo.length = 0; s.redo.length = 0; } }
+    this.commit();
+    return n;
   }
 
   get grid(): Grid {
@@ -123,7 +168,9 @@ export class BuilderModel {
   }
 
   private restore(snap: string) {
-    this.slots[this.active].grid = gridFromEntries(this.hullId, JSON.parse(snap) as BlockEntry[]);
+    const g = gridFromEntries(this.hullId, JSON.parse(snap) as BlockEntry[]);
+    this.syncLevels(g);
+    this.slots[this.active].grid = g;
   }
 
   get canUndo(): boolean { return this.slots[this.active].undo.length > 0; }
@@ -165,7 +212,7 @@ export class BuilderModel {
     if (this.available(blockId) <= 0) return { ok: false, error: `No ${def.name} left` };
     this.pushUndo();
     c.blockId = blockId;
-    c.level = 1;
+    c.level = this.levelOf(blockId);
     c.rotation = 0;
     c.manual = false;
     this.commit();
@@ -224,6 +271,7 @@ export class BuilderModel {
   /** Switches the hull being built (each hull keeps its own A and B circuits). Undo history starts fresh. */
   switchHull(hullId: string): EditResult {
     if (!(hullId in HULL_BUILDERS)) return { ok: false, error: 'Unknown hull' };
+    if (!this.store.data.ownedHulls.includes(hullId)) return { ok: false, error: 'Hull locked: buy it in the Shop' };
     if (hullId === this.hullId) return { ok: true };
     this.persist();
     this.loadHull(hullId);
@@ -251,7 +299,9 @@ export class BuilderModel {
       if (n > (this.owned[id] ?? 0)) return { ok: false, error: `Not enough ${BLOCKS[id].name} for that layout` };
     }
     this.pushUndo();
-    this.slots[this.active].grid = gridFromEntries(this.hullId, res.entries);
+    const g = gridFromEntries(this.hullId, res.entries);
+    this.syncLevels(g);
+    this.slots[this.active].grid = g;
     this.commit();
     return { ok: true };
   }
@@ -264,7 +314,7 @@ export class BuilderModel {
     const g = cloneGrid(this.grid);
     const c = g.cells[y * g.w + x];
     c.blockId = blockId;
-    c.level = 1;
+    c.level = blockId ? this.levelOf(blockId) : 1;
     c.rotation = 0;
     c.manual = false;
     return { grid: g, compiled: compile(g) };

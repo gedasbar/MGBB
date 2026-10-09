@@ -4,10 +4,18 @@ import { World } from '../game/world';
 import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
+import { THEME } from '../ui/theme';
+import { fmtBig } from '../ui/format';
+import { makeText } from '../builder/ui';
+import { getProgressStore } from '../econ/progress';
+import { debugHooks } from '../debug/hooks';
+import { RunSummaryScreen } from './RunSummaryScreen';
 
 const ROCK_COLOR = 0xffa500;
 const FLASH_TIME = 0.08;
 const DMG_NUMBER_LIFE = 0.6;
+/** Seconds between the hull reaching 0 and the Run Summary appearing. */
+const END_DELAY = 0.7;
 
 interface DmgNum { t: Text; life: number; }
 interface Burst { g: Graphics; life: number; }
@@ -31,11 +39,18 @@ export class FlyScreen implements Screen {
   dmgNums: DmgNum[] = [];
   bursts: Burst[] = [];
   
-  gameOverText = new Text({ text: 'GAME OVER', style: { fill: 0xff4444, align: 'center', fontSize: 48, fontWeight: 'bold' } });
-  restartBtn = new Container();
+  creditsText = makeText('Credits +0', 16, THEME.currency, { fontWeight: 'bold' });
+  tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
 
-  constructor(private screenManager: ScreenManager, grid: Grid, private backToBuild: () => void) {
+  /** Credits already shown as "+N" popups (whole credits), and the exact total they are measured against. */
+  private shownCredits = 0;
+  private popupTotal = 0;
+  private endTimer = 0;
+  private finished = false;
+
+  constructor(private screenManager: ScreenManager, grid: Grid) {
     this.world = new World({ grid });
+    debugHooks.world = this.world;
     
     this.container.addChild(this.projLayer, this.enemyLayer);
     this.container.addChild(this.shipGfx, this.fxLayer, this.uiLayer);
@@ -63,21 +78,9 @@ export class FlyScreen implements Screen {
       this.dmgNums.push({ t, life: 0 });
     }
 
-    this.gameOverText.anchor.set(0.5);
-    this.gameOverText.position.set(CONFIG.VIEW.W / 2, CONFIG.VIEW.H / 2 - 40);
-    
-    this.restartBtn.addChild(new Graphics().roundRect(-90, -28, 180, 56, 12).fill(0x2266ff));
-    const restartLabel = new Text({ text: 'BACK TO BUILD', style: { fill: 0xffffff, fontSize: 22, fontWeight: 'bold' } });
-    restartLabel.anchor.set(0.5);
-    this.restartBtn.addChild(restartLabel);
-    this.restartBtn.position.set(CONFIG.VIEW.W / 2, CONFIG.VIEW.H / 2 + 40);
-    this.restartBtn.eventMode = 'static';
-    this.restartBtn.cursor = 'pointer';
-    this.restartBtn.on('pointerdown', () => this.backToBuild());
-    
-    this.gameOverText.visible = false;
-    this.restartBtn.visible = false;
-    this.uiLayer.addChild(this.gameOverText, this.restartBtn);
+    this.creditsText.position.set(20, 36);
+    this.tierText.position.set(20, 56);
+    this.uiLayer.addChild(this.creditsText, this.tierText);
 
     // Dev-only hook
     if (import.meta.env.DEV) {
@@ -95,8 +98,15 @@ export class FlyScreen implements Screen {
   }
 
   showDamage(x: number, y: number, dmg: number) {
+    this.showNumber(x, y, `${Math.round(dmg)}`, 0xffffff, 18);
+  }
+
+  /** Floating number from the shared pool: white damage numbers and small yellow "+N" credit popups. */
+  showNumber(x: number, y: number, text: string, color: number, size: number) {
     const slot = this.dmgNums.find(d => d.life <= 0) ?? this.dmgNums[0];
-    slot.t.text = `${Math.round(dmg)}`;
+    slot.t.text = text;
+    slot.t.style.fill = color;
+    slot.t.style.fontSize = size;
     slot.t.position.set(x + (Math.random() - 0.5) * 12, y - 10);
     slot.t.alpha = 1;
     slot.t.visible = true;
@@ -111,7 +121,19 @@ export class FlyScreen implements Screen {
       this.showDamage(h.x, h.y, h.damage);
     }
     this.world.hits.length = 0;
-    
+
+    for (const k of this.world.killEvents) {
+      this.popupTotal += k.reward;
+      const whole = Math.floor(this.popupTotal + 1e-9);
+      if (whole > this.shownCredits) {
+        this.showNumber(k.x, k.y - 6, `+${fmtBig(whole - this.shownCredits)}`, THEME.currency, 14);
+        this.shownCredits = whole;
+      }
+    }
+    this.world.killEvents.length = 0;
+    this.creditsText.text = `Credits +${fmtBig(this.world.credits)}`;
+    this.tierText.text = `Tier ${this.world.tier}`;
+
     for (const s of this.world.splits) {
       const g = new Graphics().circle(0, 0, 20).stroke({ color: 0xffffff, width: 3 });
       g.position.set(s.x, s.y);
@@ -178,13 +200,23 @@ export class FlyScreen implements Screen {
       if (b.life <= 0) { b.g.destroy(); this.bursts.splice(i, 1); }
     }
 
-    if (this.world.gameOver && !this.restartBtn.visible) {
-      this.gameOverText.visible = true;
-      this.restartBtn.visible = true;
+    if (this.world.gameOver && !this.finished) {
+      this.endTimer += frameTime;
+      if (this.endTimer >= END_DELAY) this.finish();
     }
   }
 
+  /** The run is over: bank it exactly once and show the summary. */
+  private finish() {
+    this.finished = true;
+    const w = this.world;
+    const result = { credits: w.credits, kills: w.kills, time: w.time, tier: w.maxTier };
+    const marks = getProgressStore().recordRun(result);
+    this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks));
+  }
+
   destroy() {
+    if (debugHooks.world === this.world) debugHooks.world = null;
     this.container.destroy({ children: true });
   }
 }

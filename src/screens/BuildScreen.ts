@@ -15,12 +15,15 @@ import {
   cellFromPoint, clampView, fitView, inRect, LAYOUT, MIN_TAP, panBy, panToReveal, View, VIEW_H, VIEW_W, zoomAt,
 } from '../builder/layout';
 import {
-  COLORS, drawTabIcon, drawToolIcon, TabIcon, ToolIcon,
+  COLORS, drawToolIcon, ToolIcon,
 } from '../builder/draw';
 import { InfoPanel, Inspector, makeText, StatsStrip, Toast, UIButton } from '../builder/ui';
 import { Rect } from '../builder/layout';
 import { Picker, REMOVE_TILE } from '../builder/picker';
 import { THEME } from '../ui/theme';
+import { CreditsBadge } from '../ui/hud';
+import { makeTabButtons } from '../builder/tabs';
+import { ShopScreen } from './ShopScreen';
 
 const HOVER_MS = 800;
 
@@ -108,7 +111,13 @@ export class BuildScreen implements Screen {
       },
     );
     this.gestures.attach();
-    this.unsubscribe = this.model.onChange(() => this.refresh());
+    const offModel = this.model.onChange(() => this.refresh());
+    const offStore = this.model.store.onChange(() => this.credits.set(this.model.store.data.credits));
+    this.unsubscribe = () => { offModel(); offStore(); };
+    if (this.model.trimmed > 0) {
+      const n = this.model.trimmed;
+        this.toast.show(`${n} block${n === 1 ? '' : 's'} returned: you own fewer than the circuit used`, 3500);
+    }
   }
 
   destroy() {
@@ -155,12 +164,9 @@ export class BuildScreen implements Screen {
     const mode = makeText('Select', 32, THEME.text, { fontWeight: 'bold' });
     mode.anchor.set(0.5);
     mode.position.set(VIEW_W / 2, 27);
-    const money = makeText('0', 28, THEME.currency, { fontWeight: 'bold' });
-    money.anchor.set(1, 0.5);
-    money.position.set(VIEW_W - 12, 27);
-    const coinX = VIEW_W - 12 - money.width - 10 - 18;
-    const coin = new Graphics().rect(coinX, 18, 18, 18).fill(THEME.currency).rect(coinX + 5, 23, 8, 8).stroke({ color: THEME.panel, width: 2 });
-    this.container.addChild(mode, money, coin);
+    this.credits = new CreditsBadge();
+    this.credits.set(this.model.store.data.credits);
+    this.container.addChild(mode, this.credits.container);
 
     // Top bar buttons.
     this.addButton(new UIButton({
@@ -228,30 +234,10 @@ export class BuildScreen implements Screen {
     this.addButton(fly);
 
     // Tab bar.
-    const tabs: { id: string; icon: TabIcon; label: string }[] = [
-      { id: 'tabBuild', icon: 'build', label: 'Build' },
-      { id: 'tabShop', icon: 'shop', label: 'Shop' },
-      { id: 'tabCaptain', icon: 'captain', label: 'Captain' },
-      { id: 'tabSkills', icon: 'skills', label: 'Skills' },
-      { id: 'tabMap', icon: 'map', label: 'Map' },
-    ];
-    tabs.forEach((t, i) => {
-      const active = i === 0;
-      this.addButton(new UIButton({
-        id: t.id, rect: { x: i * 108, y: LAYOUT.tabs.y + 1, w: 108, h: LAYOUT.tabs.h - 1 }, label: t.label, labelSize: 12, labelColor: active ? THEME.text : THEME.textDim,
-        onTap: () => { if (!active) this.toast.show('Coming soon'); },
-        draw: (g, b) => {
-          const on = active || b.lit;
-          if (on) g.rect(b.rect.w / 2 - 19, 2, 38, 36).fill(THEME.pressedFill);
-          const ic = new Graphics();
-          drawTabIcon(ic, t.icon, 24, on ? THEME.pressedIcon : THEME.buttonIcon);
-          ic.position.set(b.rect.w / 2, 20);
-          g.addChild(ic);
-        },
-      }));
-    });
+    for (const b of makeTabButtons('tabBuild', (id) => this.tapTab(id))) this.addButton(b);
   }
 
+  private credits!: CreditsBadge;
   private abLabel!: ReturnType<typeof makeText>;
   private flyLabel: ReturnType<typeof makeText> | null = null;
 
@@ -335,6 +321,8 @@ export class BuildScreen implements Screen {
         ledger: this.tip.visible ? this.tipText.text : null,
         hull: this.model.hullId,
         hullPanelOpen: this.hullPanel.visible,
+        credits: this.model.store.data.credits,
+        creditsText: this.credits.text,
       }),
     };
   }
@@ -413,6 +401,12 @@ export class BuildScreen implements Screen {
     this.select(c);
   }
 
+  private tapTab(id: string) {
+    if (id === 'tabBuild') return;
+    if (id === 'tabShop') { this.sm.switchTo(new ShopScreen(this.sm)); return; }
+    this.toast.show('Coming soon');
+  }
+
   private disabledHint(id: string) {
     if (id === 'undo' || id === 'redo') this.toast.show(`Nothing to ${id}`);
     else this.toast.show('Select a block first');
@@ -459,7 +453,7 @@ export class BuildScreen implements Screen {
     if (blockId) {
       const def = BLOCKS[blockId];
       const ok = p && p.compiled.recipes.length > 0;
-      this.inspector.set(ok ? def.name : `${def.name} · no ejector reached`, describeBlock(def, 1), ok ? THEME.text : THEME.warn);
+      this.inspector.set(ok ? def.name : `${def.name} · no ejector reached`, describeBlock(def, this.model.levelOf(blockId)), ok ? THEME.text : THEME.warn);
     } else {
       this.inspector.set('Remove', 'Clears this cell and returns the block to your inventory.');
     }
@@ -550,10 +544,11 @@ export class BuildScreen implements Screen {
     HULL_INFO.forEach((h, i) => {
       const rect: Rect = { x: 28, y: 204 + i * 84, w: VIEW_W - 56, h: 72 };
       const active = h.id === this.model.hullId;
+      const locked = !this.model.store.data.ownedHulls.includes(h.id);
       const row = new Graphics().rect(rect.x, rect.y, rect.w, rect.h).fill(THEME.buttonFill).stroke({ color: active ? THEME.select : THEME.border, width: active ? 3 : 1.5 });
-      const name = makeText(active ? `${h.name} (current)` : h.name, 20, THEME.text, { fontWeight: 'bold' });
+      const name = makeText(active ? `${h.name} (current)` : locked ? `${h.name} (locked)` : h.name, 20, locked ? THEME.disabled : THEME.text, { fontWeight: 'bold' });
       name.position.set(rect.x + 14, rect.y + 10);
-      const desc = makeText(h.desc, 14, THEME.textDim, { wordWrap: true, wordWrapWidth: rect.w - 28 });
+      const desc = makeText(locked ? 'Locked: buy it in the Shop.' : h.desc, 14, locked ? THEME.disabled : THEME.textDim, { wordWrap: true, wordWrapWidth: rect.w - 28 });
       desc.position.set(rect.x + 14, rect.y + 38);
       this.hullPanel.addChild(row, name, desc);
       this.hullRows.push({ id: h.id, rect });
@@ -570,7 +565,12 @@ export class BuildScreen implements Screen {
     this.selected = null;
     this.fit();
     this.refresh();
-    this.toast.show(`Hull: ${HULL_INFO.find(h => h.id === row.id)?.name ?? row.id}`, 1400);
+    const hullName = HULL_INFO.find(h => h.id === row.id)?.name ?? row.id;
+    if (this.model.trimmed > 0) {
+      const n = this.model.trimmed;
+      this.model.trimmed = 0;
+      this.toast.show(`Hull: ${hullName}. ${n} block${n === 1 ? '' : 's'} returned: you own fewer than the circuit used`, 3500);
+    } else this.toast.show(`Hull: ${hullName}`, 1400);
   }
 
   // ------------------------------------------------------------------ actions
@@ -631,6 +631,6 @@ export class BuildScreen implements Screen {
       this.toast.show("Your circuit doesn't reach an ejector");
       return;
     }
-    this.sm.switchTo(new FlyScreen(this.sm, this.model.gridForFlight(), () => this.sm.switchTo(new BuildScreen(this.sm))));
+    this.sm.switchTo(new FlyScreen(this.sm, this.model.gridForFlight()));
   }
 }

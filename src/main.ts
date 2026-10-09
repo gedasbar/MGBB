@@ -5,6 +5,7 @@ import { CONFIG } from './config';
 import { InputManager } from './input';
 import { ScreenManager } from './screens/ScreenManager';
 import { BuildScreen } from './screens/BuildScreen';
+import { DebugPanel } from './debug/panel';
 
 const perfDiv = document.createElement('div');
 perfDiv.style.position = 'absolute';
@@ -45,6 +46,7 @@ document.body.appendChild(perfDiv);
     }
   });
 
+  new DebugPanel().init();
   const screenManager = new ScreenManager(app, input);
   screenManager.switchTo(new BuildScreen(screenManager));
 

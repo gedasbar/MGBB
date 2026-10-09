@@ -31,13 +31,16 @@ export function applyDamage(
   tier: number,
   /** Multiplier on direct damage against armored enemies (true = 2); 0 or false = none. */
   armorPierce: number | boolean = false,
-  isShieldBreaker: boolean = false
+  /** true = x1.5 (level 1); a number is the direct-damage multiplier of a higher Shield-Breaker level. */
+  shieldBreaker: boolean | number = false
 ): DamageResult {
+  const isShieldBreaker = !!shieldBreaker;
+  const sbMul = shieldBreaker === true ? 1.5 : typeof shieldBreaker === 'number' ? shieldBreaker : 1;
   let pureDmg = damage * pureFrac;
   let directDmg = damage - pureDmg;
   
   if (isShieldBreaker) {
-    directDmg *= 1.5; // Example shield breaker logic? "Bonus x damage vs shields only". Let's say x2?
+    directDmg *= sbMul; // Example shield breaker logic? "Bonus x damage vs shields only". Let's say x2?
     // Wait, the spec says "Shield-Breaker: Bonus xdamage vs shields only"
     // I'll assume directDmg is multiplied for the shield portion. 
     // Let's do it carefully.

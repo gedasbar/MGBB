@@ -1,4 +1,4 @@
-import { aoeRectSize, armorPierceMul, forkDamageFrac, CURVE_RATE_DEG, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG, RANDOM_CURVE_MAX_DEG } from '../engine/projectiles';
+import { aoeCircleRadius, shieldBreakMul, aoeRectSize, armorPierceMul, forkDamageFrac, CURVE_RATE_DEG, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG, RANDOM_CURVE_MAX_DEG } from '../engine/projectiles';
 import { addDamage, BlockCategory, BlockDef, gateDamage, Modifier, mulDamage, Packet, Rel } from '../engine/compilerTypes';
 
 export const BLOCKS: Record<string, BlockDef> = {};
@@ -168,14 +168,24 @@ modBlock('residue_seed', 'Residue Seed', 'damage', 1, { type: 'residue_seed' }, 
 modBlock('overkill_spill', 'Overkill Spill', 'damage', 1, { type: 'overkill_spill' }, 'Spills overkill damage.');
 
 // ---------------------------------------------------------------- Projectile modifiers
-modBlock('piercing', 'Piercing', 'modifier', 3, { type: 'piercing' },
-  'Projectiles pass through enemies. Each hit costs the projectile the damage it dealt (at least 10% of its damage).', true);
-modBlock('bouncing', 'Bouncing', 'modifier', 5, { type: 'bouncing' },
-  'Projectiles that hit an armored enemy ricochet in a random direction, keeping their damage.', true);
-modBlock('aoe_circle', 'AoE - Circle', 'modifier', 5, { type: 'aoe_circle' },
-  'Projectiles explode on impact, hitting every enemy within 50 units for full damage.', true);
-modBlock('shield_breaker', 'Shield-Breaker', 'modifier', 3, { type: 'shield_breaker' },
-  'Direct damage ×1.5, and shields take double on top of that.', true);
+/** A shown projectile modifier whose strength scales with the block level (the level travels in the modifier). */
+function levelMod(id: string, name: string, maxLevel: number, mod: Modifier, desc: (l: number) => string) {
+  register({
+    id, name, category: 'modifier', maxLevel, outputs: FWD, desc, shown: true,
+    transform: (p, l) => { p.mods.push({ ...mod, level: l }); },
+  });
+}
+
+levelMod('piercing', 'Piercing', 3, { type: 'piercing' },
+  (l) => l === 1
+    ? 'Projectiles pass through enemies. Each hit costs the projectile the damage it dealt (at least 10% of its damage).'
+    : `Projectiles pass through enemies. Each hit costs the projectile 1/${l} of the damage it dealt (at least ${Math.round(10 / l * 10) / 10}% of its damage).`);
+levelMod('bouncing', 'Bouncing', 5, { type: 'bouncing' },
+  (l) => `Projectiles that hit an armored enemy ricochet in a random direction, keeping their damage${l > 1 ? ` and gaining ${(l - 1) * 10}% on every ricochet` : ''}.`);
+levelMod('aoe_circle', 'AoE - Circle', 5, { type: 'aoe_circle' },
+  (l) => `Projectiles explode on impact, hitting every enemy within ${aoeCircleRadius(l)} units for full damage.`);
+levelMod('shield_breaker', 'Shield-Breaker', 3, { type: 'shield_breaker' },
+  (l) => `Direct damage �${shieldBreakMul(l)}, and shields take double on top of that.`);
 register({
   id: 'pure_converter', name: 'Pure Converter', category: 'modifier', maxLevel: 5, outputs: FWD,
   desc: (l) => `Converts ${15 * l}% of projectile damage to pure damage, which ignores armor.`,
@@ -188,14 +198,6 @@ modBlock('chain_lightning', 'Chain Lightning', 'modifier', 5, { type: 'chain_lig
 modBlock('mine', 'Mine', 'modifier', 1, { type: 'mine' }, 'Projectiles become mines.');
 modBlock('gravity_well', 'Gravity Well', 'modifier', 3, { type: 'gravity_well' }, 'Projectiles pull enemies in.');
 modBlock('magnetized', 'Magnetized', 'modifier', 1, { type: 'magnetized' }, 'Projectiles are magnetised.');
-
-/** A shown projectile modifier whose strength scales with the block level (the level travels in the modifier). */
-function levelMod(id: string, name: string, maxLevel: number, mod: Modifier, desc: (l: number) => string) {
-  register({
-    id, name, category: 'modifier', maxLevel, outputs: FWD, desc, shown: true,
-    transform: (p, l) => { p.mods.push({ ...mod, level: l }); },
-  });
-}
 
 levelMod('curving_right', 'Curving Right', 3, { type: 'curve', dir: 'right' },
   (l) => `After launch, projectiles turn clockwise at ${CURVE_RATE_DEG * l}° per second.`);

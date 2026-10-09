@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BuilderModel, StorageLike, UNDO_LIMIT } from '../src/builder/model';
+import { richModel } from './helpers';
 import { decodeLayout, DEFAULT_SHUTTLE_A, LEGACY_KEY, legacyCellType, loadBuilder, STORAGE_KEY } from '../src/builder/persist';
 import '../src/data/blocks';
 
@@ -18,7 +19,7 @@ const FLAT = { x: 8, y: 5 };
 
 describe('builder model: edits, inventory and rotation', () => {
   it('starts with the default circuit: reaches the ejector, >= 100 damage, all blocks auto', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     expect(m.compiled.recipes.length).toBe(1);
     expect(m.compiled.stats.damagePerShot).toBeGreaterThanOrEqual(100);
     expect(m.grid.cells.filter(c => c.blockId).every(c => c.manual === false)).toBe(true);
@@ -26,7 +27,7 @@ describe('builder model: edits, inventory and rotation', () => {
   });
 
   it('placing decrements and removing / replacing returns the inventory', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     const before = m.available('percent_mult');
     expect(m.place(8, 4, 'percent_mult')).toEqual({ ok: true });
     expect(m.available('percent_mult')).toBe(before - 1);
@@ -37,7 +38,7 @@ describe('builder model: edits, inventory and rotation', () => {
   });
 
   it('refuses to place on fixed cells, with no blocks left, or a hidden block', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     expect(m.place(5, 0, 'flat_plus').ok).toBe(false); // void cell (6,1)
     expect(m.place(5, 10, 'flat_plus').ok).toBe(false); // generator
     expect(m.place(8, 1, 'flat_plus').ok).toBe(false); // ejector
@@ -49,7 +50,7 @@ describe('builder model: edits, inventory and rotation', () => {
   });
 
   it('rotating switches to manual from the displayed orientation and blocks / unblocks the line', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     const dmg = () => m.compiled.stats.damagePerShot;
     expect(dmg()).toBe(101);
 
@@ -70,7 +71,7 @@ describe('builder model: edits, inventory and rotation', () => {
   });
 
   it('four clockwise rotations return to the start; off-line blocks can be pre-oriented', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     m.place(3, 3, 'percent_mult'); // off the line
     const seen: number[] = [];
     for (let i = 0; i < 4; i++) { m.rotate(3, 3, 1); seen.push(m.cellAt(3, 3)!.rotation); }
@@ -81,7 +82,7 @@ describe('builder model: edits, inventory and rotation', () => {
   });
 
   it('rotation starts from the displayed (auto) orientation, not the stored one', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     m.place(6, 8, 'flat_plus'); // horizontal part of the route: auto shows it facing east
     expect(m.compiled.cellInfo[8 * m.grid.w + 6].effectiveRotation).toBe(90);
     m.rotate(6, 8, 1);
@@ -89,7 +90,7 @@ describe('builder model: edits, inventory and rotation', () => {
   });
 
   it('clear all empties the circuit and is a no-op error when already empty', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     expect(m.clearAll().ok).toBe(true);
     expect(m.grid.cells.some(c => c.blockId)).toBe(false);
     expect(m.clearAll().ok).toBe(false);
@@ -97,7 +98,7 @@ describe('builder model: edits, inventory and rotation', () => {
   });
 
   it('undo / redo cover place, rotate, auto-orient, clear cell, clear all and paste', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     const sig = () => JSON.stringify(m.grid.cells.filter(c => c.blockId));
     const states = [sig()];
     m.place(8, 4, 'percent_mult'); states.push(sig());
@@ -116,7 +117,7 @@ describe('builder model: edits, inventory and rotation', () => {
   });
 
   it('a new edit clears the redo stack and history is capped at 50', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     m.place(8, 4, 'percent_mult');
     m.undo();
     expect(m.canRedo).toBe(true);
@@ -129,7 +130,7 @@ describe('builder model: edits, inventory and rotation', () => {
   });
 
   it('A and B are independent circuits; switching keeps each one and its history', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     expect(m.grid.cells.filter(c => c.blockId).length).toBe(3);
     m.switchSlot('B');
     expect(m.grid.cells.filter(c => c.blockId).length).toBe(0);
@@ -144,7 +145,7 @@ describe('builder model: edits, inventory and rotation', () => {
   });
 
   it('preview compiles a block into a cell without changing the circuit and reports the new stats', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     const before = JSON.stringify(m.grid);
     const p = m.previewPlace(8, 4, 'percent_mult')!;
     expect(p.compiled.stats.damagePerShot).toBe(101 * 1.5);
@@ -156,14 +157,14 @@ describe('builder model: edits, inventory and rotation', () => {
 describe('builder persistence', () => {
   it('round-trips both circuits, rotation, manual flag and the active slot', () => {
     const storage = memStorage();
-    const a = new BuilderModel(storage);
+    const a = richModel(storage);
     a.rotate(FLAT.x, FLAT.y, 1);
     a.place(3, 3, 'percent_mult');
     a.rotate(3, 3, -1);
     a.switchSlot('B');
     a.place(5, 8, 'turn_l');
 
-    const b = new BuilderModel(storage);
+    const b = richModel(storage);
     expect(b.active).toBe('B');
     expect(b.cellAt(5, 8)).toMatchObject({ blockId: 'turn_l', manual: false });
     b.switchSlot('A');
@@ -181,7 +182,7 @@ describe('builder persistence', () => {
       { x: 4, y: 3, blockId: 'splitter_2', level: 1, rotation: 1, type: 'void' },
     ];
     const storage = memStorage({ [LEGACY_KEY]: JSON.stringify({ w: 11, h: 11, cells: oldCells }) });
-    const m = new BuilderModel(storage);
+    const m = richModel(storage);
     const blocks = m.grid.cells.filter(c => c.blockId);
     expect(blocks.map(c => c.blockId).sort()).toEqual(['flat_plus', 'turn_r']);
     expect(blocks.every(c => c.rotation === 0 && c.manual === false)).toBe(true);
@@ -201,7 +202,7 @@ describe('builder persistence', () => {
     ];
     const storage = memStorage({ [LEGACY_KEY]: JSON.stringify({ w: 11, h: 11, cells: oldCells }) });
     let m!: BuilderModel;
-    expect(() => { m = new BuilderModel(storage); }).not.toThrow();
+    expect(() => { m = richModel(storage); }).not.toThrow();
     expect(m.cellAt(5, 0)?.type).toBe('void');
     expect(m.cellAt(2, 1)?.type).toBe('void');
     expect(m.grid.cells.some(c => (c.type as string) === 'blocked')).toBe(false);
@@ -233,7 +234,7 @@ describe('builder persistence', () => {
         },
       },
     };
-    const m = new BuilderModel(memStorage({ [STORAGE_KEY]: JSON.stringify(bad) }));
+    const m = richModel(memStorage({ [STORAGE_KEY]: JSON.stringify(bad) }));
     expect(m.active).toBe('A');
     const blocks = m.grid.cells.filter(c => c.blockId);
     expect(blocks.length).toBe(1);
@@ -242,7 +243,7 @@ describe('builder persistence', () => {
 
   it('corrupt or foreign JSON falls back to the default circuit', () => {
     for (const raw of ['{ broken', 'null', '42', '"x"', '{"version":1}', '[]', '{"version":2,"hulls":5}']) {
-      const m = new BuilderModel(memStorage({ [STORAGE_KEY]: raw }));
+      const m = richModel(memStorage({ [STORAGE_KEY]: raw }));
       expect(m.grid.cells.filter(c => c.blockId).length).toBe(3);
       expect(m.compiled.recipes.length).toBe(1);
     }
@@ -254,13 +255,13 @@ describe('builder persistence', () => {
       getItem: () => { throw new Error('denied'); },
       setItem: () => { throw new Error('denied'); },
     };
-    const m = new BuilderModel(throwing);
+    const m = richModel(throwing);
     expect(m.place(8, 4, 'percent_mult').ok).toBe(true);
     expect(m.compiled.stats.damagePerShot).toBe(151.5);
   });
 
   it('copy / paste round-trips a layout and rejects junk with a message', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     m.rotate(FLAT.x, FLAT.y, 1);
     const clip = m.copyLayout();
     m.clearAll();
@@ -281,7 +282,7 @@ describe('builder persistence', () => {
 describe('builder model: hulls', () => {
   it('switching hulls keeps a separate pair of circuits per hull and remembers the active hull', () => {
     const storage = memStorage();
-    const m = new BuilderModel(storage);
+    const m = richModel(storage);
     expect(m.hullId).toBe('shuttle');
     expect(m.switchHull('fan').ok).toBe(true);
     expect(m.grid.w).toBe(9);
@@ -292,15 +293,15 @@ describe('builder model: hulls', () => {
     expect(m.grid.cells.filter(c => c.blockId).length).toBe(3);
 
     m.switchHull('fan');
-    const again = new BuilderModel(storage);
+    const again = richModel(storage);
     expect(again.hullId).toBe('fan');
     expect(again.cellAt(4, 4)?.blockId).toBe('splitter_3');
   });
 
   it('refuses an unknown hull and ignores an unknown saved hull', () => {
-    const m = new BuilderModel(null);
+    const m = richModel(null);
     expect(m.switchHull('nope').ok).toBe(false);
-    const bad = new BuilderModel(memStorage({ [STORAGE_KEY]: JSON.stringify({ version: 2, activeHull: 'nope', hulls: {} }) }));
+    const bad = richModel(memStorage({ [STORAGE_KEY]: JSON.stringify({ version: 2, activeHull: 'nope', hulls: {} }) }));
     expect(bad.hullId).toBe('shuttle');
   });
 });
