@@ -1,3 +1,4 @@
+import { aoeRectSize, armorPierceMul, forkDamageFrac, CURVE_RATE_DEG, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG, RANDOM_CURVE_MAX_DEG } from '../engine/projectiles';
 import { addDamage, BlockCategory, BlockDef, gateDamage, Modifier, mulDamage, Packet, Rel } from '../engine/compilerTypes';
 
 export const BLOCKS: Record<string, BlockDef> = {};
@@ -181,19 +182,33 @@ register({
   transform: (p, l) => { p.pure = Math.min(1, p.pure + 0.15 * l); },
   shown: true,
 });
-modBlock('curving_right', 'Curving Right', 'modifier', 3, { type: 'curve', dir: 'right' }, 'Projectiles curve right.');
-modBlock('random_curve', 'Random Curve', 'modifier', 1, { type: 'random_curve' }, 'Projectiles curve at random.');
 modBlock('boomerang', 'Boomerang', 'modifier', 1, { type: 'boomerang' }, 'Projectiles return.');
-modBlock('homing', 'Homing', 'modifier', 5, { type: 'homing' }, 'Projectiles home in.');
 modBlock('orbit', 'Orbit', 'modifier', 3, { type: 'orbit' }, 'Projectiles orbit the ship.');
-modBlock('aoe_rect', 'AoE - Rectangle', 'modifier', 5, { type: 'aoe_rect' }, 'Projectiles explode in a rectangle.');
 modBlock('chain_lightning', 'Chain Lightning', 'modifier', 5, { type: 'chain_lightning' }, 'Hits chain to nearby enemies.');
-modBlock('fork_impact', 'Fork on Impact', 'modifier', 3, { type: 'fork_impact' }, 'Projectiles fork on impact.');
 modBlock('mine', 'Mine', 'modifier', 1, { type: 'mine' }, 'Projectiles become mines.');
 modBlock('gravity_well', 'Gravity Well', 'modifier', 3, { type: 'gravity_well' }, 'Projectiles pull enemies in.');
 modBlock('magnetized', 'Magnetized', 'modifier', 1, { type: 'magnetized' }, 'Projectiles are magnetised.');
-modBlock('armor_piercer', 'Armor-Piercer Tip', 'modifier', 3, { type: 'armor_piercer' }, 'Bonus damage against armor.', false,
-  'The projectile system reads the modifier id "armor_piercer_tip" but this block emits "armor_piercer", and the engine doubles all direct damage rather than only damage against armor. Needs an engine fix first.');
+
+/** A shown projectile modifier whose strength scales with the block level (the level travels in the modifier). */
+function levelMod(id: string, name: string, maxLevel: number, mod: Modifier, desc: (l: number) => string) {
+  register({
+    id, name, category: 'modifier', maxLevel, outputs: FWD, desc, shown: true,
+    transform: (p, l) => { p.mods.push({ ...mod, level: l }); },
+  });
+}
+
+levelMod('curving_right', 'Curving Right', 3, { type: 'curve', dir: 'right' },
+  (l) => `After launch, projectiles turn clockwise at ${CURVE_RATE_DEG * l}° per second.`);
+levelMod('random_curve', 'Random Curve', 1, { type: 'random_curve' },
+  () => `Projectiles weave on smooth random steering, turning at most ${RANDOM_CURVE_MAX_DEG}° per second.`);
+levelMod('homing', 'Homing', 5, { type: 'homing' },
+  (l) => `Projectiles steer at ${HOMING_RATE_DEG * l}° per second toward the nearest enemy within ${HOMING_RANGE} px and a ${HOMING_CONE_DEG}° cone ahead. With no target they fly straight.`);
+levelMod('aoe_rect', 'AoE - Rectangle', 5, { type: 'aoe_rect' },
+  (l) => { const r = aoeRectSize(l); return `Projectiles detonate on impact as a horizontal bar ${r.w} px wide and ${r.h} px tall, hitting every enemy it overlaps once for full damage.`; });
+levelMod('fork_impact', 'Fork on Impact', 3, { type: 'fork_impact' },
+  (l) => `On a hit, spawns 2 copies at ${Math.round(forkDamageFrac(l) * 100)}% damage and 0.6× size, flying ±${FORK_ANGLE_DEG}° off the heading. Copies cannot fork again.`);
+levelMod('armor_piercer', 'Armor-Piercer Tip', 3, { type: 'armor_piercer' },
+  (l) => `Deals ×${armorPierceMul(l)} damage to enemies that have armor. No effect on unarmored enemies.`);
 
 // ---------------------------------------------------------------- Status & elemental
 modBlock('ignite', 'Ignite', 'status', 5, { type: 'ignite' }, 'Sets enemies on fire.');
@@ -216,6 +231,7 @@ for (const [id, name, max] of [
 /** Friendly names of projectile modifiers, for the ledger tooltip. */
 export const MOD_LABEL: Record<string, string> = {
   piercing: 'Piercing', bouncing: 'Bouncing', aoe_circle: 'AoE - Circle', shield_breaker: 'Shield-Breaker',
+  curve: 'Curving Right', random_curve: 'Random Curve', homing: 'Homing', aoe_rect: 'AoE - Rectangle', fork_impact: 'Fork on Impact', armor_piercer: 'Armor-Piercer Tip',
 };
 
 /** Blocks the player can place, in picker order. */

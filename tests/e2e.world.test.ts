@@ -31,7 +31,8 @@ describe('starter loadout end-to-end', () => {
     expect(world.recipes.length).toBeGreaterThan(0);
 
     const pointer: PointerState = { x: world.shipX, y: world.shipY, active: false, type: 'mouse', seen: true };
-    const rock = world.spawnRock(world.shipX, world.shipY - 250)!;
+    const ox = world.spawnOffsets[0].x; // the ejector sits right of the ship centre
+    const rock = world.spawnRock(world.shipX + ox, world.shipY - 250)!;
     expect(rock).not.toBeNull();
     const rockId = rock.id;
     const startHp = rock.hp;
@@ -39,7 +40,7 @@ describe('starter loadout end-to-end', () => {
     // Keep the ship under the rock (it sways sideways), as a player would.
     const track = () => {
       const r = world.mitosis.enemies.find(e => e.id === rockId);
-      if (r) pointer.x = r.x;
+      if (r) pointer.x = r.x - ox;
     };
 
     // 1) HP drops

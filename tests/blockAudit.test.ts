@@ -55,8 +55,9 @@ const newWorld = (g: Grid) => new World({ grid: g, autoSpawn: false });
 describe('block audit: the picker only offers blocks that compile and change Fly', () => {
   it('the picker lists exactly the audited blocks', () => {
     expect(pickerBlocks().map(b => b.id).sort()).toEqual([
-      'aoe_circle', 'bouncing', 'flat_plus', 'gamblers_gate', 'jackpot', 'lucky_strike', 'percent_mult',
-      'piercing', 'pure_converter', 'shield_breaker', 'splitter_2', 'splitter_3', 'turn_l', 'turn_r',
+      'aoe_circle', 'aoe_rect', 'armor_piercer', 'bouncing', 'curving_right', 'flat_plus', 'fork_impact',
+      'gamblers_gate', 'homing', 'jackpot', 'lucky_strike', 'percent_mult', 'piercing', 'pure_converter',
+      'random_curve', 'shield_breaker', 'splitter_2', 'splitter_3', 'turn_l', 'turn_r',
     ]);
   });
 

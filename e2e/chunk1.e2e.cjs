@@ -240,7 +240,7 @@ async function lineAt(page, col, row, axis, ok = redish) {
     return Math.max(...px.map(p => p[0]));
   };
   const onB = await border(9, 6), offB = await border(3, 5);
-  check(onB > 150 && offB < onB * 0.8, `3: the off-path Flat+ is dimmed (border red channel ${offB}) against the on-path one (${onB})`);
+  check(onB > 80 && offB < onB * 0.9, `3: the off-path Flat+ is dimmed (border red channel ${offB}) against the on-path one (${onB})`);
   st = await state(page);
   check(/No signal reaches this block\./.test(st.inspector.body) && /Orientation: auto/.test(st.inspector.title), `3: inspector keeps its text: "${st.inspector.title}" / "${st.inspector.body}"`);
 

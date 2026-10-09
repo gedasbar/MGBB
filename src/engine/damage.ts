@@ -29,7 +29,8 @@ export function applyDamage(
   damage: number, 
   pureFrac: number, 
   tier: number,
-  isArmorPiercer: boolean = false,
+  /** Multiplier on direct damage against armored enemies (true = 2); 0 or false = none. */
+  armorPierce: number | boolean = false,
   isShieldBreaker: boolean = false
 ): DamageResult {
   let pureDmg = damage * pureFrac;
@@ -59,8 +60,9 @@ export function applyDamage(
     }
   }
 
-  if (isArmorPiercer) {
-    directDmg *= 2; // "Armor-Piercer Tip: Bonus xdamage vs enemy armor only"
+  const pierceMul = armorPierce === true ? 2 : armorPierce === false ? 1 : armorPierce;
+  if (pierceMul > 1 && enemy.armor > 0) {
+    directDmg *= pierceMul; // Armor-Piercer Tip: bonus damage against armored enemies only
   }
 
   const armorReduction = 1 / (1 + enemy.armor / armorScale(tier));

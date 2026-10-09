@@ -129,6 +129,9 @@ export class FlyScreen implements Screen {
       const s = this.projSprites[i];
       if (pool.active[i]) {
         s.position.set(pool.x[i], pool.y[i]);
+        s.width = 6 * pool.size[i];
+        s.height = 14 * pool.size[i];
+        s.rotation = Math.atan2(pool.vy[i], pool.vx[i]) + Math.PI / 2;
         s.visible = true;
       } else if (s.visible) {
         s.visible = false;

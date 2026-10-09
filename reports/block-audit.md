@@ -37,18 +37,18 @@
 | `aoe_circle` | compiles: piercing, bouncing, aoe_circle and shield_breaker tag the packet | fly: aoe_circle also damages a neighbouring enemy (baseline: only the one hit) | **Y** |
 | `shield_breaker` | compiles: piercing, bouncing, aoe_circle and shield_breaker tag the packet | fly: shield_breaker strips more shield and deals more damage than the same shot without it | **Y** |
 | `pure_converter` | compiles: pure_converter makes 15% of the damage pure | fly: pure_converter ignores armor, so an armored enemy takes more damage | **Y** |
-| `curving_right` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
-| `random_curve` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `boomerang` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
-| `homing` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `orbit` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
-| `aoe_rect` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `chain_lightning` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
-| `fork_impact` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `mine` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `gravity_well` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `magnetized` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
-| `armor_piercer` | - | - | N: The projectile system reads the modifier id "armor_piercer_tip" but this block emits "armor_piercer", and the engine doubles all direct damage rather than only damage against armor. Needs an engine fix first. |
+| `curving_right` | hiddenBlocks: curving_right: compile | hiddenBlocks: curving_right: fly (heading turns 45 deg in 0.5 s, baseline straight) | **Y** |
+| `random_curve` | hiddenBlocks: random_curve: compile | hiddenBlocks: random_curve: fly (seeded, deterministic, max 120 deg/s) | **Y** |
+| `homing` | hiddenBlocks: homing: compile | hiddenBlocks: homing: fly (hits an enemy 20 deg off-axis, baseline misses) | **Y** |
+| `aoe_rect` | hiddenBlocks: aoe_rect: compile | hiddenBlocks: aoe_rect: fly (hits neighbours inside the bar only) | **Y** |
+| `fork_impact` | hiddenBlocks: fork_impact: compile | hiddenBlocks: fork_impact: fly (2 copies at 50% / 0.6x, +/-35 deg, no second fork) | **Y** |
+| `armor_piercer` | hiddenBlocks: armor_piercer: compile | hiddenBlocks: armor_piercer: fly (x2 vs armored, unchanged vs unarmored) | **Y** |
 | `ignite` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `frostbite` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `corrosion` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
@@ -63,4 +63,4 @@
 | `lucky_charm` | - | - | N: Passive block: not on the signal path and no ship stat consumes it. |
 | `sensor_array` | - | - | N: Passive block: not on the signal path and no ship stat consumes it. |
 
-14 of 62 blocks are shown in the picker; the rest stay in the data and are hidden.
+20 of 62 blocks are shown in the picker; the rest stay in the data and are hidden.

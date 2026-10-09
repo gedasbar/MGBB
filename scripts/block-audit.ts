@@ -18,6 +18,12 @@ const COMPILES: Record<string, string> = {
   aoe_circle: 'compiles: piercing, bouncing, aoe_circle and shield_breaker tag the packet',
   shield_breaker: 'compiles: piercing, bouncing, aoe_circle and shield_breaker tag the packet',
   pure_converter: 'compiles: pure_converter makes 15% of the damage pure',
+  armor_piercer: 'hiddenBlocks: armor_piercer: compile',
+  curving_right: 'hiddenBlocks: curving_right: compile',
+  homing: 'hiddenBlocks: homing: compile',
+  random_curve: 'hiddenBlocks: random_curve: compile',
+  aoe_rect: 'hiddenBlocks: aoe_rect: compile',
+  fork_impact: 'hiddenBlocks: fork_impact: compile',
 };
 const FLY: Record<string, string> = {
   turn_l: 'fly: turn_l and turn_r change whether the ship fires at all',
@@ -34,6 +40,12 @@ const FLY: Record<string, string> = {
   aoe_circle: 'fly: aoe_circle also damages a neighbouring enemy (baseline: only the one hit)',
   shield_breaker: 'fly: shield_breaker strips more shield and deals more damage than the same shot without it',
   pure_converter: 'fly: pure_converter ignores armor, so an armored enemy takes more damage',
+  armor_piercer: 'hiddenBlocks: armor_piercer: fly (x2 vs armored, unchanged vs unarmored)',
+  curving_right: 'hiddenBlocks: curving_right: fly (heading turns 45 deg in 0.5 s, baseline straight)',
+  homing: 'hiddenBlocks: homing: fly (hits an enemy 20 deg off-axis, baseline misses)',
+  random_curve: 'hiddenBlocks: random_curve: fly (seeded, deterministic, max 120 deg/s)',
+  aoe_rect: 'hiddenBlocks: aoe_rect: fly (hits neighbours inside the bar only)',
+  fork_impact: 'hiddenBlocks: fork_impact: fly (2 copies at 50% / 0.6x, +/-35 deg, no second fork)',
 };
 
 const esc = (s: string) => s.replace(/\|/g, '\\|');

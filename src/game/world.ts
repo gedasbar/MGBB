@@ -12,6 +12,8 @@ import { buildStarterGrid, ROCK_HP, ROCK_RADIUS } from './starter';
 export const TOUCH_OFFSET_Y = -40; // finger sits below the ship on touch
 export const PROJECTILE_SPEED = 600;
 export const CONTACT_DAMAGE = 10;
+/** Ship-space pixels per hull cell: an ejector's offset from the hull centre is scaled by this when projectiles spawn. */
+export const PX_PER_CELL = 14;
 
 export interface HitEvent { enemyId: number; damage: number; x: number; y: number; }
 export interface SplitEvent { parentId: number; x: number; y: number; childIds: number[]; }
@@ -25,6 +27,8 @@ export class World {
   readonly mitosis = new MitosisSystem();
   readonly recipes: EjectorRecipe[];
   readonly warnings: string[];
+  /** Where each recipe's projectiles leave, relative to the ship centre (from the ejector's cell). */
+  readonly spawnOffsets: { x: number; y: number }[];
 
   shipX = CONFIG.VIEW.W / 2;
   shipY = CONFIG.VIEW.H * 0.8;
@@ -47,7 +51,12 @@ export class World {
 
   constructor(opts: { grid?: Grid; autoSpawn?: boolean } = {}) {
     const compiled = compile(opts.grid ?? buildStarterGrid());
+    const hull = opts.grid ?? buildStarterGrid();
     this.recipes = compiled.recipes;
+    this.spawnOffsets = this.recipes.map(r => ({
+      x: (r.x - (hull.w - 1) / 2) * PX_PER_CELL,
+      y: (r.y - (hull.h - 1) / 2) * PX_PER_CELL,
+    }));
     this.warnings = compiled.warnings;
     this.projSys.modifiersTable = this.recipes.map(r => r.packet.mods);
     this.autoSpawn = opts.autoSpawn ?? true;
@@ -93,7 +102,9 @@ export class World {
       else if (r.direction === 'S') vy = speed;
       else if (r.direction === 'E') vx = speed;
       else vx = -speed;
-      this.pool.spawn(this.shipX, this.shipY - 15, vx, vy, damage, r.packet.pure || 0, rIdx);
+      const off = this.spawnOffsets[rIdx];
+      const i = this.pool.spawn(this.shipX + off.x, this.shipY + off.y, vx, vy, damage, r.packet.pure || 0, rIdx);
+      if (i >= 0) this.projSys.init(i);
     }
   }
 
@@ -139,8 +150,9 @@ export class World {
       }
     }
 
-    // --- Projectile movement
+    // --- Projectile movement (path modifiers steer first)
     const pool = this.pool;
+    this.projSys.steer(dt, this.mitosis.enemies);
     for (let i = 0; i < pool.max; i++) {
       if (!pool.active[i]) continue;
       pool.x[i] += pool.vx[i] * dt;

@@ -13,6 +13,18 @@ export class ProjectilePool {
   modIndex: Uint16Array;
   active: Uint8Array;
   spriteIndex: Uint32Array;
+  /** Size multiplier (hit radius and sprite); 1 for a normal projectile. */
+  size: Float32Array;
+  /** Seconds since launch. */
+  age: Float32Array;
+  /** Enemy id this projectile must not hit (a fork copy spawns inside the enemy that forked it); -1 = none. */
+  skipId: Int32Array;
+  /** 1 = a fork copy, which cannot fork again. */
+  copy: Uint8Array;
+  /** Per-projectile scratch state of steering modifiers (random curve noise). */
+  aux1: Float32Array;
+  aux2: Float32Array;
+  aux3: Float32Array;
 
   constructor(max: number = CONFIG.CAPS.PROJECTILES) {
     this.max = max;
@@ -25,6 +37,13 @@ export class ProjectilePool {
     this.modIndex = new Uint16Array(max);
     this.active = new Uint8Array(max);
     this.spriteIndex = new Uint32Array(max);
+    this.size = new Float32Array(max);
+    this.age = new Float32Array(max);
+    this.skipId = new Int32Array(max);
+    this.copy = new Uint8Array(max);
+    this.aux1 = new Float32Array(max);
+    this.aux2 = new Float32Array(max);
+    this.aux3 = new Float32Array(max);
   }
 
   spawn(x: number, y: number, vx: number, vy: number, damage: number, pure: number = 0, modIndex: number = 0): number {
@@ -39,6 +58,13 @@ export class ProjectilePool {
         this.damage[i] = damage;
         this.pure[i] = pure;
         this.modIndex[i] = modIndex;
+        this.size[i] = 1;
+        this.age[i] = 0;
+        this.skipId[i] = -1;
+        this.copy[i] = 0;
+        this.aux1[i] = 0;
+        this.aux2[i] = 0;
+        this.aux3[i] = 0;
         this.count++;
         return i;
       }
