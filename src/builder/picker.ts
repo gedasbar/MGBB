@@ -2,9 +2,10 @@ import { Container, Graphics } from 'pixi.js';
 import { BLOCKS, CATEGORY_LABEL, pickerBlocks } from '../data/blocks';
 import { BlockCategory } from '../engine/compilerTypes';
 import { BuilderModel } from './model';
-import { CATEGORY_COLOR, COLORS, drawBlockIcon, drawX } from './draw';
+import { CATEGORY_COLOR, drawBlockIcon, drawX } from './draw';
 import { inRect, LAYOUT, Rect } from './layout';
 import { makeText } from './ui';
+import { THEME } from '../ui/theme';
 
 export const REMOVE_TILE = '__remove';
 
@@ -43,8 +44,8 @@ export class Picker {
   private contentH = 0;
   private listC = new Container();
   private bg = new Graphics();
-  private titleText = makeText('', 16, 0xffffff, { fontWeight: 'bold' });
-  private hintText = makeText('Tap a tile to preview · tap it again to place', 12, COLORS.textDim);
+  private titleText = makeText('', 16, THEME.text, { fontWeight: 'bold' });
+  private hintText = makeText('Tap a tile to preview · tap it again to place', 12, THEME.textDim);
   private maskG = new Graphics();
   private model: BuilderModel | null = null;
   private events: PickerEvents | null = null;
@@ -53,9 +54,9 @@ export class Picker {
     const s = this.sheet;
     this.closeRect = { x: s.x + s.w - 48, y: s.y, w: 48, h: HEADER_H };
     this.listRect = { x: s.x, y: s.y + HEADER_H, w: s.w, h: s.h - HEADER_H };
-    this.bg.roundRect(s.x, s.y, s.w, s.h + 20, 16).fill(0x303030).stroke({ color: COLORS.red, width: 2 });
-    this.bg.rect(s.x, s.y + HEADER_H - 1, s.w, 1).fill(0x1a1a1a);
-    drawX(this.bg, this.closeRect.x + 24, this.closeRect.y + 22, 8, 0xffffff, 3);
+    this.bg.rect(s.x, s.y, s.w, s.h + 20).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
+    this.bg.rect(s.x, s.y + HEADER_H - 1, s.w, 1).fill(THEME.border);
+    drawX(this.bg, this.closeRect.x + 24, this.closeRect.y + 22, 8, THEME.buttonIcon, 3);
     this.titleText.position.set(14, s.y + 5);
     this.hintText.position.set(14, s.y + 25);
     this.maskG.rect(this.listRect.x, this.listRect.y, this.listRect.w, this.listRect.h).fill(0xffffff);
@@ -126,7 +127,7 @@ export class Picker {
     this.contentH = y;
 
     for (const h of this.headers) {
-      const t = makeText(h.text.toUpperCase(), 12, h.cat === 'passive' ? COLORS.textDim : CATEGORY_COLOR[h.cat], { fontWeight: 'bold', letterSpacing: 1 });
+      const t = makeText(h.text.toUpperCase(), 12, h.cat === 'passive' ? THEME.textDim : CATEGORY_COLOR[h.cat], { fontWeight: 'bold', letterSpacing: 1 });
       t.position.set(GAP + 2, h.y + 4);
       this.listC.addChild(t);
     }
@@ -140,28 +141,28 @@ export class Picker {
     for (const t of this.tiles) {
       const isRemove = t.id === REMOVE_TILE;
       const def = isRemove ? null : BLOCKS[t.id];
-      const color = isRemove ? COLORS.red : CATEGORY_COLOR[def!.category];
+      const color = isRemove ? THEME.bad : CATEGORY_COLOR[def!.category];
       const avail = isRemove ? 1 : model.available(t.id);
       const sel = this.selected === t.id;
-      g.roundRect(t.x, t.y, t.w, t.h, 10).fill({ color: sel ? 0x4b5a4b : 0x3f3f3f, alpha: avail > 0 ? 1 : 0.55 });
-      g.roundRect(t.x, t.y, t.w, t.h, 10).stroke({ color: sel ? COLORS.green : t.id === currentId ? 0xffe14d : color, width: sel ? 4 : 2, alpha: avail > 0 ? 1 : 0.4 });
+      g.rect(t.x, t.y, t.w, t.h).fill({ color: THEME.buttonFill, alpha: avail > 0 ? 1 : 0.55 });
+      g.rect(t.x, t.y, t.w, t.h).stroke({ color: sel ? THEME.select : t.id === currentId ? THEME.warn : color, width: sel ? 3 : 2, alpha: avail > 0 ? 1 : 0.4 });
       const icon = new Graphics();
       icon.position.set(t.x + t.w / 2, t.y + 34);
-      if (isRemove) drawX(icon, 0, 0, 14, COLORS.red, 5);
+      if (isRemove) drawX(icon, 0, 0, 14, THEME.bad, 5);
       else drawBlockIcon(icon, t.id, 38, color);
       icon.alpha = avail > 0 ? 1 : 0.4;
       this.listC.addChild(icon);
-      const name = makeText(isRemove ? 'Remove' : def!.name, 13, 0xffffff, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: t.w - 10 });
+      const name = makeText(isRemove ? 'Remove' : def!.name, 13, THEME.text, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: t.w - 10 });
       name.anchor.set(0.5, 0);
       name.position.set(t.x + t.w / 2, t.y + 62);
       name.alpha = avail > 0 ? 1 : 0.5;
       this.listC.addChild(name);
-      const count = makeText(isRemove ? 'returns it' : `×${avail}`, 12, avail > 0 ? COLORS.textDim : 0xff6a6a, { fontWeight: 'bold' });
+      const count = makeText(isRemove ? 'returns it' : `×${avail}`, 12, avail > 0 ? THEME.textDim : THEME.bad, { fontWeight: 'bold' });
       count.anchor.set(0.5, 1);
       count.position.set(t.x + t.w / 2, t.y + t.h - 5);
       this.listC.addChild(count);
       if (t.id === currentId) {
-        const here = makeText('here', 10, 0xffe14d, { fontWeight: 'bold' });
+        const here = makeText('here', 10, THEME.warn, { fontWeight: 'bold' });
         here.position.set(t.x + 7, t.y + 5);
         this.listC.addChild(here);
       }

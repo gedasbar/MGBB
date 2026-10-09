@@ -250,7 +250,7 @@ async function lineAt(page, col, row, axis, ok = redish) {
   st = await state(page);
   check(st.recipes === 0 && /manual \(facing right\)/.test(st.inspector.title), `3: rotating Flat+ right stops the line; inspector "${st.inspector.title}"`);
   const warn = await lib.pixelsAtClient(page, await Promise.all([[0, 0], [-4, 3], [4, 3], [0, -3]].map(([dx, dy]) => lib.gameToClient(page, OX + 8.5 * CELL + dx, OY + 5 * CELL + 48 - 6 + dy))));
-  check(warn.some(p => p[0] > 220 && p[1] > 170 && p[2] < 80), `3: the warning triangle is still on the stopping block's edge: ${JSON.stringify(warn[0])}`);
+  check(warn.some(p => p[0] > 200 && p[1] > 130 && p[1] < 190 && p[2] < 90), `3: the warning triangle is still on the stopping block's edge: ${JSON.stringify(warn[0])}`);
   const lock2 = await lib.countInRegion(page, OX + 8 * CELL + 39, OY + 5 * CELL + 10, 4, lib.PADLOCK_PRED);
   check(lock2 === 0, `3: the rotated block has no padlock (${lock2} pixels)`);
   await shot(page, 'c1_07_rotated_blocker_warning_only.png');

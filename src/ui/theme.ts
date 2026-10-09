@@ -1,0 +1,23 @@
+/** Single source of UI colours and style constants (grey theme). Hull art, block categories and the red signal line stay in builder/draw.ts. */
+export const THEME = {
+  bg: 0x1c1c1e,
+  panel: 0x2a2a2d,
+  border: 0x3d3d41,
+  buttonFill: 0x3a3a3e,
+  buttonLine: 0xe6e6e6,
+  buttonIcon: 0xe6e6e6,
+  pressedFill: 0xe6e6e6,
+  pressedIcon: 0x2a2a2d,
+  disabled: 0x77777c,
+  text: 0xe6e6e6,
+  textDim: 0xa0a0a6,
+  currency: 0xf2c230,
+  select: 0xffffff,
+  selectWidth: 2,
+  warn: 0xe0a030,
+  good: 0x6fbf73,
+  bad: 0xd96a5a,
+  cellFill: 0x3a3a3d,
+  cellGap: 0x2a2a2d,
+  dim: 0x000000,
+} as const;

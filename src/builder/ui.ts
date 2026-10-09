@@ -1,6 +1,7 @@
 import { Container, Graphics, Text, TextStyleOptions } from 'pixi.js';
 import { CompileStats } from '../engine/compiler';
 import { COLORS, drawWarn } from './draw';
+import { THEME } from '../ui/theme';
 import { inRect, LAYOUT, Rect, VIEW_W } from './layout';
 
 export function makeText(text: string, size: number, color: number = COLORS.text, opts: Partial<TextStyleOptions> = {}): Text {
@@ -30,7 +31,7 @@ export class UIButton {
     this.container.position.set(spec.rect.x, spec.rect.y);
     this.container.addChild(this.face);
     if (spec.label) {
-      this.label = makeText(spec.label, spec.labelSize ?? 11, spec.labelColor ?? COLORS.textDim, { fontWeight: 'bold' });
+      this.label = makeText(spec.label, spec.labelSize ?? 11, spec.labelColor ?? THEME.textDim, { fontWeight: 'bold' });
       this.label.anchor.set(0.5, 1);
       this.label.position.set(spec.rect.w / 2, spec.rect.h - 2);
       this.container.addChild(this.label);
@@ -47,7 +48,8 @@ export class UIButton {
 
   setEnabled(v: boolean) {
     this.enabled = v;
-    this.container.alpha = v ? 1 : 0.5;
+    if (this.label) this.label.style.fill = v ? (this.spec.labelColor ?? THEME.textDim) : THEME.disabled;
+    this.redraw();
   }
 
   setActive(v: boolean) {
@@ -69,7 +71,7 @@ export class UIButton {
 export class Toast {
   readonly container = new Container();
   private bg = new Graphics();
-  private text = makeText('', 16, 0xffffff, { align: 'center', wordWrap: true, wordWrapWidth: 440, fontWeight: 'bold' });
+  private text = makeText('', 16, THEME.text, { align: 'center', wordWrap: true, wordWrapWidth: 440, fontWeight: 'bold' });
   private left = 0;
   private total = 1;
 
@@ -85,7 +87,7 @@ export class Toast {
     const h = this.text.height + 22;
     const cx = VIEW_W / 2;
     const cy = LAYOUT.stats.y - 54;
-    this.bg.clear().roundRect(cx - w / 2, cy - h / 2, w, h, 14).fill({ color: 0x101010, alpha: 0.94 }).stroke({ color: COLORS.red, width: 2 });
+    this.bg.clear().rect(cx - w / 2, cy - h / 2, w, h).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
     this.text.position.set(cx, cy);
     this.container.visible = true;
     this.container.alpha = 1;
@@ -106,18 +108,18 @@ export class Toast {
 /** Two-line strip under the top bar: name and exact rule text of whatever is selected. */
 export class Inspector {
   readonly container = new Container();
-  private title = makeText('', 15, 0xffffff, { fontWeight: 'bold' });
-  private body = makeText('', 14, 0xdcdcdc, { wordWrap: true, wordWrapWidth: VIEW_W - 20, lineHeight: 17 });
+  private title = makeText('', 15, THEME.text, { fontWeight: 'bold' });
+  private body = makeText('', 14, THEME.textDim, { wordWrap: true, wordWrapWidth: VIEW_W - 20, lineHeight: 17 });
 
   constructor() {
     const r = LAYOUT.inspector;
-    const bg = new Graphics().rect(r.x, r.y, r.w, r.h).fill(0x4a4a4a).rect(r.x, r.y + r.h - 1, r.w, 1).fill(0x222222);
+    const bg = new Graphics().rect(r.x, r.y, r.w, r.h).fill(THEME.panel).rect(r.x, r.y + r.h - 1, r.w, 1).fill(THEME.border);
     this.title.position.set(10, r.y + 5);
     this.body.position.set(10, r.y + 24);
     this.container.addChild(bg, this.title, this.body);
   }
 
-  set(title: string, body: string, titleColor = 0xffffff) {
+  set(title: string, body: string, titleColor: number = THEME.text) {
     this.title.text = title;
     this.title.style.fill = titleColor;
     this.body.text = body;
@@ -151,9 +153,9 @@ export class StatsStrip {
     this.container.addChild(this.bg);
     const names = ['Dmg/shot', 'Proj/pulse', 'Pulses/s', 'Est. DPS', 'Warnings'];
     names.forEach((n, i) => {
-      const label = makeText(n, 11, COLORS.textDim);
-      const value = makeText('0', 15, 0xffffff, { fontWeight: 'bold' });
-      const delta = makeText('', 12, COLORS.green, { fontWeight: 'bold' });
+      const label = makeText(n, 11, THEME.textDim);
+      const value = makeText('0', 15, THEME.text, { fontWeight: 'bold' });
+      const delta = makeText('', 12, THEME.good, { fontWeight: 'bold' });
       label.position.set(8 + i * 108, 2);
       value.position.set(8 + i * 108, 14);
       delta.position.set(0, 17);
@@ -167,7 +169,7 @@ export class StatsStrip {
   moveTo(y: number) {
     this.rect.y = y;
     const r = LAYOUT.stats;
-    this.bg.clear().rect(r.x, y, r.w, r.h).fill({ color: 0x2c2c2c, alpha: 0.97 }).rect(r.x, y, r.w, 1).fill(0x151515);
+    this.bg.clear().rect(r.x, y, r.w, r.h).fill(THEME.panel).rect(r.x, y, r.w, 1).fill(THEME.border);
     this.cols.forEach((c, i) => {
       c.label.position.set(8 + i * 108, y + 2);
       c.value.position.set(8 + i * 108, y + 14);
@@ -190,14 +192,14 @@ export class StatsStrip {
         c.value.text = fmt(vals[i]);
         const dt = delta ? fmtDelta(d[i]) : '';
         c.delta.text = dt;
-        c.delta.style.fill = d[i] < 0 ? 0xff6a6a : COLORS.green;
+        c.delta.style.fill = d[i] < 0 ? THEME.bad : THEME.good;
         c.delta.position.set(c.value.x + c.value.width + 5, this.lastY + 16);
       }
     });
     const n = stats.warnings.length;
     const w = this.cols[4];
     w.value.text = String(n);
-    w.value.style.fill = n > 0 ? COLORS.warn : 0xffffff;
+    w.value.style.fill = n > 0 ? THEME.warn : THEME.text;
     w.value.position.set(8 + 4 * 108 + 24, this.lastY + 14);
     w.delta.text = '';
     this.warnG.clear();
@@ -216,9 +218,9 @@ export class InfoPanel {
   readonly container = new Container();
   private dim = new Graphics();
   private panel = new Graphics();
-  private title = makeText('', 20, 0xffffff, { fontWeight: 'bold' });
-  private body = makeText('', 15, 0xe6e6e6, { wordWrap: true, wordWrapWidth: VIEW_W - 64, lineHeight: 20 });
-  private warnings = makeText('', 14, COLORS.warn, { wordWrap: true, wordWrapWidth: VIEW_W - 64, lineHeight: 19 });
+  private title = makeText('', 20, THEME.text, { fontWeight: 'bold' });
+  private body = makeText('', 15, THEME.text, { wordWrap: true, wordWrapWidth: VIEW_W - 64, lineHeight: 20 });
+  private warnings = makeText('', 14, THEME.warn, { wordWrap: true, wordWrapWidth: VIEW_W - 64, lineHeight: 19 });
 
   constructor() {
     this.container.visible = false;
@@ -238,13 +240,12 @@ export class InfoPanel {
     this.body.position.set(x + 16, y + 48);
     this.warnings.position.set(x + 16, y + 48 + this.body.height + 14);
     const h = 48 + this.body.height + (warnings.length ? this.warnings.height + 14 : 0) + 56;
-    this.dim.clear().rect(0, 0, VIEW_W, 960).fill({ color: 0x000000, alpha: 0.55 });
-    this.panel.clear().roundRect(x, y, w, h, 14).fill(0x2a2a2a).stroke({ color: COLORS.red, width: 2 });
-    const hint = this.panel;
-    hint.roundRect(x + w - 112, y + h - 40, 96, 28, 8).fill({ color: COLORS.red, alpha: 0.9 });
+    this.dim.clear().rect(0, 0, VIEW_W, 960).fill({ color: THEME.dim, alpha: 0.55 });
+    this.panel.clear().rect(x, y, w, h).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
+    this.panel.rect(x + w - 112, y + h - 40, 96, 28).fill(THEME.buttonFill).stroke({ color: THEME.buttonLine, width: 1.5 });
     this.container.visible = true;
     if (!this.closeLabel) {
-      this.closeLabel = makeText('Close', 14, 0xffffff, { fontWeight: 'bold' });
+      this.closeLabel = makeText('Close', 14, THEME.text, { fontWeight: 'bold' });
       this.closeLabel.anchor.set(0.5);
       this.container.addChild(this.closeLabel);
     }

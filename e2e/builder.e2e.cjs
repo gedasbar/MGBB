@@ -216,7 +216,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   const lock = await lib.countInRegion(page, OX + 8 * CELL + 39, OY + 5 * CELL + 10, 4, lib.PADLOCK_PRED);
   check(lock === 0, `no padlock at the block's corner: ${lock} padlock pixels`);
   const warnPx = await lib.pixelsAtClient(page, await Promise.all([[0, 0], [-4, 3], [4, 3], [0, -3]].map(([dx, dy]) => lib.gameToClient(page, OX + 8.5 * CELL + dx, OY + 5 * CELL + 48 - 6 + dy))));
-  check(warnPx.some(p => p[0] > 220 && p[1] > 170 && p[2] < 80), `warning triangle on the block's edge: ${JSON.stringify(warnPx[0])}`);
+  check(warnPx.some(p => p[0] > 200 && p[1] > 130 && p[1] < 190 && p[2] < 90), `warning triangle on the block's edge: ${JSON.stringify(warnPx[0])}`);
   await expectLine(page, [[9, 8, 'V'], [9, 7, 'V']], 'line still reaches the rotated block');
   await expectNoLine(page, [[9, 5, 'V'], [9, 4, 'V'], [9, 3, 'V']], 'line stops at the rotated block');
 

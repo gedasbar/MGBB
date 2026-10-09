@@ -5,6 +5,7 @@ import { BLOCKS } from '../data/blocks';
 import {
   arrowHead, CATEGORY_COLOR, COLORS, drawBlockIcon, drawWarn, drawX, hatch,
 } from './draw';
+import { THEME } from '../ui/theme';
 import { BASE_CELL as S, LAYOUT, View } from './layout';
 import { computeHops, drawCaps, drawFlow, drawLines } from './lines';
 
@@ -67,7 +68,7 @@ export class GridRenderer {
   private drawCells(grid: Grid) {
     const g = this.cellsG;
     g.clear();
-    g.rect(-3, -3, grid.w * S + 6, grid.h * S + 6).fill(0x2a2a2a);
+    g.rect(-3, -3, grid.w * S + 6, grid.h * S + 6).fill(THEME.cellGap);
     for (const c of grid.cells) this.drawCell(g, c);
   }
 
@@ -102,7 +103,6 @@ export class GridRenderer {
       }
       default:
         g.rect(x, y, w, w).fill(COLORS.cell);
-        g.rect(x + 1.5, y + 1.5, w - 3, w - 3).stroke({ color: COLORS.cellEdge, width: 1.5, alpha: 0.7 });
     }
   }
 
@@ -159,7 +159,7 @@ export class GridRenderer {
       g.rect(opts.ghost.x * S + 3, opts.ghost.y * S + 3, S - 6, S - 6).stroke({ color: 0x66f0ff, width: 3 });
     }
     if (opts.selected) {
-      g.rect(opts.selected.x * S + 1, opts.selected.y * S + 1, S - 2, S - 2).stroke({ color: COLORS.green, width: 4 });
+      g.rect(opts.selected.x * S + 1, opts.selected.y * S + 1, S - 2, S - 2).stroke({ color: THEME.select, width: THEME.selectWidth });
     }
   }
 }

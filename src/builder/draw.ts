@@ -1,25 +1,17 @@
 import { Graphics } from 'pixi.js';
+import { THEME } from '../ui/theme';
 
 export const COLORS = {
   red: 0xff2a2a,
   redDim: 0x8a1f1f,
   redHatch: 0xd01e1e,
-  bg: 0x686868,
-  panel: 0x3d3d3d,
-  panelDark: 0x262626,
-  panelLine: 0x1b1b1b,
-  text: 0xf2f2f2,
-  textDim: 0xb4b4b4,
-  cell: 0x808080,
-  cellEdge: 0x4a4a4a,
+  bg: THEME.bg,
+  text: THEME.text,
+  textDim: THEME.textDim,
+  cell: THEME.cellFill,
   voidFill: 0x3b3b3b,
   voidHatch: 0x262626,
-  green: 0x2cf04a,
-  warn: 0xffcc00,
-  magenta: 0xff22ee,
-  yellow: 0xffe600,
-  orange: 0xff9a1a,
-  cyan: 0x16d8e8,
+  warn: THEME.warn,
 };
 
 export const CATEGORY_COLOR: Record<string, number> = {
@@ -172,7 +164,7 @@ export function drawToolIcon(g: Graphics, kind: ToolIcon, s: number, color: numb
   const line = { color, width: w, cap: 'round' as const, join: 'round' as const };
   switch (kind) {
     case 'clear':
-      g.roundRect(-u * 0.8, -u * 0.8, u * 1.6, u * 1.6, u * 0.15).fill({ color: 0x1a1a1a, alpha: 0.9 }).stroke({ color, width: w * 0.7 });
+      g.rect(-u * 0.8, -u * 0.8, u * 1.6, u * 1.6).stroke({ color, width: w * 0.7 });
       drawX(g, 0, 0, u * 0.65, color, w);
       break;
     case 'clearAll':
@@ -207,12 +199,12 @@ export function drawToolIcon(g: Graphics, kind: ToolIcon, s: number, color: numb
       break;
     }
     case 'copy':
-      g.roundRect(-u * 0.7, -u * 0.75, u * 1, u * 1.2, u * 0.1).stroke(line);
-      g.roundRect(-u * 0.25, -u * 0.35, u * 1, u * 1.2, u * 0.1).fill({ color: 0x1a1a1a, alpha: 0.95 }).stroke(line);
+      g.rect(-u * 0.7, -u * 0.75, u * 1, u * 1.2).stroke(line);
+      g.rect(-u * 0.25, -u * 0.35, u * 1, u * 1.2).fill(THEME.buttonFill).stroke(line);
       break;
     case 'paste':
-      g.roundRect(-u * 0.7, -u * 0.7, u * 1.4, u * 1.55, u * 0.12).stroke(line);
-      g.roundRect(-u * 0.3, -u * 0.9, u * 0.6, u * 0.35, u * 0.1).fill(color);
+      g.rect(-u * 0.7, -u * 0.7, u * 1.4, u * 1.55).stroke(line);
+      g.rect(-u * 0.3, -u * 0.9, u * 0.6, u * 0.35).fill(color);
       g.moveTo(-u * 0.4, -u * 0.05).lineTo(u * 0.4, -u * 0.05).moveTo(-u * 0.4, u * 0.35).lineTo(u * 0.4, u * 0.35).stroke({ ...line, width: w * 0.7 });
       break;
     case 'help':
@@ -223,10 +215,10 @@ export function drawToolIcon(g: Graphics, kind: ToolIcon, s: number, color: numb
       g.circle(0, u * 0.52, w * 0.6).fill(color);
       break;
     case 'ship':
-      g.roundRect(-u * 0.55, -u * 0.6, u * 1.1, u * 1.3, u * 0.2).fill(0x6e5e46).stroke({ color: 0x1b1b1b, width: w * 0.8 });
-      g.rect(-u * 0.3, -u * 0.4, u * 0.6, u * 0.4).fill(0xdddddd);
-      g.rect(-u * 0.85, -u * 0.1, u * 0.3, u * 0.7).fill(0x2a2a2a);
-      g.rect(u * 0.55, -u * 0.1, u * 0.3, u * 0.7).fill(0x2a2a2a);
+      g.rect(-u * 0.55, -u * 0.6, u * 1.1, u * 1.3).stroke(line);
+      g.rect(-u * 0.3, -u * 0.4, u * 0.6, u * 0.4).fill(color);
+      g.rect(-u * 0.85, -u * 0.1, u * 0.3, u * 0.7).fill(color);
+      g.rect(u * 0.55, -u * 0.1, u * 0.3, u * 0.7).fill(color);
       break;
   }
 }

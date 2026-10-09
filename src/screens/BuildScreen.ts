@@ -20,6 +20,7 @@ import {
 import { InfoPanel, Inspector, makeText, StatsStrip, Toast, UIButton } from '../builder/ui';
 import { Rect } from '../builder/layout';
 import { Picker, REMOVE_TILE } from '../builder/picker';
+import { THEME } from '../ui/theme';
 
 const HOVER_MS = 800;
 
@@ -66,7 +67,7 @@ export class BuildScreen implements Screen {
   private viewBeforePicker: View | null = null;
   private tip = new Container();
   private tipBg = new Graphics();
-  private tipText = makeText('', 13, 0xffffff, { lineHeight: 17 });
+  private tipText = makeText('', 13, THEME.text, { lineHeight: 17 });
   private hover: { x: number; y: number; since: number } | null = null;
   private hullPanel = new Container();
   private hullRows: { id: string; rect: Rect }[] = [];
@@ -78,7 +79,7 @@ export class BuildScreen implements Screen {
     const bg = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill(COLORS.bg);
     this.container.addChild(bg, this.gridR.container);
     this.buildHud();
-    this.dim.rect(0, LAYOUT.gridArea.y, VIEW_W, LAYOUT.sheet.y - LAYOUT.gridArea.y).fill({ color: 0x000000, alpha: 0.28 });
+    this.dim.rect(0, LAYOUT.gridArea.y, VIEW_W, LAYOUT.sheet.y - LAYOUT.gridArea.y).fill({ color: THEME.dim, alpha: 0.28 });
     this.dim.visible = false;
     this.tip.visible = false;
     this.tip.addChild(this.tipBg, this.tipText);
@@ -129,63 +130,68 @@ export class BuildScreen implements Screen {
     return b;
   }
 
-  private roundFace(g: Graphics, b: UIButton, icon: ToolIcon, color = COLORS.red) {
+  /** Flat rectangular button face: fill, outline and icon follow the enabled / selected state. */
+  private flatFace(g: Graphics, b: UIButton, icon: ToolIcon, size = Math.min(b.rect.w, b.rect.h) * 0.55, iconY = b.rect.h / 2) {
     const { w, h } = b.rect;
-    g.roundRect(1, 1, w - 2, h - 2, 10).fill({ color: 0x1f1f1f, alpha: 0.82 }).stroke({ color: 0x000000, width: 1.5, alpha: 0.7 });
+    const lit = b.active;
+    const off = !b.enabled;
+    g.rect(1, 1, w - 2, h - 2).fill(lit ? THEME.pressedFill : THEME.buttonFill).stroke({ color: off ? THEME.disabled : THEME.buttonLine, width: 1.5 });
     const ic = new Graphics();
-    drawToolIcon(ic, icon, Math.min(w, h) * 0.55, color);
-    ic.position.set(w / 2, h / 2);
+    drawToolIcon(ic, icon, size, off ? THEME.disabled : lit ? THEME.pressedIcon : THEME.buttonIcon);
+    ic.position.set(w / 2, iconY);
     g.addChild(ic);
   }
 
   private buildHud() {
     const top = LAYOUT.top;
     const hud = new Graphics()
-      .rect(top.x, top.y, top.w, top.h).fill(0x4f4f4f).rect(0, top.h - 1, VIEW_W, 1).fill(0x1a1a1a)
-      .rect(LAYOUT.toolbar.x, LAYOUT.toolbar.y, LAYOUT.toolbar.w, LAYOUT.toolbar.h).fill(0x2b2b2b)
-      .rect(LAYOUT.toolbar.x, LAYOUT.toolbar.y, LAYOUT.toolbar.w, 2).fill(0x7a1c1c)
-      .rect(LAYOUT.tabs.x, LAYOUT.tabs.y, LAYOUT.tabs.w, LAYOUT.tabs.h).fill(0x202020)
-      .rect(LAYOUT.tabs.x, LAYOUT.tabs.y, LAYOUT.tabs.w, 1).fill(0x000000);
+      .rect(top.x, top.y, top.w, top.h).fill(THEME.panel).rect(0, top.h - 1, VIEW_W, 1).fill(THEME.border)
+      .rect(LAYOUT.toolbar.x, LAYOUT.toolbar.y, LAYOUT.toolbar.w, LAYOUT.toolbar.h).fill(THEME.panel)
+      .rect(LAYOUT.toolbar.x, LAYOUT.toolbar.y, LAYOUT.toolbar.w, 1).fill(THEME.border)
+      .rect(LAYOUT.tabs.x, LAYOUT.tabs.y, LAYOUT.tabs.w, LAYOUT.tabs.h).fill(THEME.panel)
+      .rect(LAYOUT.tabs.x, LAYOUT.tabs.y, LAYOUT.tabs.w, 1).fill(THEME.border);
     this.container.addChild(hud, this.inspector.container);
 
-    const mode = makeText('Select', 32, COLORS.red, { fontWeight: 'bold', dropShadow: { color: 0x000000, alpha: 0.7, distance: 2, blur: 1, angle: Math.PI / 3 } });
+    const mode = makeText('Select', 32, THEME.text, { fontWeight: 'bold' });
     mode.anchor.set(0.5);
     mode.position.set(VIEW_W / 2, 27);
-    const money = makeText('0', 28, COLORS.magenta, { fontWeight: 'bold', dropShadow: { color: 0x000000, alpha: 0.6, distance: 2, blur: 1, angle: Math.PI / 3 } });
+    const money = makeText('0', 28, THEME.currency, { fontWeight: 'bold' });
     money.anchor.set(1, 0.5);
     money.position.set(VIEW_W - 12, 27);
-    this.container.addChild(mode, money);
+    const coinX = VIEW_W - 12 - money.width - 10 - 18;
+    const coin = new Graphics().rect(coinX, 18, 18, 18).fill(THEME.currency).rect(coinX + 5, 23, 8, 8).stroke({ color: THEME.panel, width: 2 });
+    this.container.addChild(mode, money, coin);
 
     // Top bar buttons.
     this.addButton(new UIButton({
       id: 'ship', rect: { x: 6, y: 4, w: 44, h: 44 }, onTap: () => this.openHullPanel(),
-      draw: (g, b) => { g.circle(22, 22, 21).fill(0x707070).stroke({ color: 0x1b1b1b, width: 2 }); const ic = new Graphics(); drawToolIcon(ic, 'ship', 30, 0xffffff); ic.position.set(22, 22); g.addChild(ic); void b; },
+      draw: (g, b) => this.flatFace(g, b, 'ship', 30),
     }));
     this.addButton(new UIButton({
       id: 'help', rect: { x: 56, y: 4, w: 44, h: 44 }, onTap: () => this.info.show('How the builder works', HELP_TEXT),
-      draw: (g, b) => { g.circle(22, 22, 21).fill(0x707070).stroke({ color: 0x1b1b1b, width: 2 }); const ic = new Graphics(); drawToolIcon(ic, 'help', 28, 0xeeeeee); ic.position.set(22, 22); g.addChild(ic); void b; },
+      draw: (g, b) => this.flatFace(g, b, 'help', 28),
     }));
 
     // Grid corner buttons.
     const row = (i: number, fromRight = false) => ({
       x: fromRight ? VIEW_W - 6 - 44 - i * 48 : 6 + i * 48, y: LAYOUT.gridArea.y + 6, w: MIN_TAP, h: MIN_TAP,
     });
-    this.addButton(new UIButton({ id: 'fit', rect: row(0), onTap: () => this.fit(), draw: (g, b) => this.roundFace(g, b, 'fit', 0xffffff) }));
-    this.undoButton = this.addButton(new UIButton({ id: 'undo', rect: row(1), onTap: () => this.undo(), draw: (g, b) => this.roundFace(g, b, 'undo', 0xffffff) }));
-    this.redoButton = this.addButton(new UIButton({ id: 'redo', rect: row(2), onTap: () => this.redo(), draw: (g, b) => this.roundFace(g, b, 'redo', 0xffffff) }));
+    this.addButton(new UIButton({ id: 'fit', rect: row(0), onTap: () => this.fit(), draw: (g, b) => this.flatFace(g, b, 'fit') }));
+    this.undoButton = this.addButton(new UIButton({ id: 'undo', rect: row(1), onTap: () => this.undo(), draw: (g, b) => this.flatFace(g, b, 'undo') }));
+    this.redoButton = this.addButton(new UIButton({ id: 'redo', rect: row(2), onTap: () => this.redo(), draw: (g, b) => this.flatFace(g, b, 'redo') }));
     this.abButton = this.addButton(new UIButton({
       id: 'ab', rect: row(0, true), onTap: () => this.toggleSlot(),
       draw: (g, b) => {
         const { w, h } = b.rect;
-        g.roundRect(1, 1, w - 2, h - 2, 10).fill({ color: 0x1f1f1f, alpha: 0.82 }).stroke({ color: COLORS.red, width: 2 });
+        g.rect(1, 1, w - 2, h - 2).fill(THEME.buttonFill).stroke({ color: THEME.buttonLine, width: 1.5 });
       },
     }));
-    this.abLabel = makeText('A', 28, COLORS.red, { fontWeight: 'bold' });
+    this.abLabel = makeText('A', 28, THEME.text, { fontWeight: 'bold' });
     this.abLabel.anchor.set(0.5);
     this.abLabel.position.set(22, 22);
     this.abButton.container.addChild(this.abLabel);
-    this.addButton(new UIButton({ id: 'paste', rect: row(1, true), onTap: () => void this.pasteLayout(), draw: (g, b) => this.roundFace(g, b, 'paste', 0xffffff) }));
-    this.addButton(new UIButton({ id: 'copy', rect: row(2, true), onTap: () => void this.copyLayout(), draw: (g, b) => this.roundFace(g, b, 'copy', 0xffffff) }));
+    this.addButton(new UIButton({ id: 'paste', rect: row(1, true), onTap: () => void this.pasteLayout(), draw: (g, b) => this.flatFace(g, b, 'paste') }));
+    this.addButton(new UIButton({ id: 'copy', rect: row(2, true), onTap: () => void this.copyLayout(), draw: (g, b) => this.flatFace(g, b, 'copy') }));
 
     // Toolbar: Clear cell, Rotate CCW, Auto-orient, Rotate CW, Clear all.
     const defs: { id: string; icon: ToolIcon; label: string; act: () => void; needsBlock: boolean }[] = [
@@ -197,14 +203,9 @@ export class BuildScreen implements Screen {
     ];
     defs.forEach((d, i) => {
       const b = new UIButton({
-        id: d.id, rect: { x: i * 108, y: LAYOUT.toolbar.y + 2, w: 108, h: LAYOUT.toolbar.h - 2 }, label: d.label, labelSize: 11, labelColor: 0xd8a0a0,
+        id: d.id, rect: { x: i * 108, y: LAYOUT.toolbar.y + 2, w: 108, h: LAYOUT.toolbar.h - 2 }, label: d.label, labelSize: 11, labelColor: THEME.text,
         onTap: d.act,
-        draw: (g, bb) => {
-          const ic = new Graphics();
-          drawToolIcon(ic, d.icon, 26, COLORS.red);
-          ic.position.set(bb.rect.w / 2, 18);
-          g.addChild(ic);
-        },
+        draw: (g, bb) => this.flatFace(g, bb, d.icon, 26, 18),
       });
       this.toolbar[d.id] = this.addButton(b);
     });
@@ -213,38 +214,34 @@ export class BuildScreen implements Screen {
     const fly = new UIButton({
       id: 'fly', rect: { x: VIEW_W - 134, y: LAYOUT.gridArea.y + LAYOUT.gridArea.h - 54, w: 124, h: 46 }, onTap: () => this.fly(),
       draw: (g, b) => {
-        g.roundRect(0, 0, b.rect.w, b.rect.h, 23).fill(0xd8221a).stroke({ color: 0xffffff, width: 2.5, alpha: 0.9 });
-        g.poly([86, 12, 86, 34, 104, 23]).fill(0xffffff);
+        g.rect(0, 0, b.rect.w, b.rect.h).fill(THEME.pressedFill);
+        g.poly([86, 12, 86, 34, 104, 23]).fill(THEME.pressedIcon);
       },
     });
-    const flyLabel = makeText('FLY', 24, 0xffffff, { fontWeight: 'bold' });
+    const flyLabel = makeText('FLY', 24, THEME.pressedIcon, { fontWeight: 'bold' });
     flyLabel.anchor.set(0.5);
     flyLabel.position.set(46, 23);
     fly.container.addChild(flyLabel);
     this.addButton(fly);
 
     // Tab bar.
-    const tabs: { id: string; icon: TabIcon; label: string; color: number }[] = [
-      { id: 'tabBuild', icon: 'build', label: 'Build', color: COLORS.red },
-      { id: 'tabShop', icon: 'shop', label: 'Shop', color: COLORS.magenta },
-      { id: 'tabCaptain', icon: 'captain', label: 'Captain', color: COLORS.yellow },
-      { id: 'tabSkills', icon: 'skills', label: 'Skills', color: COLORS.orange },
-      { id: 'tabMap', icon: 'map', label: 'Map', color: COLORS.cyan },
+    const tabs: { id: string; icon: TabIcon; label: string }[] = [
+      { id: 'tabBuild', icon: 'build', label: 'Build' },
+      { id: 'tabShop', icon: 'shop', label: 'Shop' },
+      { id: 'tabCaptain', icon: 'captain', label: 'Captain' },
+      { id: 'tabSkills', icon: 'skills', label: 'Skills' },
+      { id: 'tabMap', icon: 'map', label: 'Map' },
     ];
     tabs.forEach((t, i) => {
       const active = i === 0;
       this.addButton(new UIButton({
-        id: t.id, rect: { x: i * 108, y: LAYOUT.tabs.y + 1, w: 108, h: LAYOUT.tabs.h - 1 }, label: t.label, labelSize: 12, labelColor: t.color,
+        id: t.id, rect: { x: i * 108, y: LAYOUT.tabs.y + 1, w: 108, h: LAYOUT.tabs.h - 1 }, label: t.label, labelSize: 12, labelColor: active ? THEME.text : THEME.textDim,
         onTap: () => { if (!active) this.toast.show('Coming soon'); },
         draw: (g, b) => {
-          if (active) {
-            g.rect(0, 0, b.rect.w, b.rect.h).fill({ color: t.color, alpha: 0.14 });
-            g.rect(0, b.rect.h - 4, b.rect.w, 4).fill(t.color);
-          }
+          if (active) g.rect(b.rect.w / 2 - 19, 2, 38, 36).fill(THEME.pressedFill);
           const ic = new Graphics();
-          drawTabIcon(ic, t.icon, 26, t.color);
+          drawTabIcon(ic, t.icon, 24, active ? THEME.pressedIcon : THEME.buttonIcon);
           ic.position.set(b.rect.w / 2, 20);
-          ic.alpha = active ? 1 : 0.8;
           g.addChild(ic);
         },
       }));
@@ -303,10 +300,10 @@ export class BuildScreen implements Screen {
     const facing = FACING_WORD[rotationToDir(info.effectiveRotation)];
     const mode = info.orientationMode === 'auto' ? 'Orientation: auto' : `Orientation: manual (facing ${facing})`;
     let body = describeBlock(def, cell.level);
-    let color = 0xffffff;
+    let color: number = THEME.text;
     if (info.warning) {
       body = `Warning: ${info.warning.toLowerCase()}. ${body}`;
-      color = COLORS.warn;
+      color = THEME.warn;
     } else if (!info.onPath) {
       body += ' No signal reaches this block.';
     }
@@ -457,7 +454,7 @@ export class BuildScreen implements Screen {
     if (blockId) {
       const def = BLOCKS[blockId];
       const ok = p && p.compiled.recipes.length > 0;
-      this.inspector.set(ok ? def.name : `${def.name} · no ejector reached`, describeBlock(def, 1), ok ? 0xffffff : COLORS.warn);
+      this.inspector.set(ok ? def.name : `${def.name} · no ejector reached`, describeBlock(def, 1), ok ? THEME.text : THEME.warn);
     } else {
       this.inspector.set('Remove', 'Clears this cell and returns the block to your inventory.');
     }
@@ -527,7 +524,7 @@ export class BuildScreen implements Screen {
     const x = Math.max(4, Math.min(VIEW_W - 4 - w, centre.x - w / 2));
     let y = centre.y - this.view.scale / 2 - h - 6;
     if (y < LAYOUT.gridArea.y) y = centre.y + this.view.scale / 2 + 6;
-    this.tipBg.clear().roundRect(x, y, w, h, 8).fill({ color: 0x101010, alpha: 0.95 }).stroke({ color: COLORS.red, width: 1.5 });
+    this.tipBg.clear().rect(x, y, w, h).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
     this.tipText.position.set(x + 10, y + 7);
     this.tip.visible = true;
   }
@@ -540,18 +537,18 @@ export class BuildScreen implements Screen {
   private openHullPanel() {
     for (const ch of this.hullPanel.removeChildren()) ch.destroy({ children: true });
     this.hullRows = [];
-    const dim = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill({ color: 0x000000, alpha: 0.6 });
-    const panel = new Graphics().roundRect(16, 150, VIEW_W - 32, 90 + HULL_INFO.length * 84, 14).fill(0x2a2a2a).stroke({ color: COLORS.red, width: 2 });
-    const title = makeText('Choose a hull', 20, 0xffffff, { fontWeight: 'bold' });
+    const dim = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill({ color: THEME.dim, alpha: 0.6 });
+    const panel = new Graphics().rect(16, 150, VIEW_W - 32, 90 + HULL_INFO.length * 84).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
+    const title = makeText('Choose a hull', 20, THEME.text, { fontWeight: 'bold' });
     title.position.set(32, 164);
     this.hullPanel.addChild(dim, panel, title);
     HULL_INFO.forEach((h, i) => {
       const rect: Rect = { x: 28, y: 204 + i * 84, w: VIEW_W - 56, h: 72 };
       const active = h.id === this.model.hullId;
-      const row = new Graphics().roundRect(rect.x, rect.y, rect.w, rect.h, 10).fill(active ? 0x4b5a4b : 0x3d3d3d).stroke({ color: active ? COLORS.green : 0x777777, width: active ? 3 : 1.5 });
-      const name = makeText(active ? `${h.name} (current)` : h.name, 20, 0xffffff, { fontWeight: 'bold' });
+      const row = new Graphics().rect(rect.x, rect.y, rect.w, rect.h).fill(THEME.buttonFill).stroke({ color: active ? THEME.select : THEME.border, width: active ? 3 : 1.5 });
+      const name = makeText(active ? `${h.name} (current)` : h.name, 20, THEME.text, { fontWeight: 'bold' });
       name.position.set(rect.x + 14, rect.y + 10);
-      const desc = makeText(h.desc, 14, 0xd0d0d0, { wordWrap: true, wordWrapWidth: rect.w - 28 });
+      const desc = makeText(h.desc, 14, THEME.textDim, { wordWrap: true, wordWrapWidth: rect.w - 28 });
       desc.position.set(rect.x + 14, rect.y + 38);
       this.hullPanel.addChild(row, name, desc);
       this.hullRows.push({ id: h.id, rect });
