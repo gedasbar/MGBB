@@ -6,11 +6,9 @@ import { buildStarterGrid } from '../src/game/starter';
 import { compile } from '../src/engine/compiler';
 import { CONFIG } from '../src/config';
 import { DEFAULT_APPROACH_SPEED, STOP_LINE_Y } from '../src/wall/constants';
-import { blockHp, makeTestWall, rewardPerBlock, totalHp } from '../src/wall/level';
+import { blockHp, makeTestWall, rewardPerBlock, rowsForTier, totalHp } from '../src/wall/level';
 import { DEFAULT_BOT, simulateWall } from '../src/wall/sim';
 
-/** Placeholder size curve: 8 rows at tier 1 growing linearly to 41 rows at tier 100 (the real generator is chunk 6b). */
-export const rowsForTier = (tier: number) => Math.round(8 + ((tier - 1) * (41 - 8)) / 99);
 
 const grid = buildStarterGrid();
 const stats = compile(grid).stats;

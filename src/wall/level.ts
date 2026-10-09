@@ -16,8 +16,16 @@ export interface LevelDef {
   hint?: string;
   /** Wall scroll speed in px/s while no living block touches the stop line. */
   approachSpeed: number;
+  /** Set by the campaign generator: results of this level count toward the campaign progress. */
+  campaign?: boolean;
+  /** Spike tier: every block has 1.6x HP. */
+  spike?: boolean;
+  /** Hand-defined milestone tier (10, 20, ... 100). */
+  milestone?: boolean;
 }
 
+/** Placeholder size curve: 8 rows at tier 1 growing linearly to 41 rows at tier 100. */
+export const rowsForTier = (tier: number) => Math.round(8 + ((tier - 1) * (41 - 8)) / 99);
 export const blockHp = (tier: number) => BLOCK_HP_BASE * Math.pow(BLOCK_HP_GROWTH, tier - 1);
 export const rewardPerBlock = (tier: number) => REWARD_BASE * Math.pow(REWARD_GROWTH, tier - 1);
 
