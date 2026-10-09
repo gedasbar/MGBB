@@ -131,7 +131,6 @@ export class WallWorld {
   private shielded: Block[] = [];
   private rowAlive: number[];
   private lowRow = -1;
-  private bounceEdge: boolean[];
 
   /** Screen y of the wall's bottom edge. The wall starts fully above the screen (offset 0) and moves down. */
   wallOffsetY = 0;
@@ -163,7 +162,6 @@ export class WallWorld {
     this.warnings = compiled.warnings;
     this.spawnOffsets = spawnOffsetsFor(this.recipes, hullGrid);
     this.projSys.modifiersTable = this.recipes.map(r => r.packet.mods);
-    this.bounceEdge = this.recipes.map(r => r.packet.mods.some(m => m.type === 'bouncing'));
 
     this.rowAlive = new Array(level.rows).fill(0);
     let alive = 0;
@@ -228,6 +226,12 @@ export class WallWorld {
     let r = from;
     while (r >= 0 && this.rowAlive[r] === 0) r--;
     return r;
+  }
+
+  /** Moves the wall to a given scroll offset (tests and debugging). */
+  setWallOffset(y: number) {
+    this.wallOffsetY = y;
+    this.syncY();
   }
 
   private syncY() {
@@ -295,12 +299,14 @@ export class WallWorld {
     this.touching = this.alive > 0 && this.bottomEdge() >= STOP_LINE_Y - EPS;
     if (this.touching) this.hull -= DRAIN_PER_SEC * this.maxHull * dt;
 
-    // --- Ship: follows the pointer, then is pushed out of any block
-    if (ship) {
-      this.shipX = Math.max(0, Math.min(WORLD_WIDTH, ship.x));
-      this.shipY = Math.max(CONFIG.PLAYER.MARGIN, Math.min(VIEW_H - CONFIG.PLAYER.MARGIN, ship.y));
-    }
+    // --- Ship: a block that scrolled onto it pushes it out; then it follows the pointer, sliding along solid blocks
     this.resolveShip();
+    if (ship) {
+      this.moveShipTo(
+        Math.max(0, Math.min(WORLD_WIDTH, ship.x)),
+        Math.max(CONFIG.PLAYER.MARGIN, Math.min(VIEW_H - CONFIG.PLAYER.MARGIN, ship.y)),
+      );
+    }
 
     // --- Auto-fire
     if (this.autoFire) {
@@ -321,7 +327,7 @@ export class WallWorld {
       pool.x[i] += pool.vx[i] * dt;
       pool.y[i] += pool.vy[i] * dt;
       if (pool.x[i] < 0 || pool.x[i] > WORLD_WIDTH) {
-        if (this.bounceEdge[pool.modIndex[i]]) {
+        if (this.projSys.modifiersTable[pool.modIndex[i]]?.some(m => m.type === 'bouncing')) {
           if (pool.x[i] < 0) { pool.x[i] = -pool.x[i]; pool.vx[i] = Math.abs(pool.vx[i]); }
           else { pool.x[i] = 2 * WORLD_WIDTH - pool.x[i]; pool.vx[i] = -Math.abs(pool.vx[i]); }
         } else {
@@ -340,7 +346,39 @@ export class WallWorld {
     else if (this.hull <= 0) { this.hull = 0; this.state = 'lost'; }
   }
 
-  /** Push the ship's circle out of every block it overlaps, along the shortest way out. */
+  /** True if a ship-sized circle at (x, y) overlaps a living block. */
+  private shipHitsBlock(x: number, y: number): boolean {
+    const R = CONFIG.PLAYER.HITBOX_R;
+    const c0 = Math.max(0, Math.floor((x - R) / CELL));
+    const c1 = Math.min(this.level.cols - 1, Math.floor((x + R) / CELL));
+    const r0 = Math.max(0, this.level.rows + Math.floor((y - R - this.wallOffsetY) / CELL));
+    const r1 = Math.min(this.level.rows - 1, this.level.rows + Math.floor((y + R - this.wallOffsetY) / CELL));
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        if (this.blocks[r * this.level.cols + c] && distSqToBox(x, y, c * CELL, this.blockTop(r)) < R * R) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Moves the ship toward (tx, ty) in small steps, x then y, so it stops at a block face and slides along it
+   * instead of jumping through or into the wall. With nothing in the way it lands exactly on the target.
+   */
+  private moveShipTo(tx: number, ty: number) {
+    const dx = tx - this.shipX;
+    const dy = ty - this.shipY;
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (CONFIG.PLAYER.HITBOX_R * 0.5)));
+    for (let s = 1; s <= steps; s++) {
+      const nx = this.shipX + dx / steps;
+      if (!this.shipHitsBlock(nx, this.shipY)) this.shipX = nx;
+      const ny = this.shipY + dy / steps;
+      if (!this.shipHitsBlock(this.shipX, ny)) this.shipY = ny;
+    }
+    if (!this.shipHitsBlock(tx, ty)) { this.shipX = tx; this.shipY = ty; }
+  }
+
+  /** Push the ship's circle out of every block it overlaps (a block scrolled onto it), along the shortest way out. */
   private resolveShip() {
     const R = CONFIG.PLAYER.HITBOX_R;
     for (let pass = 0; pass < 3; pass++) {
