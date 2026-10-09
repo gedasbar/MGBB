@@ -6,7 +6,7 @@ import { HULL_BUILDERS } from '../game/gridUtils';
 export type SlotId = 'A' | 'B';
 export const SLOTS: SlotId[] = ['A', 'B'];
 
-/** A player-placed block. Fixed hull cells (void, blocked, generator, ejector) are never saved. */
+/** A player-placed block. Fixed hull cells (void, generator, ejector) are never saved. */
 export interface BlockEntry {
   x: number;
   y: number;
@@ -114,12 +114,18 @@ export function sanitizeEntries(raw: unknown, hull: Grid, legacy = false): Block
   return out;
 }
 
+/** Cell type as stored by older builds. The 'blocked' type was removed; such a cell is void now. */
+export function legacyCellType(t: unknown): 'empty' | 'void' | 'generator' | 'ejector' | null {
+  if (t === 'blocked') return 'void';
+  return t === 'empty' || t === 'void' || t === 'generator' || t === 'ejector' ? t : null;
+}
+
 /** Reads the whole old-format grid ({w,h,cells[]}) and keeps only what survives sanitising. */
 export function migrateLegacyGrid(raw: unknown, hull: Grid): BlockEntry[] {
   const cells = (raw as { cells?: unknown } | null)?.cells;
   if (!Array.isArray(cells)) return [];
   const entries = cells
-    .filter((c: any) => c && c.type === 'empty' && typeof c.blockId === 'string')
+    .filter((c: any) => c && legacyCellType(c.type) === 'empty' && typeof c.blockId === 'string')
     .map((c: any) => ({ x: c.x, y: c.y, blockId: c.blockId, level: c.level }));
   return sanitizeEntries(entries, hull, true);
 }

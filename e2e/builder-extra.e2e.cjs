@@ -1,7 +1,13 @@
 // Second builder end-to-end script: ledger tooltip, hull picker, multi-stream flight, picker details.
 // Same rules as builder.e2e.cjs: real pointer events, positions computed here. Requires `npm run dev`.
 const lib = require('./lib.cjs');
-const { check, tap, doubleTap, state, shot } = lib;
+const { check, tap, state, shot } = lib;
+
+/** Select a cell and tap it again to open its picker. */
+async function openPicker(page, at) {
+  await tap(page, ...at);
+  if (!(await state(page)).pickerOpen) await tap(page, ...at); // the cell may already have been selected
+}
 
 const CELL = 48, OX = 6, OY = 204;
 const cell = (col, row) => [OX + (col - 0.5) * CELL, OY + (row - 0.5) * CELL];
@@ -23,11 +29,10 @@ async function lineAt(page, [cx, cy], axis) {
 }
 
 async function place(page, at, tileKey) {
-  await doubleTap(page, ...at);
+  await openPicker(page, at);
   const [c, y] = TILE[tileKey];
   await tap(page, ...tileCentre(c, y));
-  await page.waitForTimeout(450);
-  await doubleTap(page, ...tileCentre(c, y));
+  await tap(page, ...tileCentre(c, y));
 }
 
 (async () => {
@@ -68,7 +73,7 @@ async function place(page, at, tileKey) {
   check(st.selected === null, 'a long press does not select the cell');
 
   // ------------------------------------------------------------------ picker details on an occupied cell
-  await doubleTap(page, ...cell(9, 6));
+  await openPicker(page, cell(9, 6));
   const pk = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; return { open: p.isOpen, first: p.tiles[0].id, selected: p.selected }; });
   check(pk.open && pk.first === '__remove' && pk.selected === 'flat_plus', `occupied cell: Remove tile first, current block highlighted (${JSON.stringify(pk)})`);
   await shot(page, 'b31_picker_occupied_cell.png');
@@ -84,23 +89,22 @@ async function place(page, at, tileKey) {
   check(!st.pickerOpen && (await page.evaluate(() => JSON.stringify(window.__mgbm.model.grid.cells.filter(c => c.blockId)))) === beforeClose, 'the X button closes the sheet without changes');
   check(st.view.scale === CELL && st.view.ox === OX && st.view.oy === OY, 'closing restores the view');
   // Closing without changes: tap on the dimmed area.
-  await doubleTap(page, ...cell(3, 5));
+  await openPicker(page, cell(3, 5));
   check((await state(page)).pickerOpen, 'picker opened again');
   await tap(page, 270, 250);
   check(!(await state(page)).pickerOpen, 'tapping the dimmed area closes the sheet');
   check((await page.evaluate(() => JSON.stringify(window.__mgbm.model.grid.cells.filter(c => c.blockId)))) === beforeClose, 'nothing changed');
 
   // Remove through the picker returns the block to the inventory.
-  await doubleTap(page, ...cell(9, 6));
+  await openPicker(page, cell(9, 6));
   await tap(page, ...tileCentre(0, 34));
-  await page.waitForTimeout(450);
-  await doubleTap(page, ...tileCentre(0, 34));
+  await tap(page, ...tileCentre(0, 34));
   st = await state(page);
   const inv = await page.evaluate(() => ({ placed: window.__mgbm.model.placedCount('flat_plus'), avail: window.__mgbm.model.available('flat_plus'), owned: window.__mgbm.model.owned.flat_plus }));
   check(!st.pickerOpen && st.stats.damagePerShot === 1 && inv.placed === 0 && inv.avail === inv.owned, `Remove tile removes the block and returns it: ${JSON.stringify(inv)}`);
 
   // Live preview delta on the line.
-  await doubleTap(page, ...cell(9, 6));
+  await openPicker(page, cell(9, 6));
   await tap(page, ...tileCentre(...TILE.flat_plus));
   st = await state(page);
   check(st.statsStrip[0] === '101 +100' && st.statsStrip[3] === '404 +400', `preview of Flat+ shows the new numbers with deltas: ${JSON.stringify(st.statsStrip)}`);

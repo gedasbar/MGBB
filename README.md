@@ -6,8 +6,8 @@ A factory-builder idle game about defending a ship against geometrically dividin
 
 The Build screen draws a hull grid. The **generator** is a fixed cell that always fires a red line (the signal) in the direction it faces. The line runs straight through empty cells and only changes when it meets a block; it ends at an **ejector** (projectiles leave the ship there) or at a dead end (drawn with a cross, counted as a warning).
 
-- **Tap** a cell to select it and read its rule text in the inspector strip. **Double-tap** an empty cell to open the picker; tap a tile to preview it (ghost block, re-routed line, stats with deltas), double-tap the tile to place it.
-- Blocks on the line **auto-orient** to the direction the signal enters them (green "A" badge). **Rotate left / right** locks the facing by hand (padlock); a locked block only accepts a signal travelling the way it faces, any other side dead-ends with a warning. **Auto-orient** (centre toolbar button) hands control back to the line.
+- **Tap** a cell to select it and read its rule text in the inspector strip. **Tap the selected cell again** to open the picker; tap a tile to preview it (ghost block, re-routed line, stats with deltas), tap the same tile again to place it.
+- Blocks on the line **auto-orient** to the direction the signal enters them. **Rotate left / right** locks the facing by hand (the inspector says "manual"); a locked block only accepts a signal travelling the way it faces, any other side dead-ends with a warning. **Auto-orient** (centre toolbar button) hands control back to the line.
 - Drag to pan, wheel or pinch to zoom, the corner-arrows button fits the hull. Long-press (touch) or hover (mouse) a cell on the line to see what the projectile looks like after it.
 - **A/B** switches between two saved circuits per hull; **Copy / Paste** moves a layout through the clipboard; the ship button switches hull (Shuttle, Fan).
 - **FLY** compiles the active circuit and starts a run; it refuses (with a message) if nothing reaches an ejector.

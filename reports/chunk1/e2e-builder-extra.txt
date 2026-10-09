@@ -1,0 +1,33 @@
+PASS  hover over Flat+ shows the packet after it: "After this cell\nDamage 101\nPure 0% · Projectiles 1\nModifiers: none"
+PASS  hover before Flat+ shows damage 1: "After this cell\nDamage 1\nPure 0% · Projectiles 1\nModifiers: none"
+PASS  hover over a cell with no signal shows no ledger
+PASS  the tooltip hides when the pointer leaves the grid
+PASS  long press on (9,3) shows the ledger: "After this cell\nDamage 101\nPure 0% · Projectiles 1\nModifiers: none"
+PASS  releasing hides the ledger
+PASS  a long press does not select the cell
+PASS  occupied cell: Remove tile first, current block highlighted ({"open":true,"first":"__remove","selected":"flat_plus"})
+PASS  tapping the Remove tile explains it: "Remove: Clears this cell and returns the block to your inventory."
+PASS  preview shows the delta against the current circuit: "1 −100"
+PASS  the X button closes the sheet without changes
+PASS  closing restores the view
+PASS  picker opened again
+PASS  tapping the dimmed area closes the sheet
+PASS  nothing changed
+PASS  Remove tile removes the block and returns it: {"placed":0,"avail":20,"owned":20}
+PASS  preview of Flat+ shows the new numbers with deltas: ["101 +100","1","4","404 +400","0"]
+PASS  ship button opens the hull picker
+PASS  choosing Fan switches the hull: fan
+PASS  Fan hull is fitted to the screen (cell 58.67)
+PASS  crossing circuit reaches two ejectors: 2
+PASS  the vertical line runs straight through the crossing cell
+PASS  the horizontal line hops over it (arc above the crossing)
+PASS  the horizontal line has a gap under the hop (no red or dash pixels there): [[182,97,97],[148,115,115]]
+PASS  the horizontal line continues on both sides of the crossing
+PASS  Splitter 3 with two turns reaches all three ejectors: 3 projectiles per pulse
+PASS  stats strip shows 3 projectiles per pulse: ["1","3","4","12","0"]
+PASS  red line pixels along all three branches
+PASS  every one of 6 pulses fired 3 projectiles: [3,3,3,3,3,3]
+PASS  pulse rate 3.8/s matches the strip (4/s)
+
+ALL PASSED  (30 passed, 0 failed)
+exit=0

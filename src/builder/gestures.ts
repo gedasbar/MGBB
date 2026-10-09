@@ -4,7 +4,8 @@
  */
 export interface GestureHandlers {
   onTap(x: number, y: number): void;
-  onDoubleTap(x: number, y: number): void;
+  /** Optional. When absent, every tap (fast or not) is reported through onTap. */
+  onDoubleTap?(x: number, y: number): void;
   /** Incremental movement of a one-pointer drag that started where `canDrag` said yes. */
   onDrag(dx: number, dy: number, x: number, y: number): void;
   /** Two-pointer pinch: ratio of the new finger distance to the old one, around the midpoint. */
@@ -126,7 +127,7 @@ export class GestureTracker {
   private registerTap(x: number, y: number) {
     const t = this.now();
     const last = this.lastTap;
-    if (last && t - last.t <= DOUBLE_TAP_MS && Math.hypot(x - last.x, y - last.y) <= DOUBLE_TAP_DIST) {
+    if (this.h.onDoubleTap && last && t - last.t <= DOUBLE_TAP_MS && Math.hypot(x - last.x, y - last.y) <= DOUBLE_TAP_DIST) {
       this.lastTap = null;
       this.h.onDoubleTap(x, y);
     } else {

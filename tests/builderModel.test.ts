@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BuilderModel, StorageLike, UNDO_LIMIT } from '../src/builder/model';
-import { decodeLayout, DEFAULT_SHUTTLE_A, LEGACY_KEY, loadBuilder, STORAGE_KEY } from '../src/builder/persist';
+import { decodeLayout, DEFAULT_SHUTTLE_A, LEGACY_KEY, legacyCellType, loadBuilder, STORAGE_KEY } from '../src/builder/persist';
 import '../src/data/blocks';
 
 function memStorage(initial: Record<string, string> = {}): StorageLike & { data: Record<string, string> } {
@@ -38,7 +38,7 @@ describe('builder model: edits, inventory and rotation', () => {
 
   it('refuses to place on fixed cells, with no blocks left, or a hidden block', () => {
     const m = new BuilderModel(null);
-    expect(m.place(5, 0, 'flat_plus').ok).toBe(false); // blocked cell
+    expect(m.place(5, 0, 'flat_plus').ok).toBe(false); // void cell (6,1)
     expect(m.place(5, 10, 'flat_plus').ok).toBe(false); // generator
     expect(m.place(8, 1, 'flat_plus').ok).toBe(false); // ejector
     expect(m.place(0, 0, 'flat_plus').ok).toBe(false); // void
@@ -190,6 +190,28 @@ describe('builder persistence', () => {
     expect(storage.data[LEGACY_KEY]).toBeUndefined();
   });
 
+  it("an old save with 'blocked' cells loads them as void, keeps the player's blocks and does not crash", () => {
+    const oldCells = [
+      { x: 5, y: 0, blockId: null, level: 1, rotation: 0, type: 'blocked' },
+      { x: 2, y: 1, blockId: null, level: 1, rotation: 0, type: 'blocked' },
+      { x: 5, y: 8, blockId: 'turn_r', level: 1, rotation: 0, type: 'empty' },
+      { x: 8, y: 8, blockId: 'turn_l', level: 1, rotation: 0, type: 'empty' },
+      { x: 8, y: 5, blockId: 'flat_plus', level: 1, rotation: 0, type: 'empty' },
+      { x: 4, y: 0, blockId: 'turn_l', level: 1, rotation: 0, type: 'blocked' }, // a block somehow stored on a blocked cell
+    ];
+    const storage = memStorage({ [LEGACY_KEY]: JSON.stringify({ w: 11, h: 11, cells: oldCells }) });
+    let m!: BuilderModel;
+    expect(() => { m = new BuilderModel(storage); }).not.toThrow();
+    expect(m.cellAt(5, 0)?.type).toBe('void');
+    expect(m.cellAt(2, 1)?.type).toBe('void');
+    expect(m.grid.cells.some(c => (c.type as string) === 'blocked')).toBe(false);
+    expect(m.grid.cells.filter(c => c.blockId).map(c => `${c.x},${c.y}:${c.blockId}`).sort())
+      .toEqual(['5,8:turn_r', '8,5:flat_plus', '8,8:turn_l']);
+    expect(m.compiled.recipes.length).toBe(1);
+    expect(legacyCellType('blocked')).toBe('void');
+    expect(legacyCellType('nonsense')).toBeNull();
+  });
+
   it('drops Straight and bad entries from a current-format save without crashing', () => {
     const bad = {
       version: 2,
@@ -203,7 +225,7 @@ describe('builder persistence', () => {
               { x: 5, y: 8, blockId: 'jackpot', level: 1, rotation: 0, manual: false }, // duplicate cell
               { x: -1, y: 3, blockId: 'turn_r' },
               { x: 'a', y: 3, blockId: 'turn_r' },
-              { x: 5, y: 0, blockId: 'turn_r', level: 1, rotation: 0, manual: false }, // blocked cell
+              { x: 5, y: 0, blockId: 'turn_r', level: 1, rotation: 0, manual: false }, // void cell (6,1)
               null, 7, 'x',
             ],
             B: 'nonsense',

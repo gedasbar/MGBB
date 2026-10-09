@@ -39,10 +39,11 @@ function routedShuttle(): Grid {
 const seg = (s: Segment) => `${s.kind}:${s.fromCell.x + 1},${s.fromCell.y + 1}->${s.toCell.x + 1},${s.toCell.y + 1}`;
 
 describe('compiler: the automatic red line', () => {
-  it('empty Shuttle: one live run from G up to (6,2) and a dead-end cap at the blocked cell (6,1)', () => {
+  it('empty Shuttle: one live run from G up to (6,2) and a dead-end cap at the void cell (6,1)', () => {
     const res = compile(buildShuttleGrid());
     expect(res.segments.map(seg)).toEqual(['live:6,11->6,2', 'dead-end:6,2->6,1']);
-    expect(res.segments[1].reason).toBe('blocked');
+    expect(res.segments[1].reason).toBe('void');
+    expect(res.warnings[0]).toContain('outside the hull');
     expect(res.recipes.length).toBe(0);
     expect(res.warnings.length).toBeGreaterThan(0);
     expect(res.warnings[0]).toContain("doesn't reach an ejector");

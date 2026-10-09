@@ -11,7 +11,7 @@ export const REMOVE_TILE = '__remove';
 export interface PickerEvents {
   /** Single tap on a tile (or REMOVE_TILE): highlight and preview it. */
   onHighlight(id: string): void;
-  /** Double tap on a tile: place the block (or remove). */
+  /** Second tap on the already-selected tile: place the block (or remove). */
   onPlace(id: string): void;
   onClose(): void;
   onMessage(msg: string): void;
@@ -35,6 +35,8 @@ export class Picker {
   readonly listRect: Rect;
   scrollY = 0;
   selected: string | null = null;
+  /** Tile the player has tapped once; a further tap on it places. Not set by merely opening the sheet. */
+  armed: string | null = null;
   target: { x: number; y: number } | null = null;
   tiles: Tile[] = [];
   private headers: Header[] = [];
@@ -42,7 +44,7 @@ export class Picker {
   private listC = new Container();
   private bg = new Graphics();
   private titleText = makeText('', 16, 0xffffff, { fontWeight: 'bold' });
-  private hintText = makeText('Tap a tile to preview · double-tap to place', 12, COLORS.textDim);
+  private hintText = makeText('Tap a tile to preview · tap it again to place', 12, COLORS.textDim);
   private maskG = new Graphics();
   private model: BuilderModel | null = null;
   private events: PickerEvents | null = null;
@@ -71,6 +73,7 @@ export class Picker {
     this.scrollY = 0;
     const cell = model.cellAt(target.x, target.y);
     this.selected = cell?.blockId ?? null;
+    this.armed = null;
     this.titleText.text = `Build at column ${target.x + 1}, row ${target.y + 1}`;
     this.build();
     this.container.visible = true;
@@ -80,6 +83,7 @@ export class Picker {
   close() {
     this.container.visible = false;
     this.selected = null;
+    this.armed = null;
     this.target = null;
   }
 
@@ -202,24 +206,21 @@ export class Picker {
 
   highlight(id: string) {
     this.selected = id;
+    this.armed = id;
     this.build();
     this.applyScroll();
   }
 
-  /** Returns true when the tap was inside the sheet (consumed). */
+  /**
+   * A tap in the sheet. First tap on a tile previews it; a tap on the tile that is already armed places it.
+   * Returns true when the tap was inside the sheet (consumed).
+   */
   tap(x: number, y: number): boolean {
     if (!this.contains(x, y)) return false;
     if (inRect(this.closeRect, x, y)) { this.events!.onClose(); return true; }
     const t = this.tileAt(x, y);
-    if (t) this.events!.onHighlight(t.id);
-    return true;
-  }
-
-  doubleTap(x: number, y: number): boolean {
-    if (!this.contains(x, y)) return false;
-    if (inRect(this.closeRect, x, y)) { this.events!.onClose(); return true; }
-    const t = this.tileAt(x, y);
     if (!t) return true;
+    if (this.armed !== t.id) { this.events!.onHighlight(t.id); return true; }
     if (t.id !== REMOVE_TILE && this.model!.available(t.id) <= 0) {
       this.events!.onMessage(`No ${BLOCKS[t.id].name} left`);
       return true;

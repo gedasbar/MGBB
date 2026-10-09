@@ -7,7 +7,7 @@ import {
 export interface GridCell {
   x: number;
   y: number;
-  type: 'empty' | 'void' | 'blocked' | 'generator' | 'ejector';
+  type: 'empty' | 'void' | 'generator' | 'ejector';
   /** Player-placed block; always null on fixed (non-empty) cells. */
   blockId: string | null;
   level: number;
@@ -186,8 +186,7 @@ export function compile(grid: Grid): CompiledShip {
         const cell = cells[nidx];
         const info = cellInfo[nidx];
 
-        if (cell.type === 'void') { stop('dead-end', 'void', noEjector('empty space')); break; }
-        if (cell.type === 'blocked') { stop('dead-end', 'blocked', noEjector('solid block in the way')); break; }
+        if (cell.type === 'void') { stop('dead-end', 'void', noEjector('outside the hull')); break; }
         if (cell.type === 'generator') { stop('dead-end', 'generator', noEjector('runs into a generator')); break; }
 
         if (cell.type === 'ejector') {

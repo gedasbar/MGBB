@@ -33,9 +33,9 @@ function cellCenterOf(v: View, cx: number, cy: number) {
 
 const FACING_WORD: Record<string, string> = { N: 'up', E: 'right', S: 'down', W: 'left' };
 const HELP_TEXT =
-  'Tap a cell to inspect it. Double-tap an empty cell to open the block picker; tap a tile to preview it, double-tap it to place it.\n\n' +
+  'Tap a cell to select and inspect it; tap it again to open the block picker. Tap a tile to preview it, tap it again to place it.\n\n' +
   'The red line is automatic: it leaves the generator and runs straight until a block changes it, ending at an ejector. ' +
-  'Blocks on the line follow it (auto). Rotate a block to lock its facing (padlock); Auto-orient makes it follow the line again.\n\n' +
+  'Blocks on the line follow it (auto). Rotating a block locks its facing; Auto-orient makes it follow the line again.\n\n' +
   'Drag to pan, pinch or use the wheel to zoom, and use the corner-arrows button to fit the hull.';
 
 /**
@@ -97,7 +97,6 @@ export class BuildScreen implements Screen {
       (cx, cy) => clientToGame(cx, cy, this.sm.app.canvas.getBoundingClientRect(), CONFIG.VIEW.W, CONFIG.VIEW.H),
       {
         onTap: (x, y) => this.handleTap(x, y),
-        onDoubleTap: (x, y) => this.handleDoubleTap(x, y),
         onDrag: (dx, dy) => this.handleDrag(dx, dy),
         onPinch: (f, cx, cy) => this.zoom(f, cx, cy),
         onWheel: (dy, x, y) => this.handleWheel(dy, x, y),
@@ -280,17 +279,13 @@ export class BuildScreen implements Screen {
   private updateInspector() {
     const sel = this.selected;
     if (!sel) {
-      this.inspector.set('Circuit builder', 'Tap a cell to inspect it. Double-tap an empty cell to build. The red line runs from the generator to an ejector.');
+      this.inspector.set('Circuit builder', 'Tap a cell to inspect it; tap it again to build. The red line runs from the generator to an ejector.');
       return;
     }
     const cell = this.model.cellAt(sel.x, sel.y);
     if (!cell) return;
     switch (cell.type) {
       case 'void':
-        this.inspector.set('Empty space', 'Outside the hull. Nothing can be built here.');
-        return;
-      case 'blocked':
-        this.inspector.set('Blocked cell', "A solid block. Projectiles won't pass it.");
         return;
       case 'generator':
         this.inspector.set('Generator', describeBlock(BLOCKS.generator));
@@ -300,7 +295,7 @@ export class BuildScreen implements Screen {
         return;
     }
     if (!cell.blockId) {
-      this.inspector.set('Empty cell', 'Buildable. The red line passes straight through. Double-tap to build here.');
+      this.inspector.set('Empty cell', 'Buildable. The red line passes straight through. Tap it again to build here.');
       return;
     }
     const def = BLOCKS[cell.blockId];
@@ -403,28 +398,17 @@ export class BuildScreen implements Screen {
     if (this.stats.hit(x, y)) { this.openStatsPanel(); return; }
     if (inRect(LAYOUT.gridArea, x, y)) {
       const c = cellFromPoint(this.view, this.model.grid.w, this.model.grid.h, x, y);
-      this.select(c);
+      this.tapCell(c);
     }
   }
 
-  handleDoubleTap(x: number, y: number) {
-    this.hideTip();
-    if (this.hullPanel.visible) { this.tapHullPanel(x, y); return; }
-    if (this.info.isOpen) { this.info.hide(); return; }
-    if (this.picker.isOpen) {
-      if (this.picker.doubleTap(x, y)) return;
-      this.closePicker();
-      return;
-    }
-    if (!this.buttonAt(x, y) && inRect(LAYOUT.gridArea, x, y)) {
-      const c = cellFromPoint(this.view, this.model.grid.w, this.model.grid.h, x, y);
-      if (c && this.model.cellAt(c.x, c.y)?.type === 'empty') {
-        this.select(c);
-        this.openPicker(c);
-        return;
-      }
-    }
-    this.handleTap(x, y);
+  /** Void cells are not selectable (tapping one deselects). Tapping the selected buildable cell opens the picker. */
+  private tapCell(c: { x: number; y: number } | null) {
+    const type = c ? this.model.cellAt(c.x, c.y)?.type : undefined;
+    if (!c || type === undefined || type === 'void') { this.select(null); return; }
+    const again = !!this.selected && this.selected.x === c.x && this.selected.y === c.y;
+    if (again && type === 'empty') { this.openPicker(c); return; }
+    this.select(c);
   }
 
   private disabledHint(id: string) {
@@ -481,6 +465,7 @@ export class BuildScreen implements Screen {
 
   private placeFromPicker(id: string) {
     const t = this.picker.target!;
+    if (id === this.model.cellAt(t.x, t.y)?.blockId) { this.closePicker(); return; }
     const res = id === REMOVE_TILE ? this.model.remove(t.x, t.y) : this.model.place(t.x, t.y, id);
     this.closePicker();
     if (!res.ok) this.toast.show(res.error);

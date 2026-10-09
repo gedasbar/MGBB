@@ -2,7 +2,7 @@
 // documented layout (540x960, fit view: cell 48 px, grid origin (6,204)) and never read back from game code.
 // Requires the Vite dev server: `npm run dev`.   Run: node e2e/builder.e2e.cjs
 const lib = require('./lib.cjs');
-const { check, tap, doubleTap, drag, wheel, state, shot, isRedLine } = lib;
+const { check, tap, drag, wheel, state, shot, isRedLine } = lib;
 
 // ---- layout constants (duplicated on purpose; if the layout changes this test must be updated) ----
 const CELL = 48, OX = 6, OY = 204;
@@ -51,13 +51,21 @@ const cellState = (page, col, row) => page.evaluate(([c, r]) => { const m = wind
 
 const ROUTE_EMPTY = [[6, 10, 'V'], [7, 9, 'H'], [8, 9, 'H'], [9, 8, 'V'], [9, 7, 'V'], [9, 5, 'V'], [9, 4, 'V'], [9, 3, 'V']];
 
+/** Makes (col,row) the selected cell without opening its picker (a tap on an already selected cell would open it). */
+async function select(page, col, row) {
+  const is = async () => { const s = (await state(page)).selected; return !!s && s.x === col - 1 && s.y === row - 1; };
+  if ((await state(page)).pickerOpen) await tap(page, 516, 492);
+  if (!(await is())) await tap(page, ...cell(col, row));
+}
+
+/** Select the cell, tap it again to open the picker, tap the tile to preview it, tap it again to place it. */
 async function placeViaPicker(page, col, row, tileKey) {
-  await doubleTap(page, ...cell(col, row));
+  await tap(page, ...cell(col, row));
+  if (!(await state(page)).pickerOpen) await tap(page, ...cell(col, row)); // the cell may already be selected
   const open = (await state(page)).pickerOpen;
   const [tc, tr] = TILE[tileKey];
   await tap(page, ...tileCentre(tc, tr));
-  await page.waitForTimeout(450); // keep the preview tap and the placing double tap apart
-  await doubleTap(page, ...tileCentre(tc, tr));
+  await tap(page, ...tileCentre(tc, tr));
   return open;
 }
 
@@ -89,11 +97,11 @@ async function placeViaPicker(page, col, row, tileKey) {
   check(ui.off.length === 0, `no button is clipped off screen${ui.off.length ? ': ' + ui.off : ''}`);
   check(ui.tiny.length === 0, `no text smaller than 11px${ui.tiny.length ? ': ' + ui.tiny : ''}`);
 
-  // ------------------------------------------------------------------ 2. Single tap on fixed cells
+  // ------------------------------------------------------------------ 2. Taps on fixed cells and void
   await tap(page, ...cell(6, 1));
   st = await state(page);
-  check(st.inspector.body === "A solid block. Projectiles won't pass it.", `tap blocked cell -> inspector "${st.inspector.body}"`);
-  await shot(page, 'b02_blocked_cell_selected.png');
+  check(st.selected === null && !st.pickerOpen, `tap the void cell (6,1) -> nothing is selected (selected=${JSON.stringify(st.selected)})`);
+  await shot(page, 'b02_void_cell_not_selectable.png');
   await tap(page, ...cell(6, 11));
   st = await state(page);
   check(st.inspector.title === 'Generator' && /Projectile dispenser/.test(st.inspector.body), `tap generator -> "${st.inspector.title}: ${st.inspector.body}"`);
@@ -101,10 +109,12 @@ async function placeViaPicker(page, col, row, tileKey) {
   st = await state(page);
   check(st.inspector.title === 'Ejector' && st.inspector.body === 'Ejector. Projectiles leave the ship here.', `tap ejector -> "${st.inspector.title}: ${st.inspector.body}"`);
   const before = JSON.stringify(await gridBlocks(page));
-  await doubleTap(page, ...cell(6, 1));
-  check(!(await state(page)).pickerOpen && JSON.stringify(await gridBlocks(page)) === before, 'double tap on a blocked cell opens nothing and changes nothing');
-  await doubleTap(page, ...cell(1, 1));
-  check(!(await state(page)).pickerOpen, 'double tap on void opens nothing');
+  await tap(page, ...cell(6, 1));
+  await tap(page, ...cell(6, 1));
+  check(!(await state(page)).pickerOpen && JSON.stringify(await gridBlocks(page)) === before, 'tapping the void cell twice opens nothing and changes nothing');
+  await tap(page, ...cell(1, 1));
+  await tap(page, ...cell(1, 1));
+  check(!(await state(page)).pickerOpen, 'tapping outside the hull twice opens nothing');
 
   // ------------------------------------------------------------------ 3. Clear all -> empty line, dead end
   await tap(page, TB.clearAll, TB.y);
@@ -115,9 +125,11 @@ async function placeViaPicker(page, col, row, tileKey) {
   check(st.stats.warnings.length >= 1 && st.statsStrip[4] === String(st.stats.warnings.length), `warning counted in the strip: ${st.statsStrip[4]}`);
 
   // ------------------------------------------------------------------ 4. Picker
-  await doubleTap(page, ...cell(6, 9));
+  await tap(page, ...cell(6, 9));
+  check(!(await state(page)).pickerOpen, 'first tap on an empty cell only selects it');
+  await tap(page, ...cell(6, 9));
   st = await state(page);
-  check(st.pickerOpen, 'double tap on an empty cell opens the picker');
+  check(st.pickerOpen, 'tapping the selected empty cell opens the picker');
   check(st.inspector.title === 'Empty cell', 'inspector strip stays visible above the sheet (and shows the cell)');
   await shot(page, 'b04_picker_open.png');
   const tiles = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; return { ids: p.tiles.map(t => t.id), visible: p.tiles.filter(t => { const r = p.tileScreenRect(t.id); return r.y >= p.listRect.y && r.y + r.h <= p.listRect.y + p.listRect.h; }).map(t => t.id), minTile: Math.min(...p.tiles.map(t => Math.min(t.w, t.h))) }; });
@@ -151,10 +163,10 @@ async function placeViaPicker(page, col, row, tileKey) {
   check(!(await pv(6, 8, 'V')) , 'preview: line no longer continues straight up from the ghost block');
   check((await gridBlocks(page)).length === 0, 'preview did not place anything');
 
-  // Double tap places it.
-  await doubleTap(page, ...tileCentre(...TILE.turn_r));
+  // A second tap on the same tile places it.
+  await tap(page, ...tileCentre(...TILE.turn_r));
   st = await state(page);
-  check(!st.pickerOpen, 'double tap on the tile closes the sheet');
+  check(!st.pickerOpen, 'tapping the selected tile again closes the sheet');
   check(JSON.stringify(await gridBlocks(page)) === JSON.stringify([{ col: 6, row: 9, id: 'turn_r', rotation: 0, manual: false }]), 'Turn Right placed at (6,9) in auto mode');
   check(st.view.scale === CELL && st.view.ox === OX && st.view.oy === OY, 'view is restored after the sheet closes');
   await shot(page, 'b07_turn_right_placed.png');
@@ -174,26 +186,26 @@ async function placeViaPicker(page, col, row, tileKey) {
   await placeViaPicker(page, 9, 6, 'flat_plus');
   st = await state(page);
   check(st.statsStrip[0] === '101' && st.statsStrip[3] === '404', `Flat+ on the line changes the stats: ${JSON.stringify(st.statsStrip)} (was ${statsBefore})`);
-  await tap(page, ...cell(9, 6));
+  await select(page, 9, 6);
   st = await state(page);
   check(/Orientation: auto/.test(st.inspector.title), `selected block shows "${st.inspector.title}"`);
   await shot(page, 'b09_flat_plus_on_line_selected.png');
-  const badge = await lib.pixelsAtClient(page, await Promise.all([[-3, 0], [3, 0], [0, -3], [0, 3], [0, 0]].map(([dx, dy]) => lib.gameToClient(page, OX + 8 * CELL + 39 + dx, OY + 5 * CELL + 9 + dy))));
-  check(badge.some(p => p[1] > 80 && p[0] < 60 && p[2] < 90), `green "auto" badge pixel at the block's corner: ${JSON.stringify(badge[0])}`);
+  const badge = await lib.countInRegion(page, OX + 8 * CELL + 39, OY + 5 * CELL + 9, 4, lib.AUTO_BADGE_PRED);
+  check(badge === 0, `no green "auto" badge at the block's corner: ${badge} badge pixels`);
 
   const statsOn = JSON.stringify((await state(page)).statsStrip);
   await placeViaPicker(page, 3, 5, 'flat_plus');
   st = await state(page);
   check(JSON.stringify(st.statsStrip) === statsOn, 'Flat+ off the line does not change the stats');
-  await tap(page, ...cell(3, 5));
+  await select(page, 3, 5);
   st = await state(page);
   check(/No signal reaches this block/.test(st.inspector.body), `off-line block says: "${st.inspector.body}"`);
   await shot(page, 'b10_flat_plus_off_line_selected.png');
-  const noSigN = await lib.countInRegion(page, OX + 2 * CELL + 9, OY + 4 * CELL + 39, 7, '([r,g,b]) => r > 235 && g > 70 && g < 112 && b > 70 && b < 112');
-  check(noSigN >= 4, `"no signal" mark (red ring and slash) drawn at the corner of the off-line block: ${noSigN} red pixels`);
+  const noSigN = await lib.countInRegion(page, OX + 2 * CELL + 9, OY + 4 * CELL + 39, 7, lib.NO_SIGNAL_PRED);
+  check(noSigN === 0, `no red "no signal" mark at the corner of the off-line block: ${noSigN} mark pixels`);
 
   // ------------------------------------------------------------------ 6. Rotation
-  await tap(page, ...cell(9, 6));
+  await select(page, 9, 6);
   await tap(page, TB.rotCW, TB.y);
   st = await state(page);
   let c = await cellState(page, 9, 6);
@@ -201,8 +213,8 @@ async function placeViaPicker(page, col, row, tileKey) {
   check(st.recipes === 0 && st.stats.damagePerShot === 0, 'rotated Flat+ blocks the line: no recipe');
   check(/manual \(facing right\)/.test(st.inspector.title), `inspector: "${st.inspector.title}"`);
   await shot(page, 'b11_rotated_cw_blocked.png');
-  const lock = await lib.pixelsAtClient(page, [await lib.gameToClient(page, OX + 8 * CELL + 35, OY + 5 * CELL + 12)]);
-  check(lock[0][0] > 200 && lock[0][1] > 150 && lock[0][2] < 140, `padlock (yellow) at the block's corner: ${JSON.stringify(lock[0])}`);
+  const lock = await lib.countInRegion(page, OX + 8 * CELL + 39, OY + 5 * CELL + 10, 4, lib.PADLOCK_PRED);
+  check(lock === 0, `no padlock at the block's corner: ${lock} padlock pixels`);
   const warnPx = await lib.pixelsAtClient(page, await Promise.all([[0, 0], [-4, 3], [4, 3], [0, -3]].map(([dx, dy]) => lib.gameToClient(page, OX + 8.5 * CELL + dx, OY + 5 * CELL + 48 - 6 + dy))));
   check(warnPx.some(p => p[0] > 220 && p[1] > 170 && p[2] < 80), `warning triangle on the block's edge: ${JSON.stringify(warnPx[0])}`);
   await expectLine(page, [[9, 8, 'V'], [9, 7, 'V']], 'line still reaches the rotated block');
@@ -257,14 +269,14 @@ async function placeViaPicker(page, col, row, tileKey) {
   await page.waitForFunction(() => !!window.__mgbm);
   await page.waitForTimeout(400);
   check((await snapshot()) === beforeReload, 'circuit (blocks, rotations, manual flags) persists across a reload');
-  await tap(page, ...cell(9, 6));
+  await select(page, 9, 6);
   await tap(page, TB.rotCW, TB.y);
   const rotated = await snapshot();
   await page.reload();
   await page.waitForFunction(() => !!window.__mgbm);
   await page.waitForTimeout(400);
   check((await snapshot()) === rotated && (await cellState(page, 9, 6)).manual === true, 'a manual rotation persists across a reload');
-  await tap(page, ...cell(9, 6));
+  await select(page, 9, 6);
   await tap(page, TB.auto, TB.y);
 
   const aSnap = await snapshot();

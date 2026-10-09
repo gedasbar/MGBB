@@ -43,15 +43,6 @@ async function tap(page, gx, gy, { pause = 120 } = {}) {
   await page.waitForTimeout(pause);
 }
 
-/** Two quick taps (a double tap): Playwright sends both press/release pairs back to back. */
-async function doubleTap(page, gx, gy, { pause = 200 } = {}) {
-  const p = await gameToClient(page, gx, gy);
-  await page.mouse.move(p.x, p.y);
-  await page.mouse.click(p.x, p.y, { clickCount: 2 });
-  await park(page);
-  await page.waitForTimeout(pause);
-}
-
 async function drag(page, gx0, gy0, gx1, gy1, steps = 12) {
   const a = await gameToClient(page, gx0, gy0);
   const b = await gameToClient(page, gx1, gy1);
@@ -126,6 +117,51 @@ async function countInRegion(page, gx, gy, half, predSrc) {
   }, { b64: png.toString('base64'), predSrc });
 }
 
+/** Colour tests (function-source strings, see countInRegion) for the marks that were removed in chunk 1. */
+const AUTO_BADGE_PRED = '([r,g,b]) => g > 90 && r < 60 && b < 80'; // the old green "A" disc, rgb(15,110,42)
+const PADLOCK_PRED = '([r,g,b]) => r > 220 && g > 180 && b < 120'; // the old yellow padlock, rgb(255,211,77)
+const NO_SIGNAL_PRED = '([r,g,b]) => r > 235 && g > 70 && g < 112 && b > 70 && b < 112'; // the old red ring, rgb(255,90,90)
+
+/** Same as countInRegion, but over a PNG buffer whose pixels are 1:1 with game px (a 540x960 screenshot). */
+async function countInImage(page, png, x0, y0, x1, y1, predSrc) {
+  return page.evaluate(async ({ b64, x0, y0, x1, y1, predSrc }) => {
+    const pred = eval(predSrc);
+    const img = new Image();
+    img.src = 'data:image/png;base64,' + b64;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const w = Math.max(1, Math.round(x1 - x0)), h = Math.max(1, Math.round(y1 - y0));
+    const d = ctx.getImageData(Math.round(x0), Math.round(y0), w, h).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (pred([d[i], d[i + 1], d[i + 2]])) n++;
+    return n;
+  }, { b64: png.toString('base64'), x0, y0, x1, y1, predSrc });
+}
+
+/** Counts matching pixels in many regions of one PNG at once. regions: [{x0,y0,x1,y1,pred}] (pred = function source). */
+async function scanImage(page, png, regions) {
+  return page.evaluate(async ({ b64, regions }) => {
+    const img = new Image();
+    img.src = 'data:image/png;base64,' + b64;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    return regions.map(r => {
+      const pred = eval(r.pred);
+      const w = Math.max(1, Math.round(r.x1 - r.x0)), h = Math.max(1, Math.round(r.y1 - r.y0));
+      const d = ctx.getImageData(Math.round(r.x0), Math.round(r.y0), w, h).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) if (pred([d[i], d[i + 1], d[i + 2]])) n++;
+      return n;
+    });
+  }, { b64: png.toString('base64'), regions });
+}
+
 /** "Red line" pixels: strongly red, little green/blue. */
 const isRedLine = ([r, g, b]) => r > 200 && g < 110 && b < 110;
 
@@ -150,6 +186,6 @@ async function shot(page, name) {
 }
 
 module.exports = {
-  chromium, URL, OUT, VIEW, check, counts, gameToClient, park, tap, doubleTap, drag, wheel,
-  pixelAtClient, pixelsAtClient, countInRegion, isRedLine, openGame, state, shot,
+  chromium, URL, OUT, VIEW, check, counts, gameToClient, park, tap, drag, wheel,
+  pixelAtClient, pixelsAtClient, countInRegion, countInImage, scanImage, isRedLine, AUTO_BADGE_PRED, PADLOCK_PRED, NO_SIGNAL_PRED, openGame, state, shot,
 };

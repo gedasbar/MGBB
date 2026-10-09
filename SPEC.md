@@ -82,7 +82,7 @@ Large numbers: use JS doubles and a `formatBig(n)` helper (`1.2K, 3.4M, 5.6B, 7.
 ## 4. THE CIRCUIT BUILDER (the soul of the game)
 
 ### 4.1 Grid & hulls
-* A **Hull** defines a grid (up to 11×11) where each cell is one of: `empty` (buildable), `void` (hatched, unusable), `blocked` (solid, cannot be crossed or built on, shown with a red ✕), `generator` (pre-placed, fixed), `ejector` (pre-placed, fixed, on any edge or hull cell facing outward).
+* A **Hull** defines a grid (up to 11×11) where each cell is one of: `empty` (buildable), `void` (hatched, unusable, and a signal that reaches it dead-ends), `generator` (pre-placed, fixed), `ejector` (pre-placed, fixed, on any edge or hull cell facing outward).
 * Hull stats: `space` (number of buildable cells, shown like "Space: 43"), `firerate` (generator pulses/s multiplier), `projectileSpeed`, `hullIntegrity`, `moveSpeed`, plus hull **trait** (e.g. "Pirate Mothership: enemies in pirate nodes act as if 15% weaker").
 * Ship hull roster (minimum 10, each with a distinct grid silhouette, ≥ 3 with multiple generators and/or multiple ejector directions): Shuttle (small, 1 gen/1 ej), Army Launcher (long vertical), Explorer (wide), Luxus-Class (symmetrical), Extractor (spider, 4 ejectors), Pirate Mothership (large, deterrent trait), Lancer, Hive-Carrier, Prism, Leviathan. Each hull has a procedurally drawn top-down sprite (layered polygons + engine glow) and a procedurally drawn **build-screen blueprint** of its grid.
 * Hulls are unlocked by currency and/or achievements. Show "owned" labels in a horizontally scrolling carousel with a live preview of the hull's current circuit in a minimap.
@@ -94,7 +94,7 @@ Large numbers: use JS doubles and a `formatBig(n)` helper (`1.2K, 3.4M, 5.6B, 7.
 
 ### 4.3 Visual circuit tracing
 * Draw a persistent **red circuit line** through every cell the signal travels, from each Generator to each Ejector, using each block's port geometry (straight dashes, elbow turns, T-junctions, crossovers drawn with a small hop/bridge). Dashed-line *marching ants* animation runs in the direction of travel.
-* Unconnected-but-placed blocks render dimmed with a "no signal" marker so the player instantly sees wasted parts. Dead-end signals render as a short faded stub.
+* Unconnected-but-placed blocks render dimmed so the player instantly sees wasted parts. Dead-end signals render as a short faded stub.
 * **Damage Ledger (new, important):** long-press/hover on any cell on a live path shows the packet's stats *after* passing that cell (damage, pure fraction, projectile count multiplier, active modifiers, probability tags). A "Path View" toggle shows the full ledger as a strip under the grid for the selected ejector. This is what makes order-of-operations learnable.
 
 ### 4.4 The Circuit Compiler (`src/engine/compiler.ts`) — specify precisely, unit-test heavily
@@ -146,7 +146,7 @@ Each block is a data record: `{ id, name, category, rarity, ports, baseCost, max
 | **Random Router** | Each pulse chooses one output at random (weighted by level). |
 | **Merger** | Two inputs → one output: sums damage, keeps union of modifiers, count adds. Powerful but needs both lanes alive. |
 | **Delay Line** (levels 1–5) | Holds the packet for `0.1 × level` s; the projectile is emitted late, enabling timed volleys. |
-| **Portal Pair** (placed as two linked cells) | Packet entering one portal exits the other, in the exit portal's facing direction; allows jumping over blocked cells. |
+| **Portal Pair** (placed as two linked cells) | Packet entering one portal exits the other, in the exit portal's facing direction; allows jumping over void cells. |
 | **Reflector** | Reverses packet direction (bouncing a lane back through earlier blocks is *forbidden* by cycle rule — it can only reverse into a free neighbour). |
 | **Armored Plating** | Non-signal cosmetic/structural block that adds hull integrity and blocks nothing; fills holes productively. |
 

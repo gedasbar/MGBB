@@ -5,7 +5,7 @@ import {
 import { computeHops, segmentEnds } from '../src/builder/lines';
 import { compile } from '../src/engine/compiler';
 import { buildStarterGrid } from '../src/game/starter';
-import { buildFanGrid, buildShuttleGrid } from '../src/game/gridUtils';
+import { buildFanGrid, buildShuttleGrid, parseLayout } from '../src/game/gridUtils';
 import { DRAG_SLOP, GestureHandlers, GestureTracker, LONG_PRESS_MS } from '../src/builder/gestures';
 import { vi } from 'vitest';
 
@@ -141,6 +141,22 @@ describe('gesture tracker', () => {
     expect(log).toEqual(['tap 100,100', 'double 102,101']);
   });
 
+  it('without an onDoubleTap handler every tap, however fast, is a plain tap', () => {
+    const el = new FakeEl();
+    const log: string[] = [];
+    let t = 0;
+    const g = new GestureTracker(el as any, (x, y) => ({ x, y }), {
+      onTap: (x, y) => log.push(`tap ${x},${y}`),
+      onDrag: () => log.push('drag'), onPinch: () => log.push('pinch'), onWheel: () => log.push('wheel'), canDrag: () => true,
+    }, () => t);
+    g.attach();
+    const ev = (id: number, x: number, y: number) => ({ pointerId: id, clientX: x, clientY: y, pointerType: 'mouse', preventDefault() { /* noop */ } });
+    el.fire('pointerdown', ev(1, 100, 100)); t += 40; el.fire('pointerup', ev(1, 100, 100));
+    t += 80;
+    el.fire('pointerdown', ev(1, 101, 100)); t += 40; el.fire('pointerup', ev(1, 101, 100));
+    expect(log).toEqual(['tap 100,100', 'tap 101,100']);
+  });
+
   it('two taps far apart in time are two single taps', () => {
     const { el, log, ev, advance } = setup();
     el.fire('pointerdown', ev(1, 100, 100)); advance(40); el.fire('pointerup', ev(1, 100, 100));
@@ -213,5 +229,28 @@ describe('gesture tracker', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('hull layouts have no blocked cells', () => {
+  const types = ['void', 'empty', 'generator', 'ejector'];
+  it('Shuttle and Fan only contain void, empty, generator and ejector cells', () => {
+    for (const g of [buildShuttleGrid(), buildFanGrid()]) {
+      expect(g.cells.every(c => types.includes(c.type))).toBe(true);
+    }
+  });
+
+  it('the Shuttle cells that used to be blocked are void', () => {
+    const g = buildShuttleGrid();
+    for (const [col, row] of [[6, 1], [3, 2], [5, 2], [7, 2]]) {
+      expect(g.cells[(row - 1) * g.w + (col - 1)].type).toBe('void');
+    }
+    expect(g.cells.filter(c => c.type === 'ejector').length).toBe(1);
+  });
+
+  it("parseLayout rejects 'X' and any other unknown character", () => {
+    expect(() => parseLayout(['._X'])).toThrow(/Unknown layout character "X"/);
+    expect(() => parseLayout(['._?'])).toThrow();
+    expect(parseLayout(['._G']).cells.map(c => c.type)).toEqual(['void', 'empty', 'generator']);
   });
 });

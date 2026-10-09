@@ -1,0 +1,36 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/xmena/source/MGBM[39m
+
+ [32m✓[39m tests/save.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 5[2mms[22m[39m
+[90mstdout[2m | tests/balance.test.ts[2m > [22m[2mBalance Generator[2m > [22m[2mprints the balance spreadsheet for key tiers
+[22m[39m--- BALANCE SPREADSHEET ---
+Tier	Enemy HP	Enemy Armor	Boss HP		Required DPS	Reward
+1	1.27e+1	1.01e+1	6.33e+2	2.53e+1	4.20e+0
+10	2.05e+1	1.64e+1	1.02e+3	4.10e+1	6.52e+0
+50	1.75e+2	1.40e+2	8.73e+3	3.49e+2	4.59e+1
+100	2.54e+3	2.03e+3	1.27e+5	5.08e+3	5.26e+2
+250	7.80e+6	6.24e+6	3.90e+8	1.56e+7	7.93e+5
+500	5.07e+12	4.06e+12	2.54e+14	1.01e+13	1.57e+11
+1000	2.15e+24	1.72e+24	1.07e+26	4.29e+24	6.19e+21
+1900	1.81e+45	1.45e+45	9.07e+46	3.63e+45	7.27e+40
+---------------------------
+
+ [32m✓[39m tests/balance.test.ts [2m([22m[2m1 test[22m[2m)[22m[90m 5[2mms[22m[39m
+ [32m✓[39m tests/damage.test.ts [2m([22m[2m2 tests[22m[2m)[22m[90m 6[2mms[22m[39m
+ [32m✓[39m tests/projectiles.test.ts [2m([22m[2m1 test[22m[2m)[22m[90m 4[2mms[22m[39m
+ [32m✓[39m tests/boss.test.ts [2m([22m[2m2 tests[22m[2m)[22m[90m 3[2mms[22m[39m
+ [32m✓[39m tests/phase1.test.ts [2m([22m[2m3 tests[22m[2m)[22m[90m 4[2mms[22m[39m
+ [32m✓[39m tests/mitosis.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 4[2mms[22m[39m
+ [32m✓[39m tests/system.test.ts [2m([22m[2m1 test[22m[2m)[22m[90m 74[2mms[22m[39m
+ [32m✓[39m tests/builderModel.test.ts [2m([22m[2m20 tests[22m[2m)[22m[90m 40[2mms[22m[39m
+ [32m✓[39m tests/e2e.world.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 39[2mms[22m[39m
+ [32m✓[39m tests/layout.test.ts [2m([22m[2m20 tests[22m[2m)[22m[90m 19[2mms[22m[39m
+ [32m✓[39m tests/compiler.test.ts [2m([22m[2m23 tests[22m[2m)[22m[90m 174[2mms[22m[39m
+ [32m✓[39m tests/blockAudit.test.ts [2m([22m[2m31 tests[22m[2m)[22m[33m 301[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m13 passed[39m[22m[90m (13)[39m
+[2m      Tests [22m [1m[32m116 passed[39m[22m[90m (116)[39m
+[2m   Start at [22m 16:53:40
+[2m   Duration [22m 1.33s[2m (transform 1.21s, setup 0ms, collect 2.70s, tests 678ms, environment 2ms, prepare 5.01s)[22m
+
+vitest exit=0

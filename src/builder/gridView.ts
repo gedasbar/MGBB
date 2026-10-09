@@ -3,7 +3,7 @@ import { CellInfo, CompiledShip, Grid, GridCell } from '../engine/compiler';
 import { Dir, Rel } from '../engine/compilerTypes';
 import { BLOCKS } from '../data/blocks';
 import {
-  arrowHead, CATEGORY_COLOR, COLORS, drawAutoBadge, drawBlockIcon, drawLock, drawNoSignal, drawWarn, drawX, hatch,
+  arrowHead, CATEGORY_COLOR, COLORS, drawBlockIcon, drawWarn, drawX, hatch,
 } from './draw';
 import { BASE_CELL as S, LAYOUT, View } from './layout';
 import { computeHops, drawCaps, drawFlow, drawLines } from './lines';
@@ -82,16 +82,6 @@ export class GridRenderer {
         g.rect(x, y, w, w).fill(COLORS.voidFill);
         hatch(g, x, y, w, w, 9, COLORS.voidHatch, 2.5);
         break;
-      case 'blocked':
-        g.rect(x, y, w, w).fill(0x242424);
-        hatch(g, x, y, w, w, 9, 0x111111, 2.5);
-        for (const [tx, ty, ex, ey] of [[cx, y, 0, 1], [cx, y + w, 0, -1], [x, cy, 1, 0], [x + w, cy, -1, 0]]) {
-          g.moveTo(tx, ty).lineTo(tx + ex * 9, ty + ey * 9);
-        }
-        g.stroke({ color: COLORS.red, width: 2 });
-        drawX(g, cx, cy, 15, COLORS.red, 9);
-        drawX(g, cx, cy, 15, 0x000000, 4.5);
-        break;
       case 'generator':
         g.rect(x, y, w, w).fill(0x8c1414);
         hatch(g, x, y, w, w, 9, 0xff4040, 3);
@@ -157,11 +147,7 @@ export class GridRenderer {
       const info = compiled.cellInfo[c.y * grid.w + c.x];
       const x = c.x * S;
       const y = c.y * S;
-      // Mode marker, top-right: lock = manual, A = auto.
-      if (info.orientationMode === 'manual') drawLock(g, x + S - 12, y + 13, 18);
-      else drawAutoBadge(g, x + S - 12, y + 12, 15);
       if (info.warning) drawWarn(g, x + S / 2, y + S - 8, 20);
-      else if (!info.onPath && !(opts.ghost && opts.ghost.x === c.x && opts.ghost.y === c.y)) drawNoSignal(g, x + 12, y + S - 12, 18);
     }
     for (let i = 0; i < compiled.cellInfo.length; i++) {
       const c = grid.cells[i];

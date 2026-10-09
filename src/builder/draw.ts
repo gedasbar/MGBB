@@ -72,29 +72,6 @@ export function drawWarn(g: Graphics, cx: number, cy: number, s: number) {
   g.circle(cx, cy + h * 0.55, Math.max(1, s * 0.07)).fill(0x000000);
 }
 
-/** Small padlock for manual-orientation blocks. */
-export function drawLock(g: Graphics, cx: number, cy: number, s: number) {
-  g.roundRect(cx - s / 2, cy - s * 0.1, s, s * 0.62, s * 0.12).fill(0xffd34d).stroke({ color: 0x000000, width: Math.max(1, s * 0.08) });
-  arcPath(g, cx, cy - s * 0.1, s * 0.3, Math.PI, 0);
-  g.stroke({ color: 0xffd34d, width: Math.max(1.5, s * 0.14) });
-  g.circle(cx, cy + s * 0.2, s * 0.09).fill(0x000000);
-}
-
-/** Small "A" badge for auto-orientation blocks. */
-export function drawAutoBadge(g: Graphics, cx: number, cy: number, s: number) {
-  g.circle(cx, cy, s * 0.62).fill({ color: 0x0f6e2a, alpha: 0.95 }).stroke({ color: 0x000000, width: Math.max(1, s * 0.08) });
-  const w = s * 0.34;
-  g.moveTo(cx - w, cy + s * 0.34).lineTo(cx, cy - s * 0.36).lineTo(cx + w, cy + s * 0.34)
-    .moveTo(cx - w * 0.5, cy + s * 0.08).lineTo(cx + w * 0.5, cy + s * 0.08)
-    .stroke({ color: 0xffffff, width: Math.max(1.5, s * 0.15), cap: 'round', join: 'round' });
-}
-
-/** "No signal" mark: a circle with a slash. */
-export function drawNoSignal(g: Graphics, cx: number, cy: number, s: number) {
-  g.circle(cx, cy, s * 0.5).fill({ color: 0x000000, alpha: 0.6 }).stroke({ color: 0xff5a5a, width: Math.max(1.5, s * 0.15) });
-  g.moveTo(cx - s * 0.36, cy + s * 0.36).lineTo(cx + s * 0.36, cy - s * 0.36).stroke({ color: 0xff5a5a, width: Math.max(1.5, s * 0.15) });
-}
-
 function circularArrow(g: Graphics, r: number, color: number, width: number, clockwise: boolean) {
   // Clockwise sweep of about 225 degrees; the counter-clockwise arrow is its mirror image.
   const start = -Math.PI * 0.8;

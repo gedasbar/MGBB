@@ -1,7 +1,7 @@
 import { Grid, GridCell } from '../engine/compiler';
 
 /**
- * Layout legend: `.` void, `_` empty buildable, `X` blocked, `G` generator (faces up), `E` ejector (faces up).
+ * Layout legend: `.` void, `_` empty buildable, `G` generator (faces up), `E` ejector (faces up).
  * Rows are listed top to bottom.
  */
 export function parseLayout(rows: string[]): Grid {
@@ -14,7 +14,6 @@ export function parseLayout(rows: string[]): Grid {
       const ch = rows[y][x];
       const base: GridCell = { x, y, type: 'void', blockId: null, level: 1, rotation: 0, manual: false };
       if (ch === '_') base.type = 'empty';
-      else if (ch === 'X') base.type = 'blocked';
       else if (ch === 'G') { base.type = 'generator'; base.facing = 'N'; }
       else if (ch === 'E') { base.type = 'ejector'; base.facing = 'N'; }
       else if (ch !== '.') throw new Error(`Unknown layout character "${ch}"`);
@@ -25,8 +24,8 @@ export function parseLayout(rows: string[]): Grid {
 }
 
 export const SHUTTLE_ROWS = [
-  '.....E.....',
-  '..E.E_E.E..',
+  '...........',
+  '....._..E..',
   '.._______..',
   '.._____._..',
   '.._____._..',
