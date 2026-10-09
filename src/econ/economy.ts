@@ -5,8 +5,8 @@ import { BLOCKS } from '../data/blocks';
 export const TIER_SECONDS = 15;
 /** Tier-1 Mitotic Rock HP (the first rock dies in three starter shots). */
 export const TIER1_ROCK_HP = 250;
-/** Reward of a parent rock at tier 1. */
-export const PARENT_REWARD = 3;
+/** Reward of a parent rock at tier 1 (3 in the brief; raised to 7 after balance-econ and a bot run showed ~43 credits per default-circuit run). */
+export const PARENT_REWARD = 7;
 /** The whole splitting family pays this multiple of what the parent alone would. */
 export const FAMILY_MULT = 1.1;
 /** Share of the family reward paid by each generation (index 0 = the parent). Sums to 1. */

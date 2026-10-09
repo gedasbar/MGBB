@@ -304,7 +304,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   await page.waitForTimeout(100);
   await shot(page, 'b18_stats_panel.png');
   await tap(page, 270, 500);
-  await tap(page, 54 + 108, 932);
+  await tap(page, 54 + 216, 932); // Captain tab (the Shop tab is real since chunk 5)
   check(/Coming soon/.test((await state(page)).toast), 'stub tab shows "Coming soon"');
   await shot(page, 'b19_coming_soon_toast.png');
 

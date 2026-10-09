@@ -165,12 +165,30 @@ async function scanImage(page, png, regions) {
 /** "Red line" pixels: strongly red, little green/blue. */
 const isRedLine = ([r, g, b]) => r > 200 && g < 110 && b < 110;
 
-async function openGame(browser, { viewport = { width: 540, height: 960 }, clearStorage = true, permissions = [] } = {}) {
+const SHOWN_BLOCKS = ['turn_l', 'turn_r', 'splitter_2', 'splitter_3', 'flat_plus', 'percent_mult', 'lucky_strike', 'jackpot', 'gamblers_gate', 'piercing', 'bouncing', 'aoe_circle', 'shield_breaker', 'pure_converter', 'curving_right', 'random_curve', 'homing', 'aoe_rect', 'fork_impact', 'armor_piercer'];
+
+/** Progress with 20 of every block and every hull: the pre-economy starting state the older scripts were written for. */
+function richProgressJson() {
+  const owned = {}, levels = {};
+  for (const id of SHOWN_BLOCKS) { owned[id] = 20; levels[id] = 1; }
+  return JSON.stringify({ version: 1, credits: 0, owned, levels, ownedHulls: ['shuttle', 'fan'], bestTier: 0, bestTime: 0, totalKills: 0, runs: 0 });
+}
+
+async function openGame(browser, { viewport = { width: 540, height: 960 }, clearStorage = true, permissions = [], rich = true } = {}) {
   const context = await browser.newContext({ viewport, permissions });
   const page = await context.newPage();
   page.on('pageerror', (err) => check(false, `page error: ${err.message}`));
   page.on('console', (m) => { if (m.type() === 'error') process.stdout.write(`console.error: ${m.text()}\n`); });
-  if (clearStorage) await page.addInitScript(() => { if (!sessionStorage.getItem('__cleared')) { localStorage.clear(); sessionStorage.setItem('__cleared', '1'); } });
+  if (clearStorage) {
+    const progress = rich ? richProgressJson() : null;
+    await page.addInitScript((progress) => {
+      if (!sessionStorage.getItem('__cleared')) {
+        localStorage.clear();
+        if (progress) localStorage.setItem('mgbm.progress.v1', progress);
+        sessionStorage.setItem('__cleared', '1');
+      }
+    }, progress);
+  }
   await page.goto(URL);
   await page.waitForFunction(() => !!window.__mgbm);
   await page.waitForTimeout(400);
