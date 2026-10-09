@@ -124,15 +124,16 @@ const setScale = async (page, n) => { await page.fill('#dbg-time-scale', String(
   const before = (await progress(page));
   await setScale(page, 10);
   await page.waitForFunction(() => window.__mgbm.state().touching, null, { timeout: 20000 });
-  s = await state(page);
-  const h0 = s.hull;
-  check(s.touching && Math.abs(s.bottomEdge - 748.8) < 0.5, `wall stopped at the stop line (bottom edge ${s.bottomEdge.toFixed(1)}, line 748.8)`);
   await setScale(page, 1);
+  s = await state(page); // read at real speed, so the drain below is measured in simulation time
+  const h0 = s.hull;
+  const t0 = s.time;
+  check(s.touching && Math.abs(s.bottomEdge - 748.8) < 0.5, `wall stopped at the stop line (bottom edge ${s.bottomEdge.toFixed(1)}, line 748.8)`);
   const off0 = s.wallOffsetY;
   await page.waitForTimeout(1200);
   s = await state(page);
   check(s.hull < h0 - 5 && s.wallOffsetY === off0, `hull drains while the wall touches the line (${h0.toFixed(1)} -> ${s.hull.toFixed(1)}), wall holds still`);
-  const drainPerSec = (h0 - s.hull) / 1.2;
+  const drainPerSec = (h0 - s.hull) / (s.time - t0);
   check(drainPerSec > 9 && drainPerSec < 15, `drain is about 12 per second (measured ${drainPerSec.toFixed(1)})`);
   await snap(page, 'wall_stop_line_draining.png');
   await setScale(page, 10);
@@ -150,7 +151,7 @@ const setScale = async (page, n) => { await page.fill('#dbg-time-scale', String(
   await tap(page, 395, 672); // Retry
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.screen === 'wall', null, { timeout: 5000 });
   s = await state(page);
-  check(s.alive === s.total && s.hull === 100 && s.wallOffsetY < 5, 'Retry starts the same tier again with a full hull');
+  check(s.alive === s.total && s.hull === 100 && s.time < 3, 'Retry starts the same tier again with a full hull');
   const before2 = await progress(page);
   await setScale(page, 4);
   await page.waitForTimeout(1500);

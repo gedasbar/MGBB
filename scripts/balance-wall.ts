@@ -36,3 +36,26 @@ for (const tier of [1, 10, 25, 50, 100]) {
   console.log(`${String(tier).padStart(4)} | ${String(rows).padStart(4)} | ${String(blocks).padStart(6)} | ${hp.toFixed(0).padStart(8)} | ${totalHp(level).toFixed(0).padStart(8)} | `
     + `${(blocks * rewardPerBlock(tier)).toFixed(1).padStart(20)} | ${(est.toFixed(0) + ' s').padStart(14)} | ${fmt(keep).padEnd(34)} | ${mort}`);
 }
+
+// ---- Campaign pacing (chunk 6b): the real generated levels.
+import { generateLevel } from '../src/wall/generator';
+
+const starterDps = stats.estDps;
+const effHp = (l: ReturnType<typeof generateLevel>) =>
+  l.cells.reduce((s, c) => s + (c ? c.shield + c.hp * (1 + c.armor / 10) : 0), 0); // armor 10 halves direct damage
+const clearCredits = (t: number) => generateLevel(t).cells.filter(Boolean).length * rewardPerBlock(t);
+let cumulative = 0;
+const cum: number[] = [0];
+for (let t = 1; t <= 100; t++) { cumulative += clearCredits(t); cum[t] = cumulative; }
+
+console.log(`\nCampaign pacing. Starter gun: est. ${starterDps.toFixed(0)} DPS. "Needed DPS" = effective wall HP (armor counts double, shields added) / 60 s.`);
+console.log('Tier | name            | spike | blocks | wall HP  | effective HP | idle line | needed DPS | ratio  | credits from tiers before');
+const show = (t: number) => {
+  const l = generateLevel(t);
+  const eff = effHp(l);
+  const needed = eff / 60;
+  console.log(`${String(t).padStart(4)} | ${String(l.name).padEnd(15)} | ${l.spike ? ' yes ' : '  -  '} | ${String(l.cells.filter(Boolean).length).padStart(6)} | ${totalHp(l).toFixed(0).padStart(8)} | ${eff.toFixed(0).padStart(12)} | ${(STOP_LINE_Y / l.approachSpeed).toFixed(1).padStart(8)}s | ${needed.toFixed(0).padStart(10)} | ${(needed / starterDps).toFixed(2).padStart(6)} | ${cum[t - 1].toFixed(0).padStart(10)}`);
+};
+for (const t of [1, 5, 10, 20, 30, 50, 75, 100]) show(t);
+console.log('\nRatio (needed DPS / starter DPS) for every tier 1-30, spikes marked *:');
+console.log(Array.from({ length: 30 }, (_, i) => { const l = generateLevel(i + 1); return `${i + 1}${l.spike ? '*' : ''}:${(effHp(l) / 60 / starterDps).toFixed(2)}`; }).join('  '));
