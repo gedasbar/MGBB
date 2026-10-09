@@ -122,6 +122,8 @@ export class WallScreen implements Screen {
     this.creditsText.position.set(20, 36);
     this.tierText.position.set(20, 56);
     this.blocksText.position.set(20, 76);
+    // A dim plate behind the HUD text so it stays readable over the blocks.
+    this.uiLayer.addChild(new Graphics().rect(10, 12, 142, 92).fill({ color: THEME.bg, alpha: 0.72 }));
     this.uiLayer.addChild(this.hullBarBg, this.hullBarFg, this.creditsText, this.tierText, this.blocksText, this.progressBg, this.progressFg);
 
     this.drawStopLine(false);
