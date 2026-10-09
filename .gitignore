@@ -4,3 +4,6 @@ artifacts
 e2e/screenshots
 e2e/out
 temp.ts
+.gitignore
+test-results
+playwright-report
