@@ -40,5 +40,5 @@ export const TEST_ARMOR = 10;
 export const TEST_SHIELD_OF_HP = 0.5;
 
 /** Default approach speed in px/s and the max projectile age (seconds) after which a shot is dropped. */
-export const DEFAULT_APPROACH_SPEED = 25;
+export const DEFAULT_APPROACH_SPEED = 26;
 export const PROJECTILE_MAX_AGE = 3;

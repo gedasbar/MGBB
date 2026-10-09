@@ -163,6 +163,18 @@ export class ProgressStore {
     this.commit();
     return { newBestTier, newBestTime };
   }
+
+  /**
+   * Banks one finished wall level (win or lose): credits, kills and the run count. Best tier and best time belong to
+   * Free Fly and are not touched. Call exactly once per level (WallWorld.bank guards this).
+   */
+  recordWallRun(run: { credits: number; kills: number }) {
+    const d = this.data;
+    d.credits += Math.floor(run.credits);
+    d.totalKills += run.kills;
+    d.runs++;
+    this.commit();
+  }
 }
 
 let shared: ProgressStore | null = null;

@@ -4,17 +4,14 @@ import { MitosisSystem } from '../engine/mitosis';
 import { ProjectileSystem } from '../engine/projectiles';
 import { SpatialHash } from '../engine/spatialHash';
 import { compile, EjectorRecipe, Grid } from '../engine/compiler';
-import { evalDamage } from '../engine/compilerTypes';
-import { rng } from '../rng';
+import { firePulse, PROJECTILE_SPEED, PX_PER_CELL, spawnOffsetsFor } from './fire';
 import { PointerState } from '../input';
 import { buildStarterGrid, ROCK_RADIUS } from './starter';
 import { leakDamage, rockHp, rockReward, tierOfTime } from '../econ/economy';
 
 export const TOUCH_OFFSET_Y = -40; // finger sits below the ship on touch
-export const PROJECTILE_SPEED = 600;
+export { PROJECTILE_SPEED, PX_PER_CELL };
 export const CONTACT_DAMAGE = 10;
-/** Ship-space pixels per hull cell: an ejector's offset from the hull centre is scaled by this when projectiles spawn. */
-export const PX_PER_CELL = 14;
 
 export interface HitEvent { enemyId: number; damage: number; x: number; y: number; }
 /** An enemy body died: `reward` is the credits it paid (fractional; the run keeps the exact total). */
@@ -64,10 +61,7 @@ export class World {
     const compiled = compile(opts.grid ?? buildStarterGrid());
     const hull = opts.grid ?? buildStarterGrid();
     this.recipes = compiled.recipes;
-    this.spawnOffsets = this.recipes.map(r => ({
-      x: (r.x - (hull.w - 1) / 2) * PX_PER_CELL,
-      y: (r.y - (hull.h - 1) / 2) * PX_PER_CELL,
-    }));
+    this.spawnOffsets = spawnOffsetsFor(this.recipes, hull);
     this.warnings = compiled.warnings;
     this.projSys.modifiersTable = this.recipes.map(r => r.packet.mods);
     this.autoSpawn = opts.autoSpawn ?? true;
@@ -112,25 +106,7 @@ export class World {
 
   /** Fire one pulse: one projectile per compiled ejector recipe (chance gates may drop or boost it). */
   fire() {
-    for (let rIdx = 0; rIdx < this.recipes.length; rIdx++) {
-      const r = this.recipes[rIdx];
-      // Chance blocks (Lucky Strike, Jackpot, Gambler's Gate) are rolled per projectile.
-      let damage = r.packet.damage;
-      if (r.packet.gates.length > 0) {
-        damage = evalDamage(r.packet, () => rng.combat.next());
-        if (damage <= 0) continue;
-      }
-      const speed = PROJECTILE_SPEED * (r.packet.speedMul || 1);
-      let vx = 0;
-      let vy = 0;
-      if (r.direction === 'N') vy = -speed;
-      else if (r.direction === 'S') vy = speed;
-      else if (r.direction === 'E') vx = speed;
-      else vx = -speed;
-      const off = this.spawnOffsets[rIdx];
-      const i = this.pool.spawn(this.shipX + off.x, this.shipY + off.y, vx, vy, damage, r.packet.pure || 0, rIdx);
-      if (i >= 0) this.projSys.init(i);
-    }
+    firePulse(this.pool, this.projSys, this.recipes, this.spawnOffsets, this.shipX, this.shipY);
   }
 
   update(dt: number, pointer: PointerState) {
