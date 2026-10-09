@@ -23,7 +23,10 @@ export interface WallSummary {
   won: boolean;
   destroyed: number;
   total: number;
-  onRetry: () => void;
+  /** Two or three buttons, left to right. */
+  buttons: { id: string; label: string; onTap: () => void; enabled?: boolean }[];
+  /** A first-clear Medal was just earned. */
+  medal?: boolean;
 }
 
 /** Shown when the hull reaches 0. The run has already been banked into the progress by FlyScreen. */
@@ -80,12 +83,29 @@ export class RunSummaryScreen implements Screen {
     total.position.set(VIEW_W / 2, 580);
     this.container.addChild(total);
 
-    for (const b of [
-      textButton('summaryBuild', { x: 40, y: 640, w: 210, h: 64 }, 'Build', () => this.sm.switchTo(new BuildScreen(this.sm)), 24),
-      wall
-        ? textButton('summaryRetry', { x: 290, y: 640, w: 210, h: 64 }, 'Retry', () => wall.onRetry(), 24)
-        : textButton('summaryFly', { x: 290, y: 640, w: 210, h: 64 }, 'Fly again', () => this.flyAgain(), 24),
-    ]) {
+    if (wall?.medal) {
+      const m = makeText('+1 Medal', 22, THEME.currency, { fontWeight: 'bold' });
+      m.anchor.set(0.5);
+      m.position.set(VIEW_W / 2, 284);
+      this.container.addChild(m);
+    }
+
+    const buttons = wall
+      ? (() => {
+        const n = wall.buttons.length;
+        const w = n === 3 ? 160 : 210;
+        const xs = n === 3 ? [20, 190, 360] : [40, 290];
+        return wall.buttons.map((b, i) => {
+          const tb = textButton(b.id, { x: xs[i], y: 640, w, h: 64 }, b.label, b.onTap, n === 3 ? 20 : 24);
+          if (b.enabled === false) tb.setEnabled(false);
+          return tb;
+        });
+      })()
+      : [
+        textButton('summaryBuild', { x: 40, y: 640, w: 210, h: 64 }, 'Build', () => this.sm.switchTo(new BuildScreen(this.sm)), 24),
+        textButton('summaryFly', { x: 290, y: 640, w: 210, h: 64 }, 'Fly again', () => this.flyAgain(), 24),
+      ];
+    for (const b of buttons) {
       this.buttons.push(b);
       this.container.addChild(b.container);
     }

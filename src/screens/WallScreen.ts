@@ -9,7 +9,10 @@ import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { TOUCH_OFFSET_Y } from '../game/world';
 import { WallCamera } from '../wall/camera';
-import { CELL, STOP_LINE_Y, VIEW_H, VIEW_W } from '../wall/constants';
+import { CAMERA_MAX_X, CELL, STOP_LINE_Y, VIEW_H, VIEW_W, WORLD_WIDTH } from '../wall/constants';
+import { generateLevel, MAX_TIER } from '../wall/generator';
+import { BuildScreen } from './BuildScreen';
+import { MapScreen } from './MapScreen';
 import { LevelDef } from '../wall/level';
 import { WallWorld } from '../wall/wallWorld';
 import { RunSummaryScreen } from './RunSummaryScreen';
@@ -57,7 +60,7 @@ export function innerSize(hpFrac: number, armored: boolean): number {
 export class WallScreen implements Screen {
   container = new Container();
   world: WallWorld;
-  camera = new WallCamera();
+  camera: WallCamera;
 
   private blockLayer = new Container();
   private projLayer = new Container();
@@ -74,6 +77,8 @@ export class WallScreen implements Screen {
   private progressFg = new Graphics();
   private creditsText = makeText('Credits +0', 16, THEME.currency, { fontWeight: 'bold' });
   private tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
+  private nameText = makeText('', 15, THEME.textDim, { fontWeight: 'bold' });
+  private spikeText = makeText('SPIKE', 16, THEME.bad, { fontWeight: 'bold' });
   private blocksText = makeText('Blocks 0 / 0', 16, THEME.textDim, { fontWeight: 'bold' });
 
   private lineTouching: boolean | null = null;
@@ -87,6 +92,8 @@ export class WallScreen implements Screen {
   constructor(private sm: ScreenManager, readonly levelDef: LevelDef, private grid: Grid) {
     this.world = new WallWorld(levelDef, { grid });
     debugHooks.wall = this.world;
+    // The camera may run past the wall by the gun's ejector offset so the ejector can reach column 0 and column 20.
+    this.camera = new WallCamera(this.world.reachMin, CAMERA_MAX_X + (this.world.reachMax - WORLD_WIDTH));
 
     this.container.addChild(this.blockLayer, this.lineGfx, this.projLayer, this.shipGfx, this.fxLayer, this.uiLayer);
 
@@ -121,10 +128,13 @@ export class WallScreen implements Screen {
     this.hullBarFg.position.set(20, 20);
     this.creditsText.position.set(20, 36);
     this.tierText.position.set(20, 56);
-    this.blocksText.position.set(20, 76);
+    this.nameText.position.set(20, 76);
+    this.blocksText.position.set(20, 96);
+    this.spikeText.visible = !!levelDef.spike;
+    this.nameText.text = levelDef.name ?? '';
     // A dim plate behind the HUD text so it stays readable over the blocks.
-    this.uiLayer.addChild(new Graphics().rect(10, 12, 142, 92).fill({ color: THEME.bg, alpha: 0.72 }));
-    this.uiLayer.addChild(this.hullBarBg, this.hullBarFg, this.creditsText, this.tierText, this.blocksText, this.progressBg, this.progressFg);
+    this.uiLayer.addChild(new Graphics().rect(10, 12, 190, 112).fill({ color: THEME.bg, alpha: 0.72 }));
+    this.uiLayer.addChild(this.hullBarBg, this.hullBarFg, this.creditsText, this.tierText, this.spikeText, this.nameText, this.blocksText, this.progressBg, this.progressFg);
 
     this.drawStopLine(false);
     this.updateTexts();
@@ -149,7 +159,7 @@ export class WallScreen implements Screen {
       state: w.state, time: w.time, hull: w.hull, touching: w.touching, alive: w.alive, total: w.total, destroyed: w.destroyed,
       credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), cameraX: this.camera.x, cameraSpeed: this.camera.speed,
       shipWorldX: w.shipX, shipScreenX: w.shipX - this.camera.x, shipY: w.shipY, projectiles: w.pool.count,
-      hud: { credits: this.creditsText.text, tier: this.tierText.text, blocks: this.blocksText.text },
+      hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.nameText.text, spike: this.spikeText.visible, blocks: this.blocksText.text },
       drawn: this.lastDrawn.length,
     };
   }
@@ -165,6 +175,7 @@ export class WallScreen implements Screen {
     const w = this.world;
     this.creditsText.text = `Credits +${fmtBig(w.credits)}`;
     this.tierText.text = `Tier ${w.tier}`;
+    this.spikeText.position.set(20 + this.tierText.width + 10, 56);
     this.blocksText.text = `Blocks ${w.destroyed} / ${w.total}`;
     this.hullBarFg.width = Math.max(0, (w.hull / w.maxHull) * 100);
     const frac = w.total === 0 ? 1 : w.destroyed / w.total;
@@ -308,12 +319,18 @@ export class WallScreen implements Screen {
     const level = this.levelDef;
     const grid = this.grid;
     const sm = this.sm;
-    sm.switchTo(new RunSummaryScreen(sm, result, marks, {
-      won: w.state === 'won',
-      destroyed: w.destroyed,
-      total: w.total,
-      onRetry: () => sm.switchTo(new WallScreen(sm, level, grid)),
-    }));
+    const won = w.state === 'won';
+    const retry = { id: 'summaryRetry', label: 'Retry', onTap: () => sm.switchTo(new WallScreen(sm, level, grid)) };
+    const build = { id: 'summaryBuild', label: 'Build', onTap: () => sm.switchTo(new BuildScreen(sm)) };
+    let buttons;
+    if (level.campaign) {
+      const next = { id: 'summaryNext', label: 'Next tier', onTap: () => sm.switchTo(new WallScreen(sm, generateLevel(level.tier + 1), grid)) };
+      const map = { id: 'summaryMap', label: 'Map', onTap: () => sm.switchTo(new MapScreen(sm)) };
+      buttons = [won && level.tier < MAX_TIER ? next : retry, map, build];
+    } else {
+      buttons = [build, retry]; // a debug test wall: as before
+    }
+    sm.switchTo(new RunSummaryScreen(sm, result, marks, { won, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }));
   }
 
   destroy() {

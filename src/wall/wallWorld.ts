@@ -199,6 +199,13 @@ export class WallWorld {
     };
   }
 
+  /**
+   * Ship x range (world px) that lets some ejector reach every column: an ejector `ox` px right of the ship needs the ship
+   * at -ox to reach world x 0. Free of any ejector offset this is 0..WORLD_WIDTH.
+   */
+  get reachMin(): number { return Math.min(0, -Math.max(0, ...this.spawnOffsets.map(o => o.x))); }
+  get reachMax(): number { return WORLD_WIDTH + Math.max(0, ...this.spawnOffsets.map(o => -o.x)); }
+
   get tier(): number { return this.level.tier; }
   /** Whole credits earned so far. */
   get credits(): number { return Math.floor(this.creditsExact + 1e-9); }
@@ -312,7 +319,7 @@ export class WallWorld {
     this.resolveShip();
     if (ship) {
       this.moveShipTo(
-        Math.max(0, Math.min(WORLD_WIDTH, ship.x)),
+        Math.max(this.reachMin, Math.min(this.reachMax, ship.x)),
         Math.max(CONFIG.PLAYER.MARGIN, Math.min(VIEW_H - CONFIG.PLAYER.MARGIN, ship.y)),
       );
     }

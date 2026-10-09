@@ -2,6 +2,7 @@ import { Container, Graphics } from 'pixi.js';
 import { CONFIG } from '../config';
 import { Screen, ScreenManager } from './ScreenManager';
 import { FlyScreen } from './FlyScreen';
+import { MapScreen } from './MapScreen';
 import { clientToGame } from '../input';
 import { BLOCKS, MOD_LABEL } from '../data/blocks';
 import { HULL_INFO } from '../game/gridUtils';
@@ -233,6 +234,21 @@ export class BuildScreen implements Screen {
     fly.container.addChild(flyLabel);
     this.addButton(fly);
 
+    // CAMPAIGN pill above FLY: the tier map. FLY stays Free Fly.
+    const campaign = new UIButton({
+      id: 'campaign', rect: { x: VIEW_W - 134, y: LAYOUT.gridArea.y + LAYOUT.gridArea.h - 108, w: 124, h: 46 }, onTap: () => this.sm.switchTo(new MapScreen(this.sm)),
+      draw: (g, b) => {
+        g.rect(1, 1, b.rect.w - 2, b.rect.h - 2).fill(b.lit ? THEME.pressedFill : THEME.buttonFill).stroke({ color: THEME.buttonLine, width: 1.5 });
+        if (this.campaignLabel) this.campaignLabel.style.fill = b.lit ? THEME.pressedIcon : THEME.text;
+      },
+    });
+    const campaignLabel = makeText('CAMPAIGN', 17, THEME.text, { fontWeight: 'bold' });
+    this.campaignLabel = campaignLabel;
+    campaignLabel.anchor.set(0.5);
+    campaignLabel.position.set(62, 23);
+    campaign.container.addChild(campaignLabel);
+    this.addButton(campaign);
+
     // Tab bar.
     for (const b of makeTabButtons('tabBuild', (id) => this.tapTab(id))) this.addButton(b);
   }
@@ -240,6 +256,7 @@ export class BuildScreen implements Screen {
   private credits!: CreditsBadge;
   private abLabel!: ReturnType<typeof makeText>;
   private flyLabel: ReturnType<typeof makeText> | null = null;
+  private campaignLabel: ReturnType<typeof makeText> | null = null;
 
   // ------------------------------------------------------------------ rendering
   /** Redraws everything that depends on the model, the selection or the picker preview. */
@@ -404,6 +421,7 @@ export class BuildScreen implements Screen {
   private tapTab(id: string) {
     if (id === 'tabBuild') return;
     if (id === 'tabShop') { this.sm.switchTo(new ShopScreen(this.sm)); return; }
+    if (id === 'tabMap') { this.sm.switchTo(new MapScreen(this.sm)); return; }
     this.toast.show('Coming soon');
   }
 

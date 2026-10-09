@@ -185,3 +185,39 @@ describe('Campaign progress', () => {
     expect(again).toEqual(bad);
   });
 });
+
+import { WallCamera } from '../src/wall/camera';
+import { CAMERA_MAX_X, CELL, WORLD_WIDTH } from '../src/wall/constants';
+import { makeTestWall } from '../src/wall/level';
+import { WallWorld } from '../src/wall/wallWorld';
+import { buildStarterGrid } from '../src/game/starter';
+
+describe('Edge columns', () => {
+  function shootFrom(pointerX: number, cameraAtMax: boolean) {
+    const w = new WallWorld(makeTestWall({ tier: 1, rows: 3, approachSpeed: 0 }), { grid: buildStarterGrid() });
+    const cam = new WallCamera(w.reachMin, CAMERA_MAX_X + (w.reachMax - WORLD_WIDTH));
+    cam.x = cameraAtMax ? cam.maxX : cam.minX;
+    w.setWallOffset(300);
+    for (let i = 0; i < 90; i++) w.update(1 / 60, { x: pointerX + cam.x, y: 700 });
+    return w;
+  }
+
+  it('the ejector reaches column 0 with the pointer at the left of the screen (camera at its minimum)', () => {
+    const w = shootFrom(8, false);
+    expect(w.blocks[2 * 21 + 0]).toBeNull(); // bottom block of column 0 is gone
+    expect(w.blocks[2 * 21 + 1]).not.toBeNull();
+    expect(w.reachMin).toBe(-42);
+  });
+
+  it('the ejector reaches column 20 with the pointer inside the normal range (camera at its maximum)', () => {
+    const w = shootFrom(470, true);
+    expect(w.blocks[2 * 21 + 20]).toBeNull();
+    expect(w.blocks[2 * 21 + 19]).not.toBeNull();
+    expect(CELL * 21).toBe(WORLD_WIDTH);
+  });
+
+  it('a pointer at the very edge of the screen is still legal at both ends', () => {
+    expect(() => shootFrom(0, false)).not.toThrow();
+    expect(() => shootFrom(540, true)).not.toThrow();
+  });
+});
