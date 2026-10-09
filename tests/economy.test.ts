@@ -261,7 +261,7 @@ describe('level scaling of the formerly flat modifiers', () => {
     ['aoeCircleRadius', 3, 70, 50], ['shieldBreakMul', 2, 2, 1.5], ['pierceCostMul', 2, 0.5, 1], ['bounceDamageMul', 3, 1.2, 1],
   ];
   it.each(cases)('%s at level %i is %d (level 1: %d)', async (fn, level, atLevel, atOne) => {
-    const proj = (await import('../src/engine/projectiles')) as Record<string, (l: number) => number>;
+    const proj = (await import('../src/engine/projectiles')) as unknown as Record<string, (l: number) => number>;
     expect(proj[fn](level)).toBeCloseTo(atLevel, 9);
     expect(proj[fn](1)).toBeCloseTo(atOne, 9);
   });
