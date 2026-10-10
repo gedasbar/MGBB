@@ -7,12 +7,12 @@ import {
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields. The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 2;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime. The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 3;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 2;
+  version: 3;
   credits: number;
   owned: Record<string, number>;
   levels: Record<string, number>;
@@ -23,9 +23,13 @@ export interface Progress {
   runs: number;
   /** Campaign tiers cleared (every block destroyed at least once), ascending, no duplicates. */
   clearedTiers: number[];
+  /** Campaign tiers passed: flown past the end of the wall or cleared. Always a superset of clearedTiers; unlocks the next tier. */
+  passedTiers: number[];
   /** Per campaign tier (key = tier number): best share of blocks destroyed, 0..100, and best clear time in seconds. */
   wallBestPct: Record<string, number>;
+  /** Best time of a pass or a clear, and best time of a clear alone. */
   wallBestTime: Record<string, number>;
+  wallBestClearTime: Record<string, number>;
   /** One per tier, earned by its first full clear. */
   medals: number;
   highestCleared: number;
@@ -42,8 +46,8 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 2, credits: 0, owned, levels, ownedHulls: ['shuttle'], bestTier: 0, bestTime: 0, totalKills: 0, runs: 0,
-    clearedTiers: [], wallBestPct: {}, wallBestTime: {}, medals: 0, highestCleared: 0,
+    version: 3, credits: 0, owned, levels, ownedHulls: ['shuttle'], bestTier: 0, bestTime: 0, totalKills: 0, runs: 0,
+    clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, medals: 0, highestCleared: 0,
   };
 }
 
@@ -76,7 +80,10 @@ export function sanitizeProgress(raw: unknown): Progress {
   // Campaign fields (absent in v1 saves: they start empty).
   const tiers: number[] = Array.isArray(r.clearedTiers) ? r.clearedTiers.filter((t: unknown) => typeof t === 'number' && Number.isInteger(t) && t >= 1 && t <= MAX_TIER) : [];
   out.clearedTiers = Array.from(new Set(tiers)).sort((a, b) => a - b);
-  for (const [src, dst, max] of [[r.wallBestPct, out.wallBestPct, 100], [r.wallBestTime, out.wallBestTime, 1e7]] as const) {
+  // v2 saves have no passedTiers: every cleared tier was passed. A cleared tier is always passed.
+  const passed: number[] = Array.isArray(r.passedTiers) ? r.passedTiers.filter((t: unknown) => typeof t === 'number' && Number.isInteger(t) && t >= 1 && t <= MAX_TIER) : [];
+  out.passedTiers = Array.from(new Set([...passed, ...out.clearedTiers])).sort((a, b) => a - b);
+  for (const [src, dst, max] of [[r.wallBestPct, out.wallBestPct, 100], [r.wallBestTime, out.wallBestTime, 1e7], [r.wallBestClearTime, out.wallBestClearTime, 1e7]] as const) {
     if (!src || typeof src !== 'object') continue;
     for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
       const t = Number(k);
@@ -110,11 +117,12 @@ export function serializeProgress(p: Progress): string {
 
 /** A tier is open if it is tier 1 or the tier before it has been cleared. Spikes are not skippable. */
 export const isCleared = (p: Progress, tier: number) => p.clearedTiers.includes(tier);
-export const isUnlocked = (p: Progress, tier: number) => tier === 1 || (tier >= 2 && tier <= MAX_TIER && isCleared(p, tier - 1));
+export const isPassed = (p: Progress, tier: number) => p.passedTiers.includes(tier);
+export const isUnlocked = (p: Progress, tier: number) => tier === 1 || (tier >= 2 && tier <= MAX_TIER && isPassed(p, tier - 1));
 /** The first tier that is open and not cleared yet (MAX_TIER + 1 when all are cleared): where the player goes next. */
 export function nextTier(p: Progress): number {
   let t = 1;
-  while (t <= MAX_TIER && isCleared(p, t)) t++;
+  while (t <= MAX_TIER && isPassed(p, t)) t++;
   return Math.min(t, MAX_TIER);
 }
 
@@ -125,26 +133,38 @@ export interface WallRunResult {
   time: number;
   credits: number;
   kills: number;
+  /** The ship flew past the end of the wall with blocks left. A full clear counts as passed too. */
+  passed?: boolean;
 }
 
 /**
  * Books one campaign wall run (win or lose): credits for the blocks destroyed, the best result of the tier, and a Medal
  * the first time the tier is fully cleared. Replays pay credits but no Medal.
  */
-export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean; newBestPct: boolean; newBestTime: boolean } {
+export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean; newBestPct: boolean; newBestTime: boolean; newlyPassed: boolean } {
   p.credits += Math.floor(run.credits);
   p.totalKills += run.kills;
   p.runs++;
   const key = String(run.tier);
   const pct = run.total > 0 ? Math.floor((run.destroyed / run.total) * 100) : 100;
   const cleared = run.destroyed >= run.total;
+  const passed = cleared || !!run.passed;
   const shown = cleared ? 100 : Math.min(99, pct);
   const newBestPct = shown > (p.wallBestPct[key] ?? -1);
   if (newBestPct) p.wallBestPct[key] = shown;
   let newBestTime = false;
   let medal = false;
-  if (cleared) {
+  let newlyPassed = false;
+  if (passed) {
     if (run.time < (p.wallBestTime[key] ?? Infinity)) { p.wallBestTime[key] = run.time; newBestTime = true; }
+    if (!isPassed(p, run.tier)) {
+      p.passedTiers.push(run.tier);
+      p.passedTiers.sort((a, b) => a - b);
+      newlyPassed = true;
+    }
+  }
+  if (cleared) {
+    if (run.time < (p.wallBestClearTime[key] ?? Infinity)) p.wallBestClearTime[key] = run.time;
     if (!isCleared(p, run.tier)) {
       p.clearedTiers.push(run.tier);
       p.clearedTiers.sort((a, b) => a - b);
@@ -153,7 +173,7 @@ export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean;
     }
     p.highestCleared = Math.max(p.highestCleared, run.tier);
   }
-  return { medal, newBestPct, newBestTime };
+  return { medal, newBestPct, newBestTime, newlyPassed };
 }
 
 export type BuyResult = { ok: true; price: number } | { ok: false; error: string };
@@ -245,10 +265,10 @@ export class ProgressStore {
    * tier's best result and awards the first-clear Medal. Best tier and best time belong to Free Fly and are not touched.
    * Call exactly once per level (WallWorld.bank guards this).
    */
-  recordWallRun(run: { credits: number; kills: number; tier?: number; destroyed?: number; total?: number; time?: number }): { medal: boolean } {
+  recordWallRun(run: { credits: number; kills: number; tier?: number; destroyed?: number; total?: number; time?: number; passed?: boolean }): { medal: boolean } {
     let medal = false;
     if (run.tier !== undefined && run.destroyed !== undefined && run.total !== undefined) {
-      medal = applyWallRun(this.data, { tier: run.tier, destroyed: run.destroyed, total: run.total, time: run.time ?? 0, credits: run.credits, kills: run.kills }).medal;
+      medal = applyWallRun(this.data, { tier: run.tier, destroyed: run.destroyed, total: run.total, time: run.time ?? 0, credits: run.credits, kills: run.kills, passed: run.passed }).medal;
     } else {
       this.data.credits += Math.floor(run.credits);
       this.data.totalKills += run.kills;

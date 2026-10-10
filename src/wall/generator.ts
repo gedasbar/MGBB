@@ -134,6 +134,13 @@ export function generateLevel(tier: number): LevelDef {
     if (mask[i]) { mask[i] = false; count--; }
   }
 
+  // No straight open column: a column the shape left empty gets one block, halfway up the wall, so every lane has to be carved.
+  for (let c = 0; c < WALL_COLS; c++) {
+    let any = false;
+    for (let r = 0; r < h && !any; r++) any = mask[r * WALL_COLS + c];
+    if (!any) mask[Math.floor(h / 2) * WALL_COLS + c] = true;
+  }
+
   const blocks: { r: number; c: number; idx: number }[] = [];
   mask.forEach((on, idx) => { if (on) blocks.push({ r: Math.floor(idx / WALL_COLS), c: idx % WALL_COLS, idx }); });
 

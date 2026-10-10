@@ -12,10 +12,26 @@ export const VIEW_H = CONFIG.VIEW.H;
 /** Largest camera x: the viewport's left edge when it shows the last 10 columns. */
 export const CAMERA_MAX_X = WORLD_WIDTH - VIEW_W;
 
-/** The wall stops when a living block's bottom edge reaches this screen y. */
-export const STOP_LINE_Y = 0.78 * VIEW_H;
-/** Share of max hull drained per second while a living block touches the stop line. */
-export const DRAIN_PER_SEC = 0.12;
+/**
+ * Top-edge speed boost: with the ship at TOP_ZONE x viewport height or lower the wall scrolls at its base speed; the
+ * nearer the ship is to the top of the screen, the faster, up to BOOST_MAX x base at y = 0.
+ */
+export const TOP_ZONE = 0.35;
+export const BOOST_MAX = 4;
+
+/** The ship's hit point (a crash happens when it touches a live block) and where the finish line sits beyond the wall. */
+export const SHIP_HIT_R = 7;
+export const FINISH_MARGIN_CELLS = 1.5;
+/** Where the ship starts, and the nearest the first block row may start to it. */
+export const SHIP_START_Y = 0.8 * VIEW_H;
+export const MIN_START_GAP_CELLS = 6;
+
+/**
+ * Every ejector's offset from the ship centre is multiplied by this, in Free Fly and in the walls, so a gun built to the
+ * side of the hull still carves a lane the ship fits in. (The brief asked for 0.35; with the 7 px hit point that leaves
+ * 5 px to the lane edge instead of the required 8, so it is 0.25.)
+ */
+export const FIRE_OFFSET_SCALE = 0.25;
 
 /** Edge-push camera: the outer share of the screen width that scrolls, and its top speed in px/s. */
 export const EDGE_ZONE = 0.18;

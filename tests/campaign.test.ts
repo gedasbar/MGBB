@@ -20,7 +20,7 @@ describe('Level generator', () => {
     for (const l of all) {
       expect(l.cols).toBe(21);
       expect(l.cells.length).toBe(l.rows * 21);
-      expect(countBlocks(l)).toBeLessThanOrEqual(blocksForTier(l.tier));
+      expect(countBlocks(l)).toBeLessThanOrEqual(blocksForTier(l.tier) + 21); // a few blocks may be added to leave no empty column
       expect(countBlocks(l)).toBeGreaterThan(blocksForTier(l.tier) * 0.97);
       expect(l.campaign).toBe(true);
     }
@@ -168,7 +168,7 @@ describe('Campaign progress', () => {
   it('migrates a save from before the campaign fields, and survives garbage in them', () => {
     const old = { version: 1, credits: 123, owned: { turn_l: 2 }, levels: {}, ownedHulls: ['shuttle'], bestTier: 4, bestTime: 50, totalKills: 9, runs: 3 };
     const p = loadProgress(JSON.stringify(old));
-    expect(p.version).toBe(2);
+    expect(p.version).toBe(3);
     expect(p.credits).toBe(123);
     expect(p.bestTier).toBe(4);
     expect(p.clearedTiers).toEqual([]);
@@ -187,37 +187,54 @@ describe('Campaign progress', () => {
 });
 
 import { WallCamera } from '../src/wall/camera';
-import { CAMERA_MAX_X, CELL, WORLD_WIDTH } from '../src/wall/constants';
+import { CAMERA_MAX_X, CELL, MIN_START_GAP_CELLS, SHIP_START_Y, WORLD_WIDTH } from '../src/wall/constants';
 import { makeTestWall } from '../src/wall/level';
 import { WallWorld } from '../src/wall/wallWorld';
 import { buildStarterGrid } from '../src/game/starter';
 
 describe('Edge columns', () => {
+  /** Holds the dot where a pointer at `pointerX` puts it (camera at an end) and lets the gun fire for 1.5 s. */
   function shootFrom(pointerX: number, cameraAtMax: boolean) {
     const w = new WallWorld(makeTestWall({ tier: 1, rows: 3, approachSpeed: 0 }), { grid: buildStarterGrid() });
-    const cam = new WallCamera(w.reachMin, CAMERA_MAX_X + (w.reachMax - WORLD_WIDTH));
-    cam.x = cameraAtMax ? cam.maxX : cam.minX;
+    const cam = new WallCamera();
+    cam.x = cameraAtMax ? CAMERA_MAX_X : 0;
     w.setWallOffset(300);
     for (let i = 0; i < 90; i++) w.update(1 / 60, { x: pointerX + cam.x, y: 700 });
     return w;
   }
 
-  it('the ejector reaches column 0 with the pointer at the left of the screen (camera at its minimum)', () => {
-    const w = shootFrom(8, false);
-    expect(w.blocks[2 * 21 + 0]).toBeNull(); // bottom block of column 0 is gone
-    expect(w.blocks[2 * 21 + 1]).not.toBeNull();
-    expect(w.reachMin).toBe(-42);
-  });
-
-  it('the ejector reaches column 20 with the pointer inside the normal range (camera at its maximum)', () => {
-    const w = shootFrom(470, true);
-    expect(w.blocks[2 * 21 + 20]).toBeNull();
-    expect(w.blocks[2 * 21 + 19]).not.toBeNull();
+  it('the ship dot reaches world x 0 and the wall width, so the ejector can carve column 0 and column 20', () => {
+    const left = shootFrom(0, false);
+    expect(left.shipX).toBe(0);
+    expect(left.blocks[2 * 21 + 0]).toBeNull();
+    expect(left.blocks[2 * 21 + 1]).not.toBeNull();
+    const right = shootFrom(540, true);
+    expect(right.shipX).toBe(WORLD_WIDTH);
+    const near = shootFrom(520, true); // dot at 1114, ejector at about 1124
+    expect(near.blocks[2 * 21 + 20]).toBeNull();
+    expect(near.blocks[2 * 21 + 19]).not.toBeNull();
     expect(CELL * 21).toBe(WORLD_WIDTH);
   });
+});
 
-  it('a pointer at the very edge of the screen is still legal at both ends', () => {
-    expect(() => shootFrom(0, false)).not.toThrow();
-    expect(() => shootFrom(540, true)).not.toThrow();
+describe('Generator guarantees (6c)', () => {
+  it('every one of the 21 columns holds at least one block, so a lane always has to be carved', () => {
+    for (const l of all) {
+      for (let c = 0; c < 21; c++) {
+        let n = 0;
+        for (let r = 0; r < l.rows; r++) if (l.cells[r * 21 + c]) n++;
+        expect(n, `tier ${l.tier} column ${c}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('the first block row starts at least 6 cells from where the ship starts', () => {
+    for (const l of all) {
+      let bottomRow = l.rows - 1;
+      while (bottomRow > 0 && !l.cells.slice(bottomRow * 21, bottomRow * 21 + 21).some(Boolean)) bottomRow--;
+      // The wall starts with its bottom edge at y = 0; the lowest block row's bottom edge is that much higher when rows are empty.
+      const bottomEdge = 0 - (l.rows - 1 - bottomRow) * CELL;
+      expect(SHIP_START_Y - bottomEdge).toBeGreaterThanOrEqual(MIN_START_GAP_CELLS * CELL);
+    }
   });
 });

@@ -20,7 +20,8 @@ export function fmtTime(seconds: number): string {
 
 /** The wall-level variant of the summary: replaces the Free Fly rows and the "Fly again" button with "Retry". */
 export interface WallSummary {
-  won: boolean;
+  /** How the level ended: all blocks destroyed, flown past the end, or crashed into a block. */
+  result: 'cleared' | 'passed' | 'crashed';
   destroyed: number;
   total: number;
   /** Two or three buttons, left to right. */
@@ -41,7 +42,7 @@ export class RunSummaryScreen implements Screen {
     const bg = new Graphics().rect(0, 0, CONFIG.VIEW.W, CONFIG.VIEW.H).fill(THEME.bg);
     this.container.addChild(bg);
 
-    const title = makeText(wall ? (wall.won ? 'Tier cleared' : 'Tier failed') : 'Run Summary', 32, THEME.text, { fontWeight: 'bold' });
+    const title = makeText(wall ? (wall.result === 'cleared' ? 'Tier cleared' : wall.result === 'passed' ? 'Tier passed' : 'Crashed') : 'Run Summary', 32, THEME.text, { fontWeight: 'bold' });
     title.anchor.set(0.5);
     title.position.set(VIEW_W / 2, 70);
     const credits = makeText(`+${fmtBig(result.credits)}`, 80, THEME.currency, { fontWeight: 'bold' });
@@ -53,9 +54,9 @@ export class RunSummaryScreen implements Screen {
     this.container.addChild(title, credits, creditsLabel);
 
     this.rows = wall ? [
-      { label: 'Blocks destroyed', value: `${wall.destroyed} / ${wall.total} (${Math.round(wall.total ? (wall.destroyed / wall.total) * 100 : 100)}%)`, best: false },
+      { label: 'Destroyed', value: `${Math.floor(wall.total ? (wall.destroyed / wall.total) * 100 : 100)}% (${wall.destroyed} / ${wall.total})`, best: false },
       { label: 'Time', value: fmtTime(result.time), best: false },
-      { label: 'Tier', value: String(result.tier), best: false },
+      { label: 'Result', value: wall.result === 'crashed' ? 'Not passed' : wall.result === 'passed' ? 'Passed' : 'Cleared', best: false },
     ] : [
       { label: 'Kills', value: String(result.kills), best: false },
       { label: 'Time survived', value: fmtTime(result.time), best: marks.newBestTime },

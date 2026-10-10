@@ -3,16 +3,17 @@ import { evalDamage } from '../engine/compilerTypes';
 import { ProjectilePool } from '../engine/pools';
 import { ProjectileSystem } from '../engine/projectiles';
 import { rng } from '../rng';
+import { FIRE_OFFSET_SCALE } from '../wall/constants';
 
 export const PROJECTILE_SPEED = 600;
 /** Ship-space pixels per hull cell: an ejector's offset from the hull centre is scaled by this when projectiles spawn. */
 export const PX_PER_CELL = 14;
 
-/** Where each recipe's projectiles leave, relative to the ship centre (from the ejector's cell). */
+/** Where each recipe's projectiles leave, relative to the ship centre (the ejector's cell offset x PX_PER_CELL x FIRE_OFFSET_SCALE). */
 export function spawnOffsetsFor(recipes: EjectorRecipe[], hull: Grid): { x: number; y: number }[] {
   return recipes.map(r => ({
-    x: (r.x - (hull.w - 1) / 2) * PX_PER_CELL,
-    y: (r.y - (hull.h - 1) / 2) * PX_PER_CELL,
+    x: (r.x - (hull.w - 1) / 2) * PX_PER_CELL * FIRE_OFFSET_SCALE,
+    y: (r.y - (hull.h - 1) / 2) * PX_PER_CELL * FIRE_OFFSET_SCALE,
   }));
 }
 

@@ -9,17 +9,18 @@ import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { TOUCH_OFFSET_Y } from '../game/world';
 import { WallCamera } from '../wall/camera';
-import { CAMERA_MAX_X, CELL, STOP_LINE_Y, VIEW_H, VIEW_W, WORLD_WIDTH } from '../wall/constants';
+import { CELL, VIEW_H, VIEW_W } from '../wall/constants';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 import { BuildScreen } from './BuildScreen';
 import { MapScreen } from './MapScreen';
 import { LevelDef } from '../wall/level';
-import { WallWorld } from '../wall/wallWorld';
+import { scrollSpeed, WallWorld } from '../wall/wallWorld';
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { Screen, ScreenManager } from './ScreenManager';
 
-/** Seconds between the level ending and the summary appearing. */
-const END_DELAY = 0.7;
+/** Seconds between the level ending and the summary appearing (a crash restarts faster). */
+const END_DELAY = 0.6;
+const CRASH_DELAY = 0.3;
 const POPUPS = 40;
 const POPUP_LIFE = 0.6;
 
@@ -29,7 +30,7 @@ const INNER_BG = THEME.plateFace;
 const GREEN = 0x6fbf73;
 const GREEN_FLASH = 0xd2f0d4;
 const SHIELD_BAR = 0x5fd4e8;
-const STOP_LINE = THEME.bad;
+const FINISH_LINE = THEME.text;
 
 /** Block art: a frame, a dark well and a green square that shrinks with the HP left. */
 const GAP = 1;
@@ -71,17 +72,14 @@ export class WallScreen implements Screen {
   private views: BlockView[] = [];
   private projSprites: Sprite[] = [];
   private popups: Popup[] = [];
-  private hullBarBg = new Graphics().rect(0, 0, 100, 10).fill(0xff0000);
-  private hullBarFg = new Graphics().rect(0, 0, 100, 10).fill(0x00ff00);
   private progressBg = new Graphics().rect(VIEW_W - 8, 20, 4, VIEW_H - 40).fill(THEME.border);
   private progressFg = new Graphics();
   private creditsText = makeText('Credits +0', 16, THEME.currency, { fontWeight: 'bold' });
   private tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
   private nameText = makeText('', 15, THEME.textDim, { fontWeight: 'bold' });
   private spikeText = makeText('SPIKE', 16, THEME.bad, { fontWeight: 'bold' });
-  private blocksText = makeText('Blocks 0 / 0', 16, THEME.textDim, { fontWeight: 'bold' });
+  private blocksText = makeText('Destroyed 0%', 16, THEME.textDim, { fontWeight: 'bold' });
 
-  private lineTouching: boolean | null = null;
   private shownCredits = 0;
   private popupTotal = 0;
   private endTimer = 0;
@@ -92,8 +90,7 @@ export class WallScreen implements Screen {
   constructor(private sm: ScreenManager, readonly levelDef: LevelDef, private grid: Grid) {
     this.world = new WallWorld(levelDef, { grid });
     debugHooks.wall = this.world;
-    // The camera may run past the wall by the gun's ejector offset so the ejector can reach column 0 and column 20.
-    this.camera = new WallCamera(this.world.reachMin, CAMERA_MAX_X + (this.world.reachMax - WORLD_WIDTH));
+    this.camera = new WallCamera();
 
     this.container.addChild(this.blockLayer, this.lineGfx, this.projLayer, this.shipGfx, this.fxLayer, this.uiLayer);
 
@@ -124,19 +121,16 @@ export class WallScreen implements Screen {
       this.popups.push({ t, life: 0 });
     }
 
-    this.hullBarBg.position.set(20, 20);
-    this.hullBarFg.position.set(20, 20);
-    this.creditsText.position.set(20, 36);
-    this.tierText.position.set(20, 56);
-    this.nameText.position.set(20, 76);
-    this.blocksText.position.set(20, 96);
+    this.creditsText.position.set(20, 20);
+    this.tierText.position.set(20, 40);
+    this.nameText.position.set(20, 60);
+    this.blocksText.position.set(20, 80);
     this.spikeText.visible = !!levelDef.spike;
     this.nameText.text = levelDef.name ?? '';
     // A dim plate behind the HUD text so it stays readable over the blocks.
-    this.uiLayer.addChild(new Graphics().rect(10, 12, 190, 112).fill({ color: THEME.bg, alpha: 0.72 }));
-    this.uiLayer.addChild(this.hullBarBg, this.hullBarFg, this.creditsText, this.tierText, this.spikeText, this.nameText, this.blocksText, this.progressBg, this.progressFg);
+    this.uiLayer.addChild(new Graphics().rect(10, 12, 190, 92).fill({ color: THEME.bg, alpha: 0.72 }));
+    this.uiLayer.addChild(this.creditsText, this.tierText, this.spikeText, this.nameText, this.blocksText, this.progressBg, this.progressFg);
 
-    this.drawStopLine(false);
     this.updateTexts();
 
     if (import.meta.env.DEV) {
@@ -156,19 +150,19 @@ export class WallScreen implements Screen {
   private debugState() {
     const w = this.world;
     return {
-      state: w.state, time: w.time, hull: w.hull, touching: w.touching, alive: w.alive, total: w.total, destroyed: w.destroyed,
-      credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), cameraX: this.camera.x, cameraSpeed: this.camera.speed,
+      state: w.state, time: w.time, finishY: w.finishY, progress: w.progress, alive: w.alive, total: w.total, destroyed: w.destroyed,
+      credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), scrollSpeed: scrollSpeed(w.level.approachSpeed, w.shipY), cameraX: this.camera.x, cameraSpeed: this.camera.speed,
       shipWorldX: w.shipX, shipScreenX: w.shipX - this.camera.x, shipY: w.shipY, projectiles: w.pool.count,
       hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.nameText.text, spike: this.spikeText.visible, blocks: this.blocksText.text },
       drawn: this.lastDrawn.length,
     };
   }
 
-  private drawStopLine(touching: boolean) {
+  /** A thin line across the screen where the wall ends (1.5 cells beyond the last row); fly above it to pass. */
+  private drawFinishLine() {
+    const y = this.world.finishY;
     this.lineGfx.clear();
-    if (touching) this.lineGfx.rect(0, STOP_LINE_Y - 2, VIEW_W, 4).fill({ color: STOP_LINE, alpha: 1 });
-    else this.lineGfx.rect(0, STOP_LINE_Y - 1, VIEW_W, 2).fill({ color: STOP_LINE, alpha: 0.55 });
-    this.lineTouching = touching;
+    if (y > -4 && y < VIEW_H + 4) this.lineGfx.rect(0, y - 1, VIEW_W, 2).fill({ color: FINISH_LINE, alpha: 0.85 });
   }
 
   private updateTexts() {
@@ -176,10 +170,8 @@ export class WallScreen implements Screen {
     this.creditsText.text = `Credits +${fmtBig(w.credits)}`;
     this.tierText.text = `Tier ${w.tier}`;
     this.spikeText.position.set(20 + this.tierText.width + 10, 56);
-    this.blocksText.text = `Blocks ${w.destroyed} / ${w.total}`;
-    this.hullBarFg.width = Math.max(0, (w.hull / w.maxHull) * 100);
-    const frac = w.total === 0 ? 1 : w.destroyed / w.total;
-    const h = (VIEW_H - 40) * frac;
+    this.blocksText.text = `Destroyed ${Math.floor(w.percentDestroyed)}%`;
+    const h = (VIEW_H - 40) * w.progress;
     this.progressFg.clear();
     if (h > 0) this.progressFg.rect(VIEW_W - 8, 20 + (VIEW_H - 40) - h, 4, h).fill(GREEN);
   }
@@ -211,7 +203,7 @@ export class WallScreen implements Screen {
     w.hits.length = 0;
 
     this.updateTexts();
-    if (w.touching !== this.lineTouching) this.drawStopLine(w.touching);
+    this.drawFinishLine();
 
     this.drawBlocks();
     this.drawProjectiles();
@@ -227,7 +219,7 @@ export class WallScreen implements Screen {
 
     if (w.state !== 'playing' && !this.finished) {
       this.endTimer += frameTime;
-      if (this.endTimer >= END_DELAY) this.finish();
+      if (this.endTimer >= (w.state === 'crashed' ? CRASH_DELAY : END_DELAY)) this.finish();
     }
   }
 
@@ -319,7 +311,8 @@ export class WallScreen implements Screen {
     const level = this.levelDef;
     const grid = this.grid;
     const sm = this.sm;
-    const won = w.state === 'won';
+    const outcome = w.state === 'playing' ? 'crashed' : w.state;
+    const won = outcome !== 'crashed';
     const retry = { id: 'summaryRetry', label: 'Retry', onTap: () => sm.switchTo(new WallScreen(sm, level, grid)) };
     const build = { id: 'summaryBuild', label: 'Build', onTap: () => sm.switchTo(new BuildScreen(sm)) };
     let buttons;
@@ -330,7 +323,7 @@ export class WallScreen implements Screen {
     } else {
       buttons = [build, retry]; // a debug test wall: as before
     }
-    sm.switchTo(new RunSummaryScreen(sm, result, marks, { won, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }));
+    sm.switchTo(new RunSummaryScreen(sm, result, marks, { result: outcome, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }));
   }
 
   destroy() {

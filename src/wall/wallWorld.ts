@@ -6,7 +6,8 @@ import { BounceInfo, TargetField } from '../engine/targets';
 import { firePulse, spawnOffsetsFor } from '../game/fire';
 import { buildStarterGrid } from '../game/starter';
 import {
-  CELL, DRAIN_PER_SEC, PROJECTILE_MAX_AGE, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, STOP_LINE_Y, VIEW_H, WORLD_WIDTH,
+  BOOST_MAX, CELL, FINISH_MARGIN_CELLS, PROJECTILE_MAX_AGE, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_H,
+  WORLD_WIDTH,
 } from './constants';
 import { LevelDef, rewardPerBlock } from './level';
 
@@ -22,11 +23,23 @@ export interface Block extends EnemyEntity {
 
 export interface WallHitEvent { blockId: number; damage: number; x: number; y: number }
 export interface WallKillEvent { x: number; y: number; reward: number }
-export type WallState = 'playing' | 'won' | 'lost';
+/** How a level ends: every block destroyed, the ship flew past the end of the wall, or the ship touched a live block. */
+export type WallState = 'playing' | 'cleared' | 'passed' | 'crashed';
+
+/** 0 with the ship at TOP_ZONE x viewport height or lower, 1 at the top edge of the screen, linear in between. */
+export function boostT(shipY: number): number {
+  const zone = TOP_ZONE * VIEW_H;
+  return Math.max(0, Math.min(1, (zone - shipY) / zone));
+}
+
+/** Wall scroll speed in px/s for a base speed and the ship's height. */
+export function scrollSpeed(base: number, shipY: number): number {
+  return base * (1 + (BOOST_MAX - 1) * boostT(shipY));
+}
 
 /** What the world needs from the progress store at the end of a level. */
 export interface WallBank {
-  recordWallRun(run: { credits: number; kills: number; tier?: number; destroyed?: number; total?: number; time?: number }): { medal: boolean } | void;
+  recordWallRun(run: { credits: number; kills: number; tier?: number; destroyed?: number; total?: number; time?: number; passed?: boolean }): { medal: boolean } | void;
 }
 
 /** Ship position the pointer asks for, in world px (x) and screen px (y). */
@@ -137,13 +150,9 @@ export class WallWorld {
   /** Screen y of the wall's bottom edge. The wall starts fully above the screen (offset 0) and moves down. */
   wallOffsetY = 0;
   shipX = WORLD_WIDTH / 2;
-  shipY = CONFIG.VIEW.H * 0.8;
-  hull = 100;
-  readonly maxHull = 100;
+  shipY = SHIP_START_Y;
   time = 0;
   state: WallState = 'playing';
-  /** True while a living block's bottom edge is at the stop line. */
-  touching = false;
 
   readonly total: number;
   alive: number;
@@ -199,12 +208,14 @@ export class WallWorld {
     };
   }
 
-  /**
-   * Ship x range (world px) that lets some ejector reach every column: an ejector `ox` px right of the ship needs the ship
-   * at -ox to reach world x 0. Free of any ejector offset this is 0..WORLD_WIDTH.
-   */
-  get reachMin(): number { return Math.min(0, -Math.max(0, ...this.spawnOffsets.map(o => o.x))); }
-  get reachMax(): number { return WORLD_WIDTH + Math.max(0, ...this.spawnOffsets.map(o => -o.x)); }
+  /** Screen y of the finish line: FINISH_MARGIN_CELLS of empty space beyond the last row. The ship passes it by flying above it. */
+  get finishY(): number { return this.wallOffsetY - this.level.rows * CELL - FINISH_MARGIN_CELLS * CELL; }
+
+  /** How far through the wall the ship is, 0 (at the start) to 1 (at the finish line). */
+  get progress(): number {
+    const startFinishY = -this.level.rows * CELL - FINISH_MARGIN_CELLS * CELL;
+    return Math.max(0, Math.min(1, 1 - (this.shipY - this.finishY) / (SHIP_START_Y - startFinishY)));
+  }
 
   get tier(): number { return this.level.tier; }
   /** Whole credits earned so far. */
@@ -276,7 +287,7 @@ export class WallWorld {
     const campaign = this.level.campaign;
     const res = store.recordWallRun({
       credits: this.credits, kills: this.destroyed,
-      ...(campaign ? { tier: this.level.tier, destroyed: this.destroyed, total: this.total, time: this.time } : {}),
+      ...(campaign ? { tier: this.level.tier, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed' } : {}),
     });
     this.medalEarned = !!(res && res.medal);
     return true;
@@ -289,12 +300,18 @@ export class WallWorld {
   }
 
   /**
-   * One step. `ship` is where the pointer wants the ship (world x, screen y); null keeps it where it is
-   * (touch released). Camera movement is done by the caller before this.
+   * One step. `ship` is where the pointer wants the ship (world x, screen y); null keeps it where it is (touch released).
+   * Camera movement is done by the caller before this. The ship moves freely: blocks do not stop it, they end the run.
    */
   update(dt: number, ship: ShipTarget | null) {
     if (this.state !== 'playing') return;
     this.time += dt;
+
+    // --- Ship: exactly where the pointer asks (inside the world and the screen)
+    if (ship) {
+      this.shipX = Math.max(0, Math.min(WORLD_WIDTH, ship.x));
+      this.shipY = Math.max(CONFIG.PLAYER.MARGIN, Math.min(VIEW_H - CONFIG.PLAYER.MARGIN, ship.y));
+    }
 
     // --- Shields recover after SHIELD_REGEN_DELAY seconds without a hit
     for (const b of this.shielded) {
@@ -304,25 +321,9 @@ export class WallWorld {
     }
     for (const b of this.all) if (b.flash > 0) b.flash -= dt;
 
-    // --- Wall: scrolls down until a living block reaches the stop line, resumes when the line is clear
-    if (this.alive > 0) {
-      const room = STOP_LINE_Y - this.bottomEdge();
-      if (room > EPS) {
-        this.wallOffsetY += Math.min(this.level.approachSpeed * dt, room);
-        this.syncY();
-      }
-    }
-    this.touching = this.alive > 0 && this.bottomEdge() >= STOP_LINE_Y - EPS;
-    if (this.touching) this.hull -= DRAIN_PER_SEC * this.maxHull * dt;
-
-    // --- Ship: a block that scrolled onto it pushes it out; then it follows the pointer, sliding along solid blocks
-    this.resolveShip();
-    if (ship) {
-      this.moveShipTo(
-        Math.max(this.reachMin, Math.min(this.reachMax, ship.x)),
-        Math.max(CONFIG.PLAYER.MARGIN, Math.min(VIEW_H - CONFIG.PLAYER.MARGIN, ship.y)),
-      );
-    }
+    // --- Wall: always approaching, faster the higher the ship is on the screen
+    this.wallOffsetY += scrollSpeed(this.level.approachSpeed, this.shipY) * dt;
+    this.syncY();
 
     // --- Auto-fire
     if (this.autoFire) {
@@ -337,7 +338,7 @@ export class WallWorld {
     // --- Projectiles: steer, move, keep inside the world, drop the ones that left or flew too long
     const pool = this.pool;
     this.projSys.steer(dt, this.field);
-    const wallTop = this.wallOffsetY - this.level.rows * CELL - 100;
+    const wallTop = this.finishY - 100;
     for (let i = 0; i < pool.max; i++) {
       if (!pool.active[i]) continue;
       pool.x[i] += pool.vx[i] * dt;
@@ -357,14 +358,17 @@ export class WallWorld {
     // --- Hits (blocks die inside the hit callback)
     this.projSys.processField(this.field, this.level.tier);
 
-    // --- End of level
-    if (this.alive === 0) this.state = 'won';
-    else if (this.hull <= 0) { this.hull = 0; this.state = 'lost'; }
+    // --- End of level. Destroyed blocks never kill; a cleared wall beats a crash and a pass.
+    if (this.alive === 0) this.state = 'cleared';
+    else if (this.shipHitsBlock()) this.state = 'crashed';
+    else if (this.shipY < this.finishY) this.state = 'passed';
   }
 
-  /** True if a ship-sized circle at (x, y) overlaps a living block. */
-  private shipHitsBlock(x: number, y: number): boolean {
-    const R = CONFIG.PLAYER.HITBOX_R;
+  /** True if the ship's hit point overlaps the cell of a living block. */
+  shipHitsBlock(): boolean {
+    const R = SHIP_HIT_R;
+    const x = this.shipX;
+    const y = this.shipY;
     const c0 = Math.max(0, Math.floor((x - R) / CELL));
     const c1 = Math.min(this.level.cols - 1, Math.floor((x + R) / CELL));
     const r0 = Math.max(0, this.level.rows + Math.floor((y - R - this.wallOffsetY) / CELL));
@@ -375,65 +379,5 @@ export class WallWorld {
       }
     }
     return false;
-  }
-
-  /**
-   * Moves the ship toward (tx, ty) in small steps, x then y, so it stops at a block face and slides along it
-   * instead of jumping through or into the wall. With nothing in the way it lands exactly on the target.
-   */
-  private moveShipTo(tx: number, ty: number) {
-    const dx = tx - this.shipX;
-    const dy = ty - this.shipY;
-    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (CONFIG.PLAYER.HITBOX_R * 0.5)));
-    for (let s = 1; s <= steps; s++) {
-      const nx = this.shipX + dx / steps;
-      if (!this.shipHitsBlock(nx, this.shipY)) this.shipX = nx;
-      const ny = this.shipY + dy / steps;
-      if (!this.shipHitsBlock(this.shipX, ny)) this.shipY = ny;
-    }
-    if (!this.shipHitsBlock(tx, ty)) { this.shipX = tx; this.shipY = ty; }
-  }
-
-  /** Push the ship's circle out of every block it overlaps (a block scrolled onto it), along the shortest way out. */
-  private resolveShip() {
-    const R = CONFIG.PLAYER.HITBOX_R;
-    for (let pass = 0; pass < 3; pass++) {
-      let moved = false;
-      const c0 = Math.max(0, Math.floor((this.shipX - R) / CELL));
-      const c1 = Math.min(this.level.cols - 1, Math.floor((this.shipX + R) / CELL));
-      const r0 = Math.max(0, this.level.rows + Math.floor((this.shipY - R - this.wallOffsetY) / CELL));
-      const r1 = Math.min(this.level.rows - 1, this.level.rows + Math.floor((this.shipY + R - this.wallOffsetY) / CELL));
-      for (let r = r0; r <= r1; r++) {
-        for (let c = c0; c <= c1; c++) {
-          const b = this.blocks[r * this.level.cols + c];
-          if (!b) continue;
-          const bx = c * CELL;
-          const by = this.blockTop(r);
-          const qx = Math.max(bx, Math.min(this.shipX, bx + CELL));
-          const qy = Math.max(by, Math.min(this.shipY, by + CELL));
-          const dx = this.shipX - qx;
-          const dy = this.shipY - qy;
-          const d = Math.hypot(dx, dy);
-          if (d >= R) continue;
-          moved = true;
-          if (d > EPS) {
-            this.shipX += (dx / d) * (R - d);
-            this.shipY += (dy / d) * (R - d);
-          } else {
-            // Centre inside the block: leave by the nearest face.
-            const left = this.shipX - bx;
-            const right = bx + CELL - this.shipX;
-            const up = this.shipY - by;
-            const down = by + CELL - this.shipY;
-            const m = Math.min(left, right, up, down);
-            if (m === left) this.shipX = bx - R;
-            else if (m === right) this.shipX = bx + CELL + R;
-            else if (m === up) this.shipY = by - R;
-            else this.shipY = by + CELL + R;
-          }
-        }
-      }
-      if (!moved) break;
-    }
   }
 }

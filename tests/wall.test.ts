@@ -5,12 +5,13 @@ import { buildStarterGrid } from '../src/game/starter';
 import { applyDamage } from '../src/engine/damage';
 import { ProgressStore } from '../src/econ/progress';
 import {
-  CAMERA_MAX_X, CELL, DRAIN_PER_SEC, EDGE_ZONE, MAX_CAMERA_SPEED, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, STOP_LINE_Y, VIEW_W, WALL_COLS, WORLD_WIDTH,
+  BOOST_MAX, CAMERA_MAX_X, CELL, EDGE_ZONE, FIRE_OFFSET_SCALE, MAX_CAMERA_SPEED, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_W, WALL_COLS,
+  WORLD_WIDTH,
 } from '../src/wall/constants';
 import { edgePushSpeed, WallCamera } from '../src/wall/camera';
 import { BlockDef, blockHp, LevelDef, makeTestWall, rewardPerBlock } from '../src/wall/level';
 import { simulateWall } from '../src/wall/sim';
-import { WallWorld } from '../src/wall/wallWorld';
+import { boostT, scrollSpeed, WallWorld } from '../src/wall/wallWorld';
 
 type Cell = BlockDef | null;
 const plain = (hp = 100): BlockDef => ({ hp, armor: 0, shield: 0 });
@@ -50,7 +51,6 @@ describe('Wall data model', () => {
     expect(CELL).toBe(54);
     expect(WORLD_WIDTH).toBe(21 * 54);
     expect(CAMERA_MAX_X).toBe(WORLD_WIDTH - VIEW_W);
-    expect(STOP_LINE_Y).toBeCloseTo(0.78 * CONFIG.VIEW.H, 9);
   });
 
   it('makeTestWall is a full 21 x rows wall with the requested fractions and gaps, and is deterministic', () => {
@@ -161,135 +161,139 @@ describe('Block damage uses the enemy damage function', () => {
   });
 });
 
-describe('Wall scroll, stop line, drain, win and lose', () => {
-  it('scrolls at the approach speed, stops with the lowest living block exactly on the line, resumes when it is destroyed', () => {
-    const w = world(level(2, () => plain(), 100));
-    for (let i = 0; i < 60; i++) w.update(1 / 60, null);
-    expect(w.wallOffsetY).toBeCloseTo(100, 3);
-    expect(w.touching).toBe(false);
-    for (let i = 0; i < 60 * 9; i++) w.update(1 / 60, null);
-    expect(w.bottomEdge()).toBeCloseTo(STOP_LINE_Y, 6);
-    expect(w.wallOffsetY).toBeCloseTo(STOP_LINE_Y, 6);
-    expect(w.touching).toBe(true);
-    const held = w.wallOffsetY;
-    for (let i = 0; i < 30; i++) w.update(1 / 60, null);
-    expect(w.wallOffsetY).toBe(held); // stays put while touching
-    // Destroy the touching row: the wall resumes (by one row, then stops against the next one).
-    for (let c = 0; c < WALL_COLS; c++) w.destroyBlock(blockAt(w, 1, c));
-    w.update(1 / 60, null);
-    expect(w.touching).toBe(false);
-    expect(w.wallOffsetY).toBeGreaterThan(held);
-    for (let i = 0; i < 60; i++) w.update(1 / 60, null);
-    expect(w.wallOffsetY).toBeCloseTo(held + CELL, 6);
-    expect(w.touching).toBe(true);
+describe('Wall approach and the top-edge boost', () => {
+  it('scroll speed is the base at 35% of the screen height or lower, 4x at the top edge, and rises monotonically between', () => {
+    const base = 26;
+    expect(boostT(TOP_ZONE * CONFIG.VIEW.H)).toBe(0);
+    expect(scrollSpeed(base, CONFIG.VIEW.H)).toBe(base);
+    expect(scrollSpeed(base, TOP_ZONE * CONFIG.VIEW.H)).toBe(base);
+    expect(scrollSpeed(base, 0)).toBe(base * BOOST_MAX);
+    expect(BOOST_MAX).toBe(4);
+    let prev = scrollSpeed(base, TOP_ZONE * CONFIG.VIEW.H);
+    for (let y = TOP_ZONE * CONFIG.VIEW.H - 5; y >= 0; y -= 5) {
+      const v = scrollSpeed(base, y);
+      expect(v).toBeGreaterThan(prev);
+      prev = v;
+    }
+    expect(scrollSpeed(base, TOP_ZONE * CONFIG.VIEW.H / 2)).toBeCloseTo(base * 2.5, 9); // t = 0.5
   });
 
-  it('starts with the whole wall above the screen', () => {
+  it('the wall keeps approaching at the base speed (no stop line), and faster with the ship near the top', () => {
+    const w = world(level(2, (_r, c) => (c === 10 ? null : plain()), 150)); // the ship starts in the empty column 10
+    for (let i = 0; i < 60 * 6; i++) w.update(1 / 60, null);
+    expect(w.wallOffsetY).toBeCloseTo(900, 1); // far past where the old stop line was
+    const f = world(level(2, () => plain(), 100));
+    f.update(1 / 60, { x: 10, y: 0 });
+    expect(f.wallOffsetY).toBeCloseTo(scrollSpeed(100, 24) / 60, 6); // the ship is held at the 24 px screen margin
+    expect(f.state).toBe('playing'); // x 10 is inside column 0 but the wall is still above the screen
+  });
+
+  it('starts with the whole wall above the screen, at least 6 cells from the ship', () => {
     const w = world(makeTestWall({ tier: 1, rows: 8 }));
     expect(w.wallOffsetY).toBe(0);
     expect(w.all.every(b => b.y + CELL / 2 <= 0)).toBe(true);
-  });
-
-  it('drains 12% of max hull per second while a block touches the line, and loses at 0', () => {
-    const w = world(level(2));
-    w.setWallOffset(STOP_LINE_Y);
-    for (let i = 0; i < 60; i++) w.update(1 / 60, null);
-    expect(DRAIN_PER_SEC).toBe(0.12);
-    expect(w.hull).toBeCloseTo(100 - 12, 3);
-    expect(w.state).toBe('playing');
-    for (let i = 0; i < 60 * 8; i++) w.update(1 / 60, null);
-    expect(w.state).toBe('lost');
-    expect(w.hull).toBe(0);
-    const t = w.time;
-    w.update(1 / 60, null);
-    expect(w.time).toBe(t); // frozen once the level is over
-  });
-
-  it('no drain while the line is clear', () => {
-    const w = world(level(2));
-    w.setWallOffset(STOP_LINE_Y - 100);
-    for (let i = 0; i < 60; i++) w.update(1 / 60, null);
-    expect(w.hull).toBe(100);
-  });
-
-  it('wins when the last block is gone, with credits per block', () => {
-    const w = world(level(2));
-    w.setWallOffset(200);
-    const blocks = w.alive;
-    expect(blocks).toBe(42);
-    w.destroyAll();
-    expect(w.state).toBe('playing'); // decided on the next step
-    w.update(1 / 60, null);
-    expect(w.state).toBe('won');
-    expect(w.destroyed).toBe(42);
-    expect(w.creditsExact).toBeCloseTo(42 * rewardPerBlock(1), 9);
-    expect(w.credits).toBe(16);
-    expect(w.percentDestroyed).toBe(100);
-  });
-
-  it('a real shot kills a tier-1 block in one hit and pays its credit', () => {
-    const w = world(level(2, () => plain(blockHp(1))));
-    const b = blockAt(w, 1, 4);
-    shoot(w, b.x, b.y, 101);
-    w.update(1e-6, null);
-    expect(w.blocks[1 * WALL_COLS + 4]).toBeNull();
-    expect(w.destroyed).toBe(1);
-    expect(w.killEvents.length).toBe(1);
-    expect(w.creditsExact).toBeCloseTo(0.4, 9);
-  });
-
-  it('banks the credits once (win or lose)', () => {
-    const w = world(level(2));
-    w.setWallOffset(100);
-    w.destroyAll();
-    w.update(1 / 60, null);
-    const store = new ProgressStore(null);
-    const before = store.data.credits;
-    const runs = store.data.runs;
-    expect(w.bank(store)).toBe(true);
-    expect(w.bank(store)).toBe(false);
-    expect(store.data.credits).toBe(before + w.credits);
-    expect(store.data.runs).toBe(runs + 1);
-    expect(store.data.totalKills).toBe(42);
-    expect(store.data.bestTier).toBe(0); // best tier and time stay Free Fly's
+    expect(SHIP_START_Y - w.wallOffsetY).toBeGreaterThanOrEqual(6 * CELL);
   });
 });
 
-describe('Ship and blocks', () => {
-  it('the ship can never overlap a block: pushed out wherever the pointer asks, from every side', () => {
-    const w = world(level(3));
-    w.setWallOffset(300);
-    const R = CONFIG.PLAYER.HITBOX_R;
-    const targets: [number, number][] = [
-      [CELL * 5 + 27, 300 - 27], // dead centre of a block in the bottom row
-      [CELL * 5 + 27, 300 + 3], // just under the bottom edge
-      [CELL * 5 + 2, 300 - 27], // near the left face of a block in the middle of the wall
-      [CELL * 20 + 50, 300 - 80], // near the right end
-      [CELL * 3, 300 - 54], // exactly on a corner
-    ];
-    for (const [x, y] of targets) {
-      w.update(1 / 60, { x, y });
-      for (const b of w.all) {
-        if (w.blocks[b.id] !== b) continue;
-        const bx = b.col * CELL;
-        const by = w.blockTop(b.row);
-        const qx = Math.max(bx, Math.min(w.shipX, bx + CELL));
-        const qy = Math.max(by, Math.min(w.shipY, by + CELL));
-        expect(Math.hypot(w.shipX - qx, w.shipY - qy)).toBeGreaterThanOrEqual(R - 1e-6);
-      }
-    }
+describe('Crash, pass, clear', () => {
+  it('touching a live block with the hit point ends the run at once; a gap, or a destroyed block, is safe', () => {
+    const w = world(level(3, (r, c) => (c === 8 && r === 2 ? null : plain())));
+    w.setWallOffset(400);
+    const x = 8 * CELL + 27;
+    w.update(1 / 60, { x, y: 400 - 27 }); // the empty cell
+    expect(w.state).toBe('playing');
+    w.update(1 / 60, { x: x + CELL, y: 400 - 27 }); // inside the neighbouring live block
+    expect(w.state).toBe('crashed');
+    const t = w.time;
+    w.update(1 / 60, null);
+    expect(w.time).toBe(t);
+    // Destroyed blocks never kill.
+    const v = world(level(3));
+    v.setWallOffset(400);
+    v.destroyBlock(v.blocks[2 * WALL_COLS + 8]!);
+    v.update(1 / 60, { x, y: 400 - 27 });
+    expect(v.state).toBe('playing');
   });
 
-  it('the ship can fly up a tunnel that has been dug', () => {
-    const w = world(level(4));
+  it('the hit point is 7 px: brushing the edge of a block 8 px away is safe, 6 px away crashes', () => {
+    const mk = () => { const w = world(level(1, (_r, c) => (c === 5 ? plain() : null))); w.setWallOffset(300); return w; };
+    const right = 6 * CELL; // x where column 5 ends
+    const a = mk();
+    a.update(1 / 60, { x: right + 8, y: 300 - 27 });
+    expect(a.state).toBe('playing');
+    const b = mk();
+    b.update(1 / 60, { x: right + 6, y: 300 - 27 });
+    expect(b.state).toBe('crashed');
+    expect(SHIP_HIT_R).toBe(7);
+  });
+
+  it('a block that is damaged but alive still kills; a wall scrolling onto the ship crashes it', () => {
+    const w = world(level(2, () => plain(), 100));
+    const b = w.blocks[1 * WALL_COLS + 4]!;
+    b.hp = 1;
+    w.setWallOffset(500);
+    w.update(1 / 60, { x: 4 * CELL + 27, y: 520 });
+    expect(w.state).toBe('playing');
+    for (let i = 0; i < 60; i++) w.update(1 / 60, { x: 4 * CELL + 27, y: 520 });
+    expect(w.state).toBe('crashed');
+  });
+
+  it('flying above the far end of the wall with blocks left passes the level; with none left it is a clear', () => {
+    const w = world(level(2, (_r, c) => (c === 0 ? plain() : null)));
     w.setWallOffset(300);
-    for (let r = 0; r < 4; r++) w.destroyBlock(blockAt(w, r, 6));
-    const x = CELL * 6 + 27;
-    let y = 400;
-    while (y > 100) { y -= 20; w.update(1 / 60, { x, y }); }
-    expect(w.shipY).toBeCloseTo(y, 3); // inside the wall's rows (y 84..300), unblocked
-    expect(w.shipX).toBeCloseTo(x, 3);
-    expect(w.cellAt(w.shipX, w.shipY)).not.toBeNull();
+    const x = 10 * CELL; // an empty lane
+    w.update(1 / 60, { x, y: w.finishY + 5 });
+    expect(w.state).toBe('playing');
+    w.update(1 / 60, { x, y: w.finishY - 5 });
+    expect(w.state).toBe('passed');
+    expect(w.alive).toBe(2);
+    const c = world(level(2));
+    c.setWallOffset(300);
+    c.destroyAll();
+    c.update(1 / 60, { x: 100, y: c.finishY - 5 });
+    expect(c.state).toBe('cleared');
+  });
+
+  it('the finish line is 1.5 cells beyond the last row', () => {
+    const w = world(level(4));
+    w.setWallOffset(500);
+    expect(w.finishY).toBeCloseTo(500 - 4 * CELL - 1.5 * CELL, 9);
+    expect(w.progress).toBeGreaterThanOrEqual(0);
+    expect(w.progress).toBeLessThan(1);
+  });
+
+  it('a cleared wall pays credits per block, a shot kills a tier-1 block, and credits are banked once', () => {
+    const w = world(level(2));
+    w.setWallOffset(100);
+    expect(w.alive).toBe(42);
+    w.destroyAll();
+    w.update(1 / 60, null);
+    expect(w.state).toBe('cleared');
+    expect(w.creditsExact).toBeCloseTo(42 * rewardPerBlock(1), 9);
+    expect(w.percentDestroyed).toBe(100);
+    const store = new ProgressStore(null);
+    expect(w.bank(store)).toBe(true);
+    expect(w.bank(store)).toBe(false);
+    expect(store.data.credits).toBe(w.credits);
+    expect(store.data.runs).toBe(1);
+    expect(store.data.bestTier).toBe(0);
+    const s = world(level(2, () => plain(blockHp(1))));
+    const b = blockAt(s, 1, 4);
+    shoot(s, b.x, b.y, 101);
+    s.update(1e-6, null);
+    expect(s.blocks[1 * WALL_COLS + 4]).toBeNull();
+    expect(s.killEvents.length).toBe(1);
+  });
+});
+
+describe('Ejector offset', () => {
+  it('the Shuttle ejector is scaled by FIRE_OFFSET_SCALE and the ship fits in the lane its shots carve', () => {
+    const w = world(level(2));
+    const dx = Math.abs(w.spawnOffsets[0].x);
+    expect(dx).toBeCloseTo(3 * 14 * FIRE_OFFSET_SCALE, 9);
+    expect(dx + SHIP_HIT_R).toBeLessThan(CELL / 2 - 8);
+    expect(Math.abs(w.spawnOffsets[0].y)).toBeCloseTo(4 * 14 * FIRE_OFFSET_SCALE, 9);
   });
 });
 
@@ -460,16 +464,15 @@ describe('Shared hit pipeline on a wall', () => {
   });
 });
 
-describe('Simulation bot', () => {
-  it('the default circuit clears a tier-1 wall of 8 rows with the sweeping bot, and an idle wall reaches the line first', () => {
+describe('Simulation bots', () => {
+  it('the path carver passes tier 1 and the clear-all pilot clears it, with the starter gun', () => {
     const l = makeTestWall({ tier: 1, rows: 8, approachSpeed: 26 });
-    const r = simulateWall(l, buildStarterGrid());
-    expect(r.state).toBe('won');
-    expect(r.destroyed).toBe(168);
-    expect(r.time).toBeGreaterThan(40);
-    expect(r.time).toBeLessThan(62);
-    expect(r.credits).toBe(Math.floor(168 * 0.4));
-    expect(STOP_LINE_Y / 26).toBeLessThan(r.time); // an idle player would be touching the line well before this
+    const carve = simulateWall(l, buildStarterGrid(), 'carve');
+    expect(carve.state === 'passed' || carve.state === 'cleared').toBe(true);
+    const all = simulateWall(l, buildStarterGrid(), 'clearAll');
+    expect(all.state).toBe('cleared');
+    expect(all.destroyed).toBe(168);
+    expect(all.credits).toBe(Math.floor(168 * 0.4));
   });
 });
 

@@ -10,7 +10,7 @@ import { getBuilderModel } from '../builder/session';
 import { inRect, LAYOUT, Rect, VIEW_H, VIEW_W } from '../builder/layout';
 import { makeTabButtons } from '../builder/tabs';
 import { makeText, Toast, UIButton } from '../builder/ui';
-import { getProgressStore, isCleared, isUnlocked, nextTier } from '../econ/progress';
+import { getProgressStore, isCleared, isPassed, isUnlocked, nextTier } from '../econ/progress';
 import { CreditsBadge, textButton } from '../ui/hud';
 import { fmtTime } from './RunSummaryScreen';
 import { THEME } from '../ui/theme';
@@ -32,7 +32,8 @@ const FRAME_LOCKED = 0x3d3d41;
 const FACE_LOCKED = 0x1c1c1e;
 const NUM_LOCKED = 0x5c5c61;
 
-export type TileState = 'locked' | 'open' | 'cleared';
+/** locked, open (not passed yet), passed (flown past the end, no Medal), cleared (every block destroyed, Medal). */
+export type TileState = 'locked' | 'open' | 'passed' | 'cleared';
 
 /** Screen-independent description of a tile, also exposed to the e2e hook. */
 export interface TileInfo { tier: number; state: TileState; spike: boolean; next: boolean }
@@ -104,8 +105,8 @@ export class MapScreen implements Screen {
   // ------------------------------------------------------------------ data
   tileInfo(tier: number): TileInfo {
     const p = this.store.data;
-    const state: TileState = isCleared(p, tier) ? 'cleared' : isUnlocked(p, tier) ? 'open' : 'locked';
-    return { tier, state, spike: !!generateLevel(tier).spike, next: tier === nextTier(p) && !isCleared(p, tier) };
+    const state: TileState = isCleared(p, tier) ? 'cleared' : isPassed(p, tier) ? 'passed' : isUnlocked(p, tier) ? 'open' : 'locked';
+    return { tier, state, spike: !!generateLevel(tier).spike, next: tier === nextTier(p) && !isPassed(p, tier) };
   }
 
   private tileY(tier: number): number { return PAD + Math.floor((tier - 1) / MAP_COLS) * STEP; }
@@ -132,6 +133,7 @@ export class MapScreen implements Screen {
       g.rect(x + 3, y + 3, TILE - 6, TILE - 6).fill(locked ? FACE_LOCKED : sel ? 0x3a3a3e : FACE);
       if (info.spike) g.poly([x + 3, y + 3, x + 27, y + 3, x + 3, y + 27]).fill(THEME.bad);
       if (info.state === 'cleared') g.circle(x + TILE - 15, y + 15, 7).fill(THEME.currency);
+      else if (info.state === 'passed') g.circle(x + TILE - 15, y + 15, 6).stroke({ color: THEME.currency, width: 2 });
       if (sel) g.rect(x - 1, y - 1, TILE + 2, TILE + 2).stroke({ color: THEME.select, width: 3 });
       else if (info.next) g.rect(x, y, TILE, TILE).stroke({ color: THEME.select, width: 1.5 });
       const n = makeText(String(tier), 28, locked ? NUM_LOCKED : THEME.text, { fontWeight: 'bold' });
@@ -160,10 +162,12 @@ export class MapScreen implements Screen {
     this.spikeLine.text = level.spike ? 'SPIKE: every block has 1.6x HP' : '';
     const key = String(this.selected);
     const pct = p.wallBestPct[key];
-    const time = p.wallBestTime[key];
-    this.bestLine.text = info.state === 'cleared'
-      ? `Best ${pct ?? 100}% / ${time !== undefined ? fmtTime(time) : '-'}`
-      : pct !== undefined ? `Best ${pct}% (not cleared)` : 'Not cleared';
+    const passTime = p.wallBestTime[key];
+    const clearTime = p.wallBestClearTime[key] ?? passTime;
+    const destroyed = pct !== undefined ? `Best destroyed ${pct}%` : '';
+    const result = info.state === 'cleared' ? `Cleared ${clearTime !== undefined ? fmtTime(clearTime) : ''}`
+      : info.state === 'passed' ? `Passed ${passTime !== undefined ? fmtTime(passTime) : ''}` : 'Not passed';
+    this.bestLine.text = destroyed ? `${destroyed}  ·  ${result}` : result;
     const open = info.state !== 'locked';
     this.startButton.setEnabled(open);
     this.startButton.container.children.forEach(c => { if ((c as any).text !== undefined) (c as any).text = open ? 'START' : 'Locked'; });
@@ -196,7 +200,7 @@ export class MapScreen implements Screen {
     const b = this.buttons.find(bb => bb.hit(x, y));
     if (b) {
       if (b.enabled) { b.flash(); b.spec.onTap(); }
-      else if (b === this.startButton) this.toast.show(`Clear tier ${this.selected - 1} first`);
+      else if (b === this.startButton) this.toast.show(`Pass tier ${this.selected - 1} first`);
       return;
     }
     if (!this.inGrid(x, y)) return;
