@@ -238,3 +238,42 @@ describe('Generator guarantees (6c)', () => {
     }
   });
 });
+
+describe('Passed tiers (6c)', () => {
+  it('a pass unlocks the next tier without a Medal; a later full clear gives the Medal once', () => {
+    const p = defaultProgress();
+    const r = applyWallRun(p, { ...run(1, 5, 100, 20), passed: true });
+    expect(r.medal).toBe(false);
+    expect(r.newlyPassed).toBe(true);
+    expect(p.passedTiers).toEqual([1]);
+    expect(p.clearedTiers).toEqual([]);
+    expect(p.medals).toBe(0);
+    expect(isUnlocked(p, 2)).toBe(true);
+    expect(p.wallBestTime['1']).toBe(20);
+    expect(p.wallBestPct['1']).toBe(5);
+    expect(applyWallRun(p, run(1, 100, 100, 70)).medal).toBe(true);
+    expect(p.passedTiers).toEqual([1]);
+    expect(p.medals).toBe(1);
+    expect(p.wallBestTime['1']).toBe(20); // the quicker pass stays the best pass...
+    expect(p.wallBestClearTime['1']).toBe(70); // ...and the clear has its own time
+    expect(applyWallRun(p, { ...run(1, 10, 100, 15), passed: true }).medal).toBe(false);
+  });
+
+  it('a crash pays credits for the blocks destroyed, saves the percent, and unlocks nothing', () => {
+    const p = defaultProgress();
+    const r = applyWallRun(p, run(4, 30, 100, 12));
+    expect(r.newlyPassed).toBe(false);
+    expect(p.passedTiers).toEqual([]);
+    expect(p.credits).toBe(Math.floor(30 * rewardPerBlock(4)));
+    expect(p.wallBestPct['4']).toBe(30);
+    expect(p.wallBestTime['4']).toBeUndefined();
+  });
+
+  it('a v2 save (cleared tiers only) loads with those tiers passed', () => {
+    const p = loadProgress(JSON.stringify({ version: 2, credits: 5, clearedTiers: [1, 2], medals: 2, wallBestPct: { '1': 100 }, wallBestTime: { '1': 40 } }));
+    expect(p.version).toBe(3);
+    expect(p.passedTiers).toEqual([1, 2]);
+    expect(p.wallBestClearTime).toEqual({});
+    expect(isUnlocked(p, 3)).toBe(true);
+  });
+});

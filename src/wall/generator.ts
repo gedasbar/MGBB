@@ -13,6 +13,8 @@ export const SHIELD_FRAC: [number, number] = [0.05, 0.4];
 export const MIN_SPIKES = 8;
 export const MAX_SPIKES = 16;
 export const FIRST_SPIKE_TIER = 6;
+/** No column may hold fewer blocks than this share of the median column (keeps every lane a real cost). */
+export const MIN_COLUMN_SHARE = 0.3;
 
 /** Armor value of a block (the engine halves direct damage at 10) and the shield pool as a share of HP, by tier. */
 const armorValue = (tier: number) => (tier >= 60 ? 20 : 10);
@@ -130,15 +132,29 @@ export function generateLevel(tier: number): LevelDef {
     }
     if (count >= target || h >= rows * 4) break;
   }
-  for (let i = 0; i < mask.length && count > target; i++) {
-    if (mask[i]) { mask[i] = false; count--; }
-  }
-
-  // No straight open column: a column the shape left empty gets one block, halfway up the wall, so every lane has to be carved.
+  // Every column holds blocks (no straight open lane), and none is a nearly free lane next to its neighbours: a column
+  // below MIN_COLUMN_SHARE of the median column gets blocks spread over its height.
+  const colCount = (c: number) => { let n = 0; for (let r = 0; r < h; r++) if (mask[r * WALL_COLS + c]) n++; return n; };
+  const counts = Array.from({ length: WALL_COLS }, (_, c) => colCount(c));
+  const median = [...counts].sort((x, y) => x - y)[Math.floor(WALL_COLS / 2)];
+  const minCount = Math.max(1, Math.ceil(median * MIN_COLUMN_SHARE));
   for (let c = 0; c < WALL_COLS; c++) {
-    let any = false;
-    for (let r = 0; r < h && !any; r++) any = mask[r * WALL_COLS + c];
-    if (!any) mask[Math.floor(h / 2) * WALL_COLS + c] = true;
+    const need = minCount - counts[c];
+    if (need <= 0) continue;
+    const step = h / minCount;
+    for (let k = 0, added = 0; k < minCount && added < need; k++) {
+      let r = Math.min(h - 1, Math.floor(k * step + step / 2));
+      for (let d = 0; d < h; d++) {
+        const cand = r + (d % 2 === 0 ? d / 2 : -(d + 1) / 2);
+        if (cand >= 0 && cand < h && !mask[cand * WALL_COLS + c]) { mask[cand * WALL_COLS + c] = true; added++; count++; break; }
+      }
+    }
+    counts[c] = colCount(c);
+  }
+  // Trim the surplus from the far (top) end, never taking a column below its minimum.
+  for (let i = 0; i < mask.length && count > target; i++) {
+    const c = i % WALL_COLS;
+    if (mask[i] && counts[c] > minCount) { mask[i] = false; counts[c]--; count--; }
   }
 
   const blocks: { r: number; c: number; idx: number }[] = [];
