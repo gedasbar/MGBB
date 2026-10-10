@@ -100,7 +100,7 @@ async function combatTest(browser) {
     const rock = st.enemies.find((e) => e.id === rockId);
     if (rock) {
       // keep ship under the swaying rock
-      await page.mouse.move(...toScreen(rock.x - 42, 800)); // the Shuttle ejector sits 3 cells (42 px) right of the ship centre
+      await page.mouse.move(...toScreen(rock.x - 10.5, 800)); // the Shuttle ejector sits 3 cells (42 px, scaled by 0.25 to 10.5 px) right of the ship centre
       if (lastHp !== null && rock.hp < lastHp) {
         hpLog.push(Math.round(rock.hp));
         if (!hitShot) {
