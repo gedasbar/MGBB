@@ -6,7 +6,7 @@ import { applyDamage } from '../src/engine/damage';
 import { ProgressStore } from '../src/econ/progress';
 import {
   BOOST_MAX, CAMERA_MAX_X, CELL, EDGE_ZONE, FIRE_OFFSET_SCALE, MAX_CAMERA_SPEED, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_W, WALL_COLS,
-  WORLD_WIDTH,
+  PASS_MARGIN_CELLS, WORLD_WIDTH,
 } from '../src/wall/constants';
 import { edgePushSpeed, WallCamera } from '../src/wall/camera';
 import { BlockDef, blockHp, LevelDef, makeTestWall, rewardPerBlock } from '../src/wall/level';
@@ -241,7 +241,7 @@ describe('Crash, pass, clear', () => {
 
   it('flying above the far end of the wall with blocks left passes the level; with none left it is a clear', () => {
     const w = world(level(2, (_r, c) => (c === 0 ? plain() : null)));
-    w.setWallOffset(300);
+    w.setWallOffset(700);
     const x = 10 * CELL; // an empty lane
     w.update(1 / 60, { x, y: w.finishY + 5 });
     expect(w.state).toBe('playing');
@@ -249,16 +249,17 @@ describe('Crash, pass, clear', () => {
     expect(w.state).toBe('passed');
     expect(w.alive).toBe(2);
     const c = world(level(2));
-    c.setWallOffset(300);
+    c.setWallOffset(700);
     c.destroyAll();
     c.update(1 / 60, { x: 100, y: c.finishY - 5 });
     expect(c.state).toBe('cleared');
   });
 
-  it('the finish line is 1.5 cells beyond the last row', () => {
+  it('the (invisible) pass line is PASS_MARGIN_CELLS = 8 cells beyond the last row', () => {
     const w = world(level(4));
     w.setWallOffset(500);
-    expect(w.finishY).toBeCloseTo(500 - 4 * CELL - 1.5 * CELL, 9);
+    expect(PASS_MARGIN_CELLS).toBe(8);
+    expect(w.finishY).toBeCloseTo(500 - 4 * CELL - PASS_MARGIN_CELLS * CELL, 9);
     expect(w.progress).toBeGreaterThanOrEqual(0);
     expect(w.progress).toBeLessThan(1);
   });

@@ -7,7 +7,7 @@ import {
 } from '../src/econ/progress';
 import { BLOCKS, pickerBlocks } from '../src/data/blocks';
 import { describeBlock } from '../src/engine/compilerTypes';
-import { BuilderModel } from '../src/builder/model';
+import { BuilderModel, StorageLike } from '../src/builder/model';
 import { MitosisSystem } from '../src/engine/mitosis';
 import { CONFIG } from '../src/config';
 import { World } from '../src/game/world';
@@ -33,10 +33,12 @@ describe('pricing formulas', () => {
   it.each(ups)('upgrade price of %s from level %i is %i (base*2*2.2^(level-1))', (id, level, price) => {
     expect(upgradePrice(id, level)).toBe(price);
   });
-  it('every picker block has a base price, and the Fan hull costs 600', () => {
+  it('every picker block has a base price, and the hull ladder is free then strictly ascending', () => {
     for (const b of pickerBlocks()) expect(BASE_PRICE[b.id]).toBeGreaterThan(0);
     expect(pickerBlocks().length).toBe(20);
-    expect(HULL_PRICE.fan).toBe(600);
+    expect(HULL_PRICE.dart).toBe(0);
+    const ladder = ['dart', 'twin', 'prong', 'fan', 'shuttle'].map(id => HULL_PRICE[id]);
+    for (let i = 1; i < ladder.length; i++) expect(ladder[i]).toBeGreaterThan(ladder[i - 1]);
   });
   it('formats big numbers compactly', () => {
     expect([0, 999, 1000, 9720, 12345, 1234567].map(fmtBig)).toEqual(['0', '999', '1K', '9.72K', '12.3K', '1.23M']);
@@ -68,17 +70,19 @@ describe('purchases', () => {
     for (let i = 0; i < 20; i++) buyUpgrade(p, 'flat_plus');
     expect(p.levels.flat_plus).toBe(BLOCKS.flat_plus.maxLevel);
   });
-  it('buyHull: rejected below the price, accepted at exactly 600, never twice', () => {
-    const p = withCredits(599);
+  it('buyHull: rejected below the price, accepted at exactly the price, never twice', () => {
+    const price = HULL_PRICE.fan;
+    const p = withCredits(price - 1);
     expect(buyHull(p, 'fan').ok).toBe(false);
-    expect(p.ownedHulls).toEqual(['shuttle']);
-    p.credits = 600;
-    expect(buyHull(p, 'fan')).toEqual({ ok: true, price: 600 });
+    expect(p.ownedHulls).toEqual(['dart']);
+    p.credits = price;
+    expect(buyHull(p, 'fan')).toEqual({ ok: true, price });
     expect(p.credits).toBe(0);
-    expect(p.ownedHulls).toEqual(['shuttle', 'fan']);
-    p.credits = 600;
+    expect(p.ownedHulls).toEqual(['dart', 'fan']);
+    p.credits = price;
     expect(buyHull(p, 'fan').ok).toBe(false);
-    expect(p.credits).toBe(600);
+    expect(p.credits).toBe(price);
+    expect(buyHull(p, 'dart').ok).toBe(false);   // the free starter is already owned
   });
   it('the store saves and notifies on a purchase', () => {
     const st = mem();
@@ -96,7 +100,7 @@ describe('persistence', () => {
   it('new-game defaults', () => {
     const p = defaultProgress();
     expect(p.credits).toBe(0);
-    expect(p.ownedHulls).toEqual(['shuttle']);
+    expect(p.ownedHulls).toEqual(['dart']);
     expect(Object.fromEntries(Object.entries(p.owned).filter(([, v]) => v > 0))).toEqual({ turn_l: 2, turn_r: 2, flat_plus: 1 });
     expect(Object.values(p.levels).every(l => l === 1)).toBe(true);
   });
@@ -120,7 +124,7 @@ describe('persistence', () => {
     expect('nope' in p.owned).toBe(false);
     expect(p.levels.flat_plus).toBe(1); // above max -> 1
     expect(p.levels.homing).toBe(3);
-    expect(p.ownedHulls).toEqual(['shuttle', 'fan']);
+    expect(p.ownedHulls).toEqual(['dart', 'shuttle', 'fan']);   // the Dart is always owned; an old save keeps its Shuttle
   });
   it('an old save (builder circuit, no progress key) loads with new-game progress and does not crash', () => {
     const st = mem({ 'mgbm.builder.v2': JSON.stringify({ version: 2, hulls: { shuttle: { active: 'A', slots: { A: [], B: [] } } } }) });
@@ -191,13 +195,18 @@ describe('earning', () => {
   });
 });
 
+/** A builder model on the Shuttle of an old save (new-game inventory, Shuttle owned). */
+function shuttleModel(st: StorageLike | null): BuilderModel {
+  return new BuilderModel(st, 'shuttle', new ProgressStore(st, { ...defaultProgress(), ownedHulls: ['dart', 'shuttle'] }));
+}
+
 describe('inventory and levels in the builder', () => {
   it('a circuit that uses more copies than owned is trimmed on load, never crashes, and the blocks are returned', () => {
     const entries = [[3, 7], [4, 7], [5, 7], [3, 5], [4, 5]].map(([x, y]) => ({ x, y, blockId: 'flat_plus', level: 1, rotation: 0, manual: false }));
     entries.push({ x: 5, y: 8, blockId: 'turn_r', level: 1, rotation: 0, manual: false });
     const st = mem({ 'mgbm.builder.v2': JSON.stringify({ version: 2, hulls: { shuttle: { active: 'A', slots: { A: entries, B: entries } } } }) });
     let m!: BuilderModel;
-    expect(() => { m = new BuilderModel(st); }).not.toThrow();
+    expect(() => { m = shuttleModel(st); }).not.toThrow();
     expect(m.trimmed).toBe(8); // 4 extra Flat+ in each of A and B
     expect(m.placedCount('flat_plus')).toBe(1);
     expect(m.placedCount('turn_r')).toBe(1);
@@ -207,7 +216,7 @@ describe('inventory and levels in the builder', () => {
     expect(JSON.parse(st.getItem('mgbm.builder.v2')!).hulls.shuttle.slots.A.filter((e: any) => e.blockId === 'flat_plus').length).toBe(1);
   });
   it('placing decrements and removing returns the available count; unowned blocks cannot be placed', () => {
-    const m = new BuilderModel(null);
+    const m = shuttleModel(null);
     expect(m.available('turn_l')).toBe(1); // 2 owned, 1 on the default circuit
     expect(m.place(2, 6, 'turn_l').ok).toBe(true);
     expect(m.available('turn_l')).toBe(0);
@@ -219,7 +228,7 @@ describe('inventory and levels in the builder', () => {
   it('a locked hull cannot be selected until it is bought', () => {
     const m = new BuilderModel(null);
     expect(m.switchHull('fan')).toMatchObject({ ok: false });
-    m.store.data.credits = 600;
+    m.store.data.credits = HULL_PRICE.fan;
     m.store.buyHull('fan');
     expect(m.switchHull('fan').ok).toBe(true);
   });

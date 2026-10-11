@@ -33,7 +33,7 @@ async function aim(page, s) {
 
 (async () => {
   const browser = await lib.chromium.launch({ headless: true });
-  const { page } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, rich: false });
+  const { page } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, rich: false, dart: true });
   const dbg = (id) => page.click('#' + id);
   const model = (fn, arg) => page.evaluate(({ fn, arg }) => new Function('m', 'a', fn)(window.__mgbm.model, arg), { fn, arg });
 
@@ -42,6 +42,14 @@ async function aim(page, s) {
   check(s.credits === 0 && s.creditsText === '0', `fresh progress shows 0 credits (top bar "${s.creditsText}")`);
   const owned = await model('return Object.fromEntries(Object.entries(m.owned).filter(([k, v]) => v > 0))');
   check(JSON.stringify(owned) === JSON.stringify({ turn_l: 2, turn_r: 2, flat_plus: 1 }), `only turn_l 2, turn_r 2, flat_plus 1 are owned: ${JSON.stringify(owned)}`);
+  check((await state(page)).hull === 'dart', 'a fresh save starts on the free Dart (the free-hull flow is covered in freefly.e2e)');
+  // The rest of this script was written on the Shuttle's default circuit: grant it and switch (the Dart is covered by freefly.e2e).
+  await page.evaluate(() => {
+    const m = window.__mgbm.model;
+    m.store.data.ownedHulls.push('shuttle'); m.store.commit(); m.switchHull('shuttle');
+    window.__mgbm.buildScreen.fit(); window.__mgbm.buildScreen.refresh();
+  });
+  await page.waitForTimeout(200);
 
   // Open the picker on an empty cell (tap twice) and try to place Splitter 2, which is not owned.
   await tap(page, 174, 420); // an empty cell (col 4, row 5)
@@ -173,24 +181,24 @@ async function aim(page, s) {
 
   // ---- Fan hull: locked until bought
   await tap(page, ...SHIP_BTN);
-  await tap(page, 270, 324); // Fan row
+  await tap(page, 270, 492); // Fan row (Dart, Twin, Prong, Fan, Shuttle)
   s = await state(page);
   check(s.hull === 'shuttle', `the locked Fan hull is not selectable (hull ${s.hull}, toast "${s.toast}")`);
   await tap(page, ...TAB.shop);
   await tap(page, 405, 136); // Hulls section
   s = await state(page);
   check(s.section === 'hulls', 'Hulls section opens');
-  if (s.credits < 600) await dbg('dbg-credits');
+  if (s.credits < 1200) await dbg('dbg-credits');
   s = await state(page);
   const fan = s.rows.find(r => r.key === 'fan');
-  check(/Buy - 600/.test(fan.buttons[0].label) && fan.buttons[0].enabled, `Fan hull button "${fan.buttons[0].label}"`);
+  check(/Buy - 1\.2K/.test(fan.buttons[0].label) && fan.buttons[0].enabled, `Fan hull button "${fan.buttons[0].label}"`);
   const credBeforeFan = s.credits;
   await tap(page, ...centre(fan.buttons[0].rect), { pause: 200 });
   s = await state(page);
-  check(s.credits === credBeforeFan - 600, `Fan hull cost 600 (${credBeforeFan} -> ${s.credits})`);
+  check(s.credits === credBeforeFan - 1200, `Fan hull cost 1200 (${credBeforeFan} -> ${s.credits})`);
   await tap(page, ...TAB.build);
   await tap(page, ...SHIP_BTN);
-  await tap(page, 270, 324);
+  await tap(page, 270, 492);
   s = await state(page);
   check(s.hull === 'fan', `the bought Fan hull is selectable (hull ${s.hull})`);
 

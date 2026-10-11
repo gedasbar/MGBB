@@ -6,11 +6,12 @@ import { BounceInfo, TargetField } from '../engine/targets';
 import { firePulse, spawnOffsetsFor } from '../game/fire';
 import { buildStarterGrid } from '../game/starter';
 import {
-  BOOST_MAX, CELL, FINISH_MARGIN_CELLS, PROJECTILE_MAX_AGE, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_H,
+  BOOST_MAX, CELL, PASS_MARGIN_CELLS, PROJECTILE_MAX_AGE, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_H,
   WORLD_WIDTH,
 } from './constants';
 import { LevelDef, rewardPerBlock } from './level';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
+import { fireRateMul } from '../data/hulls';
 
 /** One living block of a wall. x/y are the block centre (x in world px, y in screen px); `radius` is the half size. */
 export interface Block extends EnemyEntity {
@@ -172,6 +173,8 @@ export class WallWorld {
   /** True when banking this level awarded a first-clear Medal. */
   medalEarned = false;
   autoFire = true;
+  /** Pulse-rate multiplier of the hull being flown (the Dart is slow). */
+  private fireRateMul = 1;
   private pulseTimer = 0;
 
   /** Events produced by update(); consumers clear them. */
@@ -182,6 +185,7 @@ export class WallWorld {
     this.controlStarted = !opts.safeStart;
     this.controlT = opts.safeStart ? 0 : Infinity;
     const hullGrid = opts.grid ?? buildStarterGrid();
+    this.fireRateMul = fireRateMul(hullGrid.hullId);
     const compiled = compile(opts.grid ?? buildStarterGrid());
     this.recipes = compiled.recipes;
     this.warnings = compiled.warnings;
@@ -220,12 +224,12 @@ export class WallWorld {
     };
   }
 
-  /** Screen y of the finish line: FINISH_MARGIN_CELLS of empty space beyond the last row. The ship passes it by flying above it. */
-  get finishY(): number { return this.wallOffsetY - this.level.rows * CELL - FINISH_MARGIN_CELLS * CELL; }
+  /** Screen y of the (invisible) pass line: PASS_MARGIN_CELLS of empty space beyond the last row. The ship passes by flying above it. */
+  get finishY(): number { return this.wallOffsetY - this.level.rows * CELL - PASS_MARGIN_CELLS * CELL; }
 
-  /** How far through the wall the ship is, 0 (at the start) to 1 (at the finish line). */
+  /** How far through the wall the ship is, 0 (at the start) to 1 (at the pass line). */
   get progress(): number {
-    const startFinishY = -this.level.rows * CELL - FINISH_MARGIN_CELLS * CELL;
+    const startFinishY = -this.level.rows * CELL - PASS_MARGIN_CELLS * CELL;
     return Math.max(0, Math.min(1, 1 - (this.shipY - this.finishY) / (SHIP_START_Y - startFinishY)));
   }
 
@@ -358,7 +362,7 @@ export class WallWorld {
     // --- Auto-fire
     if (this.autoFire) {
       this.pulseTimer += dt;
-      const period = 1 / CONFIG.PULSE.BASE_RATE;
+      const period = 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul);
       while (this.pulseTimer >= period) {
         this.pulseTimer -= period;
         this.fire();
@@ -368,7 +372,7 @@ export class WallWorld {
     // --- Projectiles: steer, move, keep inside the world, drop the ones that left or flew too long
     const pool = this.pool;
     this.projSys.steer(dt, this.field);
-    const wallTop = this.finishY - 100;
+    const wallTop = this.wallOffsetY - this.level.rows * CELL - 100;
     for (let i = 0; i < pool.max; i++) {
       if (!pool.active[i]) continue;
       pool.x[i] += pool.vx[i] * dt;

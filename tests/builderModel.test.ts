@@ -243,7 +243,7 @@ describe('builder persistence', () => {
 
   it('corrupt or foreign JSON falls back to the default circuit', () => {
     for (const raw of ['{ broken', 'null', '42', '"x"', '{"version":1}', '[]', '{"version":2,"hulls":5}']) {
-      const m = richModel(memStorage({ [STORAGE_KEY]: raw }));
+      const m = richModel(memStorage({ [STORAGE_KEY]: raw }), 'shuttle');
       expect(m.grid.cells.filter(c => c.blockId).length).toBe(3);
       expect(m.compiled.recipes.length).toBe(1);
     }
@@ -302,6 +302,6 @@ describe('builder model: hulls', () => {
     const m = richModel(null);
     expect(m.switchHull('nope').ok).toBe(false);
     const bad = richModel(memStorage({ [STORAGE_KEY]: JSON.stringify({ version: 2, activeHull: 'nope', hulls: {} }) }));
-    expect(bad.hullId).toBe('shuttle');
+    expect(bad.hullId).toBe('dart');   // an unknown saved hull falls back to the free starter
   });
 });

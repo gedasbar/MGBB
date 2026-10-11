@@ -22,6 +22,8 @@ export const MIN_TAP = 44;
 
 /** Margin kept around the hull when fitting. */
 export const FIT_MARGIN = 6;
+/** Largest cell size fitView will pick. */
+export const FIT_MAX_SCALE = 110;
 
 /** Cell size in content units; the grid container is scaled by view.scale / BASE_CELL. */
 export const BASE_CELL = 64;
@@ -45,7 +47,8 @@ export function inRect(r: Rect, x: number, y: number): boolean {
 
 /** Scale and offset that centre the whole hull inside `area`. */
 export function fitView(gw: number, gh: number, area: Rect = LAYOUT.gridArea, margin = FIT_MARGIN): View {
-  const scale = Math.min((area.w - 2 * margin) / gw, (area.h - 2 * margin) / gh);
+  // A tiny hull (the 1 x 3 Dart) is not blown up to fill the area: cells stay a sensible size and the grid stays centred.
+  const scale = Math.min((area.w - 2 * margin) / gw, (area.h - 2 * margin) / gh, FIT_MAX_SCALE);
   return { scale, ox: area.x + (area.w - gw * scale) / 2, oy: area.y + (area.h - gh * scale) / 2 };
 }
 

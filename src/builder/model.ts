@@ -51,6 +51,8 @@ export class BuilderModel {
       /* storage unavailable */
     }
     this.saved = loadBuilder(raw, legacy);
+    // A player of the old grid format built on what is now the Shuttle: it stays theirs.
+    if (legacy && !this.store.data.ownedHulls.includes('shuttle')) { this.store.data.ownedHulls.push('shuttle'); this.store.commit(); }
     this.loadHull(hullId ?? this.saved.activeHull ?? DEFAULT_HULL);
     if ((!raw || legacy || this.trimmed > 0) && storage) this.persist(); // write the new format over a migrated save
   }

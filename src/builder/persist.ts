@@ -2,6 +2,7 @@ import { Grid } from '../engine/compiler';
 import { Rotation } from '../engine/compilerTypes';
 import { BLOCKS } from '../data/blocks';
 import { HULL_BUILDERS } from '../game/gridUtils';
+import { STARTER_HULL } from '../data/hulls';
 
 export type SlotId = 'A' | 'B';
 export const SLOTS: SlotId[] = ['A', 'B'];
@@ -31,7 +32,10 @@ export interface SavedBuilder {
 export const STORAGE_KEY = 'mgbm.builder.v2';
 /** Key used by the previous builder (whole grid, compass-style rotations 0..3, Straight blocks). */
 export const LEGACY_KEY = 'mgbm_grid';
-export const DEFAULT_HULL = 'shuttle';
+/** The hull of a fresh save: the free Dart with its one slot empty. */
+export const DEFAULT_HULL: string = STARTER_HULL;
+/** Hull of builds saved before the hull ladder, and of the old grid format. */
+export const LEGACY_HULL = 'shuttle';
 
 /** Default circuit for slot A of the Shuttle (0-indexed x,y). All blocks in auto mode. */
 export const DEFAULT_SHUTTLE_A: BlockEntry[] = [
@@ -43,7 +47,11 @@ export const DEFAULT_SHUTTLE_A: BlockEntry[] = [
 export function defaultSave(): SavedBuilder {
   return {
     version: 2,
-    hulls: { [DEFAULT_HULL]: { active: 'A', slots: { A: DEFAULT_SHUTTLE_A.map(e => ({ ...e })), B: [] } } },
+    hulls: {
+      [DEFAULT_HULL]: { active: 'A', slots: { A: [], B: [] } },
+      // The Shuttle (bought later) comes with its classic circuit already built.
+      [LEGACY_HULL]: { active: 'A', slots: { A: DEFAULT_SHUTTLE_A.map(e => ({ ...e })), B: [] } },
+    },
   };
 }
 
@@ -154,6 +162,8 @@ export function loadBuilder(raw: string | null, legacyRaw: string | null = null)
           if (data.hulls[hullId]) out.hulls[hullId] = sanitizeHullSave(data.hulls[hullId], hullId);
         }
         if (typeof data.activeHull === 'string' && data.activeHull in HULL_BUILDERS) out.activeHull = data.activeHull;
+        // A save from before the ladder with no remembered hull was building on the Shuttle: keep it there.
+        else if (data.hulls[LEGACY_HULL]) out.activeHull = LEGACY_HULL;
         return out;
       }
     } catch {
@@ -162,9 +172,10 @@ export function loadBuilder(raw: string | null, legacyRaw: string | null = null)
   }
   if (legacyRaw) {
     try {
-      const entries = migrateLegacyGrid(JSON.parse(legacyRaw), hullGrid(DEFAULT_HULL));
+      const entries = migrateLegacyGrid(JSON.parse(legacyRaw), hullGrid(LEGACY_HULL));
       const out = defaultSave();
-      out.hulls[DEFAULT_HULL].slots.A = entries;
+      out.hulls[LEGACY_HULL] = { active: 'A', slots: { A: entries, B: [] } };
+      out.activeHull = LEGACY_HULL;
       return out;
     } catch {
       /* fall through to default */

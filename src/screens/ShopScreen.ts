@@ -13,7 +13,8 @@ import { CATEGORY_COLOR } from '../builder/draw';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
 import { describeBlock } from '../engine/compilerTypes';
 import { copyPrice, HULL_PRICE, maxLevelOf, upgradePrice } from '../econ/economy';
-import { HULL_BUILDERS, HULL_INFO } from '../game/gridUtils';
+import { HULL_INFO } from '../game/gridUtils';
+import { shipThumbnail } from '../ui/shipArt';
 import { drawPlate } from '../ui/blockArt';
 import { fmtBig } from '../ui/format';
 import { CreditsBadge } from '../ui/hud';
@@ -253,19 +254,11 @@ export class ShopScreen implements Screen {
     this.applyScroll();
   }
 
-  /** A tiny map of the hull cells: buildable cells grey, generator and ejector light. */
+  /** The hull's ship art as a thumbnail (the same renderer as the Fly screens). */
   private drawHullMini(hullId: string, x: number, y: number) {
-    const grid = HULL_BUILDERS[hullId]();
-    const c = Math.floor(66 / Math.max(grid.w, grid.h));
-    const g = new Graphics();
-    const ox = x + (66 - grid.w * c) / 2;
-    const oy = y + (66 - grid.h * c) / 2;
-    for (const cell of grid.cells) {
-      if (cell.type === 'void') continue;
-      const fill = cell.type === 'empty' ? THEME.cellFill : THEME.bulletCasing;
-      g.rect(ox + cell.x * c, oy + cell.y * c, c - 1, c - 1).fill(fill);
-    }
-    this.listC.addChild(g);
+    const s = shipThumbnail(this.sm.app.renderer, hullId, 62);
+    s.position.set(x + 33, y + 33);
+    this.listC.addChild(s);
   }
 
   private drawButton(b: ShopButton) {

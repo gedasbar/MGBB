@@ -1,6 +1,6 @@
 import { Grid } from '../engine/compiler';
 import '../data/blocks';
-import { buildShuttleGrid } from './gridUtils';
+import { buildDartGrid, buildShuttleGrid } from './gridUtils';
 
 /** First-tier Mitotic Rock HP. Starter shot = 101 dmg → 3 hits to kill. */
 export const ROCK_HP = 250;
@@ -25,5 +25,15 @@ export function buildStarterGrid(): Grid {
   place(g, 6, 9, 'turn_r');
   place(g, 9, 9, 'turn_l');
   place(g, 9, 6, 'flat_plus');
+  return g;
+}
+
+/**
+ * The fresh-save circuit: the Dart with a Flat+ in its one free cell (the slot starts empty; the new player is given one
+ * Flat+, and this is what they build first). Used by the balance scripts as "the starter gun".
+ */
+export function buildDartStarterGrid(): Grid {
+  const g = buildDartGrid();
+  place(g, 1, 2, 'flat_plus');
   return g;
 }

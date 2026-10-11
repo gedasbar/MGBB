@@ -182,20 +182,24 @@ function richProgressJson() {
   return JSON.stringify({ version: 1, credits: 0, owned, levels, ownedHulls: ['shuttle', 'fan'], bestTier: 0, bestTime: 0, totalKills: 0, runs: 0 });
 }
 
-async function openGame(browser, { viewport = { width: 540, height: 960 }, clearStorage = true, permissions = [], rich = true } = {}) {
+// `dart: true` keeps the truly fresh save (the free one-slot Dart). Otherwise the save starts on the Shuttle, which the older
+// scripts were written for (the hull ladder came later): the Shuttle is owned and selected, everything else is new-game.
+async function openGame(browser, { viewport = { width: 540, height: 960 }, clearStorage = true, permissions = [], rich = true, dart = false } = {}) {
   const context = await browser.newContext({ viewport, permissions });
   const page = await context.newPage();
   page.on('pageerror', (err) => check(false, `page error: ${err.message}`));
   page.on('console', (m) => { if (m.type() === 'error') process.stdout.write(`console.error: ${m.text()}\n`); });
   if (clearStorage) {
-    const progress = rich ? richProgressJson() : null;
-    await page.addInitScript((progress) => {
+    const progress = rich ? richProgressJson() : (dart ? null : '{"ownedHulls":["shuttle"]}');
+    const builder = dart ? null : '{"version":2,"activeHull":"shuttle","hulls":{}}';
+    await page.addInitScript(([progress, builder]) => {
       if (!sessionStorage.getItem('__cleared')) {
         localStorage.clear();
         if (progress) localStorage.setItem('mgbm.progress.v1', progress);
+        if (builder) localStorage.setItem('mgbm.builder.v2', builder);
         sessionStorage.setItem('__cleared', '1');
       }
-    }, progress);
+    }, [progress, builder]);
   }
   await page.goto(URL);
   await page.waitForFunction(() => !!window.__mgbm);

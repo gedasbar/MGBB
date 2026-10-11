@@ -9,6 +9,7 @@ import { PointerState } from '../input';
 import { buildStarterGrid, ROCK_RADIUS } from './starter';
 import { leakDamage, rockHp, rockReward, tierOfTime } from '../econ/economy';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
+import { fireRateMul } from '../data/hulls';
 
 export const TOUCH_OFFSET_Y = -40; // finger sits below the ship on touch
 export { PROJECTILE_SPEED, PX_PER_CELL };
@@ -65,6 +66,8 @@ export class World {
   leaks = 0;
   autoSpawn: boolean;
   private safeStart: boolean;
+  /** Pulse-rate multiplier of the hull being flown (the Dart is slow). */
+  private fireRateMul: number;
   /** Seconds each rock's centre has spent above the top edge. */
   private aboveT = new Map<number, number>();
   /** Horizontal direction sign of each rock's sway, flipped when it touches a side. */
@@ -82,6 +85,7 @@ export class World {
     const compiled = compile(opts.grid ?? buildStarterGrid());
     const hull = opts.grid ?? buildStarterGrid();
     this.recipes = compiled.recipes;
+    this.fireRateMul = fireRateMul(hull.hullId);
     this.spawnOffsets = spawnOffsetsFor(this.recipes, hull);
     this.warnings = compiled.warnings;
     this.projSys.modifiersTable = this.recipes.map(r => r.packet.mods);
@@ -184,7 +188,7 @@ export class World {
 
     // --- Auto-fire
     this.pulseTimer += dt;
-    const period = 1 / CONFIG.PULSE.BASE_RATE;
+    const period = 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul);
     while (this.pulseTimer >= period) {
       this.pulseTimer -= period;
       this.fire();

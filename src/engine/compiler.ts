@@ -1,5 +1,6 @@
 import { CONFIG } from '../config';
 import { BLOCKS } from '../data/blocks';
+import { fireRateMul } from '../data/hulls';
 import {
   clonePacket, Dir, DIRS, dirToRotation, evalDamage, newPacket, Packet, Rel, relToDir, Rotation, rotationToDir,
 } from './compilerTypes';
@@ -23,6 +24,8 @@ export interface Grid {
   w: number;
   h: number;
   cells: GridCell[];
+  /** Hull this grid belongs to (set by the hull builders); sets the firing stats of the worlds. Absent in test grids. */
+  hullId?: string;
 }
 
 export interface EjectorRecipe {
@@ -287,7 +290,7 @@ export function compile(grid: Grid): CompiledShip {
   for (let i = 0; i < cells.length; i++) {
     if (cells[i].type === 'empty' && cells[i].blockId && !cellInfo[i].onPath) wastedBlocks++;
   }
-  const pps = CONFIG.PULSE.BASE_RATE;
+  const pps = CONFIG.PULSE.BASE_RATE * fireRateMul(grid.hullId);
   let dmgSum = 0;
   let ev = 0;
   for (const r of recipes) {
