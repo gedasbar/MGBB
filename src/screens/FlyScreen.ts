@@ -51,6 +51,9 @@ export class FlyScreen implements Screen {
   projSprites: Sprite[] = [];
   enemySprites = new Map<number, RockView>();
   fragments = new FragmentPool();
+  /** One fragment pool per species look (the basic rock's is `fragments`), made on first use. */
+  private fragPools = new Map<string, FragmentPool>();
+  private fragLayer = new Container();
   flash = new Map<number, number>();
   dmgNums: DmgNum[] = [];
   
@@ -71,7 +74,9 @@ export class FlyScreen implements Screen {
     this.world = new World({ grid, safeStart: true });
     debugHooks.world = this.world;
     
-    this.container.addChild(this.projLayer, this.enemyLayer, this.fragments.container);
+    this.fragPools.set('mitotic_rock', this.fragments);
+    this.fragLayer.addChild(this.fragments.container);
+    this.container.addChild(this.projLayer, this.enemyLayer, this.fragLayer);
     const w = this.world;
     this.ship = new ShipView(
       this.screenManager.app.renderer, grid.hullId ?? 'shuttle',
@@ -136,7 +141,8 @@ export class FlyScreen implements Screen {
 
   statsInfo(o: StatsInfo) {
     const w = this.world;
-    let fx = this.fragments.live;
+    let fx = 0;
+    for (const p of this.fragPools.values()) fx += p.live;
     for (const d of this.dmgNums) if (d.life > 0) fx++;
     o.name = 'FREE FLY';
     o.proj = w.pool.count;
@@ -145,6 +151,14 @@ export class FlyScreen implements Screen {
     o.fx = fx;
     o.kills = w.kills;
     o.extra = `tier ${w.tier}  spawn ${(1 / SPAWN_INTERVAL).toFixed(2)}/s  t ${w.time.toFixed(0)}s`;
+  }
+
+  /** The fragment pool in a species' colours (its art def), made on first use. */
+  private fragPool(defId: string): FragmentPool {
+    const art = enemyArt(defId);
+    let p = this.fragPools.get(art.id);
+    if (!p) { p = new FragmentPool(16, art); this.fragPools.set(art.id, p); this.fragLayer.addChild(p.container); }
+    return p;
   }
 
   showDamage(x: number, y: number, dmg: number) {
@@ -198,9 +212,9 @@ export class FlyScreen implements Screen {
     this.tierText.text = `Tier ${this.world.tier}`;
 
     // A rock splitting throws 2 to 4 fragments (the children already exist as normal rocks).
-    for (const s of this.world.splits) this.fragments.emit(s.x, s.y, s.radius, s.parentId, enemyArt('mitotic_rock'));
+    for (const s of this.world.splits) this.fragPool(s.defId).emit(s.x, s.y, s.radius, s.parentId, enemyArt(s.defId));
     this.world.splits.length = 0;
-    this.fragments.update(frameTime);
+    for (const p of this.fragPools.values()) p.update(frameTime);
 
     this.ship.setPosition(this.world.shipX, this.world.shipY);
     this.ship.setAlpha(this.world.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1);
@@ -248,6 +262,7 @@ export class FlyScreen implements Screen {
       const burning = (e.burnT ?? 0) > 0;
       const frozen = (e.freezeT ?? 0) > 0;
       s.setStatus(burning && frozen ? BURN_FROZEN_COLOR : frozen ? FROZEN_COLOR : burning ? BURN_COLOR : -1);
+      s.setMarks(e.armor > 0 ? e.armor / (e.armor0 ?? e.armor) : 0, e.maxShield > 0 ? e.shield / e.maxShield : 0);
       if (f > 0) this.flash.set(e.id, f - frameTime);
     }
     for (const [id, s] of this.enemySprites) {

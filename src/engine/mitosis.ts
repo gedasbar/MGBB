@@ -27,6 +27,8 @@ export interface MitosisEnemy {
   freezeBonus?: number;
   armor0?: number;
   tracked?: boolean;
+  /** World time of the last hit (shield regeneration waits for it). */
+  lastHit?: number;
 }
 
 export class MitosisSystem {
@@ -46,8 +48,9 @@ export class MitosisSystem {
       hp,
       maxHp: hp,
       armor: (def as any).armorMul ? 10 * (def as any).armorMul : 0,
-      shield: (def as any).shieldMul ? 10 * (def as any).shieldMul : 0,
-      maxShield: (def as any).shieldMul ? 10 * (def as any).shieldMul : 0,
+      // A shield given as a share of HP (the wall's model) wins over the old flat shieldMul.
+      shield: (def as any).shieldOfHp ? hp * (def as any).shieldOfHp : (def as any).shieldMul ? 10 * (def as any).shieldMul : 0,
+      maxShield: (def as any).shieldOfHp ? hp * (def as any).shieldOfHp : (def as any).shieldMul ? 10 * (def as any).shieldMul : 0,
       x,
       y,
       vx: 0,
@@ -83,7 +86,7 @@ export class MitosisSystem {
   }
 
   executeSplit(parent: MitosisEnemy, rule: SplitRule, excessDamage: number = 0, isFissionCatalyst: boolean = false) {
-    if (parent.generation >= CONFIG.MITOSIS.MAX_GENERATION) return;
+    if (parent.generation >= Math.min(CONFIG.MITOSIS.MAX_GENERATION, rule.maxGeneration ?? Infinity)) return;
 
     let numChildren = 0;
     if (typeof rule.children === 'number') {
@@ -121,7 +124,7 @@ export class MitosisSystem {
     if (childHp <= 0) return; // Excess damage killed the children too!
 
     const childDef = ENEMIES[rule.childDefId];
-    const childRadius = childDef ? (childDef.size === 'S' ? 12 : 15) : 10; // rough mapping
+    const childRadius = rule.childRadius ?? (childDef ? (childDef.size === 'S' ? 12 : 15) : 10); // rough mapping
 
     for (let i = 0; i < spawnCount; i++) {
       // simple radial spread

@@ -26,6 +26,10 @@ export interface EnemyArtDef {
   crackStep: number;
   /** From this damage fraction the visible cracks widen (over WIDEN_TIME). */
   widenAt: number;
+  /** Outline scale in x and y (a Darter's kite, a Drifter's lozenge); absent = round. Keep both <= 1 (the hit circle). */
+  stretch?: Pt;
+  /** Angular jitter of the vertices, in steps (absent = 0.55, the basic rock's). Low = regular, like a Warden's hexagon. */
+  jitter?: number;
 }
 
 export const ENEMY_ART: Record<string, EnemyArtDef> = {
@@ -35,7 +39,61 @@ export const ENEMY_ART: Record<string, EnemyArtDef> = {
     crackColor: 0x1a120b, cracksMin: 1, cracksMax: 3, fragments: [2, 4],
     crackFirst: 0.25, crackStep: 0.25, widenAt: 0.85,
   },
+  // Chunk 10a species: the same warm rock family with small colour shifts, told apart by silhouette.
+  darter: {
+    id: 'darter', vertsMin: 4, vertsMax: 5, radius: [0.9, 1.0], stretch: [0.62, 1.0], jitter: 0.15,
+    shades: { edge: 0xd99a6c, mid: 0xa8664a, inner: 0x6b3d2a },
+    crackColor: 0x1a0e08, cracksMin: 1, cracksMax: 1, fragments: [2, 2],
+    crackFirst: 0.5, crackStep: 0.25, widenAt: 0.85,
+  },
+  drifter: {
+    id: 'drifter', vertsMin: 6, vertsMax: 7, radius: [0.85, 1.0], stretch: [1.0, 0.62], jitter: 0.3,
+    shades: { edge: 0xc9b47a, mid: 0x97834f, inner: 0x5f5233 },
+    crackColor: 0x17140b, cracksMin: 1, cracksMax: 2, fragments: [2, 3],
+    crackFirst: 0.25, crackStep: 0.3, widenAt: 0.85,
+  },
+  mother: {
+    id: 'mother', vertsMin: 10, vertsMax: 12, radius: [0.86, 1.0], jitter: 0.4,
+    shades: { edge: 0xc99a84, mid: 0x966a5b, inner: 0x5e4038 },
+    crackColor: 0x1a0f0c, cracksMin: 3, cracksMax: 4, fragments: [4, 6],
+    crackFirst: 0.2, crackStep: 0.2, widenAt: 0.85,
+  },
+  brood: {
+    id: 'brood', vertsMin: 6, vertsMax: 8, radius: [0.8, 1.0],
+    shades: { edge: 0xd3a892, mid: 0xa07565, inner: 0x664840 },
+    crackColor: 0x1a0f0c, cracksMin: 1, cracksMax: 2, fragments: [2, 3],
+    crackFirst: 0.25, crackStep: 0.3, widenAt: 0.85,
+  },
+  ironclad: {
+    id: 'ironclad', vertsMin: 5, vertsMax: 6, radius: [0.92, 1.0], jitter: 0.2,
+    shades: { edge: 0xb8a48c, mid: 0x86745f, inner: 0x54483b },
+    crackColor: 0x16120d, cracksMin: 2, cracksMax: 3, fragments: [3, 4],
+    crackFirst: 0.25, crackStep: 0.25, widenAt: 0.85,
+  },
+  warden: {
+    id: 'warden', vertsMin: 6, vertsMax: 6, radius: [0.95, 1.0], jitter: 0.05,
+    shades: { edge: 0xcdb894, mid: 0x9b8663, inner: 0x615339 },
+    crackColor: 0x17130b, cracksMin: 1, cracksMax: 3, fragments: [2, 4],
+    crackFirst: 0.25, crackStep: 0.25, widenAt: 0.85,
+  },
+  budder: {
+    id: 'budder', vertsMin: 9, vertsMax: 10, radius: [0.66, 1.0], jitter: 0.25,
+    shades: { edge: 0xd1a860, mid: 0x9e7a3c, inner: 0x634b24 },
+    crackColor: 0x1a1208, cracksMin: 2, cracksMax: 3, fragments: [3, 4],
+    crackFirst: 0.25, crackStep: 0.25, widenAt: 0.85,
+  },
 };
+
+/** Armor frame and shield bar of a rock: the wall's marks (light-grey frame, cyan bar). */
+export const ARMOR_MARK = 0xd4d4d8;
+export const ARMOR_MARK_DIM = 0x55555a;
+export const SHIELD_MARK = 0x5fd4e8;
+/** Armor frame width in px when the armor is whole; Corrosion thins it down to ARMOR_MARK_MIN. */
+export const ARMOR_MARK_W = 3;
+export const ARMOR_MARK_MIN = 1;
+/** Shield bar height and its gap above the rock, in px. */
+export const SHIELD_BAR_H = 4;
+export const SHIELD_BAR_GAP = 6;
 
 export const enemyArt = (defId: string): EnemyArtDef => ENEMY_ART[defId] ?? ENEMY_ART.mitotic_rock;
 
@@ -60,9 +118,9 @@ export function rockShape(def: EnemyArtDef, id: number): RockShape {
   const start = rnd.next() * Math.PI * 2;
   const outer: Pt[] = [];
   for (let i = 0; i < n; i++) {
-    const a = start + ((i + (rnd.next() - 0.5) * 0.55) * Math.PI * 2) / n;
+    const a = start + ((i + (rnd.next() - 0.5) * (def.jitter ?? 0.55)) * Math.PI * 2) / n;
     const r = def.radius[0] + rnd.next() * (def.radius[1] - def.radius[0]);
-    outer.push([Math.cos(a) * r, Math.sin(a) * r]);
+    outer.push([Math.cos(a) * r * (def.stretch?.[0] ?? 1), Math.sin(a) * r * (def.stretch?.[1] ?? 1)]);
   }
   const nCracks = def.cracksMin + Math.floor(rnd.next() * (def.cracksMax - def.cracksMin + 1));
   const edgeMid = (i: number): Pt => {
@@ -92,6 +150,11 @@ export function visibleCracks(def: EnemyArtDef, nCracks: number, damage: number)
 
 const flat = (pts: Pt[]) => pts.flatMap(([x, y]) => [x, y]);
 
+function lerpColor(a: number, b: number, t: number): number {
+  const ch = (s: number) => Math.round(((a >> s) & 255) + (((b >> s) & 255) - ((a >> s) & 255)) * t);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+
 /** One rock in the Fly screen: static body polygons, a crack layer redrawn only when its state changes, a white hit flash. */
 export class RockView {
   readonly container = new Container();
@@ -105,6 +168,11 @@ export class RockView {
   private shown = -1;
   private widthStep = -1;
   private widenT = 0;
+  /** Armor frame and shield bar (created on first use; most rocks have neither). */
+  private armorG: Graphics | null = null;
+  private shieldG: Graphics | null = null;
+  private armorStep = -1;
+  private shieldStep = -1;
 
   constructor(defId: string, id: number, radius: number) {
     this.def = enemyArt(defId);
@@ -125,7 +193,7 @@ export class RockView {
   }
 
   setRadius(r: number) {
-    if (r !== this.radius) { this.radius = r; this.container.scale.set(r); this.widthStep = -1; }
+    if (r !== this.radius) { this.radius = r; this.container.scale.set(r); this.widthStep = -1; this.armorStep = -2; this.shieldStep = -2; }
   }
 
   /** `damage` is 1 - hp / maxHp. Redraws the cracks only when a new one appears or the width steps. */
@@ -145,6 +213,41 @@ export class RockView {
     }
     if (n > 0) this.cracks.stroke({ width: px / this.radius, color: this.def.crackColor, cap: 'butt', join: 'miter' });
   }
+
+  /**
+   * Armor and shield marks. `armorLeft` is armor / original armor (0..1; 0 or less = unarmored), `shieldFrac` the
+   * shield left (0..1; shown only while above 0). Redrawn in steps, only when they change.
+   */
+  setMarks(armorLeft: number, shieldFrac: number) {
+    const aStep = armorLeft > 0 ? Math.round(Math.min(1, armorLeft) * 10) : -1;
+    if (aStep !== this.armorStep) {
+      this.armorStep = aStep;
+      if (!this.armorG && aStep >= 0) { this.armorG = new Graphics(); this.container.addChildAt(this.armorG, 2); }
+      if (this.armorG) {
+        this.armorG.clear();
+        if (aStep >= 0) {
+          const k = aStep / 10;
+          const px = ARMOR_MARK_MIN + (ARMOR_MARK_W - ARMOR_MARK_MIN) * k;
+          this.armorG.poly(flat(this.shape.outer)).stroke({ width: px / this.radius, color: k >= 1 ? ARMOR_MARK : lerpColor(ARMOR_MARK_DIM, ARMOR_MARK, k), join: 'miter', alignment: 1 });
+        }
+      }
+    }
+    const sStep = shieldFrac > 0 ? Math.max(1, Math.round(Math.min(1, shieldFrac) * 20)) : 0;
+    if (sStep !== this.shieldStep) {
+      this.shieldStep = sStep;
+      if (!this.shieldG && sStep > 0) { this.shieldG = new Graphics(); this.container.addChild(this.shieldG); }
+      if (this.shieldG) {
+        this.shieldG.clear();
+        if (sStep > 0) {
+          const r = this.radius;
+          this.shieldG.rect(-1, -1 - (SHIELD_BAR_GAP + SHIELD_BAR_H) / r, 2 * (sStep / 20), SHIELD_BAR_H / r).fill(SHIELD_MARK);
+        }
+      }
+    }
+  }
+
+  get armorMarkStep(): number { return this.armorStep; }
+  get shieldMarkStep(): number { return this.shieldStep; }
 
   /** Tints the rock with a status colour, or clears it with -1. */
   setStatus(color: number) {
