@@ -42,7 +42,8 @@ rose, Ironclad grey-brown, Warden pale sand, Budder amber-moss). Cracks, hit fla
 - **Composition:** at the wave start the director draws species by weight from the unlocked ones (Rock 10, Darter 6,
   Drifter 5, Ironclad 4, Warden 4, Budder 3, Mother 2) until the budget is spent. A species' first wave always
   contains it, first. Spawns are spread evenly over the first 30 s of the wave (+-0.6 s jitter); the last 10 s are a
-  breather. When more than 90 bodies are alive the director holds new spawns.
+  breather. Points no species fits into become pebbles (1 point each), so the whole budget is used (wave 1: one
+  Rock and two pebbles). When more than 90 bodies are alive the director holds new spawns.
 - **Special waves (every 5th):** odd multiples of 5 (5, 15, 25 ...) are a **Swarm**: budget x1.25 spent only on
   Darters and Pebbles (a basic rock born at generation 3, radius 15, 1 point), spawned within 20 s. Even multiples
   (10, 20 ...) are a **Mother event**: budget x1.25 spent on Mothers only (at least 2), in two groups at 0 s and 12 s.
@@ -102,13 +103,15 @@ so late waves are worth less per HP and a strong gun's long run snowballs less. 
 
 | Gun | est. DPS | survived | wave @ 1 / 3 / 5 min | credits @ 1 / 3 / 5 min | credits per run | per min |
 |---|---|---|---|---|---|---|
-| Dart + Flat+ (fresh save) | 101 | 2:48 | 2 / dead / dead | 13 / - / - | 58 | 20.7 |
-| Twin + Flat+ | 404 | 5:04 | 2 / 5 / 8 | 16 / 97 / 193 | 190 | 37.4 |
-| Twin + 2 Flat+ | 804 | 6:09 | 2 / 5 / 8 | 14 / 95 / 223 | 320 | 51.9 |
-| Prong (Splitter 3, Flat+, Turn L) | 408 | 5:02 | 2 / 5 / 8 | 16 / 97 / 193 | 193 | 38.2 |
+| Dart + Flat+ (fresh save) | 101 | 2:48 | 2 / dead / dead | 14 / - / - | 60 | 21.5 |
+| Twin + Flat+ | 404 | 5:01 | 2 / 5 / 8 | 17 / 98 / 196 | 192 | 38.2 |
+| Twin + 2 Flat+ | 804 | 6:12 | 2 / 5 / 8 | 15 / 96 / 222 | 326 | 52.5 |
+| Prong (Splitter 3, Flat+, Turn L) | 408 | 4:59 | 2 / 5 / 8 | 17 / 99 / 200 | 191 | 38.3 |
+
+(After the J4 fix that spends a wave's leftover points on pebbles; before it the numbers were within 2 credits.)
 
 Against the targets:
-- **3-minute Dart run ~3x today: met.** 58 credits in a 2:48 run (today: ~12 in 41 s, ~20 per minute).
+- **3-minute Dart run ~3x today: met.** 60 credits in a 2:48 run (today: ~12 in 41 s, ~20 per minute).
 - **Twin after 1-2 runs: met** (2 Dart runs = 116).
 - **Prong after 6-8 runs: not met in runs, met in play time.** The natural path (2 Dart runs, Twin, Twin runs, a 2nd
   Flat+ on the way) reaches 350 after **4 runs** but **17 minutes** of play, which is 6 Dart-length runs. A Twin run is

@@ -186,7 +186,7 @@ describe('Free Fly wave director', () => {
       const budget = waveBudget(wave) * (specialKind(wave) ? SPECIAL_BUDGET_MUL : 1);
       const spent = pointsOf(planWave(11, wave));
       expect(spent).toBeLessThanOrEqual(budget + 1e-9);
-      expect(spent).toBeGreaterThan(budget - 4); // leftover is less than the dearest pick
+      expect(spent).toBeGreaterThan(budget - 1); // the leftover is spent on 1-point pebbles
     }
   });
 

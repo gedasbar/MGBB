@@ -5,6 +5,7 @@ import { buildDartStarterGrid, place } from '../src/game/starter';
 import { buildProngGrid, buildTwinGrid } from '../src/game/gridUtils';
 import { World } from '../src/game/world';
 import { botRun, BotRun } from '../src/debug/freeflyBot';
+import { rng } from '../src/rng';
 import { freeFlyRewardTier, FREEFLY_REWARD_TIER_SCALE } from '../src/data/waves';
 import type { Grid } from '../src/engine/compiler';
 import { HULL_PRICES } from '../src/data/hulls';
@@ -52,7 +53,8 @@ console.log(`\nFree Fly bot, ${SEEDS.length} seeds each (mean; * = some runs had
 console.log('gun                              | est DPS | survived | wave @1/3/5 min   | credits @1/3/5 min | credits/run | credits/min');
 export const FREEFLY_TABLE: { gun: string; time: number; wave: number; credits: number; perMin: number }[] = [];
 for (const [name, make] of GUNS) {
-  const runs = SEEDS.map(seed => botRun(new World({ grid: make(), seed }), LIMIT, CHECK));
+  // rng.combat (chance blocks) is shared global state: reset it per run so every row is reproducible on its own.
+  const runs = SEEDS.map(seed => { rng.reset(seed); return botRun(new World({ grid: make(), seed }), LIMIT, CHECK); });
   const time = mean(runs.map(r => r.time)), credits = mean(runs.map(r => r.credits)), wave = mean(runs.map(r => r.wave));
   FREEFLY_TABLE.push({ gun: name, time, wave, credits, perMin: credits / (time / 60) });
   console.log(`${name.padEnd(32)} | ${compile(make()).stats.estDps.toFixed(0).padStart(7)} | ${fmtTime(time).padStart(8)} | ${CHECK.map(t => fmtAt(runs, t, 'wave')).join(' / ').padEnd(17)} | ${CHECK.map(t => fmtAt(runs, t, 'credits')).join(' / ').padEnd(18)} | ${credits.toFixed(0).padStart(11)} | ${(credits / (time / 60)).toFixed(1).padStart(11)}`);

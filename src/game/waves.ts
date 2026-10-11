@@ -45,7 +45,7 @@ const spawnX = (radius: number, rnd: Mulberry32) => {
 /**
  * Plans one wave: what spawns, when and where. Deterministic: the same (seed, wave) gives the same list.
  * Normal waves draw unlocked species by weight until the budget is spent (a species' first wave always has it, first)
- * and spread them over SPAWN_WINDOW. Every 5th wave is special: a Swarm (Darters and pebbles) or a Mother event.
+ * and spread them over SPAWN_WINDOW; a leftover below the cheapest pick becomes pebbles. Every 5th wave is special: a Swarm (Darters and pebbles) or a Mother event.
  */
 export function planWave(seed: number, wave: number): PlannedSpawn[] {
   const rnd = waveRng(seed, wave);
@@ -53,13 +53,17 @@ export function planWave(seed: number, wave: number): PlannedSpawn[] {
   let budget = waveBudget(wave) * (kind ? SPECIAL_BUDGET_MUL : 1);
   const picks: { defId: string; generation: number; radius: number; hpMul: number }[] = [];
   const add = (s: SpeciesDef) => { picks.push({ defId: s.id, generation: 1, radius: s.radius, hpMul: s.hpMul }); budget -= s.cost; };
+  const addPebble = () => {
+    picks.push({ defId: 'mitotic_rock', generation: PEBBLE_GENERATION, radius: PEBBLE_RADIUS, hpMul: genShare(PEBBLE_GENERATION) });
+    budget -= PEBBLE_COST;
+  };
   let window = SPAWN_WINDOW;
 
   if (kind === 'swarm') {
     window = SWARM_WINDOW;
     while (budget >= Math.min(PEBBLE_COST, SPECIES.darter.cost)) {
       if (rnd.next() < 0.5 && budget >= SPECIES.darter.cost) add(SPECIES.darter);
-      else { picks.push({ defId: 'mitotic_rock', generation: PEBBLE_GENERATION, radius: PEBBLE_RADIUS, hpMul: genShare(PEBBLE_GENERATION) }); budget -= PEBBLE_COST; }
+      else addPebble();
     }
   } else if (kind === 'mothers') {
     const n = Math.max(MOTHER_EVENT_MIN, Math.floor(budget / SPECIES.mother.cost));
@@ -79,6 +83,8 @@ export function planWave(seed: number, wave: number): PlannedSpawn[] {
       add(pickWeighted(afford, rnd));
     }
   }
+  // What no species fits into is spent on pebbles, so a wave always uses its whole budget (wave 1: a Rock and 2 pebbles).
+  if (kind !== 'swarm') while (budget >= PEBBLE_COST) addPebble();
 
   const n = picks.length;
   const out = picks.map((p, k) => {
