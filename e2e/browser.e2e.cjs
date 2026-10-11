@@ -1,7 +1,7 @@
 // Browser end-to-end checks. Requires the Vite dev server: `npm run dev`.
 // Run: node e2e/browser.e2e.cjs   (exits non-zero on any failure)
 const lib = require('./lib.cjs');
-const { chromium } = require('playwright');
+const { chromium } = require('./lib.cjs');
 const path = require('path');
 const fs = require('fs');
 
@@ -66,7 +66,7 @@ async function mouseTest(browser, viewport, label) {
     const err = Math.hypot(st.shipX - ex, st.shipY - ey);
     check(err <= 2, `[${label}] mouse screen (${sx.toFixed(1)}, ${sy.toFixed(1)}) -> expected game (${ex.toFixed(1)}, ${ey.toFixed(1)}), ship (${st.shipX.toFixed(1)}, ${st.shipY.toFixed(1)}), error ${err.toFixed(2)}px`);
     const px = await pixelAt(page, sx, sy);
-    check(px[1] > 200 && px[0] < 60 && px[2] < 60, `[${label}] pixel under cursor is ship green: rgb(${px.join(',')})`);
+    check(px[1] > 90 && px[0] < 60 && px[2] < 60, `[${label}] pixel under cursor is ship green (dimmed while it blinks in the spawn grace): rgb(${px.join(',')})`);
   }
   await page.screenshot({ path: path.join(OUT, `mouse_${label}.png`) });
   await page.close();

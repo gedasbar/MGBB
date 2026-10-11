@@ -126,6 +126,9 @@ async function flyLane(page, { shots = false } = {}) {
     return { x: b.x - cam, y: b.y };
   });
   await mv(target.x, target.y);
+  // The first move starts the 1 s spawn grace (unit-tested in tests/spawnSafety.test.ts); skip it here so the crash is immediate.
+  await page.waitForTimeout(60);
+  await page.evaluate(() => { window.__mgbm.wall.invuln = 0; });
   await waitScreen(page, 'summary', 5000);
   s = await state(page);
   check(s.title === 'Crashed' && JSON.stringify(s.wall.buttons.map(b => b.label)) === JSON.stringify(['Retry', 'Map', 'Build']), `touching a block: "${s.title}", buttons ${s.wall.buttons.map(b => b.label)}`);
