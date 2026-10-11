@@ -22,6 +22,23 @@ const WIDTH = 236;
 const LINES = 6;
 const PLATE_H = LINES * LINE_H + PAD * 2;
 
+/** Game column size (src/config VIEW) and how main.ts fits the canvas: scale = min(w / 540, h / 960), floored. */
+const GAME_W = 540;
+const GAME_H = 960;
+/** Width of the side panel's plate and the gap it keeps from the window edge and from the game. */
+export const SIDE_PANEL_W = 236;
+export const SIDE_GAP = 8;
+/** The side panel is used when the blank column beside the game is at least this wide (plate + a gap on each side). */
+export const SIDE_MIN_BLANK = SIDE_PANEL_W + 2 * SIDE_GAP;
+
+export type StatsPlacement = 'side' | 'canvas';
+
+/** Where the stats show for a window size: in the blank space beside the letterboxed game if it is wide enough, else in the canvas. */
+export function statsPlacement(winW: number, winH: number): StatsPlacement {
+  const gameW = Math.floor(GAME_W * Math.min(winW / GAME_W, winH / GAME_H));
+  return (winW - gameW) / 2 >= SIDE_MIN_BLANK ? 'side' : 'canvas';
+}
+
 /** Whether the overlay starts visible: ?stats=1/0 in the URL, else the remembered choice, else on in dev and off in production. */
 export function initialStatsEnabled(): boolean {
   try {
@@ -46,6 +63,10 @@ function save(on: boolean) {
 export class StatsOverlay {
   readonly container = new Container();
   enabled: boolean;
+  /** Where it is drawn now; `layout()` re-decides it from the window size. */
+  placement: StatsPlacement = 'canvas';
+  /** The DOM plate of the side version (made on first use; absent in tests without a document). */
+  private side: HTMLDivElement | null = null;
   /** Fills the last text line source; set by the ScreenManager (the current screen's statsInfo). */
   provider: ((out: StatsInfo) => void) | null = null;
 
@@ -81,17 +102,42 @@ export class StatsOverlay {
     this.text.position.set(PAD * 2, PAD * 2);
     this.container.addChild(plate, this.text);
     this.container.eventMode = 'none';
-    this.container.visible = this.enabled;
+    this.layout();
   }
 
-  /** Vertical space a screen should leave free at its top-left for its own HUD. */
-  get hudOffset(): number { return this.enabled ? PLATE_H + PAD * 2 : 0; }
+  /** Re-decides side or in-canvas from the window size (call on resize); exactly one version is visible, the other is hidden and idle. */
+  layout(winW = typeof window !== 'undefined' ? window.innerWidth : 0, winH = typeof window !== 'undefined' ? window.innerHeight : 0) {
+    this.placement = statsPlacement(winW, winH);
+    this.apply();
+  }
+
+  private apply() {
+    const side = this.placement === 'side';
+    this.container.visible = this.enabled && !side;
+    if (this.enabled && side && !this.side && typeof document !== 'undefined') {
+      const d = document.createElement('div');
+      d.id = 'stats-side';
+      // Fixed in the blank column left of the game, right-aligned to the game's edge; no pointer input.
+      d.style.cssText = `position:fixed;top:${SIDE_GAP}px;width:${SIDE_PANEL_W}px;box-sizing:border-box;padding:${PAD * 2}px;z-index:9000;`
+        + 'background:rgba(0,0,0,0.6);color:#c8e6c8;font:10px/12px Consolas,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none;user-select:none;display:none';
+      document.body.appendChild(d);
+      this.side = d;
+    }
+    if (this.side) {
+      this.side.style.display = this.enabled && side ? 'block' : 'none';
+      const gameW = Math.floor(GAME_W * Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H));
+      this.side.style.left = `${Math.max(SIDE_GAP, (window.innerWidth - gameW) / 2 - SIDE_PANEL_W - SIDE_GAP)}px`;
+    }
+  }
+
+  /** Vertical space a screen should leave free at its top-left for its own HUD (none when the stats are beside the game). */
+  get hudOffset(): number { return this.enabled && this.placement === 'canvas' ? PLATE_H + PAD * 2 : 0; }
 
   toggle() { this.set(!this.enabled); }
 
   set(on: boolean) {
     this.enabled = on;
-    this.container.visible = on;
+    this.apply();
     save(on);
     if (on) { this.winStart = 0; this.lastRefresh = 0; }
   }
@@ -130,7 +176,10 @@ export class StatsOverlay {
   }
 
   /** The last text shown (e2e). */
-  get shown(): string { return this.text.text; }
+  get shown(): string { return this.shownText; }
+  private shownText = '';
+  /** The side plate (e2e); null until it was first shown. */
+  get sideElement(): HTMLElement | null { return this.side; }
 
   /** Last figures (e2e and reports). */
   get numbers() {
@@ -143,12 +192,15 @@ export class StatsOverlay {
     if (this.provider) this.provider(i);
     const f1 = (n: number) => n.toFixed(1);
     const f2 = (n: number) => n.toFixed(2);
-    this.text.text =
+    const out =
       `${i.name}   kills ${i.kills}\n` +
       `FPS ${Math.round(this.fps)}  worst ${f1(Math.max(this.worstA, this.worstB))}ms  frame ${f1(this.avgFrame)}ms\n` +
       `sim ${f2(this.simMs)}  render ${f2(this.renderMs)}  ovh ${f2(this.ovhMs)} ms\n` +
       `proj ${i.proj}/${i.projCap}  enemies ${i.enemies}  fx ${i.fx}\n` +
       i.extra + '\n' +
       (this.build ? `build ${this.build}` : '');
+    // Only the visible version is written.
+    if (this.placement === 'side') { if (this.side) this.side.textContent = out; } else this.text.text = out;
+    this.shownText = out;
   }
 }

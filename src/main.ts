@@ -31,12 +31,14 @@ import { makeTestWall } from './wall/level';
     canvas.style.height = `${Math.floor(CONFIG.VIEW.H * s)}px`;
   }
   fit();
-  window.addEventListener('resize', fit);
 
   const input = new InputManager(canvas);
   const screenManager = new ScreenManager(app, input);
   const stats = screenManager.stats;
   screenManager.mountStats();
+  // The stats go beside the game when the window has room for them, else into the canvas; re-decided on every resize.
+  stats.layout();
+  window.addEventListener('resize', () => { fit(); stats.layout(); });
   // Backtick toggles the stats overlay (also ?stats=1 / ?stats=0; the choice is remembered).
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Backquote') stats.toggle();

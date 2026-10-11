@@ -3,8 +3,8 @@ import { debugHooks } from './hooks';
 import { BACKGROUND_IDS } from '../ui/background';
 
 /**
- * Small DOM panel shown with ?debug=1, to the left of the canvas (it never covers the game on a
- * viewport wider than the 540 px game column).
+ * Small DOM panel shown with ?debug=1, on the right of the window (the stats side panel uses the left; on a viewport
+ * not wider than the game column it overlaps the game, as before).
  */
 export class DebugPanel {
   enabled = false;
@@ -19,7 +19,7 @@ export class DebugPanel {
   createUI() {
     const box = document.createElement('div');
     box.id = 'debug-panel';
-    box.style.cssText = 'position:fixed;top:4px;left:4px;z-index:9999;display:flex;flex-direction:column;gap:3px;font:11px monospace';
+    box.style.cssText = 'position:fixed;top:4px;right:4px;z-index:9999;display:flex;flex-direction:column;gap:3px;font:11px monospace';
     const add = (id: string, label: string, act: () => void) => {
       const b = document.createElement('button');
       b.id = id;
