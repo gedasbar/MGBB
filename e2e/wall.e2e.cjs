@@ -61,14 +61,17 @@ const setScale = async (page, n) => { await page.fill('#dbg-time-scale', String(
   await page.waitForTimeout(300);
   const mid = await state(page);
   check(Math.abs(mid.shipScreenX - 270) < 2 && Math.abs(mid.cameraSpeed) < 1, `ship follows the pointer (screen x ${mid.shipScreenX.toFixed(1)}), camera still`);
+  // The wall is a ring: the camera is unclamped, wraps, and keeps going while the pointer rests at the edge.
+  const ringW = (await state(page)).worldW;
   await moveTo(page, 535, 800);
   await page.waitForTimeout(2600);
   const right = await state(page);
-  check(Math.abs(right.cameraX - 594) < 0.5 && Math.abs(right.shipScreenX - 535) < 2, `camera clamps at the right end (x ${right.cameraX.toFixed(1)}), ship screen x ${right.shipScreenX.toFixed(1)}`);
+  check(right.ring === true && right.camTravel > 700 && right.cameraX >= 0 && right.cameraX < ringW, `ring: camera ran right ${right.camTravel.toFixed(0)} px and wrapped into [0, ${ringW}) (x ${right.cameraX.toFixed(1)})`);
+  check(Math.abs(right.shipScreenX - 535) < 2, `ship stays under the pointer at screen x ${right.shipScreenX.toFixed(1)}`);
   await moveTo(page, 5, 800);
   await page.waitForTimeout(3200);
   const left = await state(page);
-  check(Math.abs(left.cameraX) < 0.5, `camera clamps at the left end (x ${left.cameraX.toFixed(1)}), ship world x ${left.shipWorldX.toFixed(1)}`);
+  check(left.camTravel < right.camTravel - 700, `ring: camera ran back left (travel ${right.camTravel.toFixed(0)} -> ${left.camTravel.toFixed(0)}), x ${left.cameraX.toFixed(1)}`);
   await moveTo(page, 270, 800);
 
   // ---- 4. Armored + shielded wall being hit: blocks lose HP and the green squares shrink

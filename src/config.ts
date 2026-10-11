@@ -1,8 +1,11 @@
+/** Radius of the ship's hit circle in px, in Free Fly and in the walls. The circle is invisible: any touch of the art reads as a hit. */
+export const HIT_RADIUS = 8;
+
 export const CONFIG = {
   GAME_TITLE: "Mitosis Gun Builder",
   VIEW: { W: 540, H: 960 },                 // logical 9:16, letterboxed to fit any screen
   SCROLL_SPEED: 60,                         // px/s background parallax, cosmetic only
-  PLAYER: { MOVE_SMOOTHING: 0.22, KEYBOARD_SPEED: 420, HITBOX_R: 10, MARGIN: 24 },
+  PLAYER: { MOVE_SMOOTHING: 0.22, KEYBOARD_SPEED: 420, HITBOX_R: HIT_RADIUS, MARGIN: 24 },
   CAPS: { PROJECTILES: 4000, ENEMIES: 400, PARTICLES: 6000, PICKUPS: 300, DAMAGE_NUMBERS: 120 },
   GRID: { CELL: 48, MAX_W: 11, MAX_H: 11 },
   PULSE: { BASE_RATE: 4 },                  // generator pulses per second at firerate stat = 4

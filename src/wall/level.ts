@@ -10,6 +10,8 @@ export interface LevelDef {
   tier: number;
   cols: number;
   rows: number;
+  /** Ring wall: the world is `cols` x CELL wide and loops sideways. false = flat, with clamped edges (6c). Missing means true. */
+  wrap?: boolean;
   /** Row-major, row 0 at the top of the wall. null = empty cell. */
   cells: (BlockDef | null)[];
   name?: string;
@@ -64,5 +66,5 @@ export function makeTestWall(o: TestWallOpts): LevelDef {
     while (cells[i] === null) i = (i + 1) % cells.length;
     cells[i] = null;
   }
-  return { tier: o.tier, cols: WALL_COLS, rows: o.rows, cells, name: `Test wall ${o.tier}`, approachSpeed: o.approachSpeed ?? DEFAULT_APPROACH_SPEED };
+  return { tier: o.tier, cols: WALL_COLS, rows: o.rows, wrap: true, cells, name: `Test wall ${o.tier}`, approachSpeed: o.approachSpeed ?? DEFAULT_APPROACH_SPEED };
 }

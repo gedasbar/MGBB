@@ -10,6 +10,7 @@ import {
   orbitTime, ORBIT_OPEN, ORBIT_RADIUS, ORBIT_REHIT,
 } from './effects';
 import { RING } from './pools';
+import { wrapDx } from './wrap';
 
 export interface EnemyEntity extends EnemyStats {
   id: number;
@@ -107,6 +108,9 @@ export class ProjectileSystem {
   pool: ProjectilePool;
 
   modifiersTable: Modifier[][] = [];
+
+  /** Ring walls: width of the ring in px, so homing takes the short way round; 0 (Free Fly, flat walls) keeps plain x maths. */
+  wrapW = 0;
 
   /** Scratch lists reused by every projectile (no per-shot allocation). */
   private near: EnemyEntity[] = [];
@@ -213,7 +217,7 @@ export class ProjectileSystem {
       }
       const r = ORBIT_RADIUS * Math.min(1, t / ORBIT_OPEN);
       const th = pool.s1[i] + (speed / ORBIT_RADIUS) * t;
-      pool.vx[i] = (this.shipX + Math.cos(th) * r - pool.x[i]) / dt;
+      pool.vx[i] = this.dxw(this.shipX + Math.cos(th) * r, pool.x[i]) / dt;
       pool.vy[i] = (this.shipY + Math.sin(th) * r - pool.y[i]) / dt;
     } else if (ph === PHASE_BOOM_OUT) {
       pool.s1[i] += Math.hypot(pool.vx[i], pool.vy[i]) * dt;
@@ -223,7 +227,7 @@ export class ProjectileSystem {
         pool.age[i] = 0;
       }
     } else if (ph === PHASE_BOOM_BACK) {
-      const dx = this.shipX - pool.x[i];
+      const dx = this.dxw(this.shipX, pool.x[i]);
       const dy = this.shipY - pool.y[i];
       const d = Math.hypot(dx, dy);
       if (d <= Math.max(BOOMERANG_CATCH, speed * dt)) {
@@ -303,7 +307,7 @@ export class ProjectileSystem {
         if (field) field.collectNear(pool.x[i], pool.y[i], HOMING_RANGE, near);
         for (const e of field ? near : (targets as EnemyEntity[])) {
           if (e.hp <= 0) continue;
-          const dx = e.x - pool.x[i];
+          const dx = this.wrapW > 0 ? wrapDx(e.x, pool.x[i], this.wrapW) : e.x - pool.x[i];
           const dy = e.y - pool.y[i];
           const d2 = dx * dx + dy * dy;
           if (d2 > best) continue;
@@ -521,6 +525,11 @@ export class ProjectileSystem {
     if (next < t.armor) { t.armor = next; this.fx.corrosionStrips++; }
   }
 
+  /** Signed x delta a - b, the short way round on a ring wall (plain subtraction when the world does not wrap). */
+  private dxw(a: number, b: number): number {
+    return this.wrapW > 0 ? wrapDx(a, b, this.wrapW) : a - b;
+  }
+
   private addArc(x0: number, y0: number, x1: number, y1: number) {
     const k = this.arcNext;
     this.arcNext = (k + 1) % ARC_MAX;
@@ -545,12 +554,12 @@ export class ProjectileSystem {
       let bestD = CHAIN_RANGE * CHAIN_RANGE;
       for (const c of buf) {
         if (c.hp <= 0 || seen.includes(c.id)) continue;
-        const d2 = (c.x - cur.x) ** 2 + (c.y - cur.y) ** 2;
+        const d2 = this.dxw(c.x, cur.x) ** 2 + (c.y - cur.y) ** 2;
         if (d2 <= bestD) { bestD = d2; best = c; }
       }
       if (!best) break;
       seen.push(best.id);
-      this.addArc(cur.x, cur.y, best.x, best.y);
+      this.addArc(cur.x, cur.y, cur.x + this.dxw(best.x, cur.x), best.y);
       this.strike(best, damage * CHAIN_FRAC, pure, tier, armorPierce, shieldBreaker, mi, best.x, best.y, HIT_CHAIN);
       this.fx.chainJumps++;
       cur = best;

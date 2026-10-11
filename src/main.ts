@@ -41,7 +41,11 @@ import { makeTestWall } from './wall/level';
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Backquote') stats.toggle();
   });
-  if (import.meta.env.DEV) (window as any).__mgbmStats = stats;
+  if (import.meta.env.DEV) {
+    (window as any).__mgbmStats = stats;
+    // For the e2e contact-sheet script: Pixi and the running app, so a sheet can be drawn with the game's own modules.
+    void import('pixi.js').then((m) => { (window as any).__pixi = m; (window as any).__app = app; });
+  }
   // ?debug=1: the panel can start a test wall with the current circuit (the starter circuit if it has no ejector).
   debugHooks.startWall = (o) => {
     const model = getBuilderModel();

@@ -177,7 +177,7 @@ export function generateLevel(tier: number): LevelDef {
   });
 
   const level: LevelDef = {
-    tier: t, cols: WALL_COLS, rows: h, cells, approachSpeed: DEFAULT_APPROACH_SPEED,
+    tier: t, cols: WALL_COLS, rows: h, wrap: true, cells, approachSpeed: DEFAULT_APPROACH_SPEED,
     name: ms ? ms.name : tpl.name,
     hint: ms ? ms.hint : tpl.hint + (nArmor > 0 ? ' Some blocks are armored.' : '') + (nShield > 0 ? ' Some have shields.' : ''),
     campaign: true,
