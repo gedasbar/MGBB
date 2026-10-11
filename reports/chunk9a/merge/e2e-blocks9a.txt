@@ -1,0 +1,35 @@
+PASS  the Shop lists 32 blocks (32)
+PASS  bought one copy of each of 12 new blocks: 111111111111
+PASS  credits were spent (11500 left of 20000)
+PASS  the Build screen is on the Shuttle
+PASS  picker opens
+PASS  picker has 32 tiles and scrolls (max scroll 682)
+PASS  the wheel scrolled the picker (scrollY 600)
+PASS  scrolled to the end (682 of 682): the Status section is fully visible
+PASS  sheet closes
+PASS  five new blocks placed by tapping: frostbite@9,3 ignite@9,4 chain_lightning@9,5 flat_plus@9,6 overclock@9,7 executioner@9,8 turn_r@6,9 turn_l@9,9
+PASS  the stats strip shows 101.6 | 1 | 4 | 406.3
+PASS  Overclock ramped the damage (peak x2.00)
+PASS  Executioner hit weak rocks 68 times
+PASS  Chain Lightning jumped 213 times
+PASS  Ignite applied 193 times, 129 burn ticks
+PASS  Frostbite froze 193 times, 167 hits took the frozen bonus
+PASS  the saved circuit came back after a reload: 8 blocks
+PASS  second set placed: corrosion@9,3 boomerang@9,4 orbit@9,5 flat_plus@9,6 capacitor@9,7 delay_line@9,8 turn_r@6,9 turn_l@9,9
+PASS  Capacitor emitted 54 summed shots (108 packets absorbed)
+PASS  Delay Line released 54 shots
+PASS  Orbit launched 52 projectiles after circling
+PASS  Boomerang returned to the ship 51 times
+PASS  Corrosion stripped armor 38 times
+PASS  Fan circuit placed: mine@2,5 turn_r@2,9 alternator@5,9 turn_l@8,9
+PASS  the Alternator feeds two ejectors (2 recipes)
+INFO  run ended (state keys: title,wall,result,marks,rows,credits)
+PASS  Alternator switched branches 53 times
+PASS  Mines detonated 10 times
+PASS  chain lightning drew 2 arcs (A to B to C)
+PASS  3 rocks are burning (the hit one and both jumped to)
+PASS  2 rocks are frozen
+PASS  corroded armor fractions on the bottom row: 0.13, 0.21, 0.36, 0.6
+PASS  one mine waits in the lane at y 548 (ship y 768, 220 px up)
+
+32 passed, 0 failed

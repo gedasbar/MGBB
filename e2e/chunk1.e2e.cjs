@@ -13,7 +13,7 @@ const TB = { rotCW: 378, clearAll: 486, y: 880 };
 const CLOSE_X = [516, 492];
 // Picker tiles (see builder.e2e.cjs): 4 columns of 125 px with 8 px gaps, list starts at y 514, pathing tiles 34 px in.
 const tileCentre = (col, contentY) => [8 + col * 133 + 62.5, 514 + contentY + 52];
-const TILE = { turn_l: [0, 34], turn_r: [1, 34], splitter_2: [2, 34], flat_plus: [0, 172], percent_mult: [1, 172] };
+const TILE = { turn_l: [0, 34], turn_r: [1, 34], splitter_2: [2, 34], flat_plus: [0, 284], percent_mult: [1, 284] };
 const REMOVE_TILE = tileCentre(0, 34); // first tile on an occupied cell (its section header is 26 px tall)
 
 const redish = (p) => p[0] > 190 && p[1] < 130 && p[2] < 130;
@@ -144,8 +144,13 @@ async function lineAt(page, col, row, axis, ok = redish) {
   check((await state(page)).pickerOpen, '2: the placed cell stays selected, so one more tap opens its picker');
   const nBefore = (await blocks(page)).length;
   const depth0 = await undoDepth(page);
-  await tap(page, ...tileCentre(...TILE.flat_plus.map((n, i) => (i === 1 ? n + 138 : n)))); // Flat+ (the Remove section shifts tiles down 138 px)
-  await tap(page, ...tileCentre(1, 172 + 138)); // Percent x
+  // With 32 tiles the Damage section is below the fold of the sheet: reveal each tile with the picker's own scroll, then tap its real rectangle.
+  for (const id of ['flat_plus', 'percent_mult']) {
+    await page.evaluate((id) => window.__mgbm.buildScreen.picker.reveal(id), id);
+    const r = await page.evaluate((id) => window.__mgbm.buildScreen.picker.tileScreenRect(id), id);
+    await tap(page, r.x + r.w / 2, r.y + r.h / 2);
+  }
+  await page.evaluate(() => window.__mgbm.buildScreen.picker.scrollBy(-10000)); // back to the top for the fixed Remove-tile position
   const pk2 = await picker(page);
   check(pk2.open && pk2.armed === 'percent_mult' && (await blocks(page)).length === nBefore, `2: tapping a different tile moves the selection and places nothing (armed=${pk2.armed})`);
   // Remove tile: first tap previews, second removes.

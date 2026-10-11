@@ -1,0 +1,50 @@
+PASS  1: single tap on an empty cell selects it, picker stays closed ("Empty cell")
+PASS  1: second tap on the selected cell opens the picker exactly once (opens=1)
+PASS  1: the close button closes it; still one open
+PASS  1: a fast double tap on a fresh cell selects then opens, once (opens=2)
+PASS  1: tapping A, B, A opens nothing (A's selected state was cleared by B), selected={"x":2,"y":4}
+PASS  1: three taps on the generator only select it ("Generator"), picker never opens
+PASS  1: three taps on the ejector only select it ("Ejector"), picker never opens
+PASS  1: void cell (6,1) is not selectable and never opens a picker (selected=null)
+PASS  1: the picker was opened only by the buildable-cell re-taps
+PASS  1: dragging from the selected cell pans the view and opens nothing (ox=70)
+PASS  1: wheel zoom does not open the picker
+PASS  1: a two-finger pinch zooms (scale 75.3 -> 147.5) and does not count as a tap (pickerOpen=false)
+PASS  2: tap, tap on (6,9) opens the picker
+PASS  2: first tap on a tile previews it and places nothing ("Turn Right · no ejector reached", blocks=0)
+FAIL  2: the preview already re-routes the line east along row 9
+FAIL  2: second tap on the same tile places Turn Right (auto) and closes the sheet: ["5,7:turn_r:0:false"]
+FAIL  2: after placing, the red line runs up col 6 and turns east along row 9; nothing continues up col 6 - MISSING (6,10),(7,9),(8,9)
+PASS  2: the placed cell stays selected, so one more tap opens its picker
+PASS  2: tapping a different tile moves the selection and places nothing (armed=percent_mult)
+PASS  2: first tap on Remove previews the removal, the block is still there ("Remove")
+PASS  2: second tap on Remove removes the block and closes the sheet
+PASS  2: Turn Right placed again at (6,9)
+FAIL  2: on the block already in the cell, the second tap only closes the sheet: same block, undo depth 4 -> 4
+PASS  2: picker open again for the scroll test
+PASS  2: dragging the list from a tile scrolls it (scrollY 290) and selects/places nothing (armed=null)
+PASS  2: Splitter 2 tile is armed
+PASS  2: dragging from the armed tile does not place it (blocks unchanged, picker open)
+PASS  2: tapping the dimmed area closes the sheet without changes
+PASS  2: the close button closes the sheet without changes
+FAIL  3: built circuit reaches the ejector with 0 damage
+FAIL  3: the off-line block is selected and the picker is closed
+PASS  3: no green "A" badge pixels in any cell
+PASS  3: no padlock pixels in any cell
+PASS  3: no red "no signal" mark in any cell
+PASS  3: detector self-test on the old screenshots finds the marks (badge 44, no-signal 88, padlock 57 pixels)
+FAIL  3: the off-path Flat+ is dimmed (border red channel 58) against the on-path one (58)
+PASS  3: inspector keeps its text: "Flat + · Orientation: auto" / "Adds +100 damage to each projectile. No signal reaches this block."
+PASS  3: rotating Flat+ right stops the line; inspector "Flat + · Orientation: manual (facing right)"
+FAIL  3: the warning triangle is still on the stopping block's edge: [141,141,145]
+PASS  3: the rotated block has no padlock (0 pixels)
+PASS  4: the Shuttle only has void, empty, generator and ejector cells: ["ejector","empty","generator","void"]
+FAIL  4: the empty Shuttle's line runs up column 6 to (6,2) - MISSING (6,10),(6,8),(6,5),(6,3),(6,2)
+FAIL  4: the line dead-ends at the void cell (6,1) with its cap (red X pixels 0, dark disc pixels 0)
+PASS  4: segments are ["live:","dead-end:void"]
+PASS  4: the dead end has a plain reason
+PASS  4: the former blocked cells (6,1) (3,2) (5,2) (7,2) show no red
+FAIL  4: positive control: the ejector at (9,2) is the light-grey bullet (casing pixels) (0)
+PASS  4: an old save with blocked cells loads without errors, keeps its blocks and has (6,1) as void: {"blocks":["6,9:turn_r","9,6:flat_plus","9,9:turn_l"],"types":["ejector","empty","generator","void"],"c61":"void","recipes":1}
+
+11 FAILURE(S)  (37 passed, 11 failed)

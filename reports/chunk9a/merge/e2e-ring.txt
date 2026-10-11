@@ -1,0 +1,13 @@
+PASS  wall is a ring 1134 px around
+PASS  camera travelled 1623 px = 1.43 ring widths (needs more than 1134)
+PASS  camera x wrapped into [0, 1134) (786.3)
+PASS  75 frames sampled
+PASS  the ship's world x wrapped 2 time(s) at the seam
+PASS  ship screen x never jumped (largest frame-to-frame change 0.00 px) and never left the pointer (538.0)
+PASS  a ring screenshot was taken mid-trip
+PASS  the seam is on screen at x 56 in wall_ring_seam.png
+PASS  Free Fly state has a fixed 540 px view and no camera
+PASS  enemies stayed inside the screen: x in [20.0, 516.6]
+PASS  a Free Fly screenshot with damaged rocks was taken
+
+11 passed, 0 failed

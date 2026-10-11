@@ -1,0 +1,23 @@
+
+[wide] viewport 1600x900, canvas rect {"left":547,"top":0,"width":506,"height":900}, scale 0.9370
+PASS  [wide] mouse screen (648.2, 674.9) -> expected game (108.0, 720.0), ship (108.0, 720.0), error 0.00px
+PASS  [wide] pixel under cursor is on the ship art (its cockpit square; dimmed while it blinks in the spawn grace; the background is rgb(17,17,17)): rgb(24,93,79)
+PASS  [wide] mouse screen (800.0, 809.8) -> expected game (270.0, 864.0), ship (270.0, 864.0), error 0.00px
+PASS  [wide] pixel under cursor is on the ship art (its cockpit square; dimmed while it blinks in the spawn grace; the background is rgb(17,17,17)): rgb(24,92,78)
+PASS  [wide] mouse screen (951.8, 540.0) -> expected game (432.0, 576.0), ship (432.0, 576.0), error 0.00px
+PASS  [wide] pixel under cursor is on the ship art (its cockpit square; dimmed while it blinks in the spawn grace; the background is rgb(17,17,17)): rgb(35,185,156)
+
+[narrow] viewport 400x900, canvas rect {"left":0,"top":94.5,"width":400,"height":711}, scale 0.7406
+PASS  [narrow] mouse screen (80.0, 627.8) -> expected game (108.0, 720.0), ship (108.0, 720.0), error 0.00px
+PASS  [narrow] pixel under cursor is on the ship art (its cockpit square; dimmed while it blinks in the spawn grace; the background is rgb(17,17,17)): rgb(24,89,76)
+PASS  [narrow] mouse screen (200.0, 734.4) -> expected game (270.0, 864.0), ship (270.0, 864.0), error 0.00px
+PASS  [narrow] pixel under cursor is on the ship art (its cockpit square; dimmed while it blinks in the spawn grace; the background is rgb(17,17,17)): rgb(34,196,164)
+PASS  [narrow] mouse screen (320.0, 521.1) -> expected game (432.0, 576.0), ship (432.0, 576.0), error 0.00px
+PASS  [narrow] pixel under cursor is on the ship art (its cockpit square; dimmed while it blinks in the spawn grace; the background is rgb(17,17,17)): rgb(34,196,164)
+PASS  compiled recipes in browser: 1, damage per shot [101]
+PASS  rock 1 died; children alive right after death: 2 (id2 hp111, id3 hp111)
+PASS  rock HP after each observed hit: [149,48] (start 250)
+PASS  captured hit screenshot
+PASS  captured split screenshot
+
+ALL PASSED

@@ -1,0 +1,23 @@
+PASS  test wall has 21 x 8 - 6 gaps = 162 blocks (162)
+PASS  wall starts above the screen (bottom edge 1.7), camera centred (297.0)
+PASS  HUD shows "Tier 1" and "Destroyed 0%"
+PASS  no hull and no stop line in the state any more
+PASS  pass line is far above the screen (y -862), progress 0.00106209150326797
+PASS  ship low on the screen: wall speed 26.0 px/s (base 26)
+PASS  ship at the top edge: wall speed 98.4 px/s (about 4x)
+PASS  measured wall speed with the ship at the top: 98 px/s
+PASS  ship follows the pointer (screen x 270.0), camera still
+PASS  ring: camera ran right 1064 px and wrapped into [0, 1134) (x 227.1)
+PASS  ship stays under the pointer at screen x 535.0
+PASS  ring: camera ran back left (travel 1064 -> -217), x 80.3
+PASS  green squares of damaged blocks are smaller (5 damaged drawn)
+PASS  undamaged blocks draw the full green square
+PASS  touching a block: summary "Crashed"
+PASS  rows: Destroyed 24% (39 / 162) | Time 0:26 | Result Not passed
+PASS  crashed run banked once (runs 1 -> 2)
+PASS  a debug wall never touches the campaign progress
+PASS  Retry starts the same wall again
+PASS  clearing shows "Tier cleared", Destroyed 100% (162 / 162)
+PASS  FLY button still starts Free Fly (hull 100)
+
+21 passed, 0 failed
