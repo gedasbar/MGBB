@@ -19,9 +19,10 @@ export const CAMERA_MAX_X = WORLD_WIDTH - VIEW_W;
 export const TOP_ZONE = 0.35;
 export const BOOST_MAX = 4;
 
-/** The ship's hit point (a crash happens when it touches a live block) and where the finish line sits beyond the wall. */
+/** The ship's hit point (a crash happens when it touches a live block). */
 export const SHIP_HIT_R = 7;
-export const FINISH_MARGIN_CELLS = 1.5;
+/** The ship passes a wall once it is this many cells beyond the last row. Nothing is drawn for it (it was 1.5 and a drawn line). */
+export const PASS_MARGIN_CELLS = 8;
 /** Where the ship starts, and the nearest the first block row may start to it. */
 export const SHIP_START_Y = 0.8 * VIEW_H;
 export const MIN_START_GAP_CELLS = 6;

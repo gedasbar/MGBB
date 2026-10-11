@@ -2,7 +2,7 @@
 // Run: npm run balance-wall
 import { compile } from '../src/engine/compiler';
 import { buildStarterGrid } from '../src/game/starter';
-import { BOOST_MAX, CELL, FINISH_MARGIN_CELLS, VIEW_H, WALL_COLS } from '../src/wall/constants';
+import { BOOST_MAX, CELL, PASS_MARGIN_CELLS, VIEW_H, WALL_COLS } from '../src/wall/constants';
 import { generateLevel } from '../src/wall/generator';
 import { rewardPerBlock } from '../src/wall/level';
 import { blockCost, simulateWall } from '../src/wall/sim';
@@ -31,8 +31,8 @@ for (const t of [1, 5, 10, 20, 30, 50, 75, 100]) {
   const cheapest = sorted[0];
   const median = sorted[Math.floor(sorted.length / 2)];
   const total = cols.reduce((s, v) => s + v, 0);
-  // Distance the wall must travel until the finish line has passed a ship at the top margin.
-  const travel = l.rows * CELL + FINISH_MARGIN_CELLS * CELL + SHIP_MARGIN;
+  // Distance the wall must travel until the pass line has passed a ship at the top margin.
+  const travel = l.rows * CELL + PASS_MARGIN_CELLS * CELL + SHIP_MARGIN;
   const crossBoost = travel / (l.approachSpeed * BOOST_MAX);
   const passDps = cheapest / crossBoost;
   const clearTime = (SHIP_BOTTOM - 7) / l.approachSpeed; // until the wall's first row reaches a ship at the bottom

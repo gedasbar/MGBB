@@ -47,8 +47,6 @@ const PILOT = () => {
   let bottom = null;
   for (let r = w.level.rows - 1; r >= 0; r--) if (w.blocks[r * 21 + c]) { bottom = w.blockTop(r) + 54; break; }
   let y = bottom === null ? 5 : bottom + 30;
-  // Hold at 300 px until the finish line shows, so it can be seen; then fly up and across it.
-  if (w.finishY < 150) y = Math.max(y, 300);
   return { x: c * 54 + 27 - off - cam, y: Math.min(y, 900), finishY: w.finishY, shipY: w.shipY, offset: w.wallOffsetY, alive: w.alive, state: w.state };
 };
 
@@ -65,7 +63,6 @@ async function flyLane(page, { shots = false } = {}) {
     const p = await gameToClient(page, cur.x, cur.y);
     await page.mouse.move(p.x, p.y);
     if (shots && !got.lane && t.shipY < t.offset - 120 && t.shipY > 120 && t.alive > 0 && t.offset > 400) { await snap(page, 'ship_in_lane.png'); got.lane = true; }
-    if (shots && !got.finish && t.finishY > 60 && t.finishY < 600 && t.state === 'playing') { await snap(page, 'finish_line.png'); got.finish = true; }
     if (process.env.DBG && i % 40 === 0) console.log('pilot', i, JSON.stringify(t), JSON.stringify(cur));
     await page.waitForTimeout(25);
   }
@@ -87,7 +84,7 @@ async function flyLane(page, { shots = false } = {}) {
   check(s.medals === 0 && /Not passed/.test(s.sheet.best), `fresh inspector: "${s.sheet.title}", ${s.sheet.best}`);
   await snap(page, 'map_fresh.png');
 
-  // ---- Tier 1: carve a lane with real shots, fly up it, cross the finish line
+  // ---- Tier 1: carve a lane with real shots, fly up it, cross the (invisible) pass line
   await press(page, ...START, 300);
   await waitScreen(page, 'wall');
   s = await state(page);
@@ -98,7 +95,7 @@ async function flyLane(page, { shots = false } = {}) {
   check(s.title === 'Tier passed' && s.wall.result === 'passed' && s.wall.medal === false, `summary "${s.title}", medal ${s.wall.medal}`);
   check(JSON.stringify(s.wall.buttons.map(b => b.label)) === JSON.stringify(['Next tier', 'Map', 'Build']), `buttons: ${s.wall.buttons.map(b => b.label)}`);
   check(s.rows.some(r => r.label === 'Result' && r.value === 'Passed') && s.wall.destroyed > 0 && s.wall.destroyed < s.wall.total, `rows: ${s.rows.map(r => r.label + ' ' + r.value).join(' | ')}`);
-  check(shots.lane && shots.finish, `screenshots taken in the lane: ${shots.lane}, with the finish line: ${shots.finish}`);
+  check(shots.lane, `screenshot taken in the lane: ${shots.lane}`);
   await snap(page, 'summary_passed.png');
   let p = await progress(page);
   check(JSON.stringify(p.passedTiers) === '[1]' && p.medals === 0 && (p.clearedTiers || []).length === 0, `progress: passed ${JSON.stringify(p.passedTiers)}, medals ${p.medals}`);
