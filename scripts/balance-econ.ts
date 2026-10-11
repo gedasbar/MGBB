@@ -62,3 +62,48 @@ console.log(`  Shuttle hull         ${String(p.shuttle).padStart(5)}  ${runs(p.s
 console.log(`  Flat+ L1->L2         ${String(p.up12).padStart(5)}  ${runs(p.up12)} runs`);
 console.log(`  Flat+ L2->L3         ${String(p.up23).padStart(5)}  (cumulative to L3: ${p.up12 + p.up23}, ${runs(p.up12 + p.up23)} runs)`);
 console.log(`  Flat+ L3->L4         ${String(p.up34).padStart(5)}  (cumulative to L4: ${p.up12 + p.up23 + p.up34}, ${runs(p.up12 + p.up23 + p.up34)} runs)`);
+
+// ------------------------------------------------------------------ chunk 9a: estimated DPS of every shown block
+// Standard test circuit on a Twin: Flat+ L1 in the cell next to the generator and the block under test in the cell next
+// to the ejector, against the same circuit with a second Flat+ L1 there. Routing blocks cannot sit in a straight Twin;
+// they are tested on a Fan (Splitter 2 + two Turns + a Flat+ on each branch) against that circuit.
+// Note: est. DPS is damage per shot x shots per second. It is blind to what a block does to the TARGET (AoE, chain,
+// ignite, ...), so those read x1.00 here by construction.
+import { pickerBlocks, BLOCKS } from '../src/data/blocks';
+import { buildFanGrid } from '../src/game/gridUtils';
+
+const twinWith = (id: string, level = 1) => {
+  const g = buildTwinGrid();
+  place(g, 1, 3, 'flat_plus');
+  place(g, 1, 2, id, level);
+  return g;
+};
+const fanWith = (center: string) => {
+  const g = buildFanGrid();
+  place(g, 5, 9, center);
+  place(g, 2, 9, 'turn_r');
+  place(g, 8, 9, 'turn_l');
+  place(g, 2, 5, 'flat_plus');
+  place(g, 8, 5, 'flat_plus');
+  return g;
+};
+const ROUTING = new Set(['turn_l', 'turn_r', 'splitter_2', 'splitter_3', 'alternator']);
+const twinBase = compile(twinWith('flat_plus')).stats.estDps;
+const fanBase = compile(fanWith('splitter_2')).stats.estDps;
+export const BLOCK_RATIOS: { id: string; ratio: number; dps: number; where: string }[] = [];
+for (const b of pickerBlocks()) {
+  if (b.id === 'turn_l' || b.id === 'turn_r') { BLOCK_RATIOS.push({ id: b.id, ratio: 1, dps: twinBase, where: 'routing' }); continue; }
+  if (ROUTING.has(b.id)) {
+    const dps = compile(fanWith(b.id)).stats.estDps;
+    BLOCK_RATIOS.push({ id: b.id, ratio: dps / fanBase, dps, where: 'Fan' });
+  } else {
+    const dps = compile(twinWith(b.id)).stats.estDps;
+    BLOCK_RATIOS.push({ id: b.id, ratio: dps / twinBase, dps, where: 'Twin' });
+  }
+}
+console.log(`\nBlock test circuit: Twin Flat+ L1 + block, est. DPS ${twinBase.toFixed(0)} with a second Flat+ (Fan: ${fanBase.toFixed(0)} with a Splitter 2)`);
+console.log('block             | cat      | on    | est. DPS | x baseline | flag');
+for (const r of BLOCK_RATIOS) {
+  const flag = r.ratio > 3 ? 'ABOVE 3x' : r.ratio < 0.3 ? 'BELOW 0.3x' : '';
+  console.log(`${BLOCKS[r.id].name.padEnd(17)} | ${BLOCKS[r.id].category.padEnd(8)} | ${r.where.padEnd(5)} | ${r.dps.toFixed(0).padStart(8)} | ${r.ratio.toFixed(2).padStart(10)} | ${flag}`);
+}

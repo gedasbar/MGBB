@@ -48,6 +48,15 @@ const FLY: Record<string, string> = {
   fork_impact: 'hiddenBlocks: fork_impact: fly (2 copies at 50% / 0.6x, +/-35 deg, no second fork)',
 };
 
+// Chunk 9a blocks: one parameterized table in tests/blocks9a.test.ts covers compile data, Free Fly and the real Wall loop.
+for (const id of ['alternator', 'delay_line', 'overclock', 'capacitor', 'executioner', 'chain_lightning', 'boomerang', 'orbit', 'mine', 'ignite', 'corrosion', 'frostbite']) {
+  COMPILES[id] = `blocks9a: ${id} is a placeable shop block with levels, rarity, price and rule text`;
+  FLY[id] = `blocks9a: ${id} does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall`;
+}
+for (const id of ['turn_l', 'turn_r', 'splitter_2', 'splitter_3', 'lucky_strike', 'jackpot', 'gamblers_gate', 'random_curve', 'piercing']) {
+  COMPILES[id] += ' + levels (blocks9a: every shown block has at least 3 levels)';
+}
+
 const esc = (s: string) => s.replace(/\|/g, '\\|');
 const rows: string[] = ['| id | compiles correctly (test) | changes projectiles in Fly (test) | shown in picker |', '|---|---|---|---|'];
 for (const b of Object.values(BLOCKS)) {
