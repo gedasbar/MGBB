@@ -1,0 +1,25 @@
+PASS  map shows 100 tiles, tier 1 open and next
+PASS  every other tier is locked on a fresh save
+PASS  fresh inspector: "Tier 1 · Slab", Not passed
+PASS  campaign HUD: Tier 1 / Slab / Destroyed 0%
+PASS  summary "Tier passed", medal false
+PASS  buttons: Next tier,Map,Build
+PASS  rows: Destroyed 7% (12 / 162) | Time 0:12 | Result Passed
+PASS  screenshot taken in the lane: true
+PASS  progress: passed [1], medals 0
+PASS  credits paid for the blocks destroyed (4)
+PASS  map: tier 1 passed, tier 2 open, tier 3 locked
+PASS  inspector of tier 1: "Best destroyed 7%  ·  Passed 0:12"
+PASS  touching a block: "Crashed", buttons Retry,Map,Build
+PASS  a crash changes no unlock and gives no medal
+PASS  credits after the crash 4 -> 6
+PASS  Retry restarts the tier straight away
+PASS  summary "Tier cleared", medal true
+PASS  medals 1, cleared [1]
+PASS  replay clear: medal false, medals 1
+PASS  tier 2: "Tier passed", medal false
+PASS  map: tier 1 cleared, tier 2 passed, tier 3 open, medals 1
+PASS  inspector of the cleared tier: "Best destroyed 100%  ·  Cleared 0:00"
+PASS  FLY still starts Free Fly (tier 1, hull 100)
+
+23 passed, 0 failed

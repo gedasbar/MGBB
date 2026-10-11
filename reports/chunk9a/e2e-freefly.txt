@@ -1,0 +1,21 @@
+PASS  fresh save: {"w":1,"h":3,"blocks":0,"hull":"dart","owned":["dart"]}
+PASS  the 1 x 3 grid is centred (slot at 270, 468, cell 110 px)
+PASS  tapping the one slot opens the tile picker
+PASS  Flat+ placed in the slot: flat_plus, Dmg/shot "101"
+PASS  parked pointer: ship waits at (270, 768), control false
+PASS  no damage while waiting (hull 100)
+PASS  first move: control starts and the ship is at (270.0, 700.0)
+PASS  ran 30.5 s of sim time
+PASS  enemies stayed inside the screen: x in [62.2, 525.0] over 339 samples, up to 15 at once
+PASS  no enemy stayed above the screen for more than 6 s (longest 0.45 s)
+PASS  ship held at the right edge stays on screen (x 516.0, max 516.0)
+FAIL  kills rose from 3 to 3 while sweeping the middle
+PASS  overlay on: fps 60, projectiles 1/4000, enemies 12
+PASS  overlay text: "FREE FLY   kills 3\nFPS 60  worst 17.8ms  frame 16.7ms\nsim 0.30  render 0.48  ovh 0.00 ms\nproj 1/4000  enemies 12  fx 0\ntier 4  spawn 0.50/s  t 49s"
+PASS  sim 0.30 ms, render 0.48 ms, overlay overhead 0.003 ms per frame
+PASS  backtick hides it and remembers (enabled false, stored 0)
+PASS  backtick shows it again and remembers
+PASS  Shop lists the hull ladder: dart,twin,prong,fan,shuttle
+PASS  wall overlay: "WALL   kills 0\nFPS 60  worst 18.1ms  frame 16.7ms\nsim 0.22  render 0.36  ovh 0.00 ms\nproj 1/4000  enemies 162  fx 0\nblocks 162/162  scroll 26  camX 297"
+
+18 passed, 1 failed

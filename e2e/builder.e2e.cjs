@@ -15,7 +15,7 @@ const STATS_STRIP = [270, 837];
 // 26 px header above its tile rows (tiles 104 px tall, rows 112 px apart): pathing tiles start 34 px into the list,
 // damage tiles 172 px, modifier tiles 422 px.
 const tileCentre = (col, contentY, scroll = 0) => [8 + col * 133 + 62.5, 514 + contentY + 52 - scroll];
-const TILE = { turn_l: [0, 34], turn_r: [1, 34], splitter_2: [2, 34], splitter_3: [3, 34], flat_plus: [0, 172], percent_mult: [1, 172] };
+const TILE = { turn_l: [0, 34], turn_r: [1, 34], splitter_2: [2, 34], splitter_3: [3, 34], flat_plus: [0, 284], percent_mult: [1, 284] };
 
 const redish = (p) => p[0] > 190 && p[1] < 130 && p[2] < 130;
 // The picker dims the grid by 28%, which pulls the red channel down to about 184.
@@ -133,7 +133,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   check(st.inspector.title === 'Empty cell', 'inspector strip stays visible above the sheet (and shows the cell)');
   await shot(page, 'b04_picker_open.png');
   const tiles = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; return { ids: p.tiles.map(t => t.id), visible: p.tiles.filter(t => { const r = p.tileScreenRect(t.id); return r.y >= p.listRect.y && r.y + r.h <= p.listRect.y + p.listRect.h; }).map(t => t.id), minTile: Math.min(...p.tiles.map(t => Math.min(t.w, t.h))) }; });
-  check(tiles.ids.length === 20, `picker lists 20 placeable blocks (no Remove tile on an empty cell): ${tiles.ids.length}`);
+  check(tiles.ids.length === 32, `picker lists 32 placeable blocks (no Remove tile on an empty cell): ${tiles.ids.length}`);
   check(tiles.minTile >= 44, `tiles are at least 44 px: ${tiles.minTile}`);
   check(!tiles.visible.includes('pure_converter'), `pure_converter is not visible before scrolling (visible: ${tiles.visible.length} tiles)`);
   const tr0 = await page.evaluate(() => window.__mgbm.buildScreen.picker.tileScreenRect('turn_r'));

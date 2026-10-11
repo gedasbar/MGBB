@@ -1,0 +1,79 @@
+PASS  fit view is the documented one: {"scale":48,"ox":6,"oy":204}
+PASS  default circuit reaches the ejector with 101 damage
+PASS  stats strip reads ["101","1","4","404","0"]
+PASS  there is no palette on the Build screen
+PASS  default circuit: red line pixels at every expected cell centre
+PASS  default circuit (off-route cells): no red where there should be no line
+PASS  all 20 buttons are at least 44x44 game px
+PASS  no button is clipped off screen
+PASS  no text smaller than 11px
+PASS  tap the void cell (6,1) -> nothing is selected (selected=null)
+PASS  tap generator -> "Generator: Projectile dispenser. Fires a pulse of projectiles up the circuit continuously."
+PASS  tap ejector -> "Ejector: Ejector. Projectiles leave the ship here."
+PASS  tapping the void cell twice opens nothing and changes nothing
+PASS  tapping outside the hull twice opens nothing
+PASS  Clear all empties the grid
+PASS  empty Shuttle: red line pixels at every expected cell centre
+PASS  warning counted in the strip: 1
+PASS  first tap on an empty cell only selects it
+PASS  tapping the selected empty cell opens the picker
+PASS  inspector strip stays visible above the sheet (and shows the cell)
+PASS  picker lists 32 placeable blocks (no Remove tile on an empty cell): 32
+PASS  tiles are at least 44 px: 104
+PASS  pure_converter is not visible before scrolling (visible: 10 tiles)
+PASS  independently computed Turn Right tile position hits the real tile
+PASS  dragging the list scrolls it (scrollY 400) and reveals pure_converter
+PASS  mouse wheel scrolls the list back to the top
+PASS  tap Turn Right tile -> "Turn Right · no ejector reached: Turns the signal 90° to the right."
+PASS  preview: line runs east along row 9 through the ghost Turn Right
+PASS  preview: line no longer continues straight up from the ghost block
+PASS  preview did not place anything
+PASS  tapping the selected tile again closes the sheet
+PASS  Turn Right placed at (6,9) in auto mode
+PASS  view is restored after the sheet closes
+PASS  Turn Right placed: line goes up col 6 then east along row 9: red line pixels at every expected cell centre
+PASS  Turn Right placed: nothing continues up column 6: no red where there should be no line
+PASS  picker opened for (9,9)
+PASS  with Turn Left at (9,9) the circuit reaches the ejector
+PASS  journey of the reference screenshot: red line pixels at every expected cell centre
+PASS  damage is still 1 with no damage block: strip 1
+PASS  Flat+ on the line changes the stats: ["101","1","4","404","0"] (was ["1","1","4","4","0"])
+PASS  selected block shows "Flat + · Orientation: auto"
+PASS  no green "auto" badge at the block's corner: 0 badge pixels
+PASS  Flat+ off the line does not change the stats
+PASS  off-line block says: "Adds +100 damage to each projectile. No signal reaches this block."
+PASS  no red "no signal" mark at the corner of the off-line block: 0 mark pixels
+PASS  Rotate CW -> manual, rotation 90
+PASS  rotated Flat+ blocks the line: no recipe
+PASS  inspector: "Flat + · Orientation: manual (facing right)"
+PASS  no padlock at the block's corner: 0 padlock pixels
+PASS  warning triangle on the block's edge: [0,0,0]
+PASS  line still reaches the rotated block: red line pixels at every expected cell centre
+PASS  line stops at the rotated block: no red where there should be no line
+PASS  Rotate CCW -> faces up again, line passes, damage 101
+PASS  Auto-orient returns the block to auto mode and the line passes
+PASS  four Rotate CW presses return to the starting orientation
+PASS  rotation changed the grid
+FAIL  Undo reverts the rotation (and the line passes again)
+FAIL  circuit valid again after undo
+PASS  Redo re-applies the rotation (line blocked again)
+PASS  wheel zoom in: scale 48 -> 87.5
+PASS  drag pans the grid (-211,-15) -> (-311,-85)
+FAIL  Fit button restores the fitted view
+PASS  circuit (blocks, rotations, manual flags) persists across a reload
+PASS  a manual rotation persists across a reload
+PASS  A/B toggle switches to the empty circuit B
+PASS  toggling back restores circuit A unchanged
+PASS  copy toast: "Layout copied"
+PASS  paste restores the copied layout
+PASS  pasting junk shows an error toast and changes nothing: "Clipboard does not contain a layout"
+PASS  stub tab shows "Coming soon"
+PASS  FLY switches to the Fly screen
+PASS  ship fires 1 stream(s) of 101 damage; strip said 1 x 101
+PASS  projectiles in flight carry [101] damage
+PASS  5 projectiles alive after 1.2 s
+PASS  Back to Build shows the same circuit the player left
+PASS  toast: "Your circuit doesn't reach an ejector"
+PASS  still on the Build screen
+
+3 FAILURE(S)  (74 passed, 3 failed)
