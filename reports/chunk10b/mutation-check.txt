@@ -1,0 +1,12 @@
+== god mode ignored  (src/game/world.ts)
+   × dev cheats > start wave N puts the run at wave N (time and tier follow); reset keeps it; god mode stops contact damage
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 5 passed (6)
+== unlock stops at tier 99  (src/debug/cheats.ts)
+   × dev cheats > unlock all tiers opens 1-100 without Medals or clears; reset campaign undoes it and keeps credits
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 5 passed (6)
+== start wave ignores time  (src/game/world.ts)
+   × dev cheats > start wave N puts the run at wave N (time and tier follow); reset keeps it; god mode stops contact damage
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 5 passed (6)
