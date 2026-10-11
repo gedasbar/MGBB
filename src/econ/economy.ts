@@ -30,6 +30,9 @@ export const BASE_PRICE: Record<string, number> = {
   pure_converter: 300, armor_piercer: 220, curving_right: 150, random_curve: 150, homing: 400, fork_impact: 450,
 };
 
+// Blocks added in chunk 9a carry their own price band (rarity) in the block data.
+for (const b of Object.values(BLOCKS)) if (b.baseCost !== undefined && b.shown) BASE_PRICE[b.id] = b.baseCost;
+
 /** Shop price per hull (constants live in data/hulls.ts). */
 export const HULL_PRICE: Record<string, number> = { ...HULL_PRICES };
 

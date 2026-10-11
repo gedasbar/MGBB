@@ -1,5 +1,8 @@
 import { CONFIG } from '../config';
 
+/** Remembered recent targets per projectile (Orbit). */
+export const RING = 4;
+
 export class ProjectilePool {
   max: number;
   count: number = 0;
@@ -25,6 +28,16 @@ export class ProjectilePool {
   aux1: Float32Array;
   aux2: Float32Array;
   aux3: Float32Array;
+  /** Movement phase of Orbit / Boomerang / Mine projectiles (PHASE_* in projectiles.ts); 0 = a plain projectile. */
+  phase: Uint8Array;
+  /** Scratch state of the phase: heading angle, elapsed time, distance travelled. */
+  s1: Float32Array;
+  s2: Float32Array;
+  s3: Float32Array;
+  /** Orbit: the last targets hit (id) and when (seconds left before they may be hit again), a ring of RING per projectile. */
+  ringId: Int32Array;
+  ringT: Float32Array;
+  ringN: Uint8Array;
 
   constructor(max: number = CONFIG.CAPS.PROJECTILES) {
     this.max = max;
@@ -44,6 +57,13 @@ export class ProjectilePool {
     this.aux1 = new Float32Array(max);
     this.aux2 = new Float32Array(max);
     this.aux3 = new Float32Array(max);
+    this.phase = new Uint8Array(max);
+    this.s1 = new Float32Array(max);
+    this.s2 = new Float32Array(max);
+    this.s3 = new Float32Array(max);
+    this.ringId = new Int32Array(max * RING);
+    this.ringT = new Float32Array(max * RING);
+    this.ringN = new Uint8Array(max);
   }
 
   spawn(x: number, y: number, vx: number, vy: number, damage: number, pure: number = 0, modIndex: number = 0): number {
@@ -65,6 +85,11 @@ export class ProjectilePool {
         this.aux1[i] = 0;
         this.aux2[i] = 0;
         this.aux3[i] = 0;
+        this.phase[i] = 0;
+        this.s1[i] = 0;
+        this.s2[i] = 0;
+        this.s3[i] = 0;
+        this.ringN[i] = 0;
         this.count++;
         return i;
       }

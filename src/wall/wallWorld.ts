@@ -3,7 +3,8 @@ import { compile, EjectorRecipe, Grid } from '../engine/compiler';
 import { ProjectilePool } from '../engine/pools';
 import { EnemyEntity, ProjectileSystem } from '../engine/projectiles';
 import { BounceInfo, TargetField } from '../engine/targets';
-import { firePulse, spawnOffsetsFor } from '../game/fire';
+import { Gun, spawnOffsetsFor } from '../game/fire';
+import { HIT_BURN } from '../engine/projectiles';
 import { buildStarterGrid } from '../game/starter';
 import {
   BOOST_MAX, CELL, PASS_MARGIN_CELLS, PROJECTILE_MAX_AGE, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_H,
@@ -23,7 +24,7 @@ export interface Block extends EnemyEntity {
   flash: number;
 }
 
-export interface WallHitEvent { blockId: number; damage: number; x: number; y: number }
+export interface WallHitEvent { blockId: number; damage: number; x: number; y: number; kind: number }
 export interface WallKillEvent { x: number; y: number; reward: number }
 /** How a level ends: every block destroyed, the ship flew past the end of the wall, or the ship touched a live block. */
 export type WallState = 'playing' | 'cleared' | 'passed' | 'crashed';
@@ -136,6 +137,7 @@ export class WallWorld {
   readonly pool = new ProjectilePool();
   readonly projSys = new ProjectileSystem(this.pool);
   readonly recipes: EjectorRecipe[];
+  readonly gun: Gun;
   readonly warnings: string[];
   readonly spawnOffsets: { x: number; y: number }[];
   readonly field = new BlockField(this);
@@ -191,6 +193,7 @@ export class WallWorld {
     this.warnings = compiled.warnings;
     this.spawnOffsets = spawnOffsetsFor(this.recipes, hullGrid);
     this.projSys.modifiersTable = this.recipes.map(r => r.packet.mods);
+    this.gun = new Gun(this.pool, this.projSys, this.recipes, this.spawnOffsets, 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul));
 
     this.rowAlive = new Array(level.rows).fill(0);
     let alive = 0;
@@ -215,11 +218,11 @@ export class WallWorld {
     this.lowRow = this.findLowRow(level.rows - 1);
     this.syncY();
 
-    this.projSys.onHit = (e, dmg, x, y) => {
+    this.projSys.onHit = (e, dmg, x, y, kind = 0) => {
       const b = e as Block;
-      b.lastHit = this.time;
-      b.flash = FLASH_TIME;
-      this.hits.push({ blockId: b.id, damage: dmg, x, y });
+      // A burn tick hurts the block but does not flash it or hold back its shield regeneration.
+      if (kind !== HIT_BURN) { b.lastHit = this.time; b.flash = FLASH_TIME; }
+      this.hits.push({ blockId: b.id, damage: dmg, x, y, kind });
       if (b.hp <= 0) this.destroyBlock(b);
     };
   }
@@ -320,7 +323,7 @@ export class WallWorld {
   get isBanked(): boolean { return this.banked; }
 
   fire() {
-    firePulse(this.pool, this.projSys, this.recipes, this.spawnOffsets, this.shipX, this.shipY);
+    this.gun.fire(this.shipX, this.shipY);
   }
 
   /**
@@ -359,7 +362,10 @@ export class WallWorld {
     this.wallOffsetY += scrollSpeed(this.level.approachSpeed, this.shipY) * dt;
     this.syncY();
 
-    // --- Auto-fire
+    // --- Auto-fire (the gun also releases shots a Delay Line held back)
+    this.projSys.shipX = this.shipX;
+    this.projSys.shipY = this.shipY;
+    this.gun.update(dt, this.shipX, this.shipY);
     if (this.autoFire) {
       this.pulseTimer += dt;
       const period = 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul);
@@ -388,6 +394,9 @@ export class WallWorld {
       }
       if (pool.y[i] < wallTop || pool.y[i] > VIEW_H + 50 || pool.age[i] > PROJECTILE_MAX_AGE) pool.free(i);
     }
+
+    // --- Burn ticks, freeze timers, arc lifetimes (blocks die inside the hit callback)
+    this.projSys.updateStatus(dt);
 
     // --- Hits (blocks die inside the hit callback)
     this.projSys.processField(this.field, this.level.tier);

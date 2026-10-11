@@ -4,7 +4,7 @@ import { MitosisSystem } from '../engine/mitosis';
 import { ProjectileSystem } from '../engine/projectiles';
 import { SpatialHash } from '../engine/spatialHash';
 import { compile, EjectorRecipe, Grid } from '../engine/compiler';
-import { firePulse, PROJECTILE_SPEED, PX_PER_CELL, spawnOffsetsFor } from './fire';
+import { Gun, PROJECTILE_SPEED, PX_PER_CELL, spawnOffsetsFor } from './fire';
 import { PointerState } from '../input';
 import { buildStarterGrid, ROCK_RADIUS } from './starter';
 import { leakDamage, rockHp, rockReward, tierOfTime } from '../econ/economy';
@@ -21,7 +21,8 @@ export const SPAWN_INTERVAL = 2;
 /** A rock whose centre stays above the top edge this long is moved in at the edge. */
 export const ABOVE_SCREEN_MAX = 6;
 
-export interface HitEvent { enemyId: number; damage: number; x: number; y: number; }
+/** `kind`: 0 projectile hit, 1 burn tick, 2 chain jump (HIT_* in engine/projectiles). */
+export interface HitEvent { enemyId: number; damage: number; x: number; y: number; kind: number }
 /** An enemy body died: `reward` is the credits it paid (fractional; the run keeps the exact total). */
 export interface KillEvent { x: number; y: number; reward: number; generation: number; }
 export interface SplitEvent { parentId: number; x: number; y: number; childIds: number[]; }
@@ -34,6 +35,7 @@ export class World {
   readonly projSys = new ProjectileSystem(this.pool);
   readonly mitosis = new MitosisSystem();
   readonly recipes: EjectorRecipe[];
+  readonly gun: Gun;
   readonly warnings: string[];
   /** Where each recipe's projectiles leave, relative to the ship centre (from the ejector's cell). */
   readonly spawnOffsets: { x: number; y: number }[];
@@ -89,12 +91,13 @@ export class World {
     this.spawnOffsets = spawnOffsetsFor(this.recipes, hull);
     this.warnings = compiled.warnings;
     this.projSys.modifiersTable = this.recipes.map(r => r.packet.mods);
+    this.gun = new Gun(this.pool, this.projSys, this.recipes, this.spawnOffsets, 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul));
     this.autoSpawn = opts.autoSpawn ?? true;
     this.controlStarted = !opts.safeStart;
     this.controlT = opts.safeStart ? 0 : Infinity;
     this.safeStart = !!opts.safeStart;
-    this.projSys.onHit = (e, dmg, x, y) => {
-      this.hits.push({ enemyId: e.id, damage: dmg, x, y });
+    this.projSys.onHit = (e, dmg, x, y, kind = 0) => {
+      this.hits.push({ enemyId: e.id, damage: dmg, x, y, kind });
     };
   }
 
@@ -119,6 +122,7 @@ export class World {
     this.kicks.clear();
     this.pool.active.fill(0);
     this.pool.count = 0;
+    this.gun.reset();
     this.gameOver = false;
     this.shipX = CONFIG.VIEW.W / 2;
     this.shipY = CONFIG.VIEW.H * 0.8;
@@ -148,7 +152,7 @@ export class World {
 
   /** Fire one pulse: one projectile per compiled ejector recipe (chance gates may drop or boost it). */
   fire() {
-    firePulse(this.pool, this.projSys, this.recipes, this.spawnOffsets, this.shipX, this.shipY);
+    this.gun.fire(this.shipX, this.shipY);
   }
 
   update(dt: number, pointer: PointerState) {
@@ -186,7 +190,10 @@ export class World {
     this.shipX = Math.max(m, Math.min(VW - m, baseX + this.knockX));
     this.shipY = Math.max(m, Math.min(CONFIG.VIEW.H - m, baseY + this.knockY));
 
-    // --- Auto-fire
+    // --- Auto-fire (the gun also releases shots a Delay Line held back)
+    this.projSys.shipX = this.shipX;
+    this.projSys.shipY = this.shipY;
+    this.gun.update(dt, this.shipX, this.shipY);
     this.pulseTimer += dt;
     const period = 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul);
     while (this.pulseTimer >= period) {
@@ -222,8 +229,10 @@ export class World {
     for (const e of enemies) { byId.set(e.id, e); spatial.insert(e.id, e.x, e.y); }
 
     for (const e of enemies) {
-      e.vy = ENEMY_SPEED;
-      e.vx = Math.sin(this.time + e.id) * 30 * (this.swayDir.get(e.id) ?? 1);
+      // Frostbite slows the whole drift (1 when not frozen, so unfrozen rocks move exactly as before).
+      const slow = (e.freezeT ?? 0) > 0 ? 1 - (e.freezeSlow ?? 0) : 1;
+      e.vy = ENEMY_SPEED * slow;
+      e.vx = Math.sin(this.time + e.id) * 30 * (this.swayDir.get(e.id) ?? 1) * slow;
       const kick = this.kicks.get(e.id);
       if (kick) {
         e.vx += kick.vx;
@@ -276,6 +285,9 @@ export class World {
         if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
       }
     }
+
+    // --- Burn ticks, freeze timers, arc lifetimes
+    this.projSys.updateStatus(dt);
 
     // --- Projectile hits (rebuild hash with post-move positions)
     spatial.clear();
