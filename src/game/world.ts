@@ -11,7 +11,8 @@ import { leakDamage, rockHp, rockReward, tierOfTime } from '../econ/economy';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 import { fireRateMul } from '../data/hulls';
 import { SPECIES, speciesOf } from '../data/species';
-import { FREEFLY_REWARD_MUL } from '../data/waves';
+import { FREEFLY_REWARD_MUL, waveBonus, waveHpMul } from '../data/waves';
+import { PlannedSpawn, WaveDirector } from './waves';
 import { SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC } from '../wall/constants';
 import type { MitosisEnemy } from '../engine/mitosis';
 
@@ -20,8 +21,6 @@ export { PROJECTILE_SPEED, PX_PER_CELL };
 export const CONTACT_DAMAGE = 10;
 /** Rock fall speed (px/s). */
 export const ENEMY_SPEED = SPECIES.mitotic_rock.speed;
-/** Seconds between rock spawns. */
-export const SPAWN_INTERVAL = 2;
 /** A rock whose centre stays above the top edge this long is moved in at the edge. */
 export const ABOVE_SCREEN_MAX = 6;
 
@@ -79,7 +78,13 @@ export class World {
   /** Horizontal direction sign of each rock's sway, flipped when it touches a side. */
   private swayDir = new Map<number, number>();
   private pulseTimer = 0;
-  private spawnTimer = 0;
+  /** Waves (chunk 10a): the seeded director, the spawns due this frame, and the credits paid as wave bonuses. */
+  director: WaveDirector;
+  readonly seed: number;
+  private due: PlannedSpawn[] = [];
+  bonusCredits = 0;
+  /** Waves that started during the last update() calls (the screen shows a banner); consumers clear it. */
+  waveEvents: { wave: number; bonus: number }[] = [];
   private kicks = new Map<number, { vx: number; vy: number }>();
   /** Per body: constant sideways speed (a Drifter's slide, a Darter's aim), signed; flipped with the sway at a side. */
   private baseVx = new Map<number, number>();
@@ -91,7 +96,9 @@ export class World {
   splits: SplitEvent[] = [];
   killEvents: KillEvent[] = [];
 
-  constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean } = {}) {
+  constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean; seed?: number } = {}) {
+    this.seed = opts.seed ?? 1;
+    this.director = new WaveDirector(this.seed);
     const compiled = compile(opts.grid ?? buildStarterGrid());
     const hull = opts.grid ?? buildStarterGrid();
     this.recipes = compiled.recipes;
@@ -114,6 +121,11 @@ export class World {
   /** Tier of the run: starts at 1 and rises by one every 15 seconds of survival. */
   get tier(): number { return tierOfTime(this.time); }
 
+  /** Current wave (0 until the director has started the first one). */
+  get wave(): number { return this.director.wave; }
+  /** Seconds until the next wave. */
+  get waveTimeLeft(): number { return this.director.timeToNext(this.time); }
+
   /** Whole credits earned so far (the HUD number and the summary). */
   get credits(): number { return Math.floor(this.creditsExact + 1e-9); }
 
@@ -124,6 +136,9 @@ export class World {
     this.maxTier = 1;
     this.leaks = 0;
     this.killEvents.length = 0;
+    this.director = new WaveDirector(this.seed);
+    this.bonusCredits = 0;
+    this.waveEvents.length = 0;
     this.hull = this.maxHull;
     this.invuln = 0;
     this.knockX = 0;
@@ -242,13 +257,20 @@ export class World {
       this.fire();
     }
 
-    // --- Spawning: above the top edge, inside the screen width, entering downward
+    // --- Waves: the director starts a wave every WAVE_TIME s and hands out its spawns, just above the top edge
     if (this.autoSpawn) {
-      this.spawnTimer += dt;
-      if (this.spawnTimer >= SPAWN_INTERVAL) {
-        this.spawnTimer = 0;
-        this.spawnRock(Math.random() * (VW - 40) + 20, -20);
+      const started = this.director.update(this.time, this.mitosis.enemies.length, this.due);
+      if (started) {
+        const bonus = waveBonus(started);
+        this.bonusCredits += bonus;
+        this.creditsExact += bonus;
+        this.waveEvents.push({ wave: started, bonus });
       }
+      const hpMul = waveHpMul(this.director.wave);
+      for (const s of this.due) {
+        this.spawnSpecies(s.defId, s.x, -s.radius, { hp: rockHp(this.tier) * s.hpMul * hpMul, radius: s.radius, generation: s.generation });
+      }
+      this.due.length = 0;
     }
 
     // --- Projectile movement (path modifiers steer first)

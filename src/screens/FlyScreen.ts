@@ -1,6 +1,7 @@
 import { Container, Graphics, Sprite, Texture, Text } from 'pixi.js';
 import { CONFIG } from '../config';
-import { SPAWN_INTERVAL, World } from '../game/world';
+import { World } from '../game/world';
+import { specialKind } from '../data/waves';
 import type { StatsInfo } from '../ui/stats';
 import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
@@ -10,7 +11,7 @@ import { fmtBig } from '../ui/format';
 import { makeText } from '../builder/ui';
 import { getProgressStore } from '../econ/progress';
 import { debugHooks } from '../debug/hooks';
-import { RunSummaryScreen } from './RunSummaryScreen';
+import { RunSummaryScreen, fmtTime } from './RunSummaryScreen';
 import { PointerGate } from '../engine/control';
 import { FragmentPool, RockView, enemyArt } from '../ui/rockArt';
 import { BackgroundView, forcedBackground, freeFlyThemeAt } from '../ui/background';
@@ -30,6 +31,12 @@ const BG_SCROLL = 60;
 const DMG_NUMBER_LIFE = 0.6;
 /** Seconds between the hull reaching 0 and the Run Summary appearing. */
 const END_DELAY = 0.7;
+/** The "WAVE N" banner: seconds on screen, the fade at its end, and where it sits. */
+const BANNER_TIME = 1.5;
+const BANNER_FADE = 0.3;
+const BANNER_Y = 300;
+const BANNER_W = 220;
+const BANNER_H = 72;
 
 interface DmgNum { t: Text; life: number; }
 
@@ -59,6 +66,13 @@ export class FlyScreen implements Screen {
   
   creditsText = makeText('Credits +0', 16, THEME.currency, { fontWeight: 'bold' });
   tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
+  waveText = makeText('Wave 1', 16, THEME.text, { fontWeight: 'bold' });
+  killsText = makeText('Kills 0', 16, THEME.textDim, { fontWeight: 'bold' });
+  /** "WAVE N" banner (theme panel, no effects) shown for BANNER_TIME on each new wave. */
+  private banner = new Container();
+  private bannerTitle = makeText('WAVE 1', 30, THEME.text, { fontWeight: 'bold' });
+  private bannerSub = makeText('', 14, THEME.textDim, { fontWeight: 'bold' });
+  private bannerT = 0;
 
   /** Credits already shown as "+N" popups (whole credits), and the exact total they are measured against. */
   private shownCredits = 0;
@@ -71,7 +85,8 @@ export class FlyScreen implements Screen {
   private bgForced = forcedBackground();
 
   constructor(private screenManager: ScreenManager, grid: Grid) {
-    this.world = new World({ grid, safeStart: true });
+    // A new seed per run: the waves are deterministic for a seed (World.seed, shown by the debug hook).
+    this.world = new World({ grid, safeStart: true, seed: (Math.random() * 0x7fffffff) | 0 });
     debugHooks.world = this.world;
     
     this.fragPools.set('mitotic_rock', this.fragments);
@@ -114,7 +129,18 @@ export class FlyScreen implements Screen {
 
     this.creditsText.position.set(20, 36);
     this.tierText.position.set(20, 56);
-    this.uiLayer.addChild(this.creditsText, this.tierText);
+    this.waveText.position.set(20, 76);
+    this.killsText.position.set(20, 96);
+    this.uiLayer.addChild(this.creditsText, this.tierText, this.waveText, this.killsText);
+    const panel = new Graphics().rect(-BANNER_W / 2, -BANNER_H / 2, BANNER_W, BANNER_H).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
+    this.bannerTitle.anchor.set(0.5);
+    this.bannerTitle.position.set(0, -8);
+    this.bannerSub.anchor.set(0.5);
+    this.bannerSub.position.set(0, 22);
+    this.banner.addChild(panel, this.bannerTitle, this.bannerSub);
+    this.banner.position.set(CONFIG.VIEW.W / 2, BANNER_Y);
+    this.banner.visible = false;
+    this.uiLayer.addChild(this.banner);
 
     // Dev-only hook
     if (import.meta.env.DEV) {
@@ -127,7 +153,10 @@ export class FlyScreen implements Screen {
           projectiles: this.world.pool.count, recipes: this.world.recipes.length,
           damagePerShot: this.world.recipes.map(r => r.packet.damage),
           hull: this.world.hull, credits: this.world.credits, tier: this.world.tier, kills: this.world.kills, time: this.world.time,
-          hud: { credits: this.creditsText.text, tier: this.tierText.text },
+          hud: { credits: this.creditsText.text, tier: this.tierText.text, wave: this.waveText.text, kills: this.killsText.text },
+          wave: this.world.wave, waveTimeLeft: this.world.waveTimeLeft, seed: this.world.seed,
+          banner: this.banner.visible ? { title: this.bannerTitle.text, sub: this.bannerSub.text, alpha: this.banner.alpha } : null,
+          species: this.world.mitosis.enemies.map(e => e.defId),
           popups: this.dmgNums.filter(d => d.life > 0 && d.t.text.startsWith('+')).map(d => ({ text: d.t.text, alpha: d.t.alpha })),
           effects: { ...this.world.projSys.fx, ...this.world.gun.fx },
           arcs: Array.from(this.world.projSys.arcT).filter(t => t > 0).length,
@@ -150,7 +179,7 @@ export class FlyScreen implements Screen {
     o.enemies = w.mitosis.enemies.length;
     o.fx = fx;
     o.kills = w.kills;
-    o.extra = `tier ${w.tier}  spawn ${(1 / SPAWN_INTERVAL).toFixed(2)}/s  t ${w.time.toFixed(0)}s`;
+    o.extra = `wave ${w.wave}  tier ${w.tier}  t ${w.time.toFixed(0)}s`;
   }
 
   /** The fragment pool in a species' colours (its art def), made on first use. */
@@ -210,6 +239,21 @@ export class FlyScreen implements Screen {
     this.world.killEvents.length = 0;
     this.creditsText.text = `Credits +${fmtBig(this.world.credits)}`;
     this.tierText.text = `Tier ${this.world.tier}`;
+    this.waveText.text = `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
+    this.killsText.text = `Kills ${this.world.kills}`;
+    for (const ev of this.world.waveEvents) {
+      const kind = specialKind(ev.wave);
+      this.bannerTitle.text = `WAVE ${ev.wave}`;
+      this.bannerSub.text = [kind === 'swarm' ? 'SWARM' : kind === 'mothers' ? 'MOTHERS' : '', ev.bonus > 0 ? `+${fmtBig(ev.bonus)} credits` : ''].filter(Boolean).join('  ');
+      this.bannerSub.style.fill = ev.bonus > 0 ? THEME.currency : THEME.textDim;
+      this.bannerT = BANNER_TIME;
+    }
+    this.world.waveEvents.length = 0;
+    if (this.bannerT > 0) {
+      this.bannerT -= frameTime;
+      this.banner.visible = this.bannerT > 0;
+      this.banner.alpha = Math.min(1, Math.max(0, this.bannerT) / BANNER_FADE);
+    }
 
     // A rock splitting throws 2 to 4 fragments (the children already exist as normal rocks).
     for (const s of this.world.splits) this.fragPool(s.defId).emit(s.x, s.y, s.radius, s.parentId, enemyArt(s.defId));
