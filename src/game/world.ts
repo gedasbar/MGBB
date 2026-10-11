@@ -10,14 +10,17 @@ import { buildStarterGrid, ROCK_RADIUS } from './starter';
 import { leakDamage, rockHp, rockReward, tierOfTime } from '../econ/economy';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 import { fireRateMul } from '../data/hulls';
+import { SPECIES, speciesOf } from '../data/species';
+import { FREEFLY_REWARD_MUL, freeFlyRewardTier, waveBonus, waveHpMul } from '../data/waves';
+import { PlannedSpawn, WaveDirector } from './waves';
+import { SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC } from '../wall/constants';
+import type { MitosisEnemy } from '../engine/mitosis';
 
 export const TOUCH_OFFSET_Y = -40; // finger sits below the ship on touch
 export { PROJECTILE_SPEED, PX_PER_CELL };
 export const CONTACT_DAMAGE = 10;
 /** Rock fall speed (px/s). */
-export const ENEMY_SPEED = 40;
-/** Seconds between rock spawns. */
-export const SPAWN_INTERVAL = 2;
+export const ENEMY_SPEED = SPECIES.mitotic_rock.speed;
 /** A rock whose centre stays above the top edge this long is moved in at the edge. */
 export const ABOVE_SCREEN_MAX = 6;
 
@@ -25,7 +28,7 @@ export const ABOVE_SCREEN_MAX = 6;
 export interface HitEvent { enemyId: number; damage: number; x: number; y: number; kind: number }
 /** An enemy body died: `reward` is the credits it paid (fractional; the run keeps the exact total). */
 export interface KillEvent { x: number; y: number; reward: number; generation: number; }
-export interface SplitEvent { parentId: number; x: number; y: number; radius: number; childIds: number[]; }
+export interface SplitEvent { parentId: number; x: number; y: number; radius: number; childIds: number[]; defId: string; }
 
 /**
  * Pure game simulation (no Pixi). main.ts renders it; tests drive it directly.
@@ -75,15 +78,27 @@ export class World {
   /** Horizontal direction sign of each rock's sway, flipped when it touches a side. */
   private swayDir = new Map<number, number>();
   private pulseTimer = 0;
-  private spawnTimer = 0;
+  /** Waves (chunk 10a): the seeded director, the spawns due this frame, and the credits paid as wave bonuses. */
+  director: WaveDirector;
+  readonly seed: number;
+  private due: PlannedSpawn[] = [];
+  bonusCredits = 0;
+  /** Waves that started during the last update() calls (the screen shows a banner); consumers clear it. */
+  waveEvents: { wave: number; bonus: number }[] = [];
   private kicks = new Map<number, { vx: number; vy: number }>();
+  /** Per body: constant sideways speed (a Drifter's slide, a Darter's aim), signed; flipped with the sway at a side. */
+  private baseVx = new Map<number, number>();
+  /** Budders: seconds towards the next bud and buds made so far. */
+  private budState = new Map<number, { t: number; n: number }>();
 
   /** Events produced during the last update() calls; consumers clear them. */
   hits: HitEvent[] = [];
   splits: SplitEvent[] = [];
   killEvents: KillEvent[] = [];
 
-  constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean } = {}) {
+  constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean; seed?: number } = {}) {
+    this.seed = opts.seed ?? 1;
+    this.director = new WaveDirector(this.seed);
     const compiled = compile(opts.grid ?? buildStarterGrid());
     const hull = opts.grid ?? buildStarterGrid();
     this.recipes = compiled.recipes;
@@ -98,11 +113,18 @@ export class World {
     this.safeStart = !!opts.safeStart;
     this.projSys.onHit = (e, dmg, x, y, kind = 0) => {
       this.hits.push({ enemyId: e.id, damage: dmg, x, y, kind });
+      // A shield regenerates SHIELD_REGEN_DELAY after the last hit; a burn tick does not hold it back (as on the wall).
+      if (kind !== 1) (e as MitosisEnemy).lastHit = this.time;
     };
   }
 
   /** Tier of the run: starts at 1 and rises by one every 15 seconds of survival. */
   get tier(): number { return tierOfTime(this.time); }
+
+  /** Current wave (0 until the director has started the first one). */
+  get wave(): number { return this.director.wave; }
+  /** Seconds until the next wave. */
+  get waveTimeLeft(): number { return this.director.timeToNext(this.time); }
 
   /** Whole credits earned so far (the HUD number and the summary). */
   get credits(): number { return Math.floor(this.creditsExact + 1e-9); }
@@ -114,6 +136,9 @@ export class World {
     this.maxTier = 1;
     this.leaks = 0;
     this.killEvents.length = 0;
+    this.director = new WaveDirector(this.seed);
+    this.bonusCredits = 0;
+    this.waveEvents.length = 0;
     this.hull = this.maxHull;
     this.invuln = 0;
     this.knockX = 0;
@@ -130,16 +155,47 @@ export class World {
     this.controlT = this.safeStart ? 0 : Infinity;
     this.aboveT.clear();
     this.swayDir.clear();
+    this.baseVx.clear();
+    this.budState.clear();
     this.hits.length = 0;
     this.splits.length = 0;
   }
 
   /** Spawns a rock; x is clamped so it is born inside the screen width. */
   spawnRock(x: number, y: number, hp: number = rockHp(this.tier)) {
+    return this.spawnSpecies('mitotic_rock', x, y, { hp, radius: ROCK_RADIUS });
+  }
+
+  /**
+   * Spawns one body of a species (data/species.ts): HP from the tier unless given, x clamped inside the screen width.
+   * `generation` > 1 starts it part-way down its split chain (a Swarm's pebbles are generation-3 rocks).
+   */
+  spawnSpecies(defId: string, x: number, y: number, o: { hp?: number; radius?: number; generation?: number } = {}) {
+    const sp = speciesOf(defId);
+    const r = o.radius ?? sp.radius;
     const W = CONFIG.VIEW.W;
-    const e = this.mitosis.spawn('mitotic_rock', 1, hp, Math.max(ROCK_RADIUS, Math.min(W - ROCK_RADIUS, x)), y, ROCK_RADIUS);
-    if (e) e.tier = this.tier;
+    const e = this.mitosis.spawn(defId, o.generation ?? 1, o.hp ?? rockHp(this.tier) * sp.hpMul, Math.max(r, Math.min(W - r, x)), y, r);
+    if (e) { e.tier = this.tier; this.initMotion(e); }
     return e;
+  }
+
+  /** Per-body motion set once at birth: a Drifter's slide direction, a Darter's aim at the ship. */
+  private initMotion(e: MitosisEnemy) {
+    const sp = speciesOf(e.defId);
+    if (sp.zig) this.baseVx.set(e.id, e.id % 2 ? sp.zig : -sp.zig);
+    else if (sp.aim) {
+      const dy = Math.max(100, this.shipY - e.y);
+      this.baseVx.set(e.id, Math.max(-sp.aim, Math.min(sp.aim, ((this.shipX - e.x) * sp.speed) / dy)));
+    }
+    if (sp.bud) this.budState.set(e.id, { t: 0, n: 0 });
+  }
+
+  private forget(id: number) {
+    this.kicks.delete(id);
+    this.aboveT.delete(id);
+    this.swayDir.delete(id);
+    this.baseVx.delete(id);
+    this.budState.delete(id);
   }
 
   /** The player's first move: the ship starts easing to the pointer and is untouchable by enemies for GRACE_TIME. */
@@ -201,13 +257,20 @@ export class World {
       this.fire();
     }
 
-    // --- Spawning: above the top edge, inside the screen width, entering downward
+    // --- Waves: the director starts a wave every WAVE_TIME s and hands out its spawns, just above the top edge
     if (this.autoSpawn) {
-      this.spawnTimer += dt;
-      if (this.spawnTimer >= SPAWN_INTERVAL) {
-        this.spawnTimer = 0;
-        this.spawnRock(Math.random() * (VW - 40) + 20, -20);
+      const started = this.director.update(this.time, this.mitosis.enemies.length, this.due);
+      if (started) {
+        const bonus = waveBonus(started);
+        this.bonusCredits += bonus;
+        this.creditsExact += bonus;
+        this.waveEvents.push({ wave: started, bonus });
       }
+      const hpMul = waveHpMul(this.director.wave);
+      for (const s of this.due) {
+        this.spawnSpecies(s.defId, s.x, -s.radius, { hp: rockHp(this.tier) * s.hpMul * hpMul, radius: s.radius, generation: s.generation });
+      }
+      this.due.length = 0;
     }
 
     // --- Projectile movement (path modifiers steer first)
@@ -228,11 +291,22 @@ export class World {
     const spatial = new SpatialHash(VW, CONFIG.VIEW.H, 64);
     for (const e of enemies) { byId.set(e.id, e); spatial.insert(e.id, e.x, e.y); }
 
+    const budsDue: MitosisEnemy[] = [];
     for (const e of enemies) {
       // Frostbite slows the whole drift (1 when not frozen, so unfrozen rocks move exactly as before).
       const slow = (e.freezeT ?? 0) > 0 ? 1 - (e.freezeSlow ?? 0) : 1;
-      e.vy = ENEMY_SPEED * slow;
-      e.vx = Math.sin(this.time + e.id) * 30 * (this.swayDir.get(e.id) ?? 1) * slow;
+      // Species motion (the basic rock: ENEMY_SPEED down, a 30 px/s sine sway, no constant slide).
+      const sp = speciesOf(e.defId);
+      e.vy = sp.speed * slow;
+      e.vx = (Math.sin(this.time + e.id) * sp.sway + (this.baseVx.get(e.id) ?? 0)) * (this.swayDir.get(e.id) ?? 1) * slow;
+      if (sp.bud && e.y > 0) {
+        const b = this.budState.get(e.id);
+        if (b && b.n < sp.bud.max && (b.t += dt) >= sp.bud.every) { b.t = 0; b.n++; budsDue.push(e); }
+      }
+      // Shields recover after SHIELD_REGEN_DELAY without a hit (the wall's numbers).
+      if (e.maxShield > 0 && e.shield < e.maxShield && this.time - (e.lastHit ?? -Infinity) >= SHIELD_REGEN_DELAY) {
+        e.shield = Math.min(e.maxShield, e.shield + e.maxShield * SHIELD_REGEN_PER_SEC * dt);
+      }
       const kick = this.kicks.get(e.id);
       if (kick) {
         e.vx += kick.vx;
@@ -286,6 +360,17 @@ export class World {
       }
     }
 
+    // --- Budding: a Budder sheds a small rock below itself (it inherits the family tier)
+    for (const p of budsDue) {
+      const bud = speciesOf(p.defId).bud!;
+      const c = this.mitosis.spawn('mitotic_rock', bud.generation, p.maxHp * bud.hpShare, p.x, p.y + p.radius * 0.6, bud.radius);
+      if (!c) continue;
+      c.tier = p.tier;
+      c.x = Math.max(c.radius, Math.min(VW - c.radius, c.x));
+      this.initMotion(c);
+      this.kicks.set(c.id, { vx: (c.id % 2 ? 1 : -1) * 90, vy: 60 });
+    }
+
     // --- Burn ticks, freeze timers, arc lifetimes
     this.projSys.updateStatus(dt);
 
@@ -298,7 +383,7 @@ export class World {
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       if (e.hp <= 0) {
-        const reward = rockReward(e.tier, e.generation);
+        const reward = rockReward(freeFlyRewardTier(e.tier), e.generation) * speciesOf(e.defId).rewardMul * FREEFLY_REWARD_MUL;
         this.kills++;
         this.creditsExact += reward;
         this.killEvents.push({ x: e.x, y: e.y, reward, generation: e.generation });
@@ -311,20 +396,17 @@ export class World {
             c.x = Math.max(c.radius, Math.min(VW - c.radius, c.x));
             const ang = Math.atan2(c.y - e.y, c.x - e.x) || 0;
             this.kicks.set(c.id, { vx: Math.cos(ang) * 160, vy: Math.sin(ang) * 160 });
+            this.initMotion(c);
           }
         }
-        this.kicks.delete(e.id);
-        this.aboveT.delete(e.id);
-        this.swayDir.delete(e.id);
-        this.splits.push({ parentId: e.id, x: e.x, y: e.y, radius: e.radius, childIds });
+        this.forget(e.id);
+        this.splits.push({ parentId: e.id, x: e.x, y: e.y, radius: e.radius, childIds, defId: e.defId });
       } else if (e.y >= CONFIG.VIEW.H) {
         // Leak: the rock reached the bottom edge. It is removed and hurts the hull by its size.
         enemies.splice(i, 1);
-        this.kicks.delete(e.id);
-        this.aboveT.delete(e.id);
-        this.swayDir.delete(e.id);
+        this.forget(e.id);
         this.leaks++;
-        this.hull -= leakDamage(this.maxHull, e.generation);
+        this.hull -= leakDamage(this.maxHull, e.generation) * speciesOf(e.defId).leakMul;
         if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
       }
     }

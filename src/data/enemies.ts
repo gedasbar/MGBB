@@ -6,6 +6,10 @@ export interface SplitRule {
   childDefId: string;
   hpShare: number;
   shape: 'binary' | 'triple' | 'radial' | 'bud' | 'cluster';
+  /** Radius of each child in px (absent: the old size mapping, 12 for an 'S' child, else 15). */
+  childRadius?: number;
+  /** A body of this generation or later no longer splits (absent: CONFIG.MITOSIS.MAX_GENERATION). */
+  maxGeneration?: number;
 }
 
 export interface EnemyDef {
@@ -23,6 +27,8 @@ export interface EnemyDef {
   reward: number;
   contactDamage: number;
   palette: [string, string, string];
+  /** Shield pool as a share of the body's HP at spawn (the wall's model: a pool absorbed before HP). */
+  shieldOfHp?: number;
 }
 
 export const ENEMIES: Record<string, EnemyDef> = {
@@ -124,5 +130,46 @@ export const ENEMIES: Record<string, EnemyDef> = {
       trigger: 'onHitThreshold', children: 2, childDefId: 'magma_slug', hpShare: 0.4, shape: 'binary'
     },
     traits: ['fire'], reward: 3, contactDamage: 30, palette: ['#ff4400', '#aa2200', '#551100']
-  }
+  },
+
+  // ---- Free Fly roster (chunk 10a). Movement, rewards and wave data live in data/species.ts; this is the split side.
+  darter: {
+    id: 'darter', name: 'Darter', tierMin: 1, weight: 0, size: 'XS', hpMul: 0.35, armorMul: 0, shieldMul: 0,
+    move: 'seek', traits: ['fast'], reward: 1, contactDamage: 10, palette: ['#d99a6c', '#a8664a', '#6b3d2a'],
+  },
+  drifter: {
+    id: 'drifter', name: 'Drifter', tierMin: 1, weight: 0, size: 'M', hpMul: 0.8, armorMul: 0, shieldMul: 0,
+    move: 'sine',
+    split: { trigger: 'onDeath', children: 2, childDefId: 'drifter', hpShare: 0.55, shape: 'binary', childRadius: 13, maxGeneration: 2 },
+    traits: [], reward: 1, contactDamage: 10, palette: ['#c9b47a', '#97834f', '#5f5233'],
+  },
+  mother: {
+    id: 'mother', name: 'Mother', tierMin: 1, weight: 0, size: 'XL', hpMul: 3, armorMul: 0, shieldMul: 0,
+    move: 'drift',
+    split: { trigger: 'onDeath', children: 3, childDefId: 'brood', hpShare: 0.4, shape: 'triple', childRadius: 20 },
+    traits: [], reward: 1, contactDamage: 10, palette: ['#c99a84', '#966a5b', '#5e4038'],
+  },
+  brood: {
+    id: 'brood', name: 'Brood', tierMin: 1, weight: 0, size: 'M', hpMul: 1.2, armorMul: 0, shieldMul: 0,
+    move: 'drift',
+    split: { trigger: 'onDeath', children: 2, childDefId: 'brood', hpShare: 0.5, shape: 'binary', childRadius: 13, maxGeneration: 3 },
+    traits: [], reward: 1, contactDamage: 10, palette: ['#d3a892', '#a07565', '#664840'],
+  },
+  ironclad: {
+    id: 'ironclad', name: 'Ironclad', tierMin: 1, weight: 0, size: 'M', hpMul: 1.2, armorMul: 1, shieldMul: 0,
+    move: 'drift',
+    // The armored shell cracks into two plain (unarmored) rocks that go on splitting as rocks.
+    split: { trigger: 'onDeath', children: 2, childDefId: 'mitotic_rock', hpShare: 0.55, shape: 'binary', childRadius: 15 },
+    traits: [], reward: 1, contactDamage: 10, palette: ['#b8a48c', '#86745f', '#54483b'],
+  },
+  warden: {
+    id: 'warden', name: 'Warden', tierMin: 1, weight: 0, size: 'M', hpMul: 1, armorMul: 0, shieldMul: 0, shieldOfHp: 0.5,
+    move: 'drift',
+    split: { trigger: 'onDeath', children: 2, childDefId: 'warden', hpShare: 0.55, shape: 'binary', childRadius: 15, maxGeneration: 2 },
+    traits: [], reward: 1, contactDamage: 10, palette: ['#cdb894', '#9b8663', '#615339'],
+  },
+  budder: {
+    id: 'budder', name: 'Budder', tierMin: 1, weight: 0, size: 'L', hpMul: 1.5, armorMul: 0, shieldMul: 0,
+    move: 'drift', traits: ['buds'], reward: 1, contactDamage: 10, palette: ['#d1a860', '#9e7a3c', '#634b24'],
+  },
 };

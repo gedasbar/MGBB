@@ -1,0 +1,26 @@
+== budget dips every 4th wave  (src/data/waves.ts: 'BUDGET_BASE + BUDGET_STEP * (Math.max(1, wave) - 1)' -> 'BUDGET_BASE + BUDGET_STEP * (Math.max(1, wave) - 1) - (wave % 4 === 0 ? 4 : 0)')
+   × Free Fly wave director > the spawn budget never decreases between waves, and each wave spends it
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 30 passed (31)
+== split rule maxGeneration ignored  (src/engine/mitosis.ts: 'Math.min(CONFIG.MITOSIS.MAX_GENERATION, rule.maxGeneration ?? Infinity)' -> 'CONFIG.MITOSIS.MAX_GENERATION')
+   × Free Fly species: split rules > Drifter splits once into 2 smaller Drifters
+   × Free Fly species: split rules > Mother splits into 3 Brood, each of which splits once more into 2
+   × Free Fly species: split rules > Warden has a shield of half its HP; it splits once into 2 Wardens with their own shields
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 28 passed (31)
+== shield regenerates without the 2 s delay  (src/game/world.ts: 'this.time - (e.lastHit ?? -Infinity) >= SHIELD_REGEN_DELAY' -> 'true')
+   × Free Fly species: armor and shield work with the existing blocks > a Warden shield regenerates 2 s after the last hit, at 25% a second
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 30 passed (31)
+== species unlock one wave early  (src/game/waves.ts: 'ROSTER.filter(s => s.firstWave <= wave)' -> 'ROSTER.filter(s => s.firstWave <= wave + 1)')
+   × Free Fly wave director > species unlock in order: Rock 1, Darter 2, Drifter 3, Mother 4, Ironclad 6, Warden 7, Budder 8, each first in its first wave
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 30 passed (31)
+== spawn x from Math.random (not seeded)  (src/game/waves.ts: 'return lo + rnd.next() * (hi - lo);' -> 'return lo + Math.random() * (hi - lo);')
+   × Free Fly wave director > is deterministic for a seed: same waves, same spawns, same run; another seed differs
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 30 passed (31)
+== bestWave not loaded  (src/econ/progress.ts: 'bestWave: int(r.bestWave, 0, 1e9, 0),' -> 'bestWave: 0,')
+   × Free Fly records (save v5) > a v4 save loads with everything kept and bestWave 0; v5 round-trips bestWave
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 30 passed (31)

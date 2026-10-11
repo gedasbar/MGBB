@@ -7,7 +7,7 @@ import { place, buildStarterGrid } from '../src/game/starter';
 import { ART_H, ART_W, SHIP_ART, clearShipTextureCache, getShipTexture } from '../src/ui/shipArt';
 import { CONFIG, HIT_RADIUS } from '../src/config';
 import { SHIP_HIT_R } from '../src/wall/constants';
-import { defaultProgress, loadProgress, ProgressStore } from '../src/econ/progress';
+import { defaultProgress, loadProgress, ProgressStore, PROGRESS_VERSION } from '../src/econ/progress';
 import { BuilderModel } from '../src/builder/model';
 import { loadBuilder, STORAGE_KEY } from '../src/builder/persist';
 import { World } from '../src/game/world';
@@ -109,7 +109,7 @@ describe('saves and the Dart', () => {
   it('an old save keeps its hulls, gains the Dart, and keeps building on its selected hull', () => {
     const old = { version: 3, credits: 77, owned: { turn_l: 2 }, levels: {}, ownedHulls: ['shuttle', 'fan'], bestTier: 2, bestTime: 30, totalKills: 5, runs: 2, passedTiers: [1], clearedTiers: [] };
     const p = loadProgress(JSON.stringify(old));
-    expect(p.version).toBe(4);
+    expect(p.version).toBe(PROGRESS_VERSION);
     expect(p.ownedHulls.sort()).toEqual(['dart', 'fan', 'shuttle']);
     expect(p.credits).toBe(77);
     expect(p.passedTiers).toEqual([1]);
