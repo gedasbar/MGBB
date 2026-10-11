@@ -1,42 +1,30 @@
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CONFIG } from '../config';
 import { CATEGORY_COLOR } from '../builder/draw';
-import { THEME } from './theme';
 
 /**
  * Ship art: code-drawn, flat, static. A ship is data (`ShipArtDef`): nested sharp polygons in a unit box (x right, y down,
- * the nose at the top, (0.5, 0.5) the ship centre), the same language as the block plates (outer grey, mid = accent
- * darkened, inner dark), plus a small accent engine bar at the back. Adding a ship is adding a def.
+ * the nose at the top, (0.5, 0.5) the ship centre), the same language as the block plates (light grey edge, mid and dark
+ * greys, dark core), plus two small accent-coloured pieces (engine bar, cockpit square). Adding a ship is adding a def.
  */
 export type Pt = [number, number];
-export type LayerRole = 'outer' | 'mid' | 'inner';
+export type LayerRole = 'outer' | 'mid' | 'inner' | 'core';
 
 export interface ShipLayer { points: Pt[]; role: LayerRole }
 
 export interface ShipArtDef {
   id: string;
   layers: ShipLayer[];
-  /** Accent colour (a block category colour): the mid layers and the engine bar. */
+  /** Accent colour of the hull: only the engine bar and the cockpit square use it. */
   accent: number;
   /** Engine bar [x0, x1, y0, y1] in the unit box; default a centred bar at the back. */
   engine?: [number, number, number, number];
   /** Where the nose is in the unit box (y); kept for callers that want to place a muzzle on the art. */
   muzzleY?: number;
-  /** Height multiplier: 1 draws the unit box ART_PX tall. */
+  /** Size multiplier: 1 draws the unit box ART_W x ART_H. */
   size: number;
 }
 
-/** Height of a size-1 ship in px at the 540 px wide viewport. */
-export const ART_PX = 44;
-const INNER_FILL = THEME.plateFace;
-
-const mid = (c: number) => darken(c, 0.5);
-function darken(c: number, k: number): number {
-  const r = Math.round(((c >> 16) & 255) * k);
-  const g = Math.round(((c >> 8) & 255) * k);
-  const b = Math.round((c & 255) * k);
-  return (r << 16) | (g << 8) | b;
-}
 
 /** Shrinks a polygon toward its centroid (used to nest the mid and inner layers inside the outer one). */
 function inset(points: Pt[], k: number): Pt[] {
@@ -45,12 +33,13 @@ function inset(points: Pt[], k: number): Pt[] {
   return points.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k] as Pt);
 }
 
-/** outer + a 0.72 mid + a 0.42 inner for every silhouette piece. */
+/** Four nested copies of every silhouette piece: light edge, mid grey, dark grey, dark core. */
 function nest(...pieces: Pt[][]): ShipLayer[] {
   const out: ShipLayer[] = [];
   for (const p of pieces) out.push({ points: p, role: 'outer' });
-  for (const p of pieces) out.push({ points: inset(p, 0.72), role: 'mid' });
-  for (const p of pieces) out.push({ points: inset(p, 0.4), role: 'inner' });
+  for (const p of pieces) out.push({ points: inset(p, 0.8), role: 'mid' });
+  for (const p of pieces) out.push({ points: inset(p, 0.6), role: 'inner' });
+  for (const p of pieces) out.push({ points: inset(p, 0.32), role: 'core' });
   return out;
 }
 
@@ -95,19 +84,31 @@ export const SHIP_ART: Record<string, ShipArtDef> = {
   },
 };
 
-/** Greys of the art: muted on purpose so the bright green hit dot is what reads as "can die". */
-const OUTER = THEME.plateOuter;
+/** Grey ramp of the ships (same family as the block plates): light edge, mid greys, dark core; colour only in small pieces. */
+export const SHIP_EDGE = 0xd4d4d8;
+export const SHIP_MID = 0x8a8a90;
+export const SHIP_DARK = 0x55555a;
+export const SHIP_CORE = 0x26262a;
+const ROLE_FILL: Record<LayerRole, number> = { outer: SHIP_EDGE, mid: SHIP_MID, inner: SHIP_DARK, core: SHIP_CORE };
 
-/** Draws a ship into a Graphics at origin (top-left of its box); `px` is the box edge in px. */
-export function drawShipArt(g: Graphics, def: ShipArtDef, px: number): Graphics {
-  const k = px * def.size;
-  g.rect(0, 0, k, k).fill({ color: 0x000000, alpha: 0 });   // keeps the texture's bounds equal to the unit box, so the art centres on the dot
+/** Visible size of every ship in px at the 540 px wide viewport (the unit box is stretched to this). */
+export const ART_W = 26;
+export const ART_H = 34;
+/** Texture resolution (the sheets zoom the ships 3x). */
+const TEX_RES = 4;
+
+/** Draws a ship into a Graphics at origin (top-left of its box); `w` x `h` is the box in px. */
+export function drawShipArt(g: Graphics, def: ShipArtDef, w = ART_W, h = ART_H): Graphics {
+  const kx = w * def.size;
+  const ky = h * def.size;
+  g.rect(0, 0, kx, ky).fill({ color: 0x000000, alpha: 0 });   // keeps the texture's bounds equal to the unit box, so the art centres on the ship
   for (const layer of def.layers) {
-    const fill = layer.role === 'outer' ? OUTER : layer.role === 'mid' ? mid(def.accent) : INNER_FILL;
-    g.poly(layer.points.flatMap(([x, y]) => [x * k, y * k])).fill(fill);
+    g.poly(layer.points.flatMap(([x, y]) => [x * kx, y * ky])).fill(ROLE_FILL[layer.role]);
   }
+  // Two small coloured pieces: the engine bar at the back and a cockpit square in the core.
   const e = def.engine ?? [0.42, 0.58, 0.92, 0.98];
-  g.rect(e[0] * k, e[2] * k, (e[1] - e[0]) * k, (e[3] - e[2]) * k).fill(def.accent);
+  g.rect(e[0] * kx, e[2] * ky, (e[1] - e[0]) * kx, (e[3] - e[2]) * ky).fill(def.accent);
+  g.rect(0.44 * kx, 0.4 * ky, 0.12 * kx, 0.12 * ky).fill(def.accent);
   return g;
 }
 
@@ -116,16 +117,15 @@ export interface TextureMaker { generateTexture(options: { target: Graphics; res
 
 const cache = new Map<string, Texture>();
 
-/** One texture per ship id and size, drawn once and reused. */
-export function getShipTexture(renderer: TextureMaker, id: string, px = ART_PX): Texture {
-  const key = `${id}:${px}`;
-  let t = cache.get(key);
+/** One texture per ship id, drawn once and reused. */
+export function getShipTexture(renderer: TextureMaker, id: string): Texture {
+  let t = cache.get(id);
   if (!t) {
     const def = SHIP_ART[id] ?? SHIP_ART.dart;
-    const g = drawShipArt(new Graphics(), def, px);
-    t = renderer.generateTexture({ target: g, resolution: 2 });
+    const g = drawShipArt(new Graphics(), def);
+    t = renderer.generateTexture({ target: g, resolution: TEX_RES });
     g.destroy();
-    cache.set(key, t);
+    cache.set(id, t);
   }
   return t;
 }
@@ -133,46 +133,41 @@ export function getShipTexture(renderer: TextureMaker, id: string, px = ART_PX):
 /** For tests: forget cached textures. */
 export function clearShipTextureCache() { cache.clear(); }
 
-/** A small sprite of a ship's art (Shop cards, the Build hull list), centred on (0,0) and `px` tall. */
+/** A small sprite of a ship's art (Shop cards, the Build hull list), centred on (0,0), `px` tall, aspect kept. */
 export function shipThumbnail(renderer: TextureMaker, id: string, px: number): Sprite {
   const s = new Sprite(getShipTexture(renderer, id));
   s.anchor.set(0.5);
-  s.width = px;
   s.height = px;
+  s.width = px * (ART_W / ART_H);
   return s;
 }
 
-/** Muzzle ticks and the hit dot sit on top of the art. */
+/** A muzzle tick sits where an ejector's shots leave. */
 export interface MuzzleSpot { x: number; y: number; dir: 'N' | 'E' | 'S' | 'W' }
 
 /**
- * A ship in the Fly screens: the cached art (muted greys) behind, a small tick at every ejector's firing position and the
- * bright green hit dot with a thin ring on top (the dot is the real hit point). Built once; only position and alpha move.
+ * A ship in the Fly screens: the cached art and a small light-grey notch at every ejector's firing position. There is no
+ * dot: the hit point is an invisible circle at the ship centre (HIT_RADIUS), so touching any part of the art reads as death.
  */
 export class ShipView {
   readonly container = new Container();
   private art: Sprite;
   private ticks = new Graphics();
-  private dot: Graphics;
 
-  constructor(renderer: TextureMaker, hullId: string, muzzles: MuzzleSpot[], hitR: number = CONFIG.PLAYER.HITBOX_R) {
-    const px = ART_PX * (CONFIG.VIEW.W / 540);
+  constructor(renderer: TextureMaker, hullId: string, muzzles: MuzzleSpot[]) {
+    const k = CONFIG.VIEW.W / 540;
     const def = SHIP_ART[hullId] ?? SHIP_ART.dart;
-    this.art = new Sprite(getShipTexture(renderer, hullId, px));
+    this.art = new Sprite(getShipTexture(renderer, hullId));
     this.art.anchor.set(0.5);
-    this.art.width = px * def.size;
-    this.art.height = px * def.size;
+    this.art.width = ART_W * def.size * k;
+    this.art.height = ART_H * def.size * k;
     for (const m of muzzles) {
       const along = m.dir === 'E' || m.dir === 'W';
-      const w = along ? 4 : 2;
-      const h = along ? 2 : 4;
-      // Nudged off the dead centre so the middle pixel of the dot stays bright green.
-      const oy = m.dir === 'N' || m.dir === 'S' ? (m.y <= 0 ? -1.5 : 1.5) : 0;
-      this.ticks.rect(m.x - w / 2, m.y + oy - h / 2, w, h).fill(0x101012);
+      const w = along ? 3 : 1.5;
+      const h = along ? 1.5 : 3;
+      this.ticks.rect(m.x - w / 2, m.y - h / 2, w, h).fill(SHIP_EDGE);
     }
-    this.dot = new Graphics().circle(0, 0, hitR + 3).stroke({ color: 0x00ff00, width: 1.5, alpha: 0.9 }).circle(0, 0, hitR).fill(0x00ff00);
-    // The ejectors sit a few px from the centre (inside the dot), so the ticks are drawn over it.
-    this.container.addChild(this.art, this.dot, this.ticks);
+    this.container.addChild(this.art, this.ticks);
   }
 
   setPosition(x: number, y: number) { this.container.position.set(x, y); }

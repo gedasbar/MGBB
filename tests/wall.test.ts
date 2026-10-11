@@ -220,12 +220,12 @@ describe('Crash, pass, clear', () => {
     const mk = () => { const w = world(level(1, (_r, c) => (c === 5 ? plain() : null))); w.setWallOffset(300); return w; };
     const right = 6 * CELL; // x where column 5 ends
     const a = mk();
-    a.update(1 / 60, { x: right + 8, y: 300 - 27 });
+    a.update(1 / 60, { x: right + 9, y: 300 - 27 });
     expect(a.state).toBe('playing');
     const b = mk();
-    b.update(1 / 60, { x: right + 6, y: 300 - 27 });
+    b.update(1 / 60, { x: right + 7, y: 300 - 27 });
     expect(b.state).toBe('crashed');
-    expect(SHIP_HIT_R).toBe(7);
+    expect(SHIP_HIT_R).toBe(8);
   });
 
   it('a block that is damaged but alive still kills; a wall scrolling onto the ship crashes it', () => {
