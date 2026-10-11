@@ -1,5 +1,6 @@
 import { CONFIG } from '../config';
 import { ENEMIES, SplitRule } from '../data/enemies';
+import { wrapX } from './wrap';
 
 export interface MitosisEnemy {
   id: number;
@@ -18,11 +19,16 @@ export interface MitosisEnemy {
   cauterizedTimer: number;
   /** Run tier the family was spawned at; children inherit it. Sets HP and reward. */
   tier: number;
+  /** Free Fly leash: seconds spent beyond 1.2 / 1.5 viewport widths from the ship (see game/leash.ts). */
+  farT: number;
+  farT2: number;
 }
 
 export class MitosisSystem {
   enemies: MitosisEnemy[] = [];
   nextId: number = 1;
+  /** Free Fly: width of the cylinder world, so spawned x is folded into it; 0 keeps plain x. */
+  wrapW = 0;
 
   spawn(defId: string, generation: number, hp: number, x: number, y: number, radius: number): MitosisEnemy | null {
     if (this.enemies.length >= CONFIG.CAPS.ENEMIES) return null;
@@ -39,13 +45,15 @@ export class MitosisSystem {
       armor: (def as any).armorMul ? 10 * (def as any).armorMul : 0,
       shield: (def as any).shieldMul ? 10 * (def as any).shieldMul : 0,
       maxShield: (def as any).shieldMul ? 10 * (def as any).shieldMul : 0,
-      x,
+      x: this.wrapW > 0 ? wrapX(x, this.wrapW) : x,
       y,
       vx: 0,
       vy: 0,
       radius,
       cauterizedTimer: 0,
-      tier: 1
+      tier: 1,
+      farT: 0,
+      farT2: 0,
     };
 
     this.enemies.push(enemy);
