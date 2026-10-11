@@ -241,6 +241,7 @@ export class WallScreen implements Screen {
       if (p.type === 'touch') { if (p.active) target = { x: p.x + this.camera.x, y: p.y + TOUCH_OFFSET_Y }; }
       else target = { x: p.x + this.camera.x, y: p.y };
     }
+    w.god = debugHooks.god;
     w.update(dt, target);
     // The background scrolls with the real wall speed (top-edge boost included); on a ring also sideways with the camera.
     if (this.bg) this.bg.update(frameTime, scrollSpeed(w.level.approachSpeed, w.shipY), w.ring ? this.camera.x : 0);

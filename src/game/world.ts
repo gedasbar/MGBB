@@ -11,7 +11,7 @@ import { leakDamage, rockHp, rockReward, tierOfTime } from '../econ/economy';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 import { fireRateMul } from '../data/hulls';
 import { SPECIES, speciesOf } from '../data/species';
-import { FREEFLY_REWARD_MUL, freeFlyRewardTier, waveBonus, waveHpMul } from '../data/waves';
+import { FREEFLY_REWARD_MUL, freeFlyRewardTier, waveBonus, waveHpMul, WAVE_TIME } from '../data/waves';
 import { PlannedSpawn, WaveDirector } from './waves';
 import { SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC } from '../wall/constants';
 import type { MitosisEnemy } from '../engine/mitosis';
@@ -96,9 +96,16 @@ export class World {
   splits: SplitEvent[] = [];
   killEvents: KillEvent[] = [];
 
-  constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean; seed?: number } = {}) {
+  /** Dev cheat (debugHooks.god): contact and leaks do no damage. */
+  god = false;
+  /** Dev cheat: the run starts at this wave (run time and tier follow it); 1 = normal. */
+  private startWave: number;
+
+  constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean; seed?: number; startWave?: number } = {}) {
     this.seed = opts.seed ?? 1;
     this.director = new WaveDirector(this.seed);
+    this.startWave = Math.max(1, Math.floor(opts.startWave ?? 1));
+    this.applyStartWave();
     const compiled = compile(opts.grid ?? buildStarterGrid());
     const hull = opts.grid ?? buildStarterGrid();
     this.recipes = compiled.recipes;
@@ -121,6 +128,17 @@ export class World {
   /** Tier of the run: starts at 1 and rises by one every 15 seconds of survival. */
   get tier(): number { return tierOfTime(this.time); }
 
+  private applyStartWave() {
+    this.time = (this.startWave - 1) * WAVE_TIME;
+    this.director.jumpTo(this.startWave);
+  }
+
+  /** Dev cheat: removes every enemy at once (no credits, no split). */
+  clearEnemies() {
+    this.mitosis.enemies.length = 0;
+    this.kicks.clear(); this.aboveT.clear(); this.swayDir.clear(); this.baseVx.clear(); this.budState.clear();
+  }
+
   /** Current wave (0 until the director has started the first one). */
   get wave(): number { return this.director.wave; }
   /** Seconds until the next wave. */
@@ -130,13 +148,13 @@ export class World {
   get credits(): number { return Math.floor(this.creditsExact + 1e-9); }
 
   reset() {
-    this.time = 0;
     this.kills = 0;
     this.creditsExact = 0;
     this.maxTier = 1;
     this.leaks = 0;
     this.killEvents.length = 0;
     this.director = new WaveDirector(this.seed);
+    this.applyStartWave();
     this.bonusCredits = 0;
     this.waveEvents.length = 0;
     this.hull = this.maxHull;
@@ -351,7 +369,7 @@ export class World {
       const sx = this.shipX - e.x;
       const sy = this.shipY - e.y;
       const d = Math.sqrt(sx * sx + sy * sy) || 1;
-      if (d < e.radius + CONFIG.PLAYER.HITBOX_R && this.invuln <= 0) {
+      if (d < e.radius + CONFIG.PLAYER.HITBOX_R && this.invuln <= 0 && !this.god) {
         this.hull -= CONTACT_DAMAGE;
         this.invuln = 0.5;
         this.knockX += (sx / d) * 50;
@@ -406,8 +424,10 @@ export class World {
         enemies.splice(i, 1);
         this.forget(e.id);
         this.leaks++;
-        this.hull -= leakDamage(this.maxHull, e.generation) * speciesOf(e.defId).leakMul;
-        if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
+        if (!this.god) {
+          this.hull -= leakDamage(this.maxHull, e.generation) * speciesOf(e.defId).leakMul;
+          if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
+        }
       }
     }
   }

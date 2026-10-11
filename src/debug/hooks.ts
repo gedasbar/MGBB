@@ -13,4 +13,9 @@ export const debugHooks: {
   timeScale: number;
   /** Starts a test wall with the current circuit. Set by main.ts. */
   startWall: ((o: DebugWallOpts) => void) | null;
-} = { world: null, wall: null, timeScale: 1, startWall: null };
+  /** Dev only (cheat panel, set by main.ts): Free Fly from wave N, and a real campaign tier whether or not it is unlocked. */
+  startFly: ((wave: number) => void) | null;
+  startTier: ((tier: number) => void) | null;
+  /** Dev only: no hull damage in Free Fly and no crash in a wall. The screens copy it into their world every frame. */
+  god: boolean;
+} = { world: null, wall: null, timeScale: 1, startWall: null, startFly: null, startTier: null, god: false };

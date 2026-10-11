@@ -8,6 +8,8 @@ import { BuildScreen } from './screens/BuildScreen';
 import { DebugPanel } from './debug/panel';
 import { debugHooks } from './debug/hooks';
 import { WallScreen } from './screens/WallScreen';
+import { FlyScreen } from './screens/FlyScreen';
+import { generateLevel } from './wall/generator';
 import { getBuilderModel } from './builder/session';
 import { buildStarterGrid } from './game/starter';
 import { makeTestWall } from './wall/level';
@@ -55,6 +57,19 @@ import { makeTestWall } from './wall/level';
     const level = makeTestWall({ tier: o.tier, rows: o.rows ?? 8, armorFraction: o.armorFraction, shieldFraction: o.shieldFraction, gaps: 6 });
     screenManager.switchTo(new WallScreen(screenManager, level, grid));
   };
+  if (import.meta.env.DEV) {
+    // Cheat panel hooks: Free Fly from a given wave, and any campaign tier whether or not it is unlocked.
+    debugHooks.startFly = (wave) => {
+      const model = getBuilderModel();
+      const grid = model.compiled.recipes.length > 0 ? model.gridForFlight() : buildStarterGrid();
+      screenManager.switchTo(new FlyScreen(screenManager, grid, { startWave: wave }));
+    };
+    debugHooks.startTier = (tier) => {
+      const model = getBuilderModel();
+      const grid = model.compiled.recipes.length > 0 ? model.gridForFlight() : buildStarterGrid();
+      screenManager.switchTo(new WallScreen(screenManager, generateLevel(tier), grid));
+    };
+  }
   new DebugPanel().init();
   screenManager.switchTo(new BuildScreen(screenManager));
 
