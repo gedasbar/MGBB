@@ -11,7 +11,10 @@ const fs = require('fs');
 
 // The stats overlay is on by default in dev; screenshots and pixel checks want it off unless a script asks (stats=1 in GAME_URL).
 const BASE_URL = process.env.GAME_URL || 'http://localhost:5173';
-const URL = /[?&]stats=/.test(BASE_URL) ? BASE_URL : BASE_URL + (BASE_URL.includes('?') ? '&' : '?') + 'stats=0';
+// Backgrounds are off for the same reason (the headless software renderer pays for every full-screen layer): bg=<id> in GAME_URL
+// turns one on. Pixel checks and timings of the older scripts see the plain dark screen as before.
+const withParam = (u, k, v) => (new RegExp(`[?&]${k}=`).test(u) ? u : u + (u.includes('?') ? '&' : '?') + `${k}=${v}`);
+const URL = withParam(withParam(BASE_URL, 'stats', 0), 'bg', 'off');
 const OUT = path.join(__dirname, 'screenshots');
 fs.mkdirSync(OUT, { recursive: true });
 

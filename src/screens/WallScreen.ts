@@ -114,7 +114,7 @@ export class WallScreen implements Screen {
     if (typeof window !== 'undefined' && window.location.search.includes('debug=1')) {
       this.seamLine = new Graphics().rect(-1, 0, 2, VIEW_H).fill({ color: 0xff3366, alpha: 0.3 });
       this.seamLine.visible = false;
-      this.container.addChildAt(this.seamLine, 0);
+      this.container.addChildAt(this.seamLine, this.bg ? 1 : 0);
     }
 
     // Enough views for every cell that can be on screen at once (11 partial columns x 19 partial rows, with slack).
