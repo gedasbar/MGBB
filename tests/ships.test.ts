@@ -4,7 +4,9 @@ import { compile } from '../src/engine/compiler';
 import { HULL_ORDER, STARTER_HULL, fireRateMul } from '../src/data/hulls';
 import { buildDartGrid, buildProngGrid, HULL_BUILDERS, HULL_INFO } from '../src/game/gridUtils';
 import { place, buildStarterGrid } from '../src/game/starter';
-import { SHIP_ART, clearShipTextureCache, getShipTexture } from '../src/ui/shipArt';
+import { ART_H, ART_W, SHIP_ART, clearShipTextureCache, getShipTexture } from '../src/ui/shipArt';
+import { CONFIG, HIT_RADIUS } from '../src/config';
+import { SHIP_HIT_R } from '../src/wall/constants';
 import { defaultProgress, loadProgress, ProgressStore } from '../src/econ/progress';
 import { BuilderModel } from '../src/builder/model';
 import { loadBuilder, STORAGE_KEY } from '../src/builder/persist';
@@ -36,6 +38,16 @@ describe('ship art', () => {
     expect(b).toBe(a);
     expect(c).not.toBe(a);
     expect(made).toBe(2);
+  });
+});
+
+describe('ship size and hit point', () => {
+  it('the ship is about 26 x 34 px and the invisible hit circle is HIT_RADIUS = 8 everywhere', () => {
+    expect([ART_W, ART_H]).toEqual([26, 34]);
+    expect(HIT_RADIUS).toBe(8);
+    expect(CONFIG.PLAYER.HITBOX_R).toBe(HIT_RADIUS);
+    expect(SHIP_HIT_R).toBe(HIT_RADIUS);
+    for (const def of Object.values(SHIP_ART)) expect(def.size).toBe(1);
   });
 });
 

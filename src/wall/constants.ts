@@ -1,4 +1,4 @@
-import { CONFIG } from '../config';
+import { CONFIG, HIT_RADIUS } from '../config';
 
 /** Columns of every wall and how many of them fit on screen. */
 export const WALL_COLS = 21;
@@ -20,7 +20,7 @@ export const TOP_ZONE = 0.35;
 export const BOOST_MAX = 4;
 
 /** The ship's hit point (a crash happens when it touches a live block). */
-export const SHIP_HIT_R = 7;
+export const SHIP_HIT_R = HIT_RADIUS;
 /** The ship passes a wall once it is this many cells beyond the last row. Nothing is drawn for it (it was 1.5 and a drawn line). */
 export const PASS_MARGIN_CELLS = 8;
 /** Where the ship starts, and the nearest the first block row may start to it. */

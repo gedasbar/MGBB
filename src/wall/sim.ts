@@ -1,6 +1,7 @@
 import { CONFIG } from '../config';
 import { Grid } from '../engine/compiler';
-import { CELL, SHIP_HIT_R, VIEW_H, WALL_COLS } from './constants';
+import { wrapDx, wrapX } from '../engine/wrap';
+import { CELL, SHIP_HIT_R, VIEW_H } from './constants';
 import { LevelDef } from './level';
 import { ShipTarget, WallState, WallWorld } from './wallWorld';
 
@@ -42,6 +43,11 @@ const dotXFor = (w: WallWorld, col: number) => col * CELL + CELL / 2 - (w.spawnO
 
 const MAX_SPEED = 700; // px/s the pilot can move the ship, both axes
 const move = (cur: number, target: number, dt: number) => cur + Math.max(-MAX_SPEED * dt, Math.min(MAX_SPEED * dt, target - cur));
+/** Sideways move along the shortest way (round the ring when the wall is one). */
+const moveX = (w: WallWorld, cur: number, target: number, dt: number) => {
+  const d = Math.max(-MAX_SPEED * dt, Math.min(MAX_SPEED * dt, w.ring ? wrapDx(target, cur, w.worldW) : target - cur));
+  return w.ring ? wrapX(cur + d, w.worldW) : cur + d;
+};
 
 /**
  * Path carver: picks the straight column that is cheapest to destroy (while the wall is still above the screen), shoots up
@@ -58,14 +64,14 @@ export class CarveBot {
     if (!this.started) { this.x = w.shipX; this.y = w.shipY; this.started = true; }
     if (this.lane < 0 || w.wallOffsetY < 150) {
       let best = Infinity;
-      for (let c = 0; c < WALL_COLS; c++) {
+      for (let c = 0; c < w.level.cols; c++) {
         const cost = columnCost(w, c);
         if (cost < best) { best = cost; this.lane = c; }
       }
     }
     const bottom = columnBottom(w, this.lane);
     const wantY = bottom === null ? -200 : bottom + SHIP_HIT_R + 9;
-    this.x = move(this.x, dotXFor(w, this.lane), dt);
+    this.x = moveX(w, this.x, dotXFor(w, this.lane), dt);
     this.y = move(this.y, Math.min(wantY, VIEW_H - CONFIG.PLAYER.MARGIN), dt);
     return { x: this.x, y: this.y };
   }
@@ -84,11 +90,11 @@ export class ClearAllBot {
     if (!this.started) { this.x = w.shipX; this.y = VIEW_H - CONFIG.PLAYER.MARGIN; this.started = true; }
     let bestCol = -1;
     let bestBottom = -Infinity;
-    for (let c = 0; c < WALL_COLS; c++) {
+    for (let c = 0; c < w.level.cols; c++) {
       const b = columnBottom(w, c);
       if (b !== null && b > bestBottom) { bestBottom = b; bestCol = c; }
     }
-    if (bestCol >= 0) this.x = move(this.x, dotXFor(w, bestCol), dt);
+    if (bestCol >= 0) this.x = moveX(w, this.x, dotXFor(w, bestCol), dt);
     this.y = move(this.y, VIEW_H - CONFIG.PLAYER.MARGIN, dt);
     return { x: this.x, y: this.y };
   }

@@ -24,7 +24,7 @@ export const ABOVE_SCREEN_MAX = 6;
 export interface HitEvent { enemyId: number; damage: number; x: number; y: number; }
 /** An enemy body died: `reward` is the credits it paid (fractional; the run keeps the exact total). */
 export interface KillEvent { x: number; y: number; reward: number; generation: number; }
-export interface SplitEvent { parentId: number; x: number; y: number; childIds: number[]; }
+export interface SplitEvent { parentId: number; x: number; y: number; radius: number; childIds: number[]; }
 
 /**
  * Pure game simulation (no Pixi). main.ts renders it; tests drive it directly.
@@ -304,7 +304,7 @@ export class World {
         this.kicks.delete(e.id);
         this.aboveT.delete(e.id);
         this.swayDir.delete(e.id);
-        this.splits.push({ parentId: e.id, x: e.x, y: e.y, childIds });
+        this.splits.push({ parentId: e.id, x: e.x, y: e.y, radius: e.radius, childIds });
       } else if (e.y >= CONFIG.VIEW.H) {
         // Leak: the rock reached the bottom edge. It is removed and hurts the hull by its size.
         enemies.splice(i, 1);

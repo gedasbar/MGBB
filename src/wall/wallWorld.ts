@@ -7,11 +7,11 @@ import { firePulse, spawnOffsetsFor } from '../game/fire';
 import { buildStarterGrid } from '../game/starter';
 import {
   BOOST_MAX, CELL, PASS_MARGIN_CELLS, PROJECTILE_MAX_AGE, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_H,
-  WORLD_WIDTH,
 } from './constants';
 import { LevelDef, rewardPerBlock } from './level';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 import { fireRateMul } from '../data/hulls';
+import { wrapDx, wrapX } from '../engine/wrap';
 
 /** One living block of a wall. x/y are the block centre (x in world px, y in screen px); `radius` is the half size. */
 export interface Block extends EnemyEntity {
@@ -50,12 +50,6 @@ export interface ShipTarget { x: number; y: number }
 const FLASH_TIME = 0.08;
 const EPS = 1e-6;
 
-/** Circle against axis-aligned box: squared distance from the circle centre to the box. */
-function distSqToBox(px: number, py: number, bx: number, by: number): number {
-  const qx = Math.max(bx, Math.min(px, bx + CELL));
-  const qy = Math.max(by, Math.min(py, by + CELL));
-  return (px - qx) ** 2 + (py - qy) ** 2;
-}
 
 /**
  * The wall as a set of targets for the shared hit pipeline: projectile position -> grid cell lookup,
@@ -66,13 +60,15 @@ export class BlockField implements TargetField {
 
   private forEachIn(x0: number, y0: number, x1: number, y1: number, fn: (b: Block) => void) {
     const w = this.w;
-    const c0 = Math.max(0, Math.floor(x0 / CELL));
-    const c1 = Math.min(w.level.cols - 1, Math.floor(x1 / CELL));
+    const cols = w.level.cols;
+    let c0 = Math.floor(x0 / CELL);
+    let c1 = Math.floor(x1 / CELL);
+    if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
     const r0 = Math.max(0, w.level.rows + Math.floor((y0 - w.wallOffsetY) / CELL));
     const r1 = Math.min(w.level.rows - 1, w.level.rows + Math.floor((y1 - w.wallOffsetY) / CELL));
     for (let r = r1; r >= r0; r--) {
       for (let c = c0; c <= c1; c++) {
-        const b = w.blocks[r * w.level.cols + c];
+        const b = w.blocks[r * cols + (w.ring ? ((c % cols) + cols) % cols : c)];
         if (b) fn(b);
       }
     }
@@ -83,7 +79,7 @@ export class BlockField implements TargetField {
     let bestD = hitR * hitR;
     this.forEachIn(px - hitR, py - hitR, px + hitR, py + hitR, b => {
       if (b.id === skipId) return;
-      const d = distSqToBox(px, py, b.col * CELL, this.w.blockTop(b.row));
+      const d = this.w.boxDistSq(px, py, b.col, b.row);
       if (d <= bestD) { bestD = d; best = b; }
     });
     return best;
@@ -92,14 +88,14 @@ export class BlockField implements TargetField {
   collectCircle(px: number, py: number, r: number, out: EnemyEntity[]) {
     out.length = 0;
     this.forEachIn(px - r, py - r, px + r, py + r, b => {
-      if (distSqToBox(px, py, b.col * CELL, this.w.blockTop(b.row)) <= r * r) out.push(b);
+      if (this.w.boxDistSq(px, py, b.col, b.row) <= r * r) out.push(b);
     });
   }
 
   collectRect(px: number, py: number, w: number, h: number, out: EnemyEntity[]) {
     out.length = 0;
     this.forEachIn(px - w / 2, py - h / 2, px + w / 2, py + h / 2, b => {
-      if (Math.abs(b.x - px) <= w / 2 + CELL / 2 && Math.abs(b.y - py) <= h / 2 + CELL / 2) out.push(b);
+      if (Math.abs(this.w.dxw(b.x, px)) <= w / 2 + CELL / 2 && Math.abs(b.y - py) <= h / 2 + CELL / 2) out.push(b);
     });
   }
 
@@ -110,17 +106,19 @@ export class BlockField implements TargetField {
 
   bounceInfo(t: EnemyEntity, px: number, py: number, r: number): BounceInfo | null {
     const b = t as Block;
-    const bx = b.col * CELL;
+    const h = CELL / 2;
     const by = this.w.blockTop(b.row);
-    const qx = Math.max(bx, Math.min(px, bx + CELL));
+    // Position relative to the block centre (the short way round on a ring).
+    const rx = this.w.dxw(px, b.col * CELL + h);
+    const qx = Math.max(-h, Math.min(rx, h));
     const qy = Math.max(by, Math.min(py, by + CELL));
-    const dx = px - qx;
+    const dx = rx - qx;
     const dy = py - qy;
     const d = Math.hypot(dx, dy);
     if (d > EPS) return { nx: dx / d, ny: dy / d, push: Math.max(0, r - d) + 0.5 };
     // Centre inside the block: leave through the nearest face.
     const faces = [
-      { d: px - bx, nx: -1, ny: 0 }, { d: bx + CELL - px, nx: 1, ny: 0 },
+      { d: rx + h, nx: -1, ny: 0 }, { d: h - rx, nx: 1, ny: 0 },
       { d: py - by, nx: 0, ny: -1 }, { d: by + CELL - py, nx: 0, ny: 1 },
     ];
     const f = faces.reduce((a, c) => (c.d < a.d ? c : a));
@@ -139,6 +137,10 @@ export class WallWorld {
   readonly warnings: string[];
   readonly spawnOffsets: { x: number; y: number }[];
   readonly field = new BlockField(this);
+  /** Ring wall (the level's `wrap`, default true): x wraps at `worldW`. */
+  readonly ring: boolean;
+  /** Width of the wall in px: cols x CELL. */
+  readonly worldW: number;
 
   /** Row-major living blocks (null = empty or destroyed). */
   readonly blocks: (Block | null)[] = [];
@@ -151,7 +153,7 @@ export class WallWorld {
 
   /** Screen y of the wall's bottom edge. The wall starts fully above the screen (offset 0) and moves down. */
   wallOffsetY = 0;
-  shipX = WORLD_WIDTH / 2;
+  shipX: number;
   shipY = SHIP_START_Y;
   time = 0;
   state: WallState = 'playing';
@@ -184,6 +186,10 @@ export class WallWorld {
   constructor(readonly level: LevelDef, opts: { grid?: Grid; safeStart?: boolean } = {}) {
     this.controlStarted = !opts.safeStart;
     this.controlT = opts.safeStart ? 0 : Infinity;
+    this.ring = level.wrap !== false;
+    this.worldW = level.cols * CELL;
+    this.shipX = this.worldW / 2;
+    this.projSys.wrapW = this.ring ? this.worldW : 0;
     const hullGrid = opts.grid ?? buildStarterGrid();
     this.fireRateMul = fireRateMul(hullGrid.hullId);
     const compiled = compile(opts.grid ?? buildStarterGrid());
@@ -241,9 +247,23 @@ export class WallWorld {
   /** Screen y of the top edge of a row. */
   blockTop(row: number): number { return this.wallOffsetY - (this.level.rows - row) * CELL; }
 
-  /** Grid cell under a world position (x in world px, y in screen px), or null outside the wall. */
+  /** Signed x distance from b to a: the short way round on a ring, plain a - b on a flat wall. */
+  dxw(a: number, b: number): number {
+    return this.ring ? wrapDx(a, b, this.worldW) : a - b;
+  }
+
+  /** Squared distance from a point (world x, screen y) to the box of a cell. */
+  boxDistSq(px: number, py: number, col: number, row: number): number {
+    const dx = Math.max(0, Math.abs(this.dxw(px, col * CELL + CELL / 2)) - CELL / 2);
+    const by = this.blockTop(row);
+    const dy = py - Math.max(by, Math.min(py, by + CELL));
+    return dx * dx + dy * dy;
+  }
+
+  /** Grid cell under a world position (x in world px, y in screen px), or null outside the wall (never sideways on a ring). */
   cellAt(x: number, y: number): { col: number; row: number } | null {
-    const col = Math.floor(x / CELL);
+    let col = Math.floor(x / CELL);
+    if (this.ring) col = ((col % this.level.cols) + this.level.cols) % this.level.cols;
     const row = this.level.rows + Math.floor((y - this.wallOffsetY) / CELL);
     if (col < 0 || col >= this.level.cols || row < 0 || row >= this.level.rows) return null;
     return { col, row };
@@ -334,14 +354,15 @@ export class WallWorld {
     // --- Ship: exactly where the pointer asks (inside the world and the screen)
     if (this.invuln > 0) this.invuln = Math.max(0, this.invuln - dt);
     if (ship && this.controlStarted) {
-      let tx = Math.max(0, Math.min(WORLD_WIDTH, ship.x));
+      let tx = this.ring ? wrapX(ship.x, this.worldW) : Math.max(0, Math.min(this.worldW, ship.x));
       let ty = Math.max(CONFIG.PLAYER.MARGIN, Math.min(VIEW_H - CONFIG.PLAYER.MARGIN, ship.y));
       if (this.controlT < EASE_TIME) {
         if (this.controlT === 0) this.easeFrom = { x: this.shipX, y: this.shipY };
         this.controlT += dt;
         const k = easeK(this.controlT);
-        tx = this.easeFrom.x + (tx - this.easeFrom.x) * k;
+        tx = this.easeFrom.x + this.dxw(tx, this.easeFrom.x) * k;
         ty = this.easeFrom.y + (ty - this.easeFrom.y) * k;
+        if (this.ring) tx = wrapX(tx, this.worldW);
       }
       this.shipX = tx;
       this.shipY = ty;
@@ -377,10 +398,11 @@ export class WallWorld {
       if (!pool.active[i]) continue;
       pool.x[i] += pool.vx[i] * dt;
       pool.y[i] += pool.vy[i] * dt;
-      if (pool.x[i] < 0 || pool.x[i] > WORLD_WIDTH) {
+      if (this.ring) pool.x[i] = wrapX(pool.x[i], this.worldW);
+      else if (pool.x[i] < 0 || pool.x[i] > this.worldW) {
         if (this.projSys.modifiersTable[pool.modIndex[i]]?.some(m => m.type === 'bouncing')) {
           if (pool.x[i] < 0) { pool.x[i] = -pool.x[i]; pool.vx[i] = Math.abs(pool.vx[i]); }
-          else { pool.x[i] = 2 * WORLD_WIDTH - pool.x[i]; pool.vx[i] = -Math.abs(pool.vx[i]); }
+          else { pool.x[i] = 2 * this.worldW - pool.x[i]; pool.vx[i] = -Math.abs(pool.vx[i]); }
         } else {
           pool.free(i);
           continue;
@@ -403,13 +425,16 @@ export class WallWorld {
     const R = SHIP_HIT_R;
     const x = this.shipX;
     const y = this.shipY;
-    const c0 = Math.max(0, Math.floor((x - R) / CELL));
-    const c1 = Math.min(this.level.cols - 1, Math.floor((x + R) / CELL));
+    const cols = this.level.cols;
+    let c0 = Math.floor((x - R) / CELL);
+    let c1 = Math.floor((x + R) / CELL);
+    if (!this.ring) { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
     const r0 = Math.max(0, this.level.rows + Math.floor((y - R - this.wallOffsetY) / CELL));
     const r1 = Math.min(this.level.rows - 1, this.level.rows + Math.floor((y + R - this.wallOffsetY) / CELL));
     for (let r = r0; r <= r1; r++) {
       for (let c = c0; c <= c1; c++) {
-        if (this.blocks[r * this.level.cols + c] && distSqToBox(x, y, c * CELL, this.blockTop(r)) < R * R) return true;
+        const cc = this.ring ? ((c % cols) + cols) % cols : c;
+        if (this.blocks[r * cols + cc] && this.boxDistSq(x, y, cc, r) < R * R) return true;
       }
     }
     return false;

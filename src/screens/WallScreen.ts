@@ -7,7 +7,7 @@ import { getProgressStore } from '../econ/progress';
 import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { TOUCH_OFFSET_Y } from '../game/world';
-import { WallCamera } from '../wall/camera';
+import { ringScreenX, WallCamera } from '../wall/camera';
 import { CELL, VIEW_H, VIEW_W } from '../wall/constants';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 import { BuildScreen } from './BuildScreen';
@@ -16,6 +16,7 @@ import { LevelDef } from '../wall/level';
 import { scrollSpeed, WallWorld } from '../wall/wallWorld';
 import { PointerGate } from '../engine/control';
 import { ShipView } from '../ui/shipArt';
+import { BackgroundView, backgroundForTier, forcedBackground } from '../ui/background';
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { Screen, ScreenManager } from './ScreenManager';
 import type { StatsInfo } from '../ui/stats';
@@ -67,6 +68,9 @@ export class WallScreen implements Screen {
   private blockLayer = new Container();
   private projLayer = new Container();
   private ship: ShipView;
+  private bg: BackgroundView | null = null;
+  /** ?debug=1: a faint line at world x = 0 so the seam of a ring can be seen. */
+  private seamLine: Graphics | null = null;
   private fxLayer = new Container();
   private uiLayer = new Container();
   /** The HUD text and its plate; moved down while the stats overlay is on. */
@@ -93,13 +97,25 @@ export class WallScreen implements Screen {
   constructor(private sm: ScreenManager, readonly levelDef: LevelDef, private grid: Grid) {
     this.world = new WallWorld(levelDef, { grid, safeStart: true });
     debugHooks.wall = this.world;
-    this.camera = new WallCamera();
+    const worldW = this.world.worldW;
+    // A ring wall: the camera is unclamped and wraps; a flat wall (wrap: false) clamps to its width.
+    this.camera = this.world.ring ? new WallCamera(0, worldW - VIEW_W, worldW) : new WallCamera(0, worldW - VIEW_W);
 
     this.ship = new ShipView(
       this.sm.app.renderer, grid.hullId ?? 'shuttle',
       this.world.recipes.map((r, i) => ({ x: this.world.spawnOffsets[i].x, y: this.world.spawnOffsets[i].y, dir: r.direction })),
     );
     this.container.addChild(this.blockLayer, this.projLayer, this.ship.container, this.fxLayer, this.uiLayer);
+    const forcedBg = forcedBackground();
+    if (forcedBg !== 'off') {
+      this.bg = new BackgroundView(this.sm.app.renderer, forcedBg ?? backgroundForTier(levelDef.tier, !!levelDef.spike));
+      this.container.addChildAt(this.bg.container, 0);
+    }
+    if (typeof window !== 'undefined' && window.location.search.includes('debug=1')) {
+      this.seamLine = new Graphics().rect(-1, 0, 2, VIEW_H).fill({ color: 0xff3366, alpha: 0.3 });
+      this.seamLine.visible = false;
+      this.container.addChildAt(this.seamLine, this.bg ? 1 : 0);
+    }
 
     // Enough views for every cell that can be on screen at once (11 partial columns x 19 partial rows, with slack).
     const slots = 12 * (Math.ceil(VIEW_H / CELL) + 2);
@@ -160,7 +176,7 @@ export class WallScreen implements Screen {
     return {
       state: w.state, time: w.time, finishY: w.finishY, progress: w.progress, alive: w.alive, total: w.total, destroyed: w.destroyed,
       credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), scrollSpeed: scrollSpeed(w.level.approachSpeed, w.shipY), cameraX: this.camera.x, cameraSpeed: this.camera.speed,
-      controlStarted: w.controlStarted, invuln: w.invuln, shipWorldX: w.shipX, shipScreenX: w.shipX - this.camera.x, shipY: w.shipY, projectiles: w.pool.count,
+      controlStarted: w.controlStarted, invuln: w.invuln, shipWorldX: w.shipX, shipScreenX: this.sx(w.shipX), camTravel: this.camera.travel, worldW: w.worldW, ring: w.ring, shipY: w.shipY, projectiles: w.pool.count,
       hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.nameText.text, spike: this.spikeText.visible, blocks: this.blocksText.text },
       drawn: this.lastDrawn.length,
     };
@@ -207,13 +223,15 @@ export class WallScreen implements Screen {
       else target = { x: p.x + this.camera.x, y: p.y };
     }
     w.update(dt, target);
+    // The background scrolls with the real wall speed (top-edge boost included); on a ring also sideways with the camera.
+    if (this.bg) this.bg.update(frameTime, scrollSpeed(w.level.approachSpeed, w.shipY), w.ring ? this.camera.x : 0);
 
     // Credit popups: a small yellow +N each time the running total crosses a whole credit.
     for (const k of w.killEvents) {
       this.popupTotal += k.reward;
       const whole = Math.floor(this.popupTotal + 1e-9);
       if (whole > this.shownCredits) {
-        this.showPopup(k.x - this.camera.x, k.y - 6, `+${fmtBig(whole - this.shownCredits)}`);
+        this.showPopup(this.sx(k.x), k.y - 6, `+${fmtBig(whole - this.shownCredits)}`);
         this.shownCredits = whole;
       }
     }
@@ -224,7 +242,8 @@ export class WallScreen implements Screen {
 
     this.drawBlocks();
     this.drawProjectiles();
-    this.ship.setPosition(w.shipX - this.camera.x, w.shipY);
+    this.ship.setPosition(this.sx(w.shipX), w.shipY);
+    if (this.seamLine) { const x = this.sx(0); this.seamLine.visible = x > -2 && x < VIEW_W + 2; this.seamLine.x = x; }
     this.ship.setAlpha(w.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1);
 
     for (const pu of this.popups) {
@@ -255,19 +274,25 @@ export class WallScreen implements Screen {
     const w = this.world;
     const { cols, rows } = w.level;
     const camX = this.camera.x;
-    const c0 = Math.max(0, Math.floor(camX / CELL));
-    const c1 = Math.min(cols - 1, Math.floor((camX + VIEW_W) / CELL));
+    const ring = w.ring;
+    // Columns whose left edge may be in view: a ring walks round the seam, a flat wall stops at its ends.
+    const first = ring ? Math.floor(camX / CELL) : Math.max(0, Math.floor(camX / CELL));
+    const last = ring ? first + Math.ceil(VIEW_W / CELL) : Math.min(cols - 1, Math.floor((camX + VIEW_W) / CELL));
     const r0 = Math.max(0, rows + Math.floor((-CELL - w.wallOffsetY) / CELL));
     const r1 = Math.min(rows - 1, rows + Math.floor((VIEW_H - w.wallOffsetY) / CELL));
     this.lastDrawn.length = 0;
     let used = 0;
     for (let r = r0; r <= r1; r++) {
-      for (let c = c0; c <= c1; c++) {
+      for (let k = first; k <= last; k++) {
+        const c = ring ? ((k % cols) + cols) % cols : k;
         const b = w.blocks[r * cols + c];
         if (!b || used >= this.views.length) continue;
+        // Screen x of the block: the short way round from the viewport centre on a ring (no pop, no duplicate at the seam).
+        const left = ring ? this.sx(c * CELL + CELL / 2) - CELL / 2 : c * CELL - camX;
+        if (left < -CELL || left > VIEW_W) continue;
         const v = this.views[used++];
         const armored = b.armor > 0;
-        const x = c * CELL - camX + GAP;
+        const x = left + GAP;
         const y = w.blockTop(r) + GAP;
         const size = CELL - 2 * GAP;
         const ft = armored ? FRAME_W_ARMOR : FRAME_W;
@@ -300,13 +325,18 @@ export class WallScreen implements Screen {
     }
   }
 
+  /** Screen x of a world x: the short way round from the viewport centre on a ring, x - camera on a flat wall. */
+  private sx(x: number): number {
+    const w = this.world;
+    return ringScreenX(x, this.camera.x, VIEW_W, w.worldW, w.ring);
+  }
+
   private drawProjectiles() {
     const pool = this.world.pool;
-    const camX = this.camera.x;
     for (let i = 0; i < pool.max; i++) {
       const s = this.projSprites[i];
       if (pool.active[i]) {
-        const sx = pool.x[i] - camX;
+        const sx = this.sx(pool.x[i]);
         if (sx < -20 || sx > VIEW_W + 20) { s.visible = false; continue; }
         s.position.set(sx, pool.y[i]);
         s.width = 6 * pool.size[i];

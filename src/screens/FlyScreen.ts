@@ -12,16 +12,18 @@ import { getProgressStore } from '../econ/progress';
 import { debugHooks } from '../debug/hooks';
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { PointerGate } from '../engine/control';
+import { FragmentPool, RockView, enemyArt } from '../ui/rockArt';
+import { BackgroundView, forcedBackground, freeFlyThemeAt } from '../ui/background';
 import { ShipView } from '../ui/shipArt';
 
-const ROCK_COLOR = 0xffa500;
 const FLASH_TIME = 0.08;
+/** Free Fly background scroll in px/s (before each layer's parallax). */
+const BG_SCROLL = 60;
 const DMG_NUMBER_LIFE = 0.6;
 /** Seconds between the hull reaching 0 and the Run Summary appearing. */
 const END_DELAY = 0.7;
 
 interface DmgNum { t: Text; life: number; }
-interface Burst { g: Graphics; life: number; }
 
 export class FlyScreen implements Screen {
   container = new Container();
@@ -37,10 +39,10 @@ export class FlyScreen implements Screen {
   hullBarFg = new Graphics().rect(0, 0, 100, 10).fill(0x00ff00);
   
   projSprites: Sprite[] = [];
-  enemySprites = new Map<number, Sprite>();
+  enemySprites = new Map<number, RockView>();
+  fragments = new FragmentPool();
   flash = new Map<number, number>();
   dmgNums: DmgNum[] = [];
-  bursts: Burst[] = [];
   
   creditsText = makeText('Credits +0', 16, THEME.currency, { fontWeight: 'bold' });
   tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
@@ -51,18 +53,25 @@ export class FlyScreen implements Screen {
   private endTimer = 0;
   private finished = false;
   private gate = new PointerGate();
+  /** Galaxy first, then the next theme every 3 minutes (3 s crossfade); ?bg=<id> forces one, ?bg=off hides it. */
+  private bg: BackgroundView | null = null;
+  private bgForced = forcedBackground();
 
   constructor(private screenManager: ScreenManager, grid: Grid) {
     this.world = new World({ grid, safeStart: true });
     debugHooks.world = this.world;
     
-    this.container.addChild(this.projLayer, this.enemyLayer);
+    this.container.addChild(this.projLayer, this.enemyLayer, this.fragments.container);
     const w = this.world;
     this.ship = new ShipView(
       this.screenManager.app.renderer, grid.hullId ?? 'shuttle',
       w.recipes.map((r, i) => ({ x: w.spawnOffsets[i].x, y: w.spawnOffsets[i].y, dir: r.direction })),
     );
     this.container.addChild(this.ship.container, this.fxLayer, this.uiLayer);
+    if (this.bgForced !== 'off') {
+      this.bg = new BackgroundView(this.screenManager.app.renderer, this.bgForced ?? freeFlyThemeAt(0));
+      this.container.addChildAt(this.bg.container, 0);
+    }
 
     this.hullBarBg.position.set(20, 20);
     this.hullBarFg.position.set(20, 20);
@@ -114,7 +123,7 @@ export class FlyScreen implements Screen {
 
   statsInfo(o: StatsInfo) {
     const w = this.world;
-    let fx = this.bursts.length;
+    let fx = this.fragments.live;
     for (const d of this.dmgNums) if (d.life > 0) fx++;
     o.name = 'FREE FLY';
     o.proj = w.pool.count;
@@ -146,6 +155,11 @@ export class FlyScreen implements Screen {
     // Spawn safety: the ship waits where it starts until the player's first pointer move or press.
     if (!this.world.controlStarted && this.gate.observe(pointer, pointer.seen)) this.world.beginControl();
     this.world.update(dt, pointer);
+    if (this.bg) {
+      // Constant slow scroll (no horizontal motion: Free Fly is one fixed screen).
+      this.bg.update(frameTime, BG_SCROLL);
+      if (!this.bgForced) { const want = freeFlyThemeAt(this.world.time); if (want !== this.bg.id) this.bg.crossfadeTo(want); }
+    }
 
     for (const h of this.world.hits) {
       this.flash.set(h.enemyId, FLASH_TIME);
@@ -165,13 +179,10 @@ export class FlyScreen implements Screen {
     this.creditsText.text = `Credits +${fmtBig(this.world.credits)}`;
     this.tierText.text = `Tier ${this.world.tier}`;
 
-    for (const s of this.world.splits) {
-      const g = new Graphics().circle(0, 0, 20).stroke({ color: 0xffffff, width: 3 });
-      g.position.set(s.x, s.y);
-      this.fxLayer.addChild(g);
-      this.bursts.push({ g, life: 0.3 });
-    }
+    // A rock splitting throws 2 to 4 fragments (the children already exist as normal rocks).
+    for (const s of this.world.splits) this.fragments.emit(s.x, s.y, s.radius, s.parentId, enemyArt('mitotic_rock'));
     this.world.splits.length = 0;
+    this.fragments.update(frameTime);
 
     this.ship.setPosition(this.world.shipX, this.world.shipY);
     this.ship.setAlpha(this.world.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1);
@@ -199,16 +210,14 @@ export class FlyScreen implements Screen {
       alive.add(e.id);
       let s = this.enemySprites.get(e.id);
       if (!s) {
-        s = new Sprite(Texture.WHITE);
-        s.anchor.set(0.5);
-        this.enemyLayer.addChild(s);
+        s = new RockView(e.defId, e.id, e.radius);
+        this.enemyLayer.addChild(s.container);
         this.enemySprites.set(e.id, s);
       }
-      s.position.set(e.x, e.y);
-      s.width = e.radius * 2;
-      s.height = e.radius * 2;
+      s.container.position.set(e.x, e.y);
+      s.setRadius(e.radius);
       const f = this.flash.get(e.id) ?? 0;
-      s.tint = f > 0 ? 0xffffff : ROCK_COLOR;
+      s.update(e.maxHp > 0 ? 1 - e.hp / e.maxHp : 0, frameTime, f > 0);
       if (f > 0) this.flash.set(e.id, f - frameTime);
     }
     for (const [id, s] of this.enemySprites) {
@@ -226,14 +235,6 @@ export class FlyScreen implements Screen {
       d.t.alpha = Math.max(0, d.life / DMG_NUMBER_LIFE);
       if (d.life <= 0) d.t.visible = false;
     }
-    for (let i = this.bursts.length - 1; i >= 0; i--) {
-      const b = this.bursts[i];
-      b.life -= frameTime;
-      b.g.scale.set(1 + (0.3 - b.life) * 6);
-      b.g.alpha = Math.max(0, b.life / 0.3);
-      if (b.life <= 0) { b.g.destroy(); this.bursts.splice(i, 1); }
-    }
-
     if (this.world.gameOver && !this.finished) {
       this.endTimer += frameTime;
       if (this.endTimer >= END_DELAY) this.finish();
