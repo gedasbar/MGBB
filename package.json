@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "node e2e/builder.e2e.cjs && node e2e/builder-extra.e2e.cjs && node e2e/browser.e2e.cjs",
     "audit": "vite-node scripts/block-audit.ts",
-    "balance-econ": "vite-node scripts/balance-econ.ts"
+    "balance-econ": "vite-node scripts/balance-econ.ts",
+    "balance-wall": "vite-node scripts/balance-wall.ts"
   },
   "devDependencies": {
     "@vitest/ui": "^2.1.2",

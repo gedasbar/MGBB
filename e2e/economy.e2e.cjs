@@ -22,11 +22,11 @@ async function snap(page, name) {
   await page.evaluate(() => { document.getElementById('debug-panel').style.display = 'flex'; });
 }
 
-/** Moves the pointer so the ship's ejector (42 px right of the ship) lines up with the lowest rock above it. */
+/** Moves the pointer so the ship's ejector (10.5 px right of the ship) lines up with the lowest rock above it. */
 async function aim(page, s) {
   const rocks = s.enemies.filter(e => e.y < 740);
   rocks.sort((a, b) => b.y - a.y);
-  const gx = rocks.length ? rocks[0].x - 42 : 270;
+  const gx = rocks.length ? rocks[0].x - 10.5 : 270;
   const p = await gameToClient(page, Math.max(24, Math.min(516, gx)), 768);
   await page.mouse.move(p.x, p.y);
 }

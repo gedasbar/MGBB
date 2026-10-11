@@ -4,6 +4,7 @@ import { compile, Grid } from '../src/engine/compiler';
 import { describeBlock } from '../src/engine/compilerTypes';
 import { SpatialHash } from '../src/engine/spatialHash';
 import { PX_PER_CELL, World } from '../src/game/world';
+import { FIRE_OFFSET_SCALE } from '../src/wall/constants';
 import { buildFanGrid } from '../src/game/gridUtils';
 import { buildStarterGrid, place } from '../src/game/starter';
 import { PointerState } from '../src/input';
@@ -236,8 +237,8 @@ describe('hidden blocks that are now shown: compile + Fly, per block', () => {
     const ys: number[] = [];
     let dmg = 0;
     for (let i = 0; i < w.pool.max; i++) if (w.pool.active[i]) { xs.push(w.pool.x[i] - w.shipX); ys.push(w.pool.y[i] - w.shipY); dmg += w.pool.damage[i]; }
-    expect(xs.sort((a, b) => a - b)).toEqual([-3 * PX_PER_CELL, 0, 3 * PX_PER_CELL]);
-    expect(ys.every(y => y === (0 - (g.h - 1) / 2) * PX_PER_CELL)).toBe(true);
+    expect(xs.sort((a, b) => a - b)).toEqual([-3 * PX_PER_CELL * FIRE_OFFSET_SCALE, 0, 3 * PX_PER_CELL * FIRE_OFFSET_SCALE]);
+    expect(ys.every(y => y === (0 - (g.h - 1) / 2) * PX_PER_CELL * FIRE_OFFSET_SCALE)).toBe(true);
     expect(w.pool.count).toBe(compiled.stats.projectilesPerPulse);
     expect(dmg / w.pool.count).toBe(compiled.stats.damagePerShot);
   });

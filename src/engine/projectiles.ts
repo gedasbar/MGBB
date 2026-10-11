@@ -3,6 +3,7 @@ import { ProjectilePool } from './pools';
 import { Modifier } from './compilerTypes';
 import { SpatialHash } from './spatialHash';
 import { EnemyStats, applyDamage } from './damage';
+import { EnemyField, TargetField } from './targets';
 
 export interface EnemyEntity extends EnemyStats {
   id: number;
@@ -56,6 +57,10 @@ export class ProjectileSystem {
 
   modifiersTable: Modifier[][] = [];
 
+  /** Scratch lists reused by every projectile (no per-shot allocation). */
+  private near: EnemyEntity[] = [];
+  private blast: EnemyEntity[] = [];
+
   /** Optional hook fired once per enemy damaged (used for hit flash / damage numbers). */
   onHit: HitCallback | null = null;
 
@@ -77,8 +82,10 @@ export class ProjectileSystem {
   }
 
   /** Path modifiers: curving, homing and random curve turn a projectile's velocity (speed is kept). */
-  steer(dt: number, enemies: EnemyEntity[]) {
+  steer(dt: number, targets: EnemyEntity[] | TargetField) {
     const pool = this.pool;
+    const field = Array.isArray(targets) ? null : targets;
+    const near = this.near;
     for (let i = 0; i < pool.max; i++) {
       if (!pool.active[i]) continue;
       pool.age[i] += dt;
@@ -108,7 +115,8 @@ export class ProjectileSystem {
         let best = HOMING_RANGE * HOMING_RANGE;
         let bestDiff = 0;
         let found = false;
-        for (const e of enemies) {
+        if (field) field.collectNear(pool.x[i], pool.y[i], HOMING_RANGE, near);
+        for (const e of field ? near : (targets as EnemyEntity[])) {
           if (e.hp <= 0) continue;
           const dx = e.x - pool.x[i];
           const dy = e.y - pool.y[i];
@@ -136,7 +144,14 @@ export class ProjectileSystem {
     }
   }
 
+  /** Free Fly: rocks found through the spatial hash. */
   processHits(enemies: EnemyEntity[], spatial: SpatialHash, tier: number) {
+    this.processField(new EnemyField(enemies, spatial), tier);
+  }
+
+  /** The one hit pipeline: every projectile against any set of targets (rocks or wall blocks). */
+  processField(field: TargetField, tier: number) {
+    const blast = this.blast;
     for (let i = 0; i < this.pool.max; i++) {
       if (!this.pool.active[i]) continue;
 
@@ -159,81 +174,65 @@ export class ProjectileSystem {
       const isShieldBreaker = sbMod ? shieldBreakMul(sbMod.level ?? 1) : false;
       const hitR = PROJECTILE_RADIUS * this.pool.size[i];
 
-      // Find hit target (projectile radius + enemy.radius)
-      // We query spatial hash
-      const candidates = spatial.query(px, py, 50); // Use 50 as max query radius for simple contact
-      let hitAny = false;
-      let target: EnemyEntity | null = null;
-      for (const id of candidates) {
-        if (id === this.pool.skipId[i]) continue;
-        const e = enemies.find(en => en.id === id);
-        if (e && e.hp > 0) {
-          const distSq = (e.x - px) ** 2 + (e.y - py) ** 2;
-          if (distSq <= (e.radius + hitR) ** 2) {
-            target = e;
-            hitAny = true;
-            break;
-          }
+      const target = field.hitCircle(px, py, hitR, this.pool.skipId[i]);
+      if (!target) continue;
+
+      if (aoeMod) {
+        const radius = aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1);
+        field.collectCircle(px, py, radius, blast);
+        for (const ce of blast) {
+          if (ce.hp <= 0) continue;
+          const aoeRes = applyDamage(ce, damage, pure, tier, armorPierce, isShieldBreaker);
+          if (this.onHit) this.onHit(ce, aoeRes.hpDamage, ce.x, ce.y);
         }
-      }
+        this.pool.free(i); // AoE detonates
+      } else if (rectMod) {
+        // Detonates as a horizontal bar centred on the hit: full damage once to every target it overlaps.
+        const { w, h } = aoeRectSize(rectMod.level ?? 1);
+        field.collectRect(px, py, w, h, blast);
+        for (const ce of blast) {
+          if (ce.hp <= 0) continue;
+          const r = applyDamage(ce, damage, pure, tier, armorPierce, isShieldBreaker);
+          if (this.onHit) this.onHit(ce, r.hpDamage, ce.x, ce.y);
+        }
+        this.pool.free(i);
+      } else {
+        // Normal hit
+        const res = applyDamage(target, damage, pure, tier, armorPierce, isShieldBreaker);
+        if (this.onHit) this.onHit(target, res.hpDamage, px, py);
 
-      if (hitAny && target) {
-        if (aoeMod) {
-          const radius = aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1);
-          const aoeCandidates = spatial.query(px, py, radius + 20); // 20 padding for enemy sizes
-          for (const cid of aoeCandidates) {
-            const ce = enemies.find(en => en.id === cid);
-            if (ce && ce.hp > 0) {
-              const dSq = (ce.x - px) ** 2 + (ce.y - py) ** 2;
-              if (dSq <= (ce.radius + radius) ** 2) {
-                const aoeRes = applyDamage(ce, damage, pure, tier, armorPierce, isShieldBreaker);
-                if (this.onHit) this.onHit(ce, aoeRes.hpDamage, ce.x, ce.y);
-              }
+        if (forkMod && !this.pool.copy[i]) this.fork(i, target.id, forkMod.level ?? 1);
+
+        if (isBouncing && target.armor > 0) {
+          // Bounce: keep full damage. Off a surface the field knows, reflect; otherwise pick a new direction.
+          this.pool.damage[i] *= bounceDamageMul(bounceMod!.level ?? 1);
+          const info = field.bounceInfo ? field.bounceInfo(target, px, py, hitR) : null;
+          if (info) {
+            const vn = this.pool.vx[i] * info.nx + this.pool.vy[i] * info.ny;
+            if (vn < 0) {
+              this.pool.vx[i] -= 2 * vn * info.nx;
+              this.pool.vy[i] -= 2 * vn * info.ny;
             }
-          }
-          this.pool.free(i); // AoE detonates
-        } else if (rectMod) {
-          // Detonates as a horizontal bar centred on the hit: full damage once to every enemy it overlaps.
-          const { w, h } = aoeRectSize(rectMod.level ?? 1);
-          const hit: EnemyEntity[] = [];
-          for (const ce of enemies) {
-            if (ce.hp <= 0) continue;
-            const ddx = Math.max(0, Math.abs(ce.x - px) - w / 2);
-            const ddy = Math.max(0, Math.abs(ce.y - py) - h / 2);
-            if (ddx * ddx + ddy * ddy <= ce.radius * ce.radius) hit.push(ce);
-          }
-          for (const ce of hit) {
-            const r = applyDamage(ce, damage, pure, tier, armorPierce, isShieldBreaker);
-            if (this.onHit) this.onHit(ce, r.hpDamage, ce.x, ce.y);
-          }
-          this.pool.free(i);
-        } else {
-          // Normal hit
-          const res = applyDamage(target, damage, pure, tier, armorPierce, isShieldBreaker);
-          if (this.onHit) this.onHit(target, res.hpDamage, px, py);
-
-          if (forkMod && !this.pool.copy[i]) this.fork(i, target.id, forkMod.level ?? 1);
-
-          if (isBouncing && target.armor > 0) {
-            // Bounce: keep full damage, pick new direction
-            const angle = rng.combat.next() * Math.PI * 2;
+            this.pool.x[i] += info.nx * info.push;
+            this.pool.y[i] += info.ny * info.push;
+          } else {
             const speed = Math.sqrt(this.pool.vx[i]**2 + this.pool.vy[i]**2) || 200;
-            this.pool.damage[i] *= bounceDamageMul(bounceMod!.level ?? 1);
+            const angle = rng.combat.next() * Math.PI * 2;
             this.pool.vx[i] = Math.cos(angle) * speed;
             this.pool.vy[i] = Math.sin(angle) * speed;
-            // We'll advance it slightly to avoid re-colliding immediately?
+            // Advance slightly to avoid re-colliding immediately.
             this.pool.x[i] += this.pool.vx[i] * 0.1;
             this.pool.y[i] += this.pool.vy[i] * 0.1;
-          } else if (isPiercing) {
-            const damageSpent = res.hpDamage; // actual hp taken
-            const drop = Math.max(damage * 0.1, damageSpent) * pierceCostMul(pierceMod!.level ?? 1);
-            this.pool.damage[i] -= drop;
-            if (this.pool.damage[i] <= 0) {
-              this.pool.free(i);
-            }
-          } else {
-            this.pool.free(i); // Destroy on hit
           }
+        } else if (isPiercing) {
+          const damageSpent = res.hpDamage; // actual hp taken
+          const drop = Math.max(damage * 0.1, damageSpent) * pierceCostMul(pierceMod!.level ?? 1);
+          this.pool.damage[i] -= drop;
+          if (this.pool.damage[i] <= 0) {
+            this.pool.free(i);
+          }
+        } else {
+          this.pool.free(i); // Destroy on hit
         }
       }
     }
