@@ -5,6 +5,7 @@ import { PointerState } from '../src/input';
 import { ROSTER, SPECIES } from '../src/data/species';
 import { ENEMY_ART, rockShape } from '../src/ui/rockArt';
 import { rockHp } from '../src/econ/economy';
+import { loadProgress, ProgressStore, PROGRESS_VERSION, serializeProgress, defaultProgress } from '../src/econ/progress';
 import { planWave, unlockedAt, WaveDirector, PlannedSpawn } from '../src/game/waves';
 import { ALIVE_HOLD, specialKind, SPECIAL_BUDGET_MUL, WAVE_TIME, waveBonus, waveBudget } from '../src/data/waves';
 
@@ -224,5 +225,34 @@ describe('Free Fly wave director', () => {
     expect(d.held).toBeGreaterThan(0);
     d.update(WAVE_TIME - 1, 0, out);
     expect(out.length).toBe(planWave(2, 1).length);
+  });
+});
+
+
+describe('Free Fly records (save v5)', () => {
+  it('a v4 save loads with everything kept and bestWave 0; v5 round-trips bestWave', () => {
+    const v4 = { version: 4, credits: 321, owned: { turn_l: 3, flat_plus: 2 }, levels: { flat_plus: 2 }, ownedHulls: ['dart', 'twin'], bestTier: 6, bestTime: 88.5, totalKills: 40, runs: 7, clearedTiers: [1, 2], passedTiers: [1, 2, 3], medals: 2 };
+    const p = loadProgress(JSON.stringify(v4));
+    expect(PROGRESS_VERSION).toBe(5);
+    expect(p.version).toBe(5);
+    expect(p.bestWave).toBe(0);
+    expect([p.credits, p.owned.flat_plus, p.levels.flat_plus, p.bestTier, p.bestTime, p.totalKills, p.runs, p.medals]).toEqual([321, 2, 2, 6, 88.5, 40, 7, 2]);
+    expect(p.ownedHulls).toEqual(['dart', 'twin']);
+    expect(p.passedTiers).toEqual([1, 2, 3]);
+    p.bestWave = 9;
+    expect(loadProgress(serializeProgress(p)).bestWave).toBe(9);
+    expect(loadProgress(JSON.stringify({ ...v4, version: 5, bestWave: -3 })).bestWave).toBe(0);
+    expect(loadProgress(JSON.stringify({ ...v4, version: 5, bestWave: 'x' })).bestWave).toBe(0);
+  });
+  it('recordRun keeps the best wave and best time, and says when either is new', () => {
+    const st = new ProgressStore(null, defaultProgress());
+    expect(st.recordRun({ credits: 50, kills: 9, time: 100, tier: 7, wave: 3 })).toEqual({ newBestTier: true, newBestTime: true, newBestWave: true });
+    expect(st.recordRun({ credits: 5, kills: 1, time: 150, tier: 3, wave: 2 })).toEqual({ newBestTier: false, newBestTime: true, newBestWave: false });
+    expect(st.data.bestWave).toBe(3);
+    expect(st.data.bestTime).toBe(150);
+    expect(st.data.credits).toBe(55);
+    // A run without a wave (older callers) never touches the record.
+    st.recordRun({ credits: 0, kills: 0, time: 1, tier: 1 });
+    expect(st.data.bestWave).toBe(3);
   });
 });

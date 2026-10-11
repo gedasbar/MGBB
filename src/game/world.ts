@@ -11,7 +11,7 @@ import { leakDamage, rockHp, rockReward, tierOfTime } from '../econ/economy';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 import { fireRateMul } from '../data/hulls';
 import { SPECIES, speciesOf } from '../data/species';
-import { FREEFLY_REWARD_MUL, waveBonus, waveHpMul } from '../data/waves';
+import { FREEFLY_REWARD_MUL, freeFlyRewardTier, waveBonus, waveHpMul } from '../data/waves';
 import { PlannedSpawn, WaveDirector } from './waves';
 import { SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC } from '../wall/constants';
 import type { MitosisEnemy } from '../engine/mitosis';
@@ -383,7 +383,7 @@ export class World {
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       if (e.hp <= 0) {
-        const reward = rockReward(e.tier, e.generation) * speciesOf(e.defId).rewardMul * FREEFLY_REWARD_MUL;
+        const reward = rockReward(freeFlyRewardTier(e.tier), e.generation) * speciesOf(e.defId).rewardMul * FREEFLY_REWARD_MUL;
         this.kills++;
         this.creditsExact += reward;
         this.killEvents.push({ x: e.x, y: e.y, reward, generation: e.generation });

@@ -31,6 +31,12 @@ export const SPAWN_EDGE = 8;
 
 /** Multiplier on every Free Fly kill reward. */
 export const FREEFLY_REWARD_MUL = 1;
+/**
+ * Free Fly pays kills at a slower tier than their HP: reward tier = 1 + (tier - 1) x this. HP still grows 1.055^tier, so a
+ * long run's late waves are worth less per HP than early ones (a strong gun does not snowball). 1 = the plain tier.
+ */
+export const FREEFLY_REWARD_TIER_SCALE = 0.4;
+export const freeFlyRewardTier = (tier: number) => 1 + (tier - 1) * FREEFLY_REWARD_TIER_SCALE;
 /** Credits for reaching wave 5, 10, 15 ...: WAVE_BONUS x wave / 5. */
 export const WAVE_BONUS = 10;
 

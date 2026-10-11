@@ -18,6 +18,11 @@ export function fmtTime(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/** Layout of the four Free Fly rows (the three wall rows keep the old 310 / 74 / 66). */
+const ROWS4_TOP = 296;
+const ROWS4_STEP = 62;
+const ROWS4_H = 56;
+
 /** The wall-level variant of the summary: replaces the Free Fly rows and the "Fly again" button with "Retry". */
 export interface WallSummary {
   /** How the level ended: all blocks destroyed, flown past the end, or crashed into a block. */
@@ -39,7 +44,7 @@ export class RunSummaryScreen implements Screen {
   private gestures: GestureTracker | null = null;
   private rows: { label: string; value: string; best: boolean }[];
 
-  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean }, readonly wall?: WallSummary) {
+  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean }, readonly wall?: WallSummary) {
     const bg = new Graphics().rect(0, 0, CONFIG.VIEW.W, CONFIG.VIEW.H).fill(THEME.bg);
     this.container.addChild(bg);
 
@@ -59,23 +64,27 @@ export class RunSummaryScreen implements Screen {
       { label: 'Time', value: fmtTime(result.time), best: false },
       { label: 'Result', value: wall.result === 'crashed' ? 'Not passed' : wall.result === 'passed' ? 'Passed' : 'Cleared', best: false },
     ] : [
-      { label: 'Kills', value: String(result.kills), best: false },
+      // Free Fly (chunk 10a): the wave reached leads; four rows, so they are packed a little tighter.
+      { label: 'Wave reached', value: String(result.wave ?? 1), best: !!marks.newBestWave },
       { label: 'Time survived', value: fmtTime(result.time), best: marks.newBestTime },
+      { label: 'Kills', value: String(result.kills), best: false },
       { label: 'Highest tier', value: String(result.tier), best: marks.newBestTier },
     ];
+    const four = this.rows.length > 3;
+    const top = four ? ROWS4_TOP : 310, step = four ? ROWS4_STEP : 74, rowH = four ? ROWS4_H : 66;
     this.rows.forEach((r, i) => {
-      const y = 310 + i * 74;
-      const row = new Graphics().rect(40, y, VIEW_W - 80, 66).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
+      const y = top + i * step;
+      const row = new Graphics().rect(40, y, VIEW_W - 80, rowH).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
       const label = makeText(r.label, 20, THEME.textDim, { fontWeight: 'bold' });
-      label.position.set(58, y + 20);
+      label.position.set(58, y + rowH / 2 - 13);
       const value = makeText(r.value, 30, THEME.text, { fontWeight: 'bold' });
       value.anchor.set(1, 0);
-      value.position.set(VIEW_W - 58, y + 14);
+      value.position.set(VIEW_W - 58, y + rowH / 2 - 19);
       this.container.addChild(row, label, value);
       if (r.best) {
         const mark = makeText('New best!', 16, THEME.good, { fontWeight: 'bold' });
         mark.anchor.set(1, 0.5);
-        mark.position.set(VIEW_W - 58 - value.width - 16, y + 33);
+        mark.position.set(VIEW_W - 58 - value.width - 16, y + rowH / 2);
         this.container.addChild(mark);
       }
     });

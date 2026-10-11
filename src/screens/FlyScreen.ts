@@ -344,7 +344,7 @@ export class FlyScreen implements Screen {
   private finish() {
     this.finished = true;
     const w = this.world;
-    const result = { credits: w.credits, kills: w.kills, time: w.time, tier: w.maxTier };
+    const result = { credits: w.credits, kills: w.kills, time: w.time, tier: w.maxTier, wave: Math.max(1, w.wave) };
     const marks = getProgressStore().recordRun(result);
     this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks));
   }

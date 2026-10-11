@@ -8,18 +8,20 @@ import {
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 4;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 5;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 4;
+  version: 5;
   credits: number;
   owned: Record<string, number>;
   levels: Record<string, number>;
   ownedHulls: string[];
   bestTier: number;
+  /** Free Fly records: best time survived (s) and best wave reached (0 = never flown since waves exist). */
   bestTime: number;
+  bestWave: number;
   totalKills: number;
   runs: number;
   /** Campaign tiers cleared (every block destroyed at least once), ascending, no duplicates. */
@@ -47,7 +49,7 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 4, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, totalKills: 0, runs: 0,
+    version: 5, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, medals: 0, highestCleared: 0,
   };
 }
@@ -75,6 +77,8 @@ export function sanitizeProgress(raw: unknown): Progress {
     credits: Math.floor(num(r.credits, 0, 0)),
     bestTier: int(r.bestTier, 0, 1e9, 0),
     bestTime: num(r.bestTime, 0, 0),
+    // v1-v4 saves have no bestWave: it starts at 0 (their bestTime is kept, it was already Free Fly's).
+    bestWave: int(r.bestWave, 0, 1e9, 0),
     totalKills: int(r.totalKills, 0, Number.MAX_SAFE_INTEGER, 0),
     runs: int(r.runs, 0, Number.MAX_SAFE_INTEGER, 0),
   };
@@ -212,7 +216,7 @@ export function buyHull(p: Progress, id: string): BuyResult {
   return { ok: true, price };
 }
 
-export interface RunResult { credits: number; kills: number; time: number; tier: number }
+export interface RunResult { credits: number; kills: number; time: number; tier: number; /** Free Fly wave reached. */ wave?: number }
 
 /** The progress object plus its storage. Every change goes through `commit()`, which saves and notifies. */
 export class ProgressStore {
@@ -251,17 +255,19 @@ export class ProgressStore {
   buyHull(id: string): BuyResult { const r = buyHull(this.data, id); if (r.ok) this.commit(); return r; }
 
   /** Adds one finished run to the totals. Call exactly once per run. */
-  recordRun(run: RunResult): { newBestTier: boolean; newBestTime: boolean } {
+  recordRun(run: RunResult): { newBestTier: boolean; newBestTime: boolean; newBestWave: boolean } {
     const d = this.data;
     const newBestTier = run.tier > d.bestTier;
     const newBestTime = run.time > d.bestTime;
+    const newBestWave = (run.wave ?? 0) > d.bestWave;
+    if (newBestWave) d.bestWave = run.wave!;
     d.credits += Math.floor(run.credits);
     d.totalKills += run.kills;
     d.runs++;
     if (newBestTier) d.bestTier = run.tier;
     if (newBestTime) d.bestTime = run.time;
     this.commit();
-    return { newBestTier, newBestTime };
+    return { newBestTier, newBestTime, newBestWave };
   }
 
   /**

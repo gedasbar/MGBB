@@ -55,8 +55,8 @@ rose, Ironclad grey-brown, Warden pale sand, Budder amber-moss). Cracks, hit fla
 
 ## 3. Rewards
 
-- **Per kill:** `rockReward(tier, generation) x species reward x` (the existing per-generation table, 1.05^tier
-  growth). A Rock family therefore pays what it pays today; the other multipliers put every species at about the
+- **Per kill:** `rockReward(1 + (tier - 1) x 0.4, generation) x species reward x` (the existing per-generation table;
+  the reward tier grows at 0.4 of the HP tier, added in the J3 adjustment, see section 5). A Rock family therefore pays what it pays today; the other multipliers put every species at about the
   Rock's credits per HP, x1.2 for the annoying ones (Darter, Drifter, Warden). Children of another species (Ironclad
   shell -> Rocks, Budder buds -> Rocks) pay as Rocks.
 - **Wave bonus:** reaching wave 5, 10, 15 ... pays `10 x N / 5` credits (10, 20, 30 ...), shown on the banner.
@@ -93,4 +93,26 @@ The bot table in section 5 is the real check; constants get one adjustment pass 
 
 ## 5. Measured (bot, step J3)
 
-Filled in after the bot run; see DECISIONS.md for the adjustment.
+`npm run balance-econ`, deterministic bot (`src/debug/freeflyBot.ts`: dodges what would touch the ship in the next
+0.7 s, otherwise lines up under the body closest to leaking; top speed 650 px/s), 5 seeds per gun, mean.
+
+**Before the adjustment** (reward at the plain tier): Dart 66 per run (2:48), Twin + Flat+ 254 (5:05): Prong after
+~3-4 runs. **One adjustment:** Free Fly pays kills at reward tier `1 + (tier - 1) x 0.4` (HP keeps the plain tier),
+so late waves are worth less per HP and a strong gun's long run snowballs less. At tier 1 nothing changes.
+
+| Gun | est. DPS | survived | wave @ 1 / 3 / 5 min | credits @ 1 / 3 / 5 min | credits per run | per min |
+|---|---|---|---|---|---|---|
+| Dart + Flat+ (fresh save) | 101 | 2:48 | 2 / dead / dead | 13 / - / - | 58 | 20.7 |
+| Twin + Flat+ | 404 | 5:04 | 2 / 5 / 8 | 16 / 97 / 193 | 190 | 37.4 |
+| Twin + 2 Flat+ | 804 | 6:09 | 2 / 5 / 8 | 14 / 95 / 223 | 320 | 51.9 |
+| Prong (Splitter 3, Flat+, Turn L) | 408 | 5:02 | 2 / 5 / 8 | 16 / 97 / 193 | 193 | 38.2 |
+
+Against the targets:
+- **3-minute Dart run ~3x today: met.** 58 credits in a 2:48 run (today: ~12 in 41 s, ~20 per minute).
+- **Twin after 1-2 runs: met** (2 Dart runs = 116).
+- **Prong after 6-8 runs: not met in runs, met in play time.** The natural path (2 Dart runs, Twin, Twin runs, a 2nd
+  Flat+ on the way) reaches 350 after **4 runs** but **17 minutes** of play, which is 6 Dart-length runs. A Twin run is
+  worth ~3 Dart runs because it lasts twice as long at ~1.8x the income per minute; making it pay less would make the
+  better gun feel pointless. Left as a known gap for the owner to judge in play.
+- The Prong with the blocks a player can have then (Splitter 3, Flat+, Turn L) plays like a Twin + Flat+ (same DPS,
+  two streams); a Twin with two Flat+ is stronger. That is the hull's 3-cell layout, not part of this chunk.
