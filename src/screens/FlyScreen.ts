@@ -1,6 +1,7 @@
 import { Container, Graphics, Sprite, Texture, Text } from 'pixi.js';
 import { CONFIG } from '../config';
-import { World } from '../game/world';
+import { SPAWN_INTERVAL, World } from '../game/world';
+import type { StatsInfo } from '../ui/stats';
 import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
@@ -105,6 +106,19 @@ export class FlyScreen implements Screen {
     }
   }
 
+  statsInfo(o: StatsInfo) {
+    const w = this.world;
+    let fx = this.bursts.length;
+    for (const d of this.dmgNums) if (d.life > 0) fx++;
+    o.name = 'FREE FLY';
+    o.proj = w.pool.count;
+    o.projCap = w.pool.max;
+    o.enemies = w.mitosis.enemies.length;
+    o.fx = fx;
+    o.kills = w.kills;
+    o.extra = `tier ${w.tier}  spawn ${(1 / SPAWN_INTERVAL).toFixed(2)}/s  t ${w.time.toFixed(0)}s`;
+  }
+
   showDamage(x: number, y: number, dmg: number) {
     this.showNumber(x, y, `${Math.round(dmg)}`, 0xffffff, 18);
   }
@@ -156,6 +170,9 @@ export class FlyScreen implements Screen {
     this.shipGfx.position.set(this.world.shipX, this.world.shipY);
     this.shipGfx.alpha = this.world.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1;
     this.hullBarFg.width = Math.max(0, (this.world.hull / this.world.maxHull) * 100);
+    // The HUD sits below the stats overlay while it is on.
+    const hudDy = this.screenManager.stats.hudOffset;
+    if (this.uiLayer.y !== hudDy) this.uiLayer.y = hudDy;
 
     const pool = this.world.pool;
     for (let i = 0; i < pool.max; i++) {

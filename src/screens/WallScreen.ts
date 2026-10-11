@@ -18,6 +18,7 @@ import { scrollSpeed, WallWorld } from '../wall/wallWorld';
 import { PointerGate } from '../engine/control';
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { Screen, ScreenManager } from './ScreenManager';
+import type { StatsInfo } from '../ui/stats';
 
 /** Seconds between the level ending and the summary appearing (a crash restarts faster). */
 const END_DELAY = 0.6;
@@ -70,6 +71,8 @@ export class WallScreen implements Screen {
   private shipGfx = new Graphics().circle(0, 0, CONFIG.PLAYER.HITBOX_R).fill(0x00ff00);
   private fxLayer = new Container();
   private uiLayer = new Container();
+  /** The HUD text and its plate; moved down while the stats overlay is on. */
+  private hudBox = new Container();
   private views: BlockView[] = [];
   private projSprites: Sprite[] = [];
   private popups: Popup[] = [];
@@ -130,8 +133,9 @@ export class WallScreen implements Screen {
     this.spikeText.visible = !!levelDef.spike;
     this.nameText.text = levelDef.name ?? '';
     // A dim plate behind the HUD text so it stays readable over the blocks.
-    this.uiLayer.addChild(new Graphics().rect(10, 12, 190, 92).fill({ color: THEME.bg, alpha: 0.72 }));
-    this.uiLayer.addChild(this.creditsText, this.tierText, this.spikeText, this.nameText, this.blocksText, this.progressBg, this.progressFg);
+    this.hudBox.addChild(new Graphics().rect(10, 12, 190, 92).fill({ color: THEME.bg, alpha: 0.72 }));
+    this.hudBox.addChild(this.creditsText, this.tierText, this.spikeText, this.nameText, this.blocksText);
+    this.uiLayer.addChild(this.hudBox, this.progressBg, this.progressFg);
 
     this.updateTexts();
 
@@ -167,8 +171,23 @@ export class WallScreen implements Screen {
     if (y > -4 && y < VIEW_H + 4) this.lineGfx.rect(0, y - 1, VIEW_W, 2).fill({ color: FINISH_LINE, alpha: 0.85 });
   }
 
+  statsInfo(o: StatsInfo) {
+    const w = this.world;
+    let fx = 0;
+    for (const p of this.popups) if (p.life > 0) fx++;
+    o.name = 'WALL';
+    o.proj = w.pool.count;
+    o.projCap = w.pool.max;
+    o.enemies = w.alive;
+    o.fx = fx;
+    o.kills = w.total - w.alive;
+    o.extra = `blocks ${w.alive}/${w.total}  scroll ${Math.round(scrollSpeed(w.level.approachSpeed, w.shipY))}  camX ${Math.round(this.camera.x)}`;
+  }
+
   private updateTexts() {
     const w = this.world;
+    const hudDy = this.sm.stats.hudOffset;
+    if (this.hudBox.y !== hudDy) this.hudBox.y = hudDy;
     this.creditsText.text = `Credits +${fmtBig(w.credits)}`;
     this.tierText.text = `Tier ${w.tier}`;
     this.spikeText.position.set(20 + this.tierText.width + 10, 56);

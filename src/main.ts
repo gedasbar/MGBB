@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { Application } from 'pixi.js';
+import { Application, UPDATE_PRIORITY } from 'pixi.js';
 import { CONFIG } from './config';
 import { InputManager } from './input';
 import { ScreenManager } from './screens/ScreenManager';
@@ -11,17 +11,6 @@ import { WallScreen } from './screens/WallScreen';
 import { getBuilderModel } from './builder/session';
 import { buildStarterGrid } from './game/starter';
 import { makeTestWall } from './wall/level';
-
-const perfDiv = document.createElement('div');
-perfDiv.style.position = 'absolute';
-perfDiv.style.top = '10px';
-perfDiv.style.left = '10px';
-perfDiv.style.color = 'lime';
-perfDiv.style.fontFamily = 'monospace';
-perfDiv.style.pointerEvents = 'none';
-perfDiv.style.zIndex = '1000';
-perfDiv.style.display = 'none';
-document.body.appendChild(perfDiv);
 
 (async () => {
   const app = new Application();
@@ -45,13 +34,14 @@ document.body.appendChild(perfDiv);
   window.addEventListener('resize', fit);
 
   const input = new InputManager(canvas);
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'Backquote') {
-      perfDiv.style.display = perfDiv.style.display === 'none' ? 'block' : 'none';
-    }
-  });
-
   const screenManager = new ScreenManager(app, input);
+  const stats = screenManager.stats;
+  screenManager.mountStats();
+  // Backtick toggles the stats overlay (also ?stats=1 / ?stats=0; the choice is remembered).
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Backquote') stats.toggle();
+  });
+  if (import.meta.env.DEV) (window as any).__mgbmStats = stats;
   // ?debug=1: the panel can start a test wall with the current circuit (the starter circuit if it has no ejector).
   debugHooks.startWall = (o) => {
     const model = getBuilderModel();
@@ -68,7 +58,8 @@ document.body.appendChild(perfDiv);
 
   app.ticker.add(() => {
     const now = performance.now();
-    let frameTime = (now - lastTime) / 1000;
+    const rawMs = now - lastTime;
+    let frameTime = rawMs / 1000;
     lastTime = now;
     if (frameTime > 0.25) frameTime = 0.25;
     accumulator += frameTime;
@@ -79,8 +70,14 @@ document.body.appendChild(perfDiv);
       accumulator -= dt;
     }
 
-    if (perfDiv.style.display === 'block') {
-      perfDiv.innerText = `FPS: ${Math.round(app.ticker.FPS)}`;
+    if (stats.enabled) {
+      simEnd = performance.now();
+      stats.frame(now, rawMs, simEnd - now);
     }
   });
+  // Runs after the renderer's own listener (LOW priority): the gap since the end of the simulation is the draw call's CPU time.
+  let simEnd = 0;
+  app.ticker.add(() => {
+    if (stats.enabled && simEnd > 0) stats.render(performance.now() - simEnd);
+  }, null, UPDATE_PRIORITY.UTILITY);
 })();

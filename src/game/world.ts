@@ -15,6 +15,8 @@ export { PROJECTILE_SPEED, PX_PER_CELL };
 export const CONTACT_DAMAGE = 10;
 /** Rock fall speed (px/s). */
 export const ENEMY_SPEED = 40;
+/** Seconds between rock spawns. */
+export const SPAWN_INTERVAL = 2;
 /** A rock whose centre stays above the top edge this long is moved in at the edge. */
 export const ABOVE_SCREEN_MAX = 6;
 
@@ -191,7 +193,7 @@ export class World {
     // --- Spawning: above the top edge, inside the screen width, entering downward
     if (this.autoSpawn) {
       this.spawnTimer += dt;
-      if (this.spawnTimer >= 2) {
+      if (this.spawnTimer >= SPAWN_INTERVAL) {
         this.spawnTimer = 0;
         this.spawnRock(Math.random() * (VW - 40) + 20, -20);
       }
