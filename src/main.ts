@@ -8,6 +8,8 @@ import { BuildScreen } from './screens/BuildScreen';
 import { DebugPanel } from './debug/panel';
 import { debugHooks } from './debug/hooks';
 import { WallScreen } from './screens/WallScreen';
+import { FlyScreen } from './screens/FlyScreen';
+import { generateLevel } from './wall/generator';
 import { getBuilderModel } from './builder/session';
 import { buildStarterGrid } from './game/starter';
 import { makeTestWall } from './wall/level';
@@ -31,12 +33,14 @@ import { makeTestWall } from './wall/level';
     canvas.style.height = `${Math.floor(CONFIG.VIEW.H * s)}px`;
   }
   fit();
-  window.addEventListener('resize', fit);
 
   const input = new InputManager(canvas);
   const screenManager = new ScreenManager(app, input);
   const stats = screenManager.stats;
   screenManager.mountStats();
+  // The stats go beside the game when the window has room for them, else into the canvas; re-decided on every resize.
+  stats.layout();
+  window.addEventListener('resize', () => { fit(); stats.layout(); });
   // Backtick toggles the stats overlay (also ?stats=1 / ?stats=0; the choice is remembered).
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Backquote') stats.toggle();
@@ -53,6 +57,19 @@ import { makeTestWall } from './wall/level';
     const level = makeTestWall({ tier: o.tier, rows: o.rows ?? 8, armorFraction: o.armorFraction, shieldFraction: o.shieldFraction, gaps: 6 });
     screenManager.switchTo(new WallScreen(screenManager, level, grid));
   };
+  if (import.meta.env.DEV) {
+    // Cheat panel hooks: Free Fly from a given wave, and any campaign tier whether or not it is unlocked.
+    debugHooks.startFly = (wave) => {
+      const model = getBuilderModel();
+      const grid = model.compiled.recipes.length > 0 ? model.gridForFlight() : buildStarterGrid();
+      screenManager.switchTo(new FlyScreen(screenManager, grid, { startWave: wave }));
+    };
+    debugHooks.startTier = (tier) => {
+      const model = getBuilderModel();
+      const grid = model.compiled.recipes.length > 0 ? model.gridForFlight() : buildStarterGrid();
+      screenManager.switchTo(new WallScreen(screenManager, generateLevel(tier), grid));
+    };
+  }
   new DebugPanel().init();
   screenManager.switchTo(new BuildScreen(screenManager));
 

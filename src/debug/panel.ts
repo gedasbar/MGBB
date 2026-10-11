@@ -3,8 +3,8 @@ import { debugHooks } from './hooks';
 import { BACKGROUND_IDS } from '../ui/background';
 
 /**
- * Small DOM panel shown with ?debug=1, to the left of the canvas (it never covers the game on a
- * viewport wider than the 540 px game column).
+ * Small DOM panel shown with ?debug=1, on the right of the window (the stats side panel uses the left; on a viewport
+ * not wider than the game column it overlaps the game, as before).
  */
 export class DebugPanel {
   enabled = false;
@@ -19,20 +19,34 @@ export class DebugPanel {
   createUI() {
     const box = document.createElement('div');
     box.id = 'debug-panel';
-    box.style.cssText = 'position:fixed;top:4px;left:4px;z-index:9999;display:flex;flex-direction:column;gap:3px;font:11px monospace';
+    // Scrolls when taller than the window; the header button folds the whole body away (remembered in sessionStorage).
+    box.style.cssText = 'position:fixed;top:4px;right:4px;z-index:9999;display:flex;flex-direction:column;gap:3px;font:11px monospace;max-height:calc(100vh - 8px);overflow-y:auto;width:176px';
+    const head = document.createElement('button');
+    head.id = 'dbg-fold';
+    head.style.cssText = 'font:11px monospace;padding:3px 6px;text-align:left;background:#400;color:#ddd;border:1px solid #866;cursor:pointer;position:sticky;top:0';
+    const body = document.createElement('div');
+    body.id = 'dbg-body';
+    body.style.cssText = 'display:flex;flex-direction:column;gap:3px';
+    const fold = (folded: boolean) => {
+      body.style.display = folded ? 'none' : 'flex';
+      head.textContent = folded ? 'DEBUG \u25b8' : 'DEBUG \u25be';
+      try { sessionStorage.setItem('mgbm.dbgFolded', folded ? '1' : '0'); } catch { /* ignore */ }
+    };
+    head.addEventListener('click', () => fold(body.style.display !== 'none'));
+    box.append(head, body);
     const add = (id: string, label: string, act: () => void) => {
       const b = document.createElement('button');
       b.id = id;
       b.textContent = label;
       b.style.cssText = 'font:11px monospace;padding:3px 6px;text-align:left;background:#222;color:#ccc;border:1px solid #666;cursor:pointer';
       b.addEventListener('click', act);
-      box.appendChild(b);
+      body.appendChild(b);
     };
     const bgNote = document.createElement('div');
     bgNote.id = 'dbg-bg-ids';
     bgNote.style.cssText = 'border:1px solid #666;padding:3px;background:#222;color:#ccc;max-width:150px';
     bgNote.textContent = 'add ?bg=<id> (or off): ' + BACKGROUND_IDS.join(', ');
-    box.appendChild(bgNote);
+    body.appendChild(bgNote);
     add('dbg-credits', '+10000 credits', () => getProgressStore().addCredits(10000));
     add('dbg-reset', 'Reset progress', () => {
       try { localStorage.removeItem(PROGRESS_KEY); } catch { /* ignore */ }
@@ -75,7 +89,12 @@ export class DebugPanel {
       });
     });
     row.appendChild(start);
-    box.appendChild(row);
+    body.appendChild(row);
+    // Cheats are a dev-build feature: this branch (and the module) is removed from production builds.
+    if (import.meta.env.DEV) void import('./cheatPanel').then(m => m.addCheats(body));
     document.body.appendChild(box);
+    let folded = false;
+    try { folded = sessionStorage.getItem('mgbm.dbgFolded') === '1'; } catch { /* ignore */ }
+    fold(folded);
   }
 }

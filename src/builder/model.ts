@@ -4,7 +4,7 @@ import { BLOCKS } from '../data/blocks';
 import { cloneGrid, HULL_BUILDERS } from '../game/gridUtils';
 import { ProgressStore } from '../econ/progress';
 import {
-  BlockEntry, decodeLayout, DEFAULT_HULL, encodeLayout, entriesFromGrid, gridFromEntries, LEGACY_KEY,
+  BlockEntry, decodeLayout, defaultSave, DEFAULT_HULL, encodeLayout, entriesFromGrid, gridFromEntries, LEGACY_KEY,
   loadBuilder, SavedBuilder, serializeBuilder, SlotId, STORAGE_KEY,
 } from './persist';
 
@@ -268,6 +268,13 @@ export class BuilderModel {
     }
     this.commit();
     return { ok: true };
+  }
+
+  /** Dev cheat (full save reset): forgets every circuit of every hull and goes back to the starter hull. Call after the progress reset. */
+  resetAll() {
+    this.saved = defaultSave();
+    this.loadHull(DEFAULT_HULL);
+    this.commit();
   }
 
   /** Switches the hull being built (each hull keeps its own A and B circuits). Undo history starts fresh. */

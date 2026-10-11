@@ -84,9 +84,9 @@ export class FlyScreen implements Screen {
   private bg: BackgroundView | null = null;
   private bgForced = forcedBackground();
 
-  constructor(private screenManager: ScreenManager, grid: Grid) {
+  constructor(private screenManager: ScreenManager, grid: Grid, opts: { startWave?: number } = {}) {
     // A new seed per run: the waves are deterministic for a seed (World.seed, shown by the debug hook).
-    this.world = new World({ grid, safeStart: true, seed: (Math.random() * 0x7fffffff) | 0 });
+    this.world = new World({ grid, safeStart: true, seed: (Math.random() * 0x7fffffff) | 0, startWave: opts.startWave });
     debugHooks.world = this.world;
     
     this.fragPools.set('mitotic_rock', this.fragments);
@@ -210,6 +210,7 @@ export class FlyScreen implements Screen {
     const pointer = this.screenManager.input.pointer;
     // Spawn safety: the ship waits where it starts until the player's first pointer move or press.
     if (!this.world.controlStarted && this.gate.observe(pointer, pointer.seen)) this.world.beginControl();
+    this.world.god = debugHooks.god;
     this.world.update(dt, pointer);
     if (this.bg) {
       // Constant slow scroll (no horizontal motion: Free Fly is one fixed screen).

@@ -1,5 +1,5 @@
 import { MAX_TIER } from '../wall/generator';
-import { pickerBlocks } from '../data/blocks';
+import { BLOCKS, pickerBlocks } from '../data/blocks';
 import { HULL_BUILDERS } from '../game/gridUtils';
 import { STARTER_HULL } from '../data/hulls';
 import {
@@ -101,6 +101,12 @@ export function sanitizeProgress(raw: unknown): Progress {
   for (const id of Object.keys(d.owned)) {
     out.owned[id] = int(r.owned?.[id], 0, 1e6, d.owned[id]);
     out.levels[id] = int(r.levels?.[id], 1, maxLevelOf(id), 1);
+  }
+  // Blocks that exist but are not for sale yet (hidden): only a dev cheat ever writes them; kept so they survive a reload.
+  for (const id of Object.keys(BLOCKS)) {
+    if (id in out.owned) continue;
+    const n = int(r.owned?.[id], 1, 1e6, 0);
+    if (n > 0) { out.owned[id] = n; out.levels[id] = int(r.levels?.[id], 1, maxLevelOf(id), 1); }
   }
   const hulls = Array.isArray(r.ownedHulls) ? r.ownedHulls.filter((h: unknown) => typeof h === 'string' && h in HULL_BUILDERS) : [];
   // Every save owns the Dart; hulls it already owned (the Shuttle of old saves, a bought Fan) are kept.

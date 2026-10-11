@@ -106,6 +106,15 @@ export class WaveDirector {
 
   constructor(readonly seed: number) {}
 
+  /** Dev: start the run at wave `wave` (its spawns begin on the next update; earlier waves are skipped, not caught up). */
+  jumpTo(wave: number) {
+    if (wave <= 1) return;
+    this.wave = wave - 1;
+    this.start = (wave - 2) * WAVE_TIME;
+    this.queue = [];
+    this.next = 0;
+  }
+
   /** Seconds left until the next wave starts. */
   timeToNext(time: number): number { return Math.max(0, this.start + WAVE_TIME - time); }
 

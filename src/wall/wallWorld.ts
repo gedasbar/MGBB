@@ -146,6 +146,8 @@ export class WallWorld {
 
   /** Row-major living blocks (null = empty or destroyed). */
   readonly blocks: (Block | null)[] = [];
+  /** Dev cheat (debugHooks.god): the ship cannot crash. */
+  god = false;
   /** Every block ever created, for iteration. */
   readonly all: Block[] = [];
   /** Blocks with a shield pool (regeneration only walks these). */
@@ -425,7 +427,7 @@ export class WallWorld {
 
     // --- End of level. Destroyed blocks never kill; a cleared wall beats a crash and a pass.
     if (this.alive === 0) this.state = 'cleared';
-    else if (this.invuln <= 0 && this.shipHitsBlock()) this.state = 'crashed';
+    else if (this.invuln <= 0 && !this.god && this.shipHitsBlock()) this.state = 'crashed';
     else if (this.shipY < this.finishY) this.state = 'passed';
   }
 
