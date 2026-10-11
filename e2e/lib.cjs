@@ -9,7 +9,9 @@ const chromium = {
 const path = require('path');
 const fs = require('fs');
 
-const URL = process.env.GAME_URL || 'http://localhost:5173';
+// The stats overlay is on by default in dev; screenshots and pixel checks want it off unless a script asks (stats=1 in GAME_URL).
+const BASE_URL = process.env.GAME_URL || 'http://localhost:5173';
+const URL = /[?&]stats=/.test(BASE_URL) ? BASE_URL : BASE_URL + (BASE_URL.includes('?') ? '&' : '?') + 'stats=0';
 const OUT = path.join(__dirname, 'screenshots');
 fs.mkdirSync(OUT, { recursive: true });
 
