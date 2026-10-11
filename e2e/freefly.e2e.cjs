@@ -8,7 +8,8 @@ for (const [k, v] of [['debug', 1], ['stats', 1]]) {
 }
 process.env.GAME_URL = url;
 const lib = require('./lib.cjs');
-const { check, state, gameToClient } = lib;
+const { check, state, gameToClient, tap } = lib;
+const centre = (r) => [r.x + r.w / 2, r.y + r.h / 2];
 
 const OUT = path.join(__dirname, '..', 'reports', 'chunk7b');
 fs.mkdirSync(OUT, { recursive: true });
@@ -24,7 +25,28 @@ const statsNow = (page) => page.evaluate(() => { const n = window.__mgbmStats.nu
 
 (async () => {
   const browser = await lib.chromium.launch({ headless: true });
-  const { page } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, rich: false });
+  const { page } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, rich: false, dart: true });
+
+  // ---- Fresh save: the free one-slot Dart. Place a Flat+ in its slot with real taps (overlay off for the screenshots).
+  await page.evaluate(() => window.__mgbmStats.set(false));
+  let b = await state(page);
+  const dims = await page.evaluate(() => { const m = window.__mgbm.model; return { w: m.grid.w, h: m.grid.h, blocks: m.grid.cells.filter(c => c.blockId).length, hull: m.hullId, owned: m.store.data.ownedHulls }; });
+  check(dims.hull === 'dart' && dims.w === 1 && dims.h === 3 && dims.blocks === 0 && dims.owned.length === 1, `fresh save: ${JSON.stringify(dims)}`);
+  await snap(page, 'build_dart_empty.png');
+  const slot = await page.evaluate(() => { const v = window.__mgbm.buildScreen.view; return { x: v.ox + 0.5 * v.scale, y: v.oy + 1.5 * v.scale, scale: v.scale }; });
+  check(slot.scale > 40 && slot.x > 200 && slot.x < 340, `the 1 x 3 grid is centred (slot at ${slot.x.toFixed(0)}, ${slot.y.toFixed(0)}, cell ${slot.scale.toFixed(0)} px)`);
+  await tap(page, slot.x, slot.y);
+  await tap(page, slot.x, slot.y);
+  b = await state(page);
+  check(b.pickerOpen, 'tapping the one slot opens the tile picker');
+  const flatTile = await page.evaluate(() => window.__mgbm.buildScreen.picker.tileScreenRect('flat_plus'));
+  await tap(page, ...centre(flatTile));
+  await tap(page, ...centre(flatTile));
+  await tap(page, 516, 492);   // close the sheet
+  b = await state(page);
+  const placed = await page.evaluate(() => window.__mgbm.model.grid.cells.filter(c => c.blockId).map(c => c.blockId));
+  check(JSON.stringify(placed) === '["flat_plus"]' && b.statsStrip[0].startsWith('101'), `Flat+ placed in the slot: ${placed}, Dmg/shot "${b.statsStrip[0]}"`);
+  await snap(page, 'build_dart.png');
 
   // ---- Start with the real pointer parked at the top edge: the ship must wait.
   await move(page, 270, 6);
@@ -39,6 +61,9 @@ const statsNow = (page) => page.evaluate(() => { const n = window.__mgbmStats.nu
   await page.waitForTimeout(900);
   s = await state(page);
   check(s.controlStarted && Math.abs(s.shipY - 700) < 1, `first move: control starts and the ship is at (${s.shipX.toFixed(1)}, ${s.shipY.toFixed(1)})`);
+  await page.evaluate(() => window.__mgbmStats.set(false));
+  await snap(page, 'fly_dart.png');
+  await page.evaluate(() => window.__mgbmStats.set(true));
 
   // ---- Hold the pointer at the right edge for about 30 s of sim time; sample enemies from inside the page.
   await page.evaluate(() => {
@@ -86,7 +111,9 @@ const statsNow = (page) => page.evaluate(() => { const n = window.__mgbmStats.nu
   check(s.kills > k0, `kills rose from ${k0} to ${s.kills} while sweeping the middle`);
 
   // ---- Stats overlay
+  // The Dart fires once a second, so poll the overlay briefly until a projectile is in the air.
   let st = await statsNow(page);
+  for (let i = 0; i < 40 && !(st.last.proj > 0); i++) { await page.waitForTimeout(100); st = await statsNow(page); }
   check(st.enabled && st.fps > 0 && st.last.proj > 0, `overlay on: fps ${st.fps.toFixed(0)}, projectiles ${st.last.proj}/${st.last.projCap}, enemies ${st.last.enemies}`);
   check(/FREE FLY/.test(st.text) && /FPS \d+/.test(st.text) && /proj \d+\/4000/.test(st.text), `overlay text: ${JSON.stringify(st.text)}`);
   check(st.simMs >= 0 && st.overheadMs >= 0, `sim ${st.simMs.toFixed(2)} ms, render ${st.renderMs.toFixed(2)} ms, overlay overhead ${st.overheadMs.toFixed(3)} ms per frame`);
@@ -102,8 +129,16 @@ const statsNow = (page) => page.evaluate(() => { const n = window.__mgbmStats.nu
 
   // ---- Wall with the overlay: a fresh page, start the debug test wall
   await page.close();
-  const { page: p2 } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, rich: false });
+  const { page: p2 } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, rich: false, dart: true });
+  await p2.evaluate(() => window.__mgbmStats.set(false));
+  await tap(p2, 162, 932);   // Shop tab
+  await tap(p2, 405, 136);   // Hulls section
+  await p2.waitForTimeout(200);
+  const shopRows = (await state(p2)).rows;
+  check(shopRows && shopRows.length === 5 && shopRows.map(r => r.key).join() === 'dart,twin,prong,fan,shuttle', `Shop lists the hull ladder: ${shopRows && shopRows.map(r => r.key)}`);
+  await snap(p2, 'shop_hulls.png');
   await move(p2, 270, 800);
+  await p2.evaluate(() => window.__mgbmStats.set(true));
   await p2.evaluate(() => document.getElementById('dbg-wall-start').click());
   await p2.waitForFunction(() => window.__mgbm && window.__mgbm.screen === 'wall', null, { timeout: 5000 });
   await move(p2, 300, 700);
@@ -111,6 +146,9 @@ const statsNow = (page) => page.evaluate(() => { const n = window.__mgbmStats.nu
   const ws = await statsNow(p2);
   check(ws.enabled && /WALL/.test(ws.text) && /blocks \d+\/\d+/.test(ws.text) && /camX/.test(ws.text), `wall overlay: ${JSON.stringify(ws.text)}`);
   await snap(p2, 'wall_stats.png');
+  await p2.evaluate(() => window.__mgbmStats.set(false));
+  await p2.waitForTimeout(250);
+  await snap(p2, 'wall_dart.png');
 
   await browser.close();
   const c = lib.counts();

@@ -58,16 +58,16 @@ export const SHIP_ART: Record<string, ShipArtDef> = {
   /** Narrow arrowhead. */
   dart: {
     id: 'dart', accent: CATEGORY_COLOR.damage, size: 1, muzzleY: 0.02,
-    layers: nest([[0.5, 0.02], [0.64, 0.9], [0.5, 0.76], [0.36, 0.9]]),
-    engine: [0.43, 0.57, 0.9, 0.96],
+    layers: nest([[0.5, 0.0], [0.77, 0.92], [0.5, 0.74], [0.23, 0.92]]),
+    engine: [0.43, 0.57, 0.92, 0.98],
   },
   /** Arrowhead with two small side pods. */
   twin: {
     id: 'twin', accent: CATEGORY_COLOR.pathing, size: 1, muzzleY: 0.02,
     layers: nest(
-      [[0.5, 0.02], [0.62, 0.88], [0.5, 0.76], [0.38, 0.88]],
-      [[0.2, 0.46], [0.3, 0.46], [0.3, 0.84], [0.2, 0.84]],
-      [[0.7, 0.46], [0.8, 0.46], [0.8, 0.84], [0.7, 0.84]],
+      [[0.5, 0.0], [0.7, 0.9], [0.5, 0.74], [0.3, 0.9]],
+      [[0.08, 0.42], [0.22, 0.42], [0.22, 0.86], [0.08, 0.86]],
+      [[0.78, 0.42], [0.92, 0.42], [0.92, 0.86], [0.78, 0.86]],
     ),
     engine: [0.43, 0.57, 0.88, 0.94],
   },
@@ -164,12 +164,15 @@ export class ShipView {
     this.art.height = px * def.size;
     for (const m of muzzles) {
       const along = m.dir === 'E' || m.dir === 'W';
-      const w = along ? 6 : 2.5;
-      const h = along ? 2.5 : 6;
-      this.ticks.rect(m.x - w / 2, m.y - h / 2, w, h).fill(THEME.bulletCasing);
+      const w = along ? 4 : 2;
+      const h = along ? 2 : 4;
+      // Nudged off the dead centre so the middle pixel of the dot stays bright green.
+      const oy = m.dir === 'N' || m.dir === 'S' ? (m.y <= 0 ? -1.5 : 1.5) : 0;
+      this.ticks.rect(m.x - w / 2, m.y + oy - h / 2, w, h).fill(0x101012);
     }
     this.dot = new Graphics().circle(0, 0, hitR + 3).stroke({ color: 0x00ff00, width: 1.5, alpha: 0.9 }).circle(0, 0, hitR).fill(0x00ff00);
-    this.container.addChild(this.art, this.ticks, this.dot);
+    // The ejectors sit a few px from the centre (inside the dot), so the ticks are drawn over it.
+    this.container.addChild(this.art, this.dot, this.ticks);
   }
 
   setPosition(x: number, y: number) { this.container.position.set(x, y); }

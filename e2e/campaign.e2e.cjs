@@ -62,7 +62,7 @@ async function flyLane(page, { shots = false } = {}) {
     cur = { x: cur.x + dx * k, y: cur.y + dy * k };
     const p = await gameToClient(page, cur.x, cur.y);
     await page.mouse.move(p.x, p.y);
-    if (shots && !got.lane && t.shipY < t.offset - 120 && t.shipY > 120 && t.alive > 0 && t.offset > 400) { await snap(page, 'ship_in_lane.png'); got.lane = true; }
+    if (shots && !got.lane && t.shipY < t.offset - 40 && t.shipY > 60 && t.alive > 0 && t.state === 'playing') { await snap(page, 'ship_in_lane.png'); got.lane = true; }
     if (process.env.DBG && i % 40 === 0) console.log('pilot', i, JSON.stringify(t), JSON.stringify(cur));
     await page.waitForTimeout(25);
   }
