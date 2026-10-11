@@ -16,6 +16,7 @@ import { LevelDef } from '../wall/level';
 import { scrollSpeed, WallWorld } from '../wall/wallWorld';
 import { PointerGate } from '../engine/control';
 import { ShipView } from '../ui/shipArt';
+import { BackgroundView, backgroundForTier, forcedBackground } from '../ui/background';
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { Screen, ScreenManager } from './ScreenManager';
 import type { StatsInfo } from '../ui/stats';
@@ -67,6 +68,7 @@ export class WallScreen implements Screen {
   private blockLayer = new Container();
   private projLayer = new Container();
   private ship: ShipView;
+  private bg: BackgroundView | null = null;
   /** ?debug=1: a faint line at world x = 0 so the seam of a ring can be seen. */
   private seamLine: Graphics | null = null;
   private fxLayer = new Container();
@@ -104,6 +106,11 @@ export class WallScreen implements Screen {
       this.world.recipes.map((r, i) => ({ x: this.world.spawnOffsets[i].x, y: this.world.spawnOffsets[i].y, dir: r.direction })),
     );
     this.container.addChild(this.blockLayer, this.projLayer, this.ship.container, this.fxLayer, this.uiLayer);
+    const forcedBg = forcedBackground();
+    if (forcedBg !== 'off') {
+      this.bg = new BackgroundView(this.sm.app.renderer, forcedBg ?? backgroundForTier(levelDef.tier, !!levelDef.spike));
+      this.container.addChildAt(this.bg.container, 0);
+    }
     if (typeof window !== 'undefined' && window.location.search.includes('debug=1')) {
       this.seamLine = new Graphics().rect(-1, 0, 2, VIEW_H).fill({ color: 0xff3366, alpha: 0.3 });
       this.seamLine.visible = false;
@@ -216,6 +223,8 @@ export class WallScreen implements Screen {
       else target = { x: p.x + this.camera.x, y: p.y };
     }
     w.update(dt, target);
+    // The background scrolls with the real wall speed (top-edge boost included); on a ring also sideways with the camera.
+    if (this.bg) this.bg.update(frameTime, scrollSpeed(w.level.approachSpeed, w.shipY), w.ring ? this.camera.x : 0);
 
     // Credit popups: a small yellow +N each time the running total crosses a whole credit.
     for (const k of w.killEvents) {

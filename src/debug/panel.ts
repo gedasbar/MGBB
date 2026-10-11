@@ -1,5 +1,6 @@
 import { getProgressStore, PROGRESS_KEY } from '../econ/progress';
 import { debugHooks } from './hooks';
+import { BACKGROUND_IDS } from '../ui/background';
 
 /**
  * Small DOM panel shown with ?debug=1, to the left of the canvas (it never covers the game on a
@@ -27,6 +28,11 @@ export class DebugPanel {
       b.addEventListener('click', act);
       box.appendChild(b);
     };
+    const bgNote = document.createElement('div');
+    bgNote.id = 'dbg-bg-ids';
+    bgNote.style.cssText = 'border:1px solid #666;padding:3px;background:#222;color:#ccc;max-width:150px';
+    bgNote.textContent = 'add ?bg=<id> (or off): ' + BACKGROUND_IDS.join(', ');
+    box.appendChild(bgNote);
     add('dbg-credits', '+10000 credits', () => getProgressStore().addCredits(10000));
     add('dbg-reset', 'Reset progress', () => {
       try { localStorage.removeItem(PROGRESS_KEY); } catch { /* ignore */ }

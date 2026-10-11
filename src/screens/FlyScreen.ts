@@ -13,9 +13,12 @@ import { debugHooks } from '../debug/hooks';
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { PointerGate } from '../engine/control';
 import { FragmentPool, RockView, enemyArt } from '../ui/rockArt';
+import { BackgroundView, forcedBackground, freeFlyThemeAt } from '../ui/background';
 import { ShipView } from '../ui/shipArt';
 
 const FLASH_TIME = 0.08;
+/** Free Fly background scroll in px/s (before each layer's parallax). */
+const BG_SCROLL = 60;
 const DMG_NUMBER_LIFE = 0.6;
 /** Seconds between the hull reaching 0 and the Run Summary appearing. */
 const END_DELAY = 0.7;
@@ -50,6 +53,9 @@ export class FlyScreen implements Screen {
   private endTimer = 0;
   private finished = false;
   private gate = new PointerGate();
+  /** Galaxy first, then the next theme every 3 minutes (3 s crossfade); ?bg=<id> forces one, ?bg=off hides it. */
+  private bg: BackgroundView | null = null;
+  private bgForced = forcedBackground();
 
   constructor(private screenManager: ScreenManager, grid: Grid) {
     this.world = new World({ grid, safeStart: true });
@@ -62,6 +68,10 @@ export class FlyScreen implements Screen {
       w.recipes.map((r, i) => ({ x: w.spawnOffsets[i].x, y: w.spawnOffsets[i].y, dir: r.direction })),
     );
     this.container.addChild(this.ship.container, this.fxLayer, this.uiLayer);
+    if (this.bgForced !== 'off') {
+      this.bg = new BackgroundView(this.screenManager.app.renderer, this.bgForced ?? freeFlyThemeAt(0));
+      this.container.addChildAt(this.bg.container, 0);
+    }
 
     this.hullBarBg.position.set(20, 20);
     this.hullBarFg.position.set(20, 20);
@@ -145,6 +155,11 @@ export class FlyScreen implements Screen {
     // Spawn safety: the ship waits where it starts until the player's first pointer move or press.
     if (!this.world.controlStarted && this.gate.observe(pointer, pointer.seen)) this.world.beginControl();
     this.world.update(dt, pointer);
+    if (this.bg) {
+      // Constant slow scroll (no horizontal motion: Free Fly is one fixed screen).
+      this.bg.update(frameTime, BG_SCROLL);
+      if (!this.bgForced) { const want = freeFlyThemeAt(this.world.time); if (want !== this.bg.id) this.bg.crossfadeTo(want); }
+    }
 
     for (const h of this.world.hits) {
       this.flash.set(h.enemyId, FLASH_TIME);
