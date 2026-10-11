@@ -1,5 +1,11 @@
 // Shared helpers for the browser end-to-end scripts. Requires the Vite dev server (`npm run dev`).
-const { chromium } = require('playwright');
+const { chromium: pwChromium } = require('playwright');
+
+// CHROMIUM_PATH (or a pre-installed /opt/pw-browsers/chromium) is used when Playwright's own browser download is missing.
+const EXEC = process.env.CHROMIUM_PATH || (require('fs').existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
+const chromium = {
+  launch: (opts = {}) => pwChromium.launch(EXEC && !opts.executablePath ? { ...opts, executablePath: EXEC } : opts),
+};
 const path = require('path');
 const fs = require('fs');
 

@@ -15,6 +15,7 @@ import { BuildScreen } from './BuildScreen';
 import { MapScreen } from './MapScreen';
 import { LevelDef } from '../wall/level';
 import { scrollSpeed, WallWorld } from '../wall/wallWorld';
+import { PointerGate } from '../engine/control';
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { Screen, ScreenManager } from './ScreenManager';
 
@@ -84,11 +85,12 @@ export class WallScreen implements Screen {
   private popupTotal = 0;
   private endTimer = 0;
   private finished = false;
+  private gate = new PointerGate();
   /** Slots used by the last draw, for the e2e hook. */
   private lastDrawn: { col: number; row: number; inner: number }[] = [];
 
   constructor(private sm: ScreenManager, readonly levelDef: LevelDef, private grid: Grid) {
-    this.world = new WallWorld(levelDef, { grid });
+    this.world = new WallWorld(levelDef, { grid, safeStart: true });
     debugHooks.wall = this.world;
     this.camera = new WallCamera();
 
@@ -152,7 +154,7 @@ export class WallScreen implements Screen {
     return {
       state: w.state, time: w.time, finishY: w.finishY, progress: w.progress, alive: w.alive, total: w.total, destroyed: w.destroyed,
       credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), scrollSpeed: scrollSpeed(w.level.approachSpeed, w.shipY), cameraX: this.camera.x, cameraSpeed: this.camera.speed,
-      shipWorldX: w.shipX, shipScreenX: w.shipX - this.camera.x, shipY: w.shipY, projectiles: w.pool.count,
+      controlStarted: w.controlStarted, invuln: w.invuln, shipWorldX: w.shipX, shipScreenX: w.shipX - this.camera.x, shipY: w.shipY, projectiles: w.pool.count,
       hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.nameText.text, spike: this.spikeText.visible, blocks: this.blocksText.text },
       drawn: this.lastDrawn.length,
     };
@@ -176,15 +178,17 @@ export class WallScreen implements Screen {
     if (h > 0) this.progressFg.rect(VIEW_W - 8, 20 + (VIEW_H - 40) - h, 4, h).fill(GREEN);
   }
 
-  update(dt: number, frameTime: number, _now: number) {
+  update(dt: number, frameTime: number, now: number) {
     const w = this.world;
     const p = this.sm.input.pointer;
 
     // Camera first (edge push), then the ship follows the pointer in screen space: world x = screen x + camera x.
-    const pushing = p.seen && (p.type !== 'touch' || p.active);
+    // Spawn safety: nothing follows the pointer (ship and camera alike) until the first move or press after the run started.
+    if (!w.controlStarted && this.gate.observe(p, p.seen)) w.beginControl();
+    const pushing = w.controlStarted && p.seen && (p.type !== 'touch' || p.active);
     this.camera.update(dt, pushing ? p.x : null);
     let target: { x: number; y: number } | null = null;
-    if (p.seen) {
+    if (w.controlStarted && p.seen) {
       if (p.type === 'touch') { if (p.active) target = { x: p.x + this.camera.x, y: p.y + TOUCH_OFFSET_Y }; }
       else target = { x: p.x + this.camera.x, y: p.y };
     }
@@ -208,6 +212,7 @@ export class WallScreen implements Screen {
     this.drawBlocks();
     this.drawProjectiles();
     this.shipGfx.position.set(w.shipX - this.camera.x, w.shipY);
+    this.shipGfx.alpha = w.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1;
 
     for (const pu of this.popups) {
       if (pu.life <= 0) continue;

@@ -10,6 +10,7 @@ import {
   WORLD_WIDTH,
 } from './constants';
 import { LevelDef, rewardPerBlock } from './level';
+import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 
 /** One living block of a wall. x/y are the block centre (x in world px, y in screen px); `radius` is the half size. */
 export interface Block extends EnemyEntity {
@@ -153,6 +154,15 @@ export class WallWorld {
   shipY = SHIP_START_Y;
   time = 0;
   state: WallState = 'playing';
+  /**
+   * Spawn safety. With `safeStart` the ship stays at its start spot (bottom centre) and ignores the pointer until
+   * beginControl() (the screen calls it on the first pointer move or press). Then it eases to the pointer over EASE_TIME and
+   * cannot crash into blocks for GRACE_TIME (`invuln`, in seconds). Without it (unit tests) the ship follows at once.
+   */
+  controlStarted: boolean;
+  invuln = 0;
+  private controlT: number;
+  private easeFrom = { x: 0, y: 0 };
 
   readonly total: number;
   alive: number;
@@ -168,7 +178,9 @@ export class WallWorld {
   hits: WallHitEvent[] = [];
   killEvents: WallKillEvent[] = [];
 
-  constructor(readonly level: LevelDef, opts: { grid?: Grid } = {}) {
+  constructor(readonly level: LevelDef, opts: { grid?: Grid; safeStart?: boolean } = {}) {
+    this.controlStarted = !opts.safeStart;
+    this.controlT = opts.safeStart ? 0 : Infinity;
     const hullGrid = opts.grid ?? buildStarterGrid();
     const compiled = compile(opts.grid ?? buildStarterGrid());
     this.recipes = compiled.recipes;
@@ -293,6 +305,14 @@ export class WallWorld {
     return true;
   }
 
+  /** The player's first move: the ship starts easing to the pointer and cannot crash for GRACE_TIME. */
+  beginControl() {
+    if (this.controlStarted) return;
+    this.controlStarted = true;
+    this.controlT = 0;
+    this.invuln = GRACE_TIME;
+  }
+
   get isBanked(): boolean { return this.banked; }
 
   fire() {
@@ -308,9 +328,19 @@ export class WallWorld {
     this.time += dt;
 
     // --- Ship: exactly where the pointer asks (inside the world and the screen)
-    if (ship) {
-      this.shipX = Math.max(0, Math.min(WORLD_WIDTH, ship.x));
-      this.shipY = Math.max(CONFIG.PLAYER.MARGIN, Math.min(VIEW_H - CONFIG.PLAYER.MARGIN, ship.y));
+    if (this.invuln > 0) this.invuln = Math.max(0, this.invuln - dt);
+    if (ship && this.controlStarted) {
+      let tx = Math.max(0, Math.min(WORLD_WIDTH, ship.x));
+      let ty = Math.max(CONFIG.PLAYER.MARGIN, Math.min(VIEW_H - CONFIG.PLAYER.MARGIN, ship.y));
+      if (this.controlT < EASE_TIME) {
+        if (this.controlT === 0) this.easeFrom = { x: this.shipX, y: this.shipY };
+        this.controlT += dt;
+        const k = easeK(this.controlT);
+        tx = this.easeFrom.x + (tx - this.easeFrom.x) * k;
+        ty = this.easeFrom.y + (ty - this.easeFrom.y) * k;
+      }
+      this.shipX = tx;
+      this.shipY = ty;
     }
 
     // --- Shields recover after SHIELD_REGEN_DELAY seconds without a hit
@@ -360,7 +390,7 @@ export class WallWorld {
 
     // --- End of level. Destroyed blocks never kill; a cleared wall beats a crash and a pass.
     if (this.alive === 0) this.state = 'cleared';
-    else if (this.shipHitsBlock()) this.state = 'crashed';
+    else if (this.invuln <= 0 && this.shipHitsBlock()) this.state = 'crashed';
     else if (this.shipY < this.finishY) this.state = 'passed';
   }
 

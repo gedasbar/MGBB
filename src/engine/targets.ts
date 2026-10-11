@@ -1,5 +1,6 @@
 import type { EnemyEntity } from './projectiles';
 import { SpatialHash } from './spatialHash';
+import { wrapDx } from './wrap';
 
 /** Where a ricochet leaves a surface: unit normal and how far to move the projectile out of the target. */
 export interface BounceInfo { nx: number; ny: number; push: number }
@@ -22,19 +23,24 @@ export interface TargetField {
   bounceInfo?(t: EnemyEntity, x: number, y: number, r: number): BounceInfo | null;
 }
 
-/** The rocks of Free Fly: circles found through the spatial hash. */
+/** The rocks of Free Fly: circles found through the spatial hash. With `wrapW` x distances go the short way round the cylinder. */
 export class EnemyField implements TargetField {
   private byId = new Map<number, EnemyEntity>();
 
-  constructor(private enemies: EnemyEntity[], private spatial: SpatialHash) {
+  constructor(private enemies: EnemyEntity[], private spatial: SpatialHash, private wrapW = 0) {
     for (const e of enemies) this.byId.set(e.id, e);
+  }
+
+  /** Signed x distance from `from` to `to`. */
+  private dx(to: number, from: number): number {
+    return this.wrapW > 0 ? wrapDx(to, from, this.wrapW) : to - from;
   }
 
   hitCircle(px: number, py: number, hitR: number, skipId: number): EnemyEntity | null {
     for (const id of this.spatial.query(px, py, 50)) {
       if (id === skipId) continue;
       const e = this.byId.get(id);
-      if (e && e.hp > 0 && (e.x - px) ** 2 + (e.y - py) ** 2 <= (e.radius + hitR) ** 2) return e;
+      if (e && e.hp > 0 && this.dx(e.x, px) ** 2 + (e.y - py) ** 2 <= (e.radius + hitR) ** 2) return e;
     }
     return null;
   }
@@ -43,7 +49,7 @@ export class EnemyField implements TargetField {
     out.length = 0;
     for (const id of this.spatial.query(px, py, radius + 20)) {
       const e = this.byId.get(id);
-      if (e && e.hp > 0 && (e.x - px) ** 2 + (e.y - py) ** 2 <= (e.radius + radius) ** 2) out.push(e);
+      if (e && e.hp > 0 && this.dx(e.x, px) ** 2 + (e.y - py) ** 2 <= (e.radius + radius) ** 2) out.push(e);
     }
   }
 
@@ -51,7 +57,7 @@ export class EnemyField implements TargetField {
     out.length = 0;
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
-      const ddx = Math.max(0, Math.abs(e.x - px) - w / 2);
+      const ddx = Math.max(0, Math.abs(this.dx(e.x, px)) - w / 2);
       const ddy = Math.max(0, Math.abs(e.y - py) - h / 2);
       if (ddx * ddx + ddy * ddy <= e.radius * e.radius) out.push(e);
     }

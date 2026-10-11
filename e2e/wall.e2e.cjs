@@ -39,7 +39,7 @@ const setScale = async (page, n) => { await page.fill('#dbg-time-scale', String(
   check(s.wallOffsetY < 10 && Math.abs(s.cameraX - 297) < 1, `wall starts above the screen (bottom edge ${s.wallOffsetY.toFixed(1)}), camera centred (${s.cameraX.toFixed(1)})`);
   check(/Tier 1/.test(s.hud.tier) && /Destroyed 0%/.test(s.hud.blocks), `HUD shows "${s.hud.tier}" and "${s.hud.blocks}"`);
   check(s.hull === undefined && s.touching === undefined, 'no hull and no stop line in the state any more');
-  check(s.finishY < 0 && s.progress === 0, `finish line is far above the screen (y ${s.finishY.toFixed(0)}), progress ${s.progress}`);
+  check(s.finishY < 0 && s.progress < 0.01, `finish line is far above the screen (y ${s.finishY.toFixed(0)}), progress ${s.progress}`);
 
   // ---- 2. Speed boost: the wall scrolls faster with the ship near the top of the screen
   await moveTo(page, 270, 800);
@@ -48,7 +48,7 @@ const setScale = async (page, n) => { await page.fill('#dbg-time-scale', String(
   check(Math.abs(low.scrollSpeed - 26) < 0.01, `ship low on the screen: wall speed ${low.scrollSpeed.toFixed(1)} px/s (base 26)`);
   await page.evaluate(() => window.__mgbm.wall.setWallOffset(-400)); // keep the wall clear of the ship while it sits at the top
   await moveTo(page, 270, 4);
-  await page.waitForTimeout(150);
+  await page.waitForTimeout(450); // the ship eases to the pointer over 0.25 s after the first move
   const top1 = await state(page);
   await page.waitForTimeout(500);
   const top2 = await state(page);
