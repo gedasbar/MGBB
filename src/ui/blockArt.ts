@@ -232,6 +232,110 @@ export const GLYPHS: Record<string, Glyph> = {
       p.line([[0, 0.1], [0.7, -0.85]]);
     },
   },
+  // ---- Chunk 9a blocks
+  alternator: {
+    rotatesWithBlock: true,
+    draw: (p) => {
+      // In from the back; the left branch is solid, the right one dashed: the two take turns.
+      p.line([[0, 1], [0, 0.15]]);
+      p.line([[0, 0.15], [-0.75, -0.45]]);
+      p.head(-0.95, -0.6, -0.75, -0.6, 0.5, 0.36);
+      p.line([[0.05, 0.1], [0.3, -0.12]]);
+      p.line([[0.45, -0.25], [0.7, -0.45]]);
+      p.head(0.95, -0.6, 0.75, -0.6, 0.5, 0.36);
+    },
+  },
+  delay_line: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.outline([[-0.65, -0.9], [0.65, -0.9], [0, 0]], 0.9);
+      p.fill([[-0.65, 0.9], [0.65, 0.9], [0, 0.1]]);
+      p.line([[-0.8, -0.9], [0.8, -0.9]], 1.2);
+      p.line([[-0.8, 0.9], [0.8, 0.9]], 1.2);
+    },
+  },
+  overclock: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.line([[-0.75, 0.05], [0, -0.6], [0.75, 0.05]], 1.2);
+      p.line([[-0.75, 0.8], [0, 0.15], [0.75, 0.8]], 1.2);
+    },
+  },
+  capacitor: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.fill(p.rect(-0.85, -0.5, 0.85, -0.2));
+      p.fill(p.rect(-0.85, 0.2, 0.85, 0.5));
+      p.line([[0, -0.95], [0, -0.5]]);
+      p.line([[0, 0.5], [0, 0.95]]);
+    },
+  },
+  executioner: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.outline([[-0.75, -0.85], [0.75, -0.85], [0, 0.55]], 0.9);
+      p.line([[-0.9, 0.85], [0.9, 0.85]], 1.4);
+    },
+  },
+  chain_lightning: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.line([[0.35, -0.95], [-0.4, -0.1], [0.35, 0.05], [-0.35, 0.95]], 1.1);
+      p.fill(p.rect(0.2, -1, 0.5, -0.7));
+      p.fill(p.rect(-0.5, 0.7, -0.2, 1));
+    },
+  },
+  boomerang: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.line([[-0.85, -0.55], [-0.1, 0.75], [0.85, -0.2]], 1.5);
+      p.head(0.95, -0.35, 0.8, -0.5, 0.5, 0.36);
+    },
+  },
+  orbit: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.line(arc(0, 0, 0.75, 0.5, 2 * Math.PI - 0.3, 20), 1);
+      p.head(0.55, 0.75, 1, -0.2, 0.45, 0.34);
+      p.fill(p.rect(-0.18, -0.18, 0.18, 0.18));
+    },
+  },
+  mine: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.fill([[-0.3, -0.6], [0.3, -0.6], [0.6, -0.3], [0.6, 0.3], [0.3, 0.6], [-0.3, 0.6], [-0.6, 0.3], [-0.6, -0.3]]);
+      p.line([[0, -0.7], [0, -1]], 1.2);
+      p.line([[0, 0.7], [0, 1]], 1.2);
+      p.line([[-0.7, 0], [-1, 0]], 1.2);
+      p.line([[0.7, 0], [1, 0]], 1.2);
+    },
+  },
+  ignite: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.outline([[0, -0.95], [0.55, -0.1], [0.42, 0.6], [0, 0.95], [-0.42, 0.6], [-0.55, -0.1], [-0.18, -0.3]], 0.9);
+      p.fill([[0, 0.05], [0.22, 0.5], [0, 0.78], [-0.22, 0.5]]);
+    },
+  },
+  corrosion: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.outline(p.rect(-0.85, -0.85, 0.85, 0), 0.9);
+      p.fill(p.rect(-0.6, 0.1, -0.35, 0.6));
+      p.fill(p.rect(-0.12, 0.1, 0.12, 0.95));
+      p.fill(p.rect(0.35, 0.1, 0.6, 0.4));
+    },
+  },
+  frostbite: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      for (let i = 0; i < 3; i++) {
+        const a = (i * Math.PI) / 3 + Math.PI / 6;
+        p.line([[Math.cos(a) * 0.95, Math.sin(a) * 0.95], [-Math.cos(a) * 0.95, -Math.sin(a) * 0.95]], 0.9);
+      }
+      p.fill(p.rect(-0.16, -0.16, 0.16, 0.16));
+    },
+  },
 };
 
 /** Fallback glyph: a small centred square. */

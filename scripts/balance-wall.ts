@@ -1,14 +1,24 @@
 // Prints the campaign pacing table for the carve-a-path rules (chunk 6c).
 // Run: npm run balance-wall
 import { compile } from '../src/engine/compiler';
-import { buildDartStarterGrid, buildStarterGrid } from '../src/game/starter';
+import { buildDartStarterGrid, buildStarterGrid, place } from '../src/game/starter';
+import { buildTwinGrid } from '../src/game/gridUtils';
+import { pickerBlocks } from '../src/data/blocks';
 import { BOOST_MAX, CELL, PASS_MARGIN_CELLS, VIEW_H, WALL_COLS } from '../src/wall/constants';
 import { generateLevel } from '../src/wall/generator';
 import { rewardPerBlock } from '../src/wall/level';
 import { blockCost, simulateWall } from '../src/wall/sim';
 
 // STARTER=shuttle prints the old Shuttle-starter table for comparison; the default is the Dart with a Flat+ in its slot.
-const grid = process.env.STARTER === 'shuttle' ? buildStarterGrid() : buildDartStarterGrid();
+// STARTER=twin-new: a Twin with a Flat+ and the best single chunk 9a block (by estimated DPS on that Twin).
+function twinNew() {
+  const mk = (id: string) => { const g = buildTwinGrid(); place(g, 1, 3, 'flat_plus'); place(g, 1, 2, id); return g; };
+  const cands = pickerBlocks().filter(b => b.unlock === 'shop').map(b => b.id);
+  const best = cands.map(id => ({ id, dps: compile(mk(id)).stats.estDps })).sort((a, b) => b.dps - a.dps)[0];
+  console.log(`Twin: Flat+ + ${best.id} (best new block, est. ${best.dps.toFixed(0)} DPS)`);
+  return mk(best.id);
+}
+const grid = process.env.STARTER === 'shuttle' ? buildStarterGrid() : process.env.STARTER === 'twin-new' ? twinNew() : buildDartStarterGrid();
 const starterDps = compile(grid).stats.estDps;
 const SHIP_MARGIN = 24;
 const SHIP_BOTTOM = VIEW_H - SHIP_MARGIN;

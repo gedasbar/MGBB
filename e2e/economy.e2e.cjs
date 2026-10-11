@@ -130,7 +130,7 @@ async function aim(page, s) {
   // ---- Shop: buy a Splitter 2 (needs 200)
   await tap(page, ...TAB.shop);
   s = await state(page);
-  check(s.rows && s.rows.length === 20, `Shop lists 20 blocks (${s.rows && s.rows.length})`);
+  check(s.rows && s.rows.length === 32, `Shop lists 32 blocks (${s.rows && s.rows.length})`);
   if (s.credits < 200) {
     console.log('INFO  fewer than 200 credits: using +10000 credits for the purchases');
     await dbg('dbg-credits');
@@ -143,7 +143,7 @@ async function aim(page, s) {
   check(s.selected === 'splitter_2' && /Splits the signal into two full copies/.test(s.inspector.body), `row tap selects it and shows its rule: "${s.inspector.title}"`);
   row = s.rows.find(r => r.key === 'splitter_2');
   check(row.buttons[0].label === 'Buy x1 - 200' && row.buttons[0].enabled, `buy button "${row.buttons[0].label}" is enabled`);
-  check(row.buttons[1].label === 'MAX' && !row.buttons[1].enabled, 'Splitter 2 has no upgrades (MAX, disabled)');
+  check(row.buttons[1].label === 'Upgrade L1 -> L2 - 400', `Splitter 2 has upgrade levels now ("${row.buttons[1].label}")`);
   await tap(page, ...centre(row.buttons[0].rect), { pause: 200 });
   s = await state(page);
   check(s.credits === credBeforeBuy - 200, `buying Splitter 2 cost exactly 200 (${credBeforeBuy} -> ${s.credits})`);

@@ -99,6 +99,8 @@ export class RockView {
   private def: EnemyArtDef;
   private cracks = new Graphics();
   private flashG: Graphics;
+  /** Status wash (burning / frozen): the outline filled in a colour at partial alpha. */
+  private statusG: Graphics;
   private radius: number;
   private shown = -1;
   private widthStep = -1;
@@ -115,7 +117,10 @@ export class RockView {
       .poly(flat(this.shape.inner)).fill(s.inner);
     this.flashG = new Graphics().poly(flat(this.shape.outer)).fill(0xffffff);
     this.flashG.visible = false;
-    this.container.addChild(body, this.cracks, this.flashG);
+    this.statusG = new Graphics().poly(flat(this.shape.outer)).fill(0xffffff);
+    this.statusG.visible = false;
+    this.statusG.alpha = 0.5;
+    this.container.addChild(body, this.cracks, this.statusG, this.flashG);
     this.container.scale.set(radius);
   }
 
@@ -139,6 +144,12 @@ export class RockView {
       this.cracks.moveTo(c[0][0], c[0][1]).lineTo(c[1][0], c[1][1]).lineTo(c[2][0], c[2][1]);
     }
     if (n > 0) this.cracks.stroke({ width: px / this.radius, color: this.def.crackColor, cap: 'butt', join: 'miter' });
+  }
+
+  /** Tints the rock with a status colour, or clears it with -1. */
+  setStatus(color: number) {
+    this.statusG.visible = color >= 0;
+    if (color >= 0) this.statusG.tint = color;
   }
 
   get visibleCrackCount(): number { return this.shown; }

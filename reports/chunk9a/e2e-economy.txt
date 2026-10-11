@@ -1,0 +1,40 @@
+PASS  fresh progress shows 0 credits (top bar "0")
+PASS  only turn_l 2, turn_r 2, flat_plus 1 are owned: {"turn_l":2,"turn_r":2,"flat_plus":1}
+PASS  a fresh save starts on the free Dart (the free-hull flow is covered in freefly.e2e)
+PASS  picker opens on an empty cell
+PASS  placeable tiles are only the owned ones not yet used: turn_l,turn_r
+PASS  second tap on an unowned tile only toasts: "No Splitter 2 left"
+PASS  sheet closes
+INFO  fly HUD: {"credits":"Credits +3","tier":"Tier 1"} popups: [{"text":"+3","alpha":0.8606666666269305}]
+PASS  kills pay credits during the run (kills 12, credits 12, Credits +12, Tier 1)
+PASS  a yellow +N popup was on screen (screenshot fly_hud_popup.png)
+PASS  HUD shows Credits and Tier
+PASS  the run ended and the Run Summary screen appeared
+INFO  summary: {"credits":18,"kills":17,"time":28.533333333332994,"tier":2} {"newBestTier":true,"newBestTime":true}
+PASS  summary shows credits earned > 0 (18; 12 at the last poll)
+PASS  first run is a new best tier and time
+PASS  credits were banked exactly once (store 18, run 18)
+PASS  Build is back with the same circuit; store credits 18
+PASS  top-bar currency "18" equals the summary's 18
+PASS  circuit unchanged (Dmg/shot 101)
+PASS  Shop lists 32 blocks (32)
+INFO  fewer than 200 credits: using +10000 credits for the purchases
+PASS  row tap selects it and shows its rule: "Splitter 2 · Lv 1"
+PASS  buy button "Buy x1 - 200" is enabled
+PASS  Splitter 2 has upgrade levels now ("Upgrade L1 -> L2 - 400")
+PASS  buying Splitter 2 cost exactly 200 (10018 -> 9818)
+PASS  purchase toast: "Bought Splitter 2 for 200"
+PASS  upgrade button "Upgrade L1 -> L2 - 120"
+PASS  upgrade cost 120 (9818 -> 9698)
+PASS  next upgrade is "Upgrade L2 -> L3 - 264"
+PASS  inspector shows the level-2 rule: "Adds +200 damage to each projectile."
+PASS  stats strip Dmg/shot rose from 101 to 201 after the Flat+ upgrade
+PASS  the picker shows Splitter 2 as ×1 (available 1, tile label ["×1"])
+PASS  the locked Fan hull is not selectable (hull shuttle, toast "Hull locked: buy it in the Shop")
+PASS  Hulls section opens
+PASS  Fan hull button "Buy - 1.2K"
+PASS  Fan hull cost 1200 (9698 -> 8498)
+PASS  the bought Fan hull is selectable (hull fan)
+PASS  progress and hull survive a reload (credits 8498, hull fan)
+
+35 passed, 0 failed

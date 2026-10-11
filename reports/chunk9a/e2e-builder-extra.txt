@@ -1,0 +1,35 @@
+PASS  hover over Flat+ shows the packet after it: "After this cell\nDamage 101\nPure 0% · Projectiles 1\nModifiers: none"
+PASS  hover before Flat+ shows damage 1: "After this cell\nDamage 1\nPure 0% · Projectiles 1\nModifiers: none"
+PASS  hover over a cell with no signal shows no ledger
+PASS  the tooltip hides when the pointer leaves the grid
+PASS  long press on (9,3) shows the ledger: "After this cell\nDamage 101\nPure 0% · Projectiles 1\nModifiers: none"
+PASS  releasing hides the ledger
+PASS  a long press does not select the cell
+PASS  occupied cell: Remove tile first, current block highlighted ({"open":true,"first":"__remove","selected":"flat_plus"})
+PASS  tapping the Remove tile explains it: "Remove: Clears this cell and returns the block to your inventory."
+PASS  preview shows the delta against the current circuit: "1 −100"
+PASS  the X button closes the sheet without changes
+PASS  closing restores the view
+PASS  picker opened again
+PASS  tapping the dimmed area closes the sheet
+PASS  nothing changed
+PASS  Remove tile removes the block and returns it: {"placed":0,"avail":20,"owned":20}
+PASS  preview of Flat+ shows the new numbers with deltas: ["101 +100","1","4","404 +400","0"]
+FAIL  ship button opens the hull picker
+FAIL  choosing Fan switches the hull: dart
+FAIL  Fan hull is fitted to the screen (cell 110.00)
+FAIL  crossing circuit reaches two ejectors: 1
+PASS  the vertical line runs straight through the crossing cell
+PASS  the horizontal line hops over it (arc above the crossing)
+PASS  the horizontal line has a gap under the hop (no red or dash pixels there): [[89,55,58],[142,56,58]]
+FAIL  the horizontal line continues on both sides of the crossing
+FAIL  Splitter 3 with two turns reaches all three ejectors: 0 projectiles per pulse
+FAIL  stats strip shows 3 projectiles per pulse: ["0","0","1","0","1"]
+FAIL  red line pixels along all three branches - missing at 270,673 270,380 270,263 153,497 211,497 94,380 94,263 329,497 387,497 446,380 446,263
+page.evaluate: TypeError: Cannot set properties of undefined (setting 'autoSpawn')
+    at eval (eval at evaluate (:311:30), <anonymous>:3:17)
+    at UtilityScript.evaluate (<anonymous>:313:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+    at C:\Users\xmena\source\MGBM\e2e\builder-extra.e2e.cjs:166:14 {
+  log: []
+}

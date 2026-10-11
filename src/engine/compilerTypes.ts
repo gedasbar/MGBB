@@ -50,7 +50,33 @@ export interface ChanceGate {
 export type DamageOp =
   | { t: 'add'; v: number }
   | { t: 'mul'; v: number }
-  | { t: 'gate'; gate: ChanceGate };
+  | { t: 'gate'; gate: ChanceGate }
+  // Stateful stages (chunk 9a). They are evaluated per pulse by the Gun (src/game/fire.ts); the expected-value replay below
+  // uses their average effect: Overclock `avg`, Capacitor n x mul. Alternator and Delay Line do not change the damage.
+  | { t: 'oc'; gain: number; cap: number; avg: number }
+  | { t: 'cap'; n: number; mul: number }
+  | { t: 'alt'; key: number; branch: number; of: number }
+  | { t: 'delay'; sec: number };
+
+/** True when a packet's damage depends on state that changes from pulse to pulse (needs the Gun's evaluator). */
+export function isDynamic(p: Packet): boolean {
+  for (const op of p.ops) if (op.t === 'oc' || op.t === 'cap' || op.t === 'alt' || op.t === 'delay') return true;
+  return false;
+}
+
+/**
+ * Share of the pulses on which a packet is emitted: 1/n per Capacitor, 1/2 per Alternator branch. `pulse` is the part
+ * from capacitors alone (how much longer the interval between its shots is), `branch` the part from alternators.
+ */
+export function emitRate(p: Packet): { pulse: number; branch: number } {
+  let pulse = 1;
+  let branch = 1;
+  for (const op of p.ops) {
+    if (op.t === 'cap') pulse /= op.n;
+    else if (op.t === 'alt') branch /= op.of;
+  }
+  return { pulse, branch };
+}
 
 export interface Packet {
   /** Deterministic damage: every add/mul applied in order, chance gates NOT applied. */
@@ -91,6 +117,9 @@ export function evalDamage(p: Packet, roll?: () => number): number {
   for (const op of p.ops) {
     if (op.t === 'add') d += op.v;
     else if (op.t === 'mul') d *= op.v;
+    else if (op.t === 'oc') d *= op.avg;
+    else if (op.t === 'cap') d *= op.n * op.mul;
+    else if (op.t === 'alt' || op.t === 'delay') continue;
     else if (roll) d *= roll() < op.gate.prob ? op.gate.mult : op.gate.elseMult;
     else d *= op.gate.prob * op.gate.mult + (1 - op.gate.prob) * op.gate.elseMult;
   }
@@ -108,6 +137,13 @@ export interface BlockDef {
   outputs: Rel[];
   /** Mutates the (already cloned) packet. */
   transform?: (packet: Packet, level: number) => void;
+  /** The outputs take turns (Alternator): each output's packet is tagged with its branch, one fires per pulse. */
+  alternates?: boolean;
+  /** Shop rarity and base copy price (upgrade price follows the usual formula); set on the chunk 9a blocks. */
+  rarity?: Rarity;
+  baseCost?: number;
+  /** Where the block is obtained: 'shop' now, a later node map may switch it to 'map'. Absent = the old shop list. */
+  unlock?: 'shop' | 'map';
   /** Rule text shown in the inspector; every number comes from here. */
   desc: string | ((level: number) => string);
   /** Offered in the picker only when the compiler handles it AND it changes what the ship fires. */
@@ -115,6 +151,8 @@ export interface BlockDef {
   /** Why the block is hidden (shown: false). */
   hideReason?: string;
 }
+
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
 
 export function describeBlock(def: BlockDef, level = 1): string {
   return typeof def.desc === 'function' ? def.desc(level) : def.desc;

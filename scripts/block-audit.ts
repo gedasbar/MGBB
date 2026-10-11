@@ -48,6 +48,15 @@ const FLY: Record<string, string> = {
   fork_impact: 'hiddenBlocks: fork_impact: fly (2 copies at 50% / 0.6x, +/-35 deg, no second fork)',
 };
 
+// Chunk 9a blocks: one parameterized table in tests/blocks9a.test.ts covers compile data, Free Fly and the real Wall loop.
+for (const id of ['alternator', 'delay_line', 'overclock', 'capacitor', 'executioner', 'chain_lightning', 'boomerang', 'orbit', 'mine', 'ignite', 'corrosion', 'frostbite']) {
+  COMPILES[id] = `blocks9a: ${id} is a placeable shop block with levels, rarity, price and rule text`;
+  FLY[id] = `blocks9a: ${id} does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall`;
+}
+for (const id of ['turn_l', 'turn_r', 'splitter_2', 'splitter_3', 'lucky_strike', 'jackpot', 'gamblers_gate', 'random_curve', 'piercing']) {
+  COMPILES[id] += ' + levels (blocks9a: every shown block has at least 3 levels)';
+}
+
 const esc = (s: string) => s.replace(/\|/g, '\\|');
 const rows: string[] = ['| id | compiles correctly (test) | changes projectiles in Fly (test) | shown in picker |', '|---|---|---|---|'];
 for (const b of Object.values(BLOCKS)) {
@@ -60,3 +69,31 @@ for (const b of Object.values(BLOCKS)) {
 const shown = Object.values(BLOCKS).filter(b => b.shown).length;
 rows.push('', `${shown} of ${Object.keys(BLOCKS).length} blocks are shown in the picker; the rest stay in the data and are hidden.`);
 console.log(rows.join('\n'));
+
+// ------------------------------------------------------------------ implementation status of the hidden blocks (chunk 9a, step I0)
+// "compiler" = the block has a transform or its own compiler handling; "combat" = something outside the data file
+// (engine, fire, world, wall) reads its modifier type / id. Both = fully implemented; neither = a data-only stub.
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+function sourceOf(dirs: string[]): string {
+  let s = '';
+  for (const d of dirs) for (const f of readdirSync(d)) if (f.endsWith('.ts')) s += readFileSync(join(d, f), 'utf8') + '\n';
+  return s;
+}
+const runtime = sourceOf(['src/engine', 'src/game', 'src/wall', 'src/screens']);
+const compilerSrc = readFileSync('src/engine/compiler.ts', 'utf8');
+const hidden = Object.values(BLOCKS).filter(b => !b.shown);
+const impl: string[] = ['', '### Hidden blocks: implementation status', '', '| id | category | compiler | combat | status |', '|---|---|---|---|---|'];
+let full = 0;
+for (const b of hidden) {
+  const probe = b.transform?.toString() ?? '';
+  const typeMatch = probe.match(/type:\s*'([a-z_]+)'/);
+  const compiler = !!b.transform || compilerSrc.includes(`'${b.id}'`);
+  const combat = (typeMatch && runtime.includes(`'${typeMatch[1]}'`)) || runtime.includes(`'${b.id}'`);
+  const both = compiler && !!combat;
+  if (both) full++;
+  impl.push(`| \`${b.id}\` | ${b.category} | ${compiler ? 'yes' : 'no'} | ${combat ? 'yes' : 'no'} | ${both ? 'FULL' : compiler ? 'compiler-only stub' : 'data-only stub'} |`);
+}
+impl.push('', `${hidden.length} hidden blocks, ${full} fully implemented.`);
+console.log(impl.join('\n'));

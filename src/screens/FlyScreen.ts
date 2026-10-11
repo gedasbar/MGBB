@@ -15,7 +15,15 @@ import { PointerGate } from '../engine/control';
 import { FragmentPool, RockView, enemyArt } from '../ui/rockArt';
 import { BackgroundView, forcedBackground, freeFlyThemeAt } from '../ui/background';
 import { ShipView } from '../ui/shipArt';
+import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_WAIT, PHASE_MINE_TRAVEL, PHASE_ORBIT } from '../engine/projectiles';
 
+/** Status tints of a rock: burning is a redder orange, frozen a pale blue. */
+const BURN_COLOR = 0xff4a1a;
+const FROZEN_COLOR = 0xbfe6ff;
+const BURN_FROZEN_COLOR = 0xe6bfc8;
+const ARC_COLOR = 0xe8f4ff;
+const MINE_COLOR = 0xff5050;
+const LOOP_COLOR = 0xffe14d;
 const FLASH_TIME = 0.08;
 /** Free Fly background scroll in px/s (before each layer's parallax). */
 const BG_SCROLL = 60;
@@ -33,6 +41,8 @@ export class FlyScreen implements Screen {
   enemyLayer = new Container();
   fxLayer = new Container();
   uiLayer = new Container();
+  /** Chain-lightning arcs: one Graphics, cleared and redrawn from the arc ring each frame. */
+  private arcG = new Graphics();
   
   ship: ShipView;
   hullBarBg = new Graphics().rect(0, 0, 100, 10).fill(0xff0000);
@@ -68,6 +78,7 @@ export class FlyScreen implements Screen {
       w.recipes.map((r, i) => ({ x: w.spawnOffsets[i].x, y: w.spawnOffsets[i].y, dir: r.direction })),
     );
     this.container.addChild(this.ship.container, this.fxLayer, this.uiLayer);
+    this.fxLayer.addChild(this.arcG);
     if (this.bgForced !== 'off') {
       this.bg = new BackgroundView(this.screenManager.app.renderer, this.bgForced ?? freeFlyThemeAt(0));
       this.container.addChildAt(this.bg.container, 0);
@@ -113,6 +124,8 @@ export class FlyScreen implements Screen {
           hull: this.world.hull, credits: this.world.credits, tier: this.world.tier, kills: this.world.kills, time: this.world.time,
           hud: { credits: this.creditsText.text, tier: this.tierText.text },
           popups: this.dmgNums.filter(d => d.life > 0 && d.t.text.startsWith('+')).map(d => ({ text: d.t.text, alpha: d.t.alpha })),
+          effects: { ...this.world.projSys.fx, ...this.world.gun.fx },
+          arcs: Array.from(this.world.projSys.arcT).filter(t => t > 0).length,
         }),
         clientToGame: (cx: number, cy: number) => clientToGame(cx, cy, this.screenManager.app.canvas.getBoundingClientRect()),
         setTimeScale: (n: number) => { debugHooks.timeScale = n; },
@@ -162,6 +175,11 @@ export class FlyScreen implements Screen {
     }
 
     for (const h of this.world.hits) {
+      if (h.kind === 1) {
+        // A burn tick: a small orange number, no hit flash.
+        this.showNumber(h.x, h.y, `${Math.round(h.damage)}`, 0xff9a3c, 11);
+        continue;
+      }
       this.flash.set(h.enemyId, FLASH_TIME);
       this.showDamage(h.x, h.y, h.damage);
     }
@@ -196,9 +214,18 @@ export class FlyScreen implements Screen {
       const s = this.projSprites[i];
       if (pool.active[i]) {
         s.position.set(pool.x[i], pool.y[i]);
-        s.width = 6 * pool.size[i];
-        s.height = 14 * pool.size[i];
-        s.rotation = Math.atan2(pool.vy[i], pool.vx[i]) + Math.PI / 2;
+        const ph = pool.phase[i];
+        if (ph === PHASE_MINE_WAIT) {
+          // A waiting mine is a small red square.
+          s.width = s.height = 14 * pool.size[i];
+          s.tint = MINE_COLOR;
+          s.rotation = Math.PI / 4;
+        } else {
+          s.width = 6 * pool.size[i];
+          s.height = 14 * pool.size[i];
+          s.tint = ph === PHASE_ORBIT || ph === PHASE_BOOM_OUT || ph === PHASE_BOOM_BACK ? LOOP_COLOR : ph === PHASE_MINE_TRAVEL ? MINE_COLOR : 0x00ffff;
+          s.rotation = Math.atan2(pool.vy[i], pool.vx[i]) + Math.PI / 2;
+        }
         s.visible = true;
       } else if (s.visible) {
         s.visible = false;
@@ -218,6 +245,9 @@ export class FlyScreen implements Screen {
       s.setRadius(e.radius);
       const f = this.flash.get(e.id) ?? 0;
       s.update(e.maxHp > 0 ? 1 - e.hp / e.maxHp : 0, frameTime, f > 0);
+      const burning = (e.burnT ?? 0) > 0;
+      const frozen = (e.freezeT ?? 0) > 0;
+      s.setStatus(burning && frozen ? BURN_FROZEN_COLOR : frozen ? FROZEN_COLOR : burning ? BURN_COLOR : -1);
       if (f > 0) this.flash.set(e.id, f - frameTime);
     }
     for (const [id, s] of this.enemySprites) {
@@ -227,6 +257,16 @@ export class FlyScreen implements Screen {
         this.flash.delete(id);
       }
     }
+
+    const proj = this.world.projSys;
+    this.arcG.clear();
+    let arcs = 0;
+    for (let k = 0; k < ARC_MAX; k++) {
+      if (proj.arcT[k] <= 0) continue;
+      this.arcG.moveTo(proj.arcX0[k], proj.arcY0[k]).lineTo(proj.arcX1[k], proj.arcY1[k]);
+      arcs++;
+    }
+    if (arcs > 0) this.arcG.stroke({ width: 2, color: ARC_COLOR, alpha: 0.9 });
 
     for (const d of this.dmgNums) {
       if (d.life <= 0) continue;

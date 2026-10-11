@@ -35,7 +35,7 @@ describe('pricing formulas', () => {
   });
   it('every picker block has a base price, and the hull ladder is free then strictly ascending', () => {
     for (const b of pickerBlocks()) expect(BASE_PRICE[b.id]).toBeGreaterThan(0);
-    expect(pickerBlocks().length).toBe(20);
+    expect(pickerBlocks().length).toBe(32);
     expect(HULL_PRICE.dart).toBe(0);
     const ladder = ['dart', 'twin', 'prong', 'fan', 'shuttle'].map(id => HULL_PRICE[id]);
     for (let i = 1; i < ladder.length; i++) expect(ladder[i]).toBeGreaterThan(ladder[i - 1]);
@@ -65,8 +65,9 @@ describe('purchases', () => {
     expect(p.levels.flat_plus).toBe(2);
     expect(p.credits).toBe(0);
     p.credits = 1e9;
-    expect(buyUpgrade(p, 'turn_l')).toMatchObject({ ok: false }); // maxLevel 1
-    expect(p.levels.turn_l).toBe(1);
+    for (let i = 0; i < BLOCKS.turn_l.maxLevel - 1; i++) expect(buyUpgrade(p, 'turn_l').ok).toBe(true);
+    expect(buyUpgrade(p, 'turn_l')).toMatchObject({ ok: false }); // at its max level
+    expect(p.levels.turn_l).toBe(BLOCKS.turn_l.maxLevel);
     for (let i = 0; i < 20; i++) buyUpgrade(p, 'flat_plus');
     expect(p.levels.flat_plus).toBe(BLOCKS.flat_plus.maxLevel);
   });

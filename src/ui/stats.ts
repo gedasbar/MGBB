@@ -19,7 +19,7 @@ const WINDOW_MS = 500;
 const LINE_H = 12;
 const PAD = 4;
 const WIDTH = 236;
-const LINES = 5;
+const LINES = 6;
 const PLATE_H = LINES * LINE_H + PAD * 2;
 
 /** Whether the overlay starts visible: ?stats=1/0 in the URL, else the remembered choice, else on in dev and off in production. */
@@ -50,6 +50,8 @@ export class StatsOverlay {
   provider: ((out: StatsInfo) => void) | null = null;
 
   private text = new Text({ text: '', style: { fill: 0xc8e6c8, fontSize: 10, fontFamily: 'Consolas, Menlo, monospace', lineHeight: LINE_H } });
+  /** Git branch and commit of the dev server's checkout (dev only, from /__build). */
+  private build = '';
   private info: StatsInfo = { name: '', proj: 0, projCap: 0, enemies: 0, fx: 0, kills: 0, extra: '' };
 
   // Window accumulators (numbers only: no allocation per frame).
@@ -70,6 +72,11 @@ export class StatsOverlay {
 
   constructor() {
     this.enabled = initialStatsEnabled();
+    if (import.meta.env.DEV && typeof fetch === 'function') {
+      fetch('/__build').then(r => r.json()).then((b: { branch: string; hash: string; dirty: boolean }) => {
+        this.build = `${b.branch} @ ${b.hash}${b.dirty ? '+' : ''}`;
+      }).catch(() => { /* not served by the dev server */ });
+    }
     const plate = new Graphics().rect(PAD, PAD, WIDTH, PLATE_H).fill({ color: 0x000000, alpha: 0.6 });
     this.text.position.set(PAD * 2, PAD * 2);
     this.container.addChild(plate, this.text);
@@ -141,6 +148,7 @@ export class StatsOverlay {
       `FPS ${Math.round(this.fps)}  worst ${f1(Math.max(this.worstA, this.worstB))}ms  frame ${f1(this.avgFrame)}ms\n` +
       `sim ${f2(this.simMs)}  render ${f2(this.renderMs)}  ovh ${f2(this.ovhMs)} ms\n` +
       `proj ${i.proj}/${i.projCap}  enemies ${i.enemies}  fx ${i.fx}\n` +
-      i.extra;
+      i.extra + '\n' +
+      (this.build ? `build ${this.build}` : '');
   }
 }

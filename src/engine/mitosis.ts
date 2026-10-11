@@ -18,6 +18,15 @@ export interface MitosisEnemy {
   cauterizedTimer: number;
   /** Run tier the family was spawned at; children inherit it. Sets HP and reward. */
   tier: number;
+  // Status effects (chunk 9a; see EnemyEntity in projectiles.ts). Absent = none.
+  burnT?: number;
+  burnDps?: number;
+  burnTick?: number;
+  freezeT?: number;
+  freezeSlow?: number;
+  freezeBonus?: number;
+  armor0?: number;
+  tracked?: boolean;
 }
 
 export class MitosisSystem {

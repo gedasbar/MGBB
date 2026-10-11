@@ -2,7 +2,7 @@ import { CONFIG } from '../config';
 import { BLOCKS } from '../data/blocks';
 import { fireRateMul } from '../data/hulls';
 import {
-  clonePacket, Dir, DIRS, dirToRotation, evalDamage, newPacket, Packet, Rel, relToDir, Rotation, rotationToDir,
+  clonePacket, Dir, DIRS, dirToRotation, emitRate, evalDamage, newPacket, Packet, Rel, relToDir, Rotation, rotationToDir,
 } from './compilerTypes';
 
 export interface GridCell {
@@ -264,11 +264,14 @@ export function compile(grid: Grid): CompiledShip {
           warnings.push(`Signal ends inside ${def.name} at ${cellLabel(nx, ny)}: it has no output.`);
         }
         const children: Signal[] = [];
-        for (const rel of outs) {
+        outs.forEach((rel, oi) => {
           const od = relToDir(dir, rel);
           info.outDirs.push(od);
-          children.push({ x: nx, y: ny, dir: od, packet: clonePacket(packet), seen: new Set(sig.seen) });
-        }
+          const child = clonePacket(packet);
+          // An alternating block gives each output its own turn: the packet carries (block, branch) and the Gun lets one fire.
+          if (def.alternates) child.ops.push({ t: 'alt', key: nidx, branch: oi, of: outs.length });
+          children.push({ x: nx, y: ny, dir: od, packet: child, seen: new Set(sig.seen) });
+        });
         // Reverse so the left branch is walked first.
         for (let i = children.length - 1; i >= 0; i--) stack.push(children[i]);
         break;
@@ -290,18 +293,28 @@ export function compile(grid: Grid): CompiledShip {
   for (let i = 0; i < cells.length; i++) {
     if (cells[i].type === 'empty' && cells[i].blockId && !cellInfo[i].onPath) wastedBlocks++;
   }
-  const pps = CONFIG.PULSE.BASE_RATE * fireRateMul(grid.hullId);
+  const basePps = CONFIG.PULSE.BASE_RATE * fireRateMul(grid.hullId);
+  // Every recipe fires on a share `rate` of the pulses (1 without Capacitor / Alternator). Expected projectiles per pulse
+  // is the sum of the rates; a Capacitor stretches the interval between shots (Pulses/s falls, the shot grows); an
+  // Alternator's two branches add up to one projectile per pulse.
+  let rateSum = 0;
   let dmgSum = 0;
   let ev = 0;
+  let pulseShare = 0; // the most frequent recipe sets how often the gun fires at all
   for (const r of recipes) {
-    dmgSum += r.packet.damage;
-    ev += evalDamage(r.packet);
+    const er = emitRate(r.packet);
+    const rate = er.pulse * er.branch;
+    rateSum += rate;
+    dmgSum += rate * r.packet.damage;
+    ev += rate * evalDamage(r.packet);
+    if (er.pulse > pulseShare) pulseShare = er.pulse;
   }
+  const pps = basePps * (recipes.length ? pulseShare : 1);
   const stats: CompileStats = {
-    damagePerShot: recipes.length ? dmgSum / recipes.length : 0,
-    projectilesPerPulse: recipes.length,
+    damagePerShot: rateSum > 0 ? dmgSum / rateSum : 0,
+    projectilesPerPulse: recipes.length ? rateSum / pulseShare : 0,
     pulsesPerSecond: pps,
-    estDps: ev * pps,
+    estDps: ev * basePps,
     wastedBlocks,
     warnings: [...warnings],
   };

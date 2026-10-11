@@ -1,5 +1,10 @@
-import { aoeCircleRadius, shieldBreakMul, aoeRectSize, armorPierceMul, forkDamageFrac, CURVE_RATE_DEG, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG, RANDOM_CURVE_MAX_DEG } from '../engine/projectiles';
-import { addDamage, BlockCategory, BlockDef, gateDamage, Modifier, mulDamage, Packet, Rel } from '../engine/compilerTypes';
+import { aoeCircleRadius, randomCurveMaxDeg, shieldBreakMul, aoeRectSize, armorPierceMul, forkDamageFrac, CURVE_RATE_DEG, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG } from '../engine/projectiles';
+import { addDamage, BlockCategory, BlockDef, gateDamage, Modifier, mulDamage, Packet, Rarity, Rel } from '../engine/compilerTypes';
+import {
+  alternatorMul, boomerangRange, capacitorMul, CAPACITOR_N, chainJumps, CHAIN_ARC_LIFE, CHAIN_FRAC, CHAIN_RANGE, corrosionCap,
+  CORROSION_STEP, delaySeconds, executionerMul, EXECUTIONER_BELOW, frostBonus, frostSlow, frostTime, igniteFrac, IGNITE_TIME,
+  mineDistance, MINE_WAIT, orbitTime, ORBIT_RADIUS, ORBIT_REHIT, overclockAverage, overclockGain, OVERCLOCK_CAP, OVERCLOCK_WINDOW,
+} from '../engine/effects';
 
 export const BLOCKS: Record<string, BlockDef> = {};
 
@@ -8,6 +13,13 @@ function register(b: BlockDef) {
 }
 
 const FWD: Rel[] = ['F'];
+
+// Level scaling of the older blocks (level 1 is exactly what they always did).
+const turnSpeedMul = (l: number) => 1 + 0.1 * (l - 1);
+const splitterMul = (l: number) => 1 + 0.05 * (l - 1);
+const luckyProb = (l: number) => 0.33 + 0.05 * (l - 1);
+const jackpotProb = (l: number) => 0.04 + 0.01 * (l - 1);
+const gamblerProb = (l: number) => 0.5 + 0.05 * (l - 1);
 
 /**
  * Data hook for the future perk behind the Crossover block. Lines already cross freely in
@@ -32,6 +44,15 @@ function modBlock(
   });
 }
 
+/** Shop price bands of the chunk 9a blocks (the older blocks cost 40-450). */
+export const RARITY_PRICE: Record<Rarity, number> = { common: 150, uncommon: 500, rare: 800, epic: 1200 };
+
+/** Fields every chunk 9a block carries: rarity, its base price, five levels and a shop unlock. */
+function rare(rarity: Rarity) {
+  return { rarity, baseCost: RARITY_PRICE[rarity], maxLevel: 5, shown: true, unlock: 'shop' as const };
+}
+const pct = (v: number) => Math.round(v * 100);
+
 // ---------------------------------------------------------------- Pathing
 register({
   id: 'generator', name: 'Generator', category: 'pathing', maxLevel: 1, outputs: FWD,
@@ -49,23 +70,27 @@ register({
   shown: false, hideReason: 'Removed: every empty cell is an implicit straight piece. Id kept for save migration only.',
 });
 register({
-  id: 'turn_l', name: 'Turn Left', category: 'pathing', maxLevel: 1, outputs: ['L'],
-  desc: 'Turns the signal 90° to the left.',
+  id: 'turn_l', name: 'Turn Left', category: 'pathing', maxLevel: 3, outputs: ['L'],
+  desc: (l) => `Turns the signal 90° to the left.${l > 1 ? ` Projectiles fly ${pct(turnSpeedMul(l) - 1)}% faster.` : ''}`,
+  transform: (p, l) => { if (l > 1) p.speedMul *= turnSpeedMul(l); },
   shown: true,
 });
 register({
-  id: 'turn_r', name: 'Turn Right', category: 'pathing', maxLevel: 1, outputs: ['R'],
-  desc: 'Turns the signal 90° to the right.',
+  id: 'turn_r', name: 'Turn Right', category: 'pathing', maxLevel: 3, outputs: ['R'],
+  desc: (l) => `Turns the signal 90° to the right.${l > 1 ? ` Projectiles fly ${pct(turnSpeedMul(l) - 1)}% faster.` : ''}`,
+  transform: (p, l) => { if (l > 1) p.speedMul *= turnSpeedMul(l); },
   shown: true,
 });
 register({
-  id: 'splitter_2', name: 'Splitter 2', category: 'pathing', maxLevel: 1, outputs: ['L', 'R'],
-  desc: 'Splits the signal into two full copies, one to the left and one to the right.',
+  id: 'splitter_2', name: 'Splitter 2', category: 'pathing', maxLevel: 5, outputs: ['L', 'R'],
+  desc: (l) => `Splits the signal into two ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}, one to the left and one to the right.`,
+  transform: (p, l) => { if (l > 1) mulDamage(p, splitterMul(l)); },
   shown: true,
 });
 register({
-  id: 'splitter_3', name: 'Splitter 3', category: 'pathing', maxLevel: 1, outputs: ['L', 'F', 'R'],
-  desc: 'Splits the signal into three full copies: left, straight on and right.',
+  id: 'splitter_3', name: 'Splitter 3', category: 'pathing', maxLevel: 5, outputs: ['L', 'F', 'R'],
+  desc: (l) => `Splits the signal into three ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}: left, straight on and right.`,
+  transform: (p, l) => { if (l > 1) mulDamage(p, splitterMul(l)); },
   shown: true,
 });
 register({
@@ -80,10 +105,10 @@ register({
   shown: false, hideReason: 'No effect: every line already runs one way, and a manually rotated block already gates by side.',
 });
 register({
-  id: 'alternator', name: 'Alternator', category: 'pathing', maxLevel: 1, outputs: ['L', 'R'],
-  desc: 'Alternates the signal between left and right, doubling its damage.',
-  transform: (p) => { mulDamage(p, 2); },
-  shown: false, hideReason: 'Needs per-pulse state; the compiler is a pure function, so alternating cannot be expressed yet.',
+  id: 'alternator', name: 'Alternator', category: 'pathing', outputs: ['L', 'R'], ...rare('rare'),
+  desc: (l) => `One in, two out (left and right). Successive packets take turns (A, B, A, B), so only one fires per pulse, and each emitted packet has ×${alternatorMul(l).toFixed(1)} damage.`,
+  transform: (p, l) => { mulDamage(p, alternatorMul(l)); p.mods.push({ type: 'alternator', level: l }); },
+  alternates: true,
 });
 register({
   id: 'random_router', name: 'Random Router', category: 'pathing', maxLevel: 1, outputs: ['L', 'F', 'R'],
@@ -97,9 +122,9 @@ register({
   shown: false, hideReason: 'Signals no longer share cells, so there is nothing to merge; needs a redesign.',
 });
 register({
-  id: 'delay_line', name: 'Delay Line', category: 'pathing', maxLevel: 5, outputs: FWD,
-  desc: 'Delays the signal.',
-  shown: false, hideReason: 'Timing is not modelled by the compiler and nothing in Fly consumes it.',
+  id: 'delay_line', name: 'Delay Line', category: 'pathing', outputs: FWD, ...rare('uncommon'),
+  desc: (l) => `Holds each packet for ${delaySeconds(l).toFixed(1)} s, then releases it: the projectile leaves the ship late (timed volleys). The rate of fire is unchanged.`,
+  transform: (p, l) => { p.ops.push({ t: 'delay', sec: delaySeconds(l) }); p.mods.push({ type: 'delay_line', level: l }); },
 });
 register({
   id: 'portal_pair', name: 'Portal Pair', category: 'pathing', maxLevel: 1, outputs: FWD,
@@ -131,27 +156,48 @@ register({
   shown: true,
 });
 register({
-  id: 'lucky_strike', name: 'Lucky Strike', category: 'damage', maxLevel: 1, outputs: FWD,
-  desc: '33% chance to double projectile damage.',
-  transform: (p) => { gateDamage(p, { prob: 0.33, mult: 2, elseMult: 1 }); },
+  id: 'lucky_strike', name: 'Lucky Strike', category: 'damage', maxLevel: 3, outputs: FWD,
+  desc: (l) => `${pct(luckyProb(l))}% chance to double projectile damage.`,
+  transform: (p, l) => { gateDamage(p, { prob: luckyProb(l), mult: 2, elseMult: 1 }); },
   shown: true,
 });
 register({
-  id: 'jackpot', name: 'Jackpot', category: 'damage', maxLevel: 1, outputs: FWD,
-  desc: '4% chance to multiply projectile damage by 10.',
-  transform: (p) => { gateDamage(p, { prob: 0.04, mult: 10, elseMult: 1 }); },
+  id: 'jackpot', name: 'Jackpot', category: 'damage', maxLevel: 3, outputs: FWD,
+  desc: (l) => `${pct(jackpotProb(l))}% chance to multiply projectile damage by 10.`,
+  transform: (p, l) => { gateDamage(p, { prob: jackpotProb(l), mult: 10, elseMult: 1 }); },
   shown: true,
 });
 register({
-  id: 'gamblers_gate', name: 'Gambler’s Gate', category: 'damage', maxLevel: 1, outputs: FWD,
-  desc: '50% chance to triple projectile damage, otherwise the projectile is lost.',
-  transform: (p) => { gateDamage(p, { prob: 0.5, mult: 3, elseMult: 0 }); },
+  id: 'gamblers_gate', name: 'Gambler’s Gate', category: 'damage', maxLevel: 3, outputs: FWD,
+  desc: (l) => `${pct(gamblerProb(l))}% chance to triple projectile damage, otherwise the projectile is lost.`,
+  transform: (p, l) => { gateDamage(p, { prob: gamblerProb(l), mult: 3, elseMult: 0 }); },
   shown: true,
 });
-modBlock('overclock', 'Overclock', 'damage', 1, { type: 'overclock' }, 'Overclocks the pulse.');
-modBlock('capacitor', 'Capacitor', 'damage', 1, { type: 'capacitor' }, 'Stores charge between pulses.');
+register({
+  id: 'overclock', name: 'Overclock', category: 'damage', outputs: FWD, ...rare('uncommon'),
+  desc: (l) => `Each consecutive packet that passes on this lane adds +${Math.round(overclockGain(l) * 1000) / 10}% damage (up to +${pct(OVERCLOCK_CAP)}%). The streak resets after ${OVERCLOCK_WINDOW} s without a packet (1.5 pulses on a slow hull).`,
+  transform: (p, l) => {
+    const avg = overclockAverage(l);
+    p.damage *= avg;
+    p.ops.push({ t: 'oc', gain: overclockGain(l), cap: OVERCLOCK_CAP, avg });
+    p.mods.push({ type: 'overclock', level: l });
+  },
+});
+register({
+  id: 'capacitor', name: 'Capacitor', category: 'damage', outputs: FWD, ...rare('rare'),
+  desc: (l) => `Absorbs the next ${CAPACITOR_N} packets and emits one packet with the sum of their damage${l > 1 ? ` +${pct(capacitorMul(l) - 1)}%` : ''}: the same damage per second in one bigger, slower shot (×${Math.round(CAPACITOR_N * capacitorMul(l) * 10) / 10} every ${CAPACITOR_N}rd pulse).`,
+  transform: (p, l) => {
+    p.damage *= CAPACITOR_N * capacitorMul(l);
+    p.ops.push({ t: 'cap', n: CAPACITOR_N, mul: capacitorMul(l) });
+    p.mods.push({ type: 'capacitor', level: l });
+  },
+});
 modBlock('berserker_coil', 'Berserker Coil', 'damage', 1, { type: 'berserker' }, 'Damage rises as hull falls.');
-modBlock('executioner', 'Executioner', 'damage', 1, { type: 'executioner' }, 'Bonus damage to weak enemies.');
+register({
+  id: 'executioner', name: 'Executioner', category: 'damage', outputs: FWD, ...rare('rare'),
+  desc: (l) => `Deals ×${executionerMul(l)} damage to targets below ${pct(EXECUTIONER_BELOW)}% HP. Works on rocks and on wall blocks.`,
+  transform: (p, l) => { p.mods.push({ type: 'executioner', level: l }); },
+});
 register({
   id: 'tithe', name: 'Tithe', category: 'damage', maxLevel: 1, outputs: FWD,
   desc: 'Takes 20% of projectile damage.',
@@ -176,7 +222,7 @@ function levelMod(id: string, name: string, maxLevel: number, mod: Modifier, des
   });
 }
 
-levelMod('piercing', 'Piercing', 3, { type: 'piercing' },
+levelMod('piercing', 'Piercing', 5, { type: 'piercing' },
   (l) => l === 1
     ? 'Projectiles pass through enemies. Each hit costs the projectile the damage it dealt (at least 10% of its damage).'
     : `Projectiles pass through enemies. Each hit costs the projectile 1/${l} of the damage it dealt (at least ${Math.round(10 / l * 10) / 10}% of its damage).`);
@@ -185,24 +231,35 @@ levelMod('bouncing', 'Bouncing', 5, { type: 'bouncing' },
 levelMod('aoe_circle', 'AoE - Circle', 5, { type: 'aoe_circle' },
   (l) => `Projectiles explode on impact, hitting every enemy within ${aoeCircleRadius(l)} units for full damage.`);
 levelMod('shield_breaker', 'Shield-Breaker', 3, { type: 'shield_breaker' },
-  (l) => `Direct damage �${shieldBreakMul(l)}, and shields take double on top of that.`);
+  (l) => `Direct damage ×${shieldBreakMul(l)}, and shields take double on top of that.`);
 register({
   id: 'pure_converter', name: 'Pure Converter', category: 'modifier', maxLevel: 5, outputs: FWD,
   desc: (l) => `Converts ${15 * l}% of projectile damage to pure damage, which ignores armor.`,
   transform: (p, l) => { p.pure = Math.min(1, p.pure + 0.15 * l); },
   shown: true,
 });
-modBlock('boomerang', 'Boomerang', 'modifier', 1, { type: 'boomerang' }, 'Projectiles return.');
-modBlock('orbit', 'Orbit', 'modifier', 3, { type: 'orbit' }, 'Projectiles orbit the ship.');
-modBlock('chain_lightning', 'Chain Lightning', 'modifier', 5, { type: 'chain_lightning' }, 'Hits chain to nearby enemies.');
-modBlock('mine', 'Mine', 'modifier', 1, { type: 'mine' }, 'Projectiles become mines.');
+/** A chunk 9a projectile modifier: tags the packet with its type and level; the hit pipeline and ProjectileSystem do the rest. */
+function newMod(id: string, name: string, category: BlockCategory, rarity: Rarity, type: string, desc: (l: number) => string) {
+  register({
+    id, name, category, outputs: FWD, ...rare(rarity), desc,
+    transform: (p, l) => { p.mods.push({ type, level: l }); },
+  });
+}
+newMod('boomerang', 'Boomerang', 'modifier', 'uncommon', 'boomerang',
+  (l) => `Flies up to ${boomerangRange(l)} px, returns to the ship and hits on both legs, then disappears at the ship.`);
+newMod('orbit', 'Orbit', 'modifier', 'rare', 'orbit',
+  (l) => `Circles the ship at ${ORBIT_RADIUS} px for ${orbitTime(l)} s, then launches in its original direction. Can hit while orbiting, the same target at most once per ${ORBIT_REHIT} s.`);
+newMod('chain_lightning', 'Chain Lightning', 'modifier', 'epic', 'chain_lightning',
+  (l) => `On a hit, jumps to up to ${chainJumps(l)} more targets within ${CHAIN_RANGE} px for ${pct(CHAIN_FRAC)}% damage each, drawing a short arc (${CHAIN_ARC_LIFE} s). In the Wall it jumps to nearby blocks.`);
+newMod('mine', 'Mine', 'modifier', 'uncommon', 'mine',
+  (l) => `Stops after ${mineDistance(l)} px and waits up to ${MINE_WAIT} s; detonates for its full damage when something touches it. In the Wall it stays where it is and the wall runs into it.`);
 modBlock('gravity_well', 'Gravity Well', 'modifier', 3, { type: 'gravity_well' }, 'Projectiles pull enemies in.');
 modBlock('magnetized', 'Magnetized', 'modifier', 1, { type: 'magnetized' }, 'Projectiles are magnetised.');
 
 levelMod('curving_right', 'Curving Right', 3, { type: 'curve', dir: 'right' },
   (l) => `After launch, projectiles turn clockwise at ${CURVE_RATE_DEG * l}° per second.`);
-levelMod('random_curve', 'Random Curve', 1, { type: 'random_curve' },
-  () => `Projectiles weave on smooth random steering, turning at most ${RANDOM_CURVE_MAX_DEG}° per second.`);
+levelMod('random_curve', 'Random Curve', 3, { type: 'random_curve' },
+  (l) => `Projectiles weave on smooth random steering, turning at most ${randomCurveMaxDeg(l)}° per second.`);
 levelMod('homing', 'Homing', 5, { type: 'homing' },
   (l) => `Projectiles steer at ${HOMING_RATE_DEG * l}° per second toward the nearest enemy within ${HOMING_RANGE} px and a ${HOMING_CONE_DEG}° cone ahead. With no target they fly straight.`);
 levelMod('aoe_rect', 'AoE - Rectangle', 5, { type: 'aoe_rect' },
@@ -213,9 +270,12 @@ levelMod('armor_piercer', 'Armor-Piercer Tip', 3, { type: 'armor_piercer' },
   (l) => `Deals ×${armorPierceMul(l)} damage to enemies that have armor. No effect on unarmored enemies.`);
 
 // ---------------------------------------------------------------- Status & elemental
-modBlock('ignite', 'Ignite', 'status', 5, { type: 'ignite' }, 'Sets enemies on fire.');
-modBlock('frostbite', 'Frostbite', 'status', 1, { type: 'frostbite' }, 'Slows enemies.');
-modBlock('corrosion', 'Corrosion', 'status', 5, { type: 'corrosion' }, 'Corrodes armor.');
+newMod('ignite', 'Ignite', 'status', 'uncommon', 'ignite',
+  (l) => `A hit sets the target on fire: ${pct(igniteFrac(l))}% of the hit damage per second for ${IGNITE_TIME} s (ignores armor). A new hit refreshes the burn, it does not stack.`);
+newMod('frostbite', 'Frostbite', 'status', 'rare', 'frostbite',
+  (l) => `A hit slows the target's drift by ${pct(frostSlow(l))}% for ${frostTime(l)} s (rocks; wall blocks do not move). Frozen targets take +${pct(frostBonus(l))}% damage from everything.`);
+newMod('corrosion', 'Corrosion', 'status', 'rare', 'corrosion',
+  (l) => `Each hit removes ${pct(CORROSION_STEP)}% of the target's remaining armor, up to ${pct(corrosionCap(l))}% of it in total. Armored wall blocks lose their thick frame as it is stripped.`);
 modBlock('static_charge', 'Static Charge', 'status', 1, { type: 'static_charge' }, 'Charges enemies.');
 modBlock('magnetize_target', 'Magnetize Target', 'status', 1, { type: 'magnetize_target' }, 'Magnetises enemies.');
 modBlock('vampiric', 'Vampiric', 'status', 3, { type: 'vampiric' }, 'Heals the hull on hit.');

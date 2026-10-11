@@ -19,7 +19,7 @@ const TB = { clearAll: 486, y: 880 };
 const SHIP = [28, 28];
 const FLY = [468, 789];
 const tileCentre = (col, contentY) => [8 + col * 133 + 62.5, 514 + contentY + 52];
-const TILE = { turn_l: [0, 34], turn_r: [1, 34], splitter_3: [3, 34], flat_plus: [0, 172], piercing: [0, 422] };
+const TILE = { turn_l: [0, 34], turn_r: [1, 34], splitter_3: [3, 34], flat_plus: [0, 284], piercing: [0, 534] };
 
 const redish = (p) => p[0] > 190 && p[1] < 130 && p[2] < 130;
 

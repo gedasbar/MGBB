@@ -1,0 +1,23 @@
+== Mutation 1: chain lightning jumps at 100% instead of 70% (src/engine/effects.ts CHAIN_FRAC 0.7 -> 1)
+   × chunk 9a blocks: behaviour in Free Fly and the shared pipeline > chain_lightning does what its inspector says 5ms
+     → expected 100 to be close to 70, received difference is 30, but expected 5e-7
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 38 passed (39)
+Updated 1 path from the index
+
+== Mutation 2: capacitor emits on the 2nd packet instead of the 3rd (src/game/fire.ts)
+   × chunk 9a blocks: behaviour in Free Fly and the shared pipeline > capacitor does what its inspector says 7ms
+     → expected [ [], [ 202 ], [], [ 202 ], [], …(1) ] to deeply equal [ [], [], [ NumberCloseTo{…} ], …(3) ]
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 38 passed (39)
+Updated 1 path from the index
+
+== Mutation 3: corrosion never stops at its cap (src/engine/projectiles.ts floor = 0)
+   × chunk 9a blocks: behaviour in Free Fly and the shared pipeline > corrosion does what its inspector says 6ms
+     → expected 2.0390682574579038 to be close to 5, received difference is 2.9609317425420962, but expected 5e-7
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 38 passed (39)
+Updated 1 path from the index
+
+== Restored: all green again
+      Tests  39 passed (39)
