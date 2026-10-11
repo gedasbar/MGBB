@@ -32,6 +32,7 @@ export interface WallSummary {
 
 /** Shown when the hull reaches 0. The run has already been banked into the progress by FlyScreen. */
 export class RunSummaryScreen implements Screen {
+  statsName = 'Summary';
   container = new Container();
   private toast = new Toast();
   private buttons: UIButton[] = [];

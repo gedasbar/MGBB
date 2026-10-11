@@ -1,6 +1,7 @@
 import { Container, Graphics, Sprite, Texture, Text } from 'pixi.js';
 import { CONFIG } from '../config';
-import { World } from '../game/world';
+import { SPAWN_INTERVAL, World } from '../game/world';
+import type { StatsInfo } from '../ui/stats';
 import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
@@ -11,18 +12,12 @@ import { getProgressStore } from '../econ/progress';
 import { debugHooks } from '../debug/hooks';
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { PointerGate } from '../engine/control';
-import { WORLD_W } from '../engine/wrap';
 
 const ROCK_COLOR = 0xffa500;
 const FLASH_TIME = 0.08;
 const DMG_NUMBER_LIFE = 0.6;
 /** Seconds between the hull reaching 0 and the Run Summary appearing. */
 const END_DELAY = 0.7;
-/** Entities further than this beyond the screen edge are not drawn. */
-const CULL_MARGIN = 60;
-/** Faint vertical rules every GUIDE_STEP world px, so sideways travel is visible over the empty background. */
-const GUIDE_STEP = 90;
-const SEAM_COLOR = 0xff3366;
 
 interface DmgNum { t: Text; life: number; }
 interface Burst { g: Graphics; life: number; }
@@ -55,22 +50,13 @@ export class FlyScreen implements Screen {
   private endTimer = 0;
   private finished = false;
   private gate = new PointerGate();
-  private seamLine = new Graphics().rect(-1, 0, 2, CONFIG.VIEW.H).fill({ color: SEAM_COLOR, alpha: 0.35 });
-  private guideLines: Graphics[] = [];
-  private debug = typeof window !== 'undefined' && window.location.search.includes('debug=1');
 
   constructor(private screenManager: ScreenManager, grid: Grid) {
     this.world = new World({ grid, safeStart: true });
     debugHooks.world = this.world;
     
-    this.container.addChild(this.seamLine, this.projLayer, this.enemyLayer);
+    this.container.addChild(this.projLayer, this.enemyLayer);
     this.container.addChild(this.shipGfx, this.fxLayer, this.uiLayer);
-    this.seamLine.visible = false;
-    for (let i = 0; i < Math.ceil(CONFIG.VIEW.W / GUIDE_STEP) + 1; i++) {
-      const g = new Graphics().rect(0, 0, 1, CONFIG.VIEW.H).fill({ color: 0xffffff, alpha: 0.05 });
-      this.container.addChildAt(g, 0);
-      this.guideLines.push(g);
-    }
 
     this.hullBarBg.position.set(20, 20);
     this.hullBarFg.position.set(20, 20);
@@ -103,9 +89,9 @@ export class FlyScreen implements Screen {
     if (import.meta.env.DEV) {
       (window as any).__mgbm = {
         state: () => ({
-          shipX: this.world.shipX, shipY: this.world.shipY, camX: this.world.camera.x, camTravel: this.world.camera.travel, worldW: WORLD_W,
-          controlStarted: this.world.controlStarted, invuln: this.world.invuln, respawns: this.world.respawns,
-          shipScreenX: this.world.screenX(this.world.shipX), knockX: this.world.knockX, knockY: this.world.knockY,
+          shipX: this.world.shipX, shipY: this.world.shipY, viewW: CONFIG.VIEW.W,
+          controlStarted: this.world.controlStarted, invuln: this.world.invuln,
+          knockX: this.world.knockX, knockY: this.world.knockY,
           enemies: this.world.mitosis.enemies.map(e => ({ id: e.id, gen: e.generation, hp: e.hp, x: e.x, y: e.y })),
           projectiles: this.world.pool.count, recipes: this.world.recipes.length,
           damagePerShot: this.world.recipes.map(r => r.packet.damage),
@@ -118,6 +104,19 @@ export class FlyScreen implements Screen {
         world: this.world,
       };
     }
+  }
+
+  statsInfo(o: StatsInfo) {
+    const w = this.world;
+    let fx = this.bursts.length;
+    for (const d of this.dmgNums) if (d.life > 0) fx++;
+    o.name = 'FREE FLY';
+    o.proj = w.pool.count;
+    o.projCap = w.pool.max;
+    o.enemies = w.mitosis.enemies.length;
+    o.fx = fx;
+    o.kills = w.kills;
+    o.extra = `tier ${w.tier}  spawn ${(1 / SPAWN_INTERVAL).toFixed(2)}/s  t ${w.time.toFixed(0)}s`;
   }
 
   showDamage(x: number, y: number, dmg: number) {
@@ -141,11 +140,10 @@ export class FlyScreen implements Screen {
     // Spawn safety: the ship waits where it starts until the player's first pointer move or press.
     if (!this.world.controlStarted && this.gate.observe(pointer, pointer.seen)) this.world.beginControl();
     this.world.update(dt, pointer);
-    const wx = (x: number) => this.world.screenX(x);
 
     for (const h of this.world.hits) {
       this.flash.set(h.enemyId, FLASH_TIME);
-      this.showDamage(wx(h.x), h.y, h.damage);
+      this.showDamage(h.x, h.y, h.damage);
     }
     this.world.hits.length = 0;
 
@@ -153,7 +151,7 @@ export class FlyScreen implements Screen {
       this.popupTotal += k.reward;
       const whole = Math.floor(this.popupTotal + 1e-9);
       if (whole > this.shownCredits) {
-        this.showNumber(wx(k.x), k.y - 6, `+${fmtBig(whole - this.shownCredits)}`, THEME.currency, 14);
+        this.showNumber(k.x, k.y - 6, `+${fmtBig(whole - this.shownCredits)}`, THEME.currency, 14);
         this.shownCredits = whole;
       }
     }
@@ -163,24 +161,24 @@ export class FlyScreen implements Screen {
 
     for (const s of this.world.splits) {
       const g = new Graphics().circle(0, 0, 20).stroke({ color: 0xffffff, width: 3 });
-      g.position.set(wx(s.x), s.y);
+      g.position.set(s.x, s.y);
       this.fxLayer.addChild(g);
       this.bursts.push({ g, life: 0.3 });
     }
     this.world.splits.length = 0;
 
-    this.shipGfx.position.set(wx(this.world.shipX), this.world.shipY);
-    this.drawBackdrop();
+    this.shipGfx.position.set(this.world.shipX, this.world.shipY);
     this.shipGfx.alpha = this.world.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1;
     this.hullBarFg.width = Math.max(0, (this.world.hull / this.world.maxHull) * 100);
+    // The HUD sits below the stats overlay while it is on.
+    const hudDy = this.screenManager.stats.hudOffset;
+    if (this.uiLayer.y !== hudDy) this.uiLayer.y = hudDy;
 
     const pool = this.world.pool;
     for (let i = 0; i < pool.max; i++) {
       const s = this.projSprites[i];
       if (pool.active[i]) {
-        const sx = wx(pool.x[i]);
-        if (sx < -CULL_MARGIN || sx > CONFIG.VIEW.W + CULL_MARGIN) { s.visible = false; continue; }
-        s.position.set(sx, pool.y[i]);
+        s.position.set(pool.x[i], pool.y[i]);
         s.width = 6 * pool.size[i];
         s.height = 14 * pool.size[i];
         s.rotation = Math.atan2(pool.vy[i], pool.vx[i]) + Math.PI / 2;
@@ -200,9 +198,7 @@ export class FlyScreen implements Screen {
         this.enemyLayer.addChild(s);
         this.enemySprites.set(e.id, s);
       }
-      const sx = wx(e.x);
-      s.visible = sx > -CULL_MARGIN - e.radius && sx < CONFIG.VIEW.W + CULL_MARGIN + e.radius;
-      s.position.set(sx, e.y);
+      s.position.set(e.x, e.y);
       s.width = e.radius * 2;
       s.height = e.radius * 2;
       const f = this.flash.get(e.id) ?? 0;
@@ -235,18 +231,6 @@ export class FlyScreen implements Screen {
     if (this.world.gameOver && !this.finished) {
       this.endTimer += frameTime;
       if (this.endTimer >= END_DELAY) this.finish();
-    }
-  }
-
-  /** Guide rules and the debug seam line, placed from the camera. (Free Fly has no right-edge scroll bar, so there is none to adapt.) */
-  private drawBackdrop() {
-    const cam = this.world.camera.x;
-    const first = Math.floor(cam / GUIDE_STEP) * GUIDE_STEP;
-    this.guideLines.forEach((g, i) => { g.x = this.world.screenX(first + i * GUIDE_STEP); });
-    if (this.debug) {
-      const sx = this.world.screenX(0);
-      this.seamLine.visible = sx > -2 && sx < CONFIG.VIEW.W + 2;
-      this.seamLine.x = sx;
     }
   }
 

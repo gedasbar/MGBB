@@ -77,12 +77,11 @@ describe('wall spawn safety', () => {
 describe('Free Fly spawn safety', () => {
   const pointerAt = (x: number, y: number): PointerState => ({ x, y, active: false, type: 'mouse', seen: true });
 
-  it('the ship and camera stay put until control starts, whatever the pointer does', () => {
+  it('the ship stays put until control starts, whatever the pointer does', () => {
     const w = new World({ autoSpawn: false, safeStart: true });
     for (let i = 0; i < 120; i++) w.update(DT, pointerAt(539, 10));           // right edge and top edge
     expect(w.shipX).toBe(CONFIG.VIEW.W / 2);
     expect(w.shipY).toBe(CONFIG.VIEW.H * 0.8);
-    expect(w.camera.x).toBe(0);
     expect(w.controlStarted).toBe(false);
   });
 

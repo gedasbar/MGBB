@@ -33,6 +33,7 @@ interface ShopRow { key: string; rect: Rect; buttons: ShopButton[]; }
 
 /** The Shop tab: buy copies and upgrade levels of blocks, and buy hulls. Rows are drawn in a masked, scrollable list. */
 export class ShopScreen implements Screen {
+  statsName = 'Shop';
   container = new Container();
   private model = getBuilderModel();
   private store = this.model.store;

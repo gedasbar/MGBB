@@ -8,15 +8,17 @@ import { firePulse, PROJECTILE_SPEED, PX_PER_CELL, spawnOffsetsFor } from './fir
 import { PointerState } from '../input';
 import { buildStarterGrid, ROCK_RADIUS } from './starter';
 import { leakDamage, rockHp, rockReward, tierOfTime } from '../econ/economy';
-import { wrapDx, wrapX, WORLD_W } from '../engine/wrap';
-import { WallCamera } from '../wall/camera';
-import { PROJECTILE_MAX_AGE } from '../wall/constants';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
-import { ENEMY_SPEED, leashStep, ringSpawnPoint, towardShip } from './leash';
 
 export const TOUCH_OFFSET_Y = -40; // finger sits below the ship on touch
 export { PROJECTILE_SPEED, PX_PER_CELL };
 export const CONTACT_DAMAGE = 10;
+/** Rock fall speed (px/s). */
+export const ENEMY_SPEED = 40;
+/** Seconds between rock spawns. */
+export const SPAWN_INTERVAL = 2;
+/** A rock whose centre stays above the top edge this long is moved in at the edge. */
+export const ABOVE_SCREEN_MAX = 6;
 
 export interface HitEvent { enemyId: number; damage: number; x: number; y: number; }
 /** An enemy body died: `reward` is the credits it paid (fractional; the run keeps the exact total). */
@@ -35,19 +37,17 @@ export class World {
   /** Where each recipe's projectiles leave, relative to the ship centre (from the ejector's cell). */
   readonly spawnOffsets: { x: number; y: number }[];
 
-  /** Ship position: x in world px (wrapped into [0, WORLD_W)), y in screen px. */
+  /** Ship position in screen px (Free Fly is one fixed screen wide). */
   shipX = CONFIG.VIEW.W / 2;
   shipY = CONFIG.VIEW.H * 0.8;
-  /** Edge-push camera, no clamp: it keeps going and wraps. camera.x is the viewport's left edge in world px. */
-  readonly camera = new WallCamera(0, 0, WORLD_W);
   /**
-   * Spawn safety. A world made with `safeStart` keeps the ship at its start spot (and the camera still) until
-   * beginControl(); the screens call that on the first pointer move or press. Then the ship eases to the pointer over
-   * EASE_TIME and the contact invulnerability lasts GRACE_TIME. Without `safeStart` (unit tests) control is immediate.
+   * Spawn safety. A world made with `safeStart` keeps the ship at its start spot until beginControl(); the screen
+   * calls that on the first pointer move or press. Then the ship eases to the pointer over EASE_TIME and the contact
+   * invulnerability lasts GRACE_TIME. Without `safeStart` (unit tests) control is immediate.
    */
   controlStarted: boolean;
   private controlT: number;
-  private easeFrom = { sx: 0, sy: 0 };
+  private easeFrom = { x: 0, y: 0 };
   hull = 100;
   readonly maxHull = 100;
   invuln = 0;
@@ -64,9 +64,11 @@ export class World {
   /** Rocks that reached the bottom edge. */
   leaks = 0;
   autoSpawn: boolean;
-  /** Rocks sent back to the spawn ring by the leash (stats and tests). */
-  respawns = 0;
   private safeStart: boolean;
+  /** Seconds each rock's centre has spent above the top edge. */
+  private aboveT = new Map<number, number>();
+  /** Horizontal direction sign of each rock's sway, flipped when it touches a side. */
+  private swayDir = new Map<number, number>();
   private pulseTimer = 0;
   private spawnTimer = 0;
   private kicks = new Map<number, { vx: number; vy: number }>();
@@ -87,8 +89,6 @@ export class World {
     this.controlStarted = !opts.safeStart;
     this.controlT = opts.safeStart ? 0 : Infinity;
     this.safeStart = !!opts.safeStart;
-    this.mitosis.wrapW = WORLD_W;
-    this.projSys.wrapW = WORLD_W;
     this.projSys.onHit = (e, dmg, x, y) => {
       this.hits.push({ enemyId: e.id, damage: dmg, x, y });
     };
@@ -116,20 +116,20 @@ export class World {
     this.pool.active.fill(0);
     this.pool.count = 0;
     this.gameOver = false;
-    this.camera.x = 0;
-    this.camera.speed = 0;
-    this.camera.travel = 0;
     this.shipX = CONFIG.VIEW.W / 2;
     this.shipY = CONFIG.VIEW.H * 0.8;
     this.controlStarted = !this.safeStart;
     this.controlT = this.safeStart ? 0 : Infinity;
-    this.respawns = 0;
+    this.aboveT.clear();
+    this.swayDir.clear();
     this.hits.length = 0;
     this.splits.length = 0;
   }
 
+  /** Spawns a rock; x is clamped so it is born inside the screen width. */
   spawnRock(x: number, y: number, hp: number = rockHp(this.tier)) {
-    const e = this.mitosis.spawn('mitotic_rock', 1, hp, x, y, ROCK_RADIUS);
+    const W = CONFIG.VIEW.W;
+    const e = this.mitosis.spawn('mitotic_rock', 1, hp, Math.max(ROCK_RADIUS, Math.min(W - ROCK_RADIUS, x)), y, ROCK_RADIUS);
     if (e) e.tier = this.tier;
     return e;
   }
@@ -140,16 +140,6 @@ export class World {
     this.controlStarted = true;
     this.controlT = 0;
     this.invuln = Math.max(this.invuln, GRACE_TIME);
-  }
-
-  /** Screen x of a world x for the current camera: the short way round, centred on the viewport. */
-  screenX(x: number): number {
-    return wrapDx(x, this.camera.x + CONFIG.VIEW.W / 2) + CONFIG.VIEW.W / 2;
-  }
-
-  /** A fresh spawn point on the off-screen ring. */
-  private ringPoint() {
-    return ringSpawnPoint(this.camera.x, Math.random);
   }
 
   /** Fire one pulse: one projectile per compiled ejector recipe (chance gates may drop or boost it). */
@@ -164,15 +154,8 @@ export class World {
     if (this.invuln > 0) this.invuln -= dt;
     const VW = CONFIG.VIEW.W;
 
-    // --- Camera: the edge-push camera of the wall without its clamp. Nothing pushes before the first move.
-    const pushing = this.controlStarted && pointer.seen && (pointer.type !== 'touch' || pointer.active);
-    this.camera.update(dt, pushing ? pointer.x : null);
-    const camX = this.camera.x;
-
-    // --- Ship: pointer only, in screen space (world x = camera x + screen x). Mouse = exact, touch = small upward offset while pressed.
-    // Knockback is a screen-space offset that decays; the ship stays where it is on the screen when the pointer lets go.
-    const decay = Math.exp(-12 * dt);
-    let baseX = wrapDx(this.shipX, camX) - this.knockX;
+    // --- Ship: pointer only. Mouse = exact, touch = small upward offset while pressed. Nothing moves it before the first move.
+    let baseX = this.shipX - this.knockX;
     let baseY = this.shipY - this.knockY;
     if (this.controlStarted && pointer.seen) {
       if (pointer.type === 'touch') {
@@ -183,20 +166,20 @@ export class World {
       }
     }
     if (this.controlStarted && this.controlT < EASE_TIME) {
-      if (this.controlT === 0) this.easeFrom = { sx: wrapDx(this.shipX, camX), sy: this.shipY };
+      if (this.controlT === 0) this.easeFrom = { x: this.shipX, y: this.shipY };
       const k = easeK(this.controlT + dt);
-      baseX = this.easeFrom.sx + (baseX - this.easeFrom.sx) * k;
-      baseY = this.easeFrom.sy + (baseY - this.easeFrom.sy) * k;
+      baseX = this.easeFrom.x + (baseX - this.easeFrom.x) * k;
+      baseY = this.easeFrom.y + (baseY - this.easeFrom.y) * k;
       this.controlT += dt;
     }
-    if (!this.controlStarted) { baseX = wrapDx(this.shipX, camX); baseY = this.shipY; }
+    if (!this.controlStarted) { baseX = this.shipX; baseY = this.shipY; }
+    const decay = Math.exp(-12 * dt);
     this.knockX *= decay;
     this.knockY *= decay;
     if (Math.abs(this.knockX) < 0.05) this.knockX = 0;
     if (Math.abs(this.knockY) < 0.05) this.knockY = 0;
     const m = CONFIG.PLAYER.MARGIN;
-    const screenX = Math.max(m, Math.min(VW - m, baseX + this.knockX));
-    this.shipX = wrapX(camX + screenX);
+    this.shipX = Math.max(m, Math.min(VW - m, baseX + this.knockX));
     this.shipY = Math.max(m, Math.min(CONFIG.VIEW.H - m, baseY + this.knockY));
 
     // --- Auto-fire
@@ -207,47 +190,36 @@ export class World {
       this.fire();
     }
 
-    // --- Spawning: on a ring just off-screen (above and to the sides), in wrapped world x
+    // --- Spawning: above the top edge, inside the screen width, entering downward
     if (this.autoSpawn) {
       this.spawnTimer += dt;
-      if (this.spawnTimer >= 2) {
+      if (this.spawnTimer >= SPAWN_INTERVAL) {
         this.spawnTimer = 0;
-        const p = this.ringPoint();
-        this.spawnRock(p.x, p.y);
+        this.spawnRock(Math.random() * (VW - 40) + 20, -20);
       }
     }
 
-    // --- Projectile movement (path modifiers steer first). x wraps; y and age end a shot.
+    // --- Projectile movement (path modifiers steer first)
     const pool = this.pool;
     this.projSys.steer(dt, this.mitosis.enemies);
     for (let i = 0; i < pool.max; i++) {
       if (!pool.active[i]) continue;
-      pool.x[i] = wrapX(pool.x[i] + pool.vx[i] * dt);
+      pool.x[i] += pool.vx[i] * dt;
       pool.y[i] += pool.vy[i] * dt;
-      if (pool.y[i] < -50 || pool.y[i] > CONFIG.VIEW.H + 50 || pool.age[i] > PROJECTILE_MAX_AGE) {
+      if (pool.x[i] < -50 || pool.x[i] > VW + 50 || pool.y[i] < -50 || pool.y[i] > CONFIG.VIEW.H + 50) {
         pool.free(i);
       }
     }
 
-    // --- Enemy movement (drift + sway + soft separation via spatial hash, all on the cylinder)
+    // --- Enemy movement (drift + sway + soft separation via spatial hash)
     const enemies = this.mitosis.enemies;
     const byId = new Map<number, (typeof enemies)[number]>();
-    const spatial = new SpatialHash(WORLD_W, CONFIG.VIEW.H, 64, WORLD_W);
+    const spatial = new SpatialHash(VW, CONFIG.VIEW.H, 64);
     for (const e of enemies) { byId.set(e.id, e); spatial.insert(e.id, e.x, e.y); }
 
     for (const e of enemies) {
       e.vy = ENEMY_SPEED;
-      e.vx = Math.sin(this.time + e.id) * 30;
-      // Leash: far from the ship for too long -> head for it; still very far -> back to the spawn ring.
-      const leash = leashStep(e, this.shipX, this.shipY, dt);
-      if (leash === 'pull') {
-        const u = towardShip(e, this.shipX, this.shipY);
-        e.vx = u.x * ENEMY_SPEED;
-        e.vy = u.y * ENEMY_SPEED;
-      } else if (leash === 'respawn') {
-        this.recycle(e);
-        continue;
-      }
+      e.vx = Math.sin(this.time + e.id) * 30 * (this.swayDir.get(e.id) ?? 1);
       const kick = this.kicks.get(e.id);
       if (kick) {
         e.vx += kick.vx;
@@ -260,7 +232,7 @@ export class World {
         if (nid === e.id) continue;
         const o = byId.get(nid);
         if (!o) continue;
-        const dx = wrapDx(e.x, o.x);
+        const dx = e.x - o.x;
         const dy = e.y - o.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const minDist = e.radius + o.radius;
@@ -270,11 +242,26 @@ export class World {
           e.y += (dy / dist) * push;
         }
       }
-      e.x = wrapX(e.x + e.vx * dt);
+      e.x += e.vx * dt;
       e.y += e.vy * dt;
 
+      // Confined to the screen width: a side reflects the horizontal motion (sway and knockback) and clamps it back inside.
+      const minX = e.radius, maxX = VW - e.radius;
+      if (e.x < minX || e.x > maxX) {
+        const kk = this.kicks.get(e.id);
+        const leftSide = e.x < minX;
+        e.x = leftSide ? minX : maxX;
+        this.swayDir.set(e.id, -(this.swayDir.get(e.id) ?? 1));
+        if (kk && (leftSide ? kk.vx < 0 : kk.vx > 0)) kk.vx = -kk.vx;
+      }
+      // Never hover above the screen: after ABOVE_SCREEN_MAX seconds with its centre over the top edge it is moved in.
+      if (e.y < 0) {
+        const t = (this.aboveT.get(e.id) ?? 0) + dt;
+        if (t > ABOVE_SCREEN_MAX) { e.y = 0; this.aboveT.delete(e.id); } else this.aboveT.set(e.id, t);
+      } else if (this.aboveT.size) this.aboveT.delete(e.id);
+
       // Contact damage + knockback (none while invulnerable: the first second of control and 0.5 s after a hit)
-      const sx = wrapDx(this.shipX, e.x);
+      const sx = this.shipX - e.x;
       const sy = this.shipY - e.y;
       const d = Math.sqrt(sx * sx + sy * sy) || 1;
       if (d < e.radius + CONFIG.PLAYER.HITBOX_R && this.invuln <= 0) {
@@ -305,36 +292,25 @@ export class World {
         for (const c of this.mitosis.enemies) {
           if (c.id >= firstChildId) {
             childIds.push(c.id);
-            const ang = Math.atan2(c.y - e.y, wrapDx(c.x, e.x)) || 0;
+            c.x = Math.max(c.radius, Math.min(VW - c.radius, c.x));
+            const ang = Math.atan2(c.y - e.y, c.x - e.x) || 0;
             this.kicks.set(c.id, { vx: Math.cos(ang) * 160, vy: Math.sin(ang) * 160 });
           }
         }
         this.kicks.delete(e.id);
+        this.aboveT.delete(e.id);
+        this.swayDir.delete(e.id);
         this.splits.push({ parentId: e.id, x: e.x, y: e.y, childIds });
       } else if (e.y >= CONFIG.VIEW.H) {
-        if (Math.abs(wrapDx(e.x, camX + VW / 2)) <= VW / 2 + e.radius) {
-          // Leak: the rock reached the bottom edge of the screen. It is removed and hurts the hull by its size.
-          enemies.splice(i, 1);
-          this.kicks.delete(e.id);
-          this.leaks++;
-          this.hull -= leakDamage(this.maxHull, e.generation);
-          if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
-        } else {
-          // Fell past the bottom while off to the side: nobody saw it, so it costs nothing and goes back to the ring.
-          this.recycle(e);
-        }
+        // Leak: the rock reached the bottom edge. It is removed and hurts the hull by its size.
+        enemies.splice(i, 1);
+        this.kicks.delete(e.id);
+        this.aboveT.delete(e.id);
+        this.swayDir.delete(e.id);
+        this.leaks++;
+        this.hull -= leakDamage(this.maxHull, e.generation);
+        if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
       }
     }
-  }
-
-  /** Sends an enemy back to the spawn ring: same type, generation and HP (so the same HP fraction). */
-  recycle(e: (typeof this.mitosis.enemies)[number]) {
-    const p = this.ringPoint();
-    e.x = p.x;
-    e.y = p.y;
-    e.farT = 0;
-    e.farT2 = 0;
-    this.kicks.delete(e.id);
-    this.respawns++;
   }
 }

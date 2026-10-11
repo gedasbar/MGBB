@@ -43,6 +43,7 @@ export interface TileInfo { tier: number; state: TileState; spike: boolean; next
  * screen opens scrolled to the next tier to play). A bottom sheet tells about the selected tier and starts it.
  */
 export class MapScreen implements Screen {
+  statsName = 'Map';
   container = new Container();
   private store = getProgressStore();
   private credits = new CreditsBadge();

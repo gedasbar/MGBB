@@ -48,6 +48,7 @@ const HELP_TEXT =
  * pointer gestures into model edits.
  */
 export class BuildScreen implements Screen {
+  statsName = 'Build';
   container = new Container();
   readonly model: BuilderModel;
   view: View;
