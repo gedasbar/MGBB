@@ -1,13 +1,14 @@
 // Prints the campaign pacing table for the carve-a-path rules (chunk 6c).
 // Run: npm run balance-wall
 import { compile } from '../src/engine/compiler';
-import { buildStarterGrid } from '../src/game/starter';
+import { buildDartStarterGrid, buildStarterGrid } from '../src/game/starter';
 import { BOOST_MAX, CELL, PASS_MARGIN_CELLS, VIEW_H, WALL_COLS } from '../src/wall/constants';
 import { generateLevel } from '../src/wall/generator';
 import { rewardPerBlock } from '../src/wall/level';
 import { blockCost, simulateWall } from '../src/wall/sim';
 
-const grid = buildStarterGrid();
+// STARTER=shuttle prints the old Shuttle-starter table for comparison; the default is the Dart with a Flat+ in its slot.
+const grid = process.env.STARTER === 'shuttle' ? buildStarterGrid() : buildDartStarterGrid();
 const starterDps = compile(grid).stats.estDps;
 const SHIP_MARGIN = 24;
 const SHIP_BOTTOM = VIEW_H - SHIP_MARGIN;
@@ -21,10 +22,10 @@ const columnCosts = (l: ReturnType<typeof generateLevel>) => {
 console.log(`Starter gun: est. ${starterDps.toFixed(0)} DPS (all shots landing). Effective HP counts shields and doubles armored HP.`);
 console.log('Pass = carve the cheapest straight column while the wall crosses at max boost (x' + BOOST_MAX + ' with the ship at the top).');
 console.log('Clear = destroy every block before the wall\'s lowest edge reaches a ship parked at the bottom of the screen.\n');
-console.log('Tier | name            | rows | base px/s | cross s (max boost) | cheapest col HP | median col HP | pass DPS | ratio | total eff. HP | clear s avail | clear DPS | ratio | bot carve | bot clear-all');
+console.log('Tier | name            | rows | base px/s | cross s (max boost) | cheapest col HP | median col HP | pass DPS | ratio | total eff. HP | clear s avail | clear DPS | ratio | bot carve | bot clear-all | credits carve / full clear');
 
 let cumulative = 0;
-for (const t of [1, 5, 10, 20, 30, 50, 75, 100]) {
+for (const t of [1, 5, 8, 10, 14, 20, 30, 50, 75, 100]) {
   const l = generateLevel(t);
   const cols = columnCosts(l);
   const sorted = [...cols].sort((a, b) => a - b);
@@ -40,7 +41,8 @@ for (const t of [1, 5, 10, 20, 30, 50, 75, 100]) {
   const carve = simulateWall(l, grid, 'carve');
   const all = simulateWall(l, grid, 'clearAll');
   const f = (r: ReturnType<typeof simulateWall>) => `${r.state} ${r.time.toFixed(0)}s ${Math.floor((r.destroyed / r.total) * 100)}%`;
-  console.log(`${String(t).padStart(4)} | ${String(l.name).padEnd(15)} | ${String(l.rows).padStart(4)} | ${l.approachSpeed.toFixed(0).padStart(9)} | ${crossBoost.toFixed(1).padStart(19)} | ${cheapest.toFixed(0).padStart(15)} | ${median.toFixed(0).padStart(13)} | ${passDps.toFixed(0).padStart(8)} | ${(passDps / starterDps).toFixed(2).padStart(5)} | ${total.toFixed(0).padStart(13)} | ${clearTime.toFixed(1).padStart(13)} | ${clearDps.toFixed(0).padStart(9)} | ${(clearDps / starterDps).toFixed(2).padStart(5)} | ${f(carve).padEnd(16)} | ${f(all)}`);
+  const fullClear = l.cells.filter(Boolean).length * rewardPerBlock(t);
+  console.log(`${String(t).padStart(4)} | ${String(l.name).padEnd(15)} | ${String(l.rows).padStart(4)} | ${l.approachSpeed.toFixed(0).padStart(9)} | ${crossBoost.toFixed(1).padStart(19)} | ${cheapest.toFixed(0).padStart(15)} | ${median.toFixed(0).padStart(13)} | ${passDps.toFixed(0).padStart(8)} | ${(passDps / starterDps).toFixed(2).padStart(5)} | ${total.toFixed(0).padStart(13)} | ${clearTime.toFixed(1).padStart(13)} | ${clearDps.toFixed(0).padStart(9)} | ${(clearDps / starterDps).toFixed(2).padStart(5)} | ${f(carve).padEnd(16)} | ${f(all).padEnd(16)} | ${carve.credits.toFixed(0).padStart(5)} / ${fullClear.toFixed(0).padStart(5)}`);
 }
 
 // Template sanity: the cheapest column against its neighbours, over every tier.

@@ -46,7 +46,7 @@ describe('hull ladder', () => {
     for (const id of HULL_ORDER) expect(HULL_BUILDERS[id]().hullId).toBe(id);
   });
 
-  it('the Dart is generator, one free cell, ejector in a line, and fires 35% of the Shuttle starter DPS with a Flat+ in its slot', () => {
+  it('the Dart is generator, one free cell, ejector in a line, and fires 25% of the Shuttle starter DPS with a Flat+ in its slot', () => {
     const g = buildDartGrid();
     expect(g.w).toBe(1);
     expect(g.cells.map(c => c.type)).toEqual(['ejector', 'empty', 'generator']);
@@ -55,8 +55,8 @@ describe('hull ladder', () => {
     const dart = compile(g).stats;
     const shuttle = compile(buildStarterGrid()).stats;
     expect(dart.damagePerShot).toBe(101);
-    expect(dart.estDps / shuttle.estDps).toBeCloseTo(0.35, 2);
-    expect(fireRateMul('dart')).toBe(0.35);
+    expect(dart.estDps / shuttle.estDps).toBeCloseTo(0.25, 2);
+    expect(fireRateMul('dart')).toBe(0.25);
     expect(fireRateMul('shuttle')).toBe(1);
   });
 
