@@ -60,3 +60,31 @@ for (const b of Object.values(BLOCKS)) {
 const shown = Object.values(BLOCKS).filter(b => b.shown).length;
 rows.push('', `${shown} of ${Object.keys(BLOCKS).length} blocks are shown in the picker; the rest stay in the data and are hidden.`);
 console.log(rows.join('\n'));
+
+// ------------------------------------------------------------------ implementation status of the hidden blocks (chunk 9a, step I0)
+// "compiler" = the block has a transform or its own compiler handling; "combat" = something outside the data file
+// (engine, fire, world, wall) reads its modifier type / id. Both = fully implemented; neither = a data-only stub.
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+function sourceOf(dirs: string[]): string {
+  let s = '';
+  for (const d of dirs) for (const f of readdirSync(d)) if (f.endsWith('.ts')) s += readFileSync(join(d, f), 'utf8') + '\n';
+  return s;
+}
+const runtime = sourceOf(['src/engine', 'src/game', 'src/wall', 'src/screens']);
+const compilerSrc = readFileSync('src/engine/compiler.ts', 'utf8');
+const hidden = Object.values(BLOCKS).filter(b => !b.shown);
+const impl: string[] = ['', '### Hidden blocks: implementation status', '', '| id | category | compiler | combat | status |', '|---|---|---|---|---|'];
+let full = 0;
+for (const b of hidden) {
+  const probe = b.transform?.toString() ?? '';
+  const typeMatch = probe.match(/type:\s*'([a-z_]+)'/);
+  const compiler = !!b.transform || compilerSrc.includes(`'${b.id}'`);
+  const combat = (typeMatch && runtime.includes(`'${typeMatch[1]}'`)) || runtime.includes(`'${b.id}'`);
+  const both = compiler && !!combat;
+  if (both) full++;
+  impl.push(`| \`${b.id}\` | ${b.category} | ${compiler ? 'yes' : 'no'} | ${combat ? 'yes' : 'no'} | ${both ? 'FULL' : compiler ? 'compiler-only stub' : 'data-only stub'} |`);
+}
+impl.push('', `${hidden.length} hidden blocks, ${full} fully implemented.`);
+console.log(impl.join('\n'));
