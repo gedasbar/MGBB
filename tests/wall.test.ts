@@ -17,10 +17,10 @@ type Cell = BlockDef | null;
 const plain = (hp = 100): BlockDef => ({ hp, armor: 0, shield: 0 });
 
 /** A small wall for tests: rows x 21, every cell `plain` unless `f` says otherwise. approachSpeed 0 keeps it still. */
-function level(rows: number, f: (r: number, c: number) => Cell = () => plain(), approachSpeed = 0): LevelDef {
+function level(rows: number, f: (r: number, c: number) => Cell = () => plain(), approachSpeed = 0, wrap = true): LevelDef {
   const cells: Cell[] = [];
   for (let r = 0; r < rows; r++) for (let c = 0; c < WALL_COLS; c++) cells.push(f(r, c));
-  return { tier: 1, cols: WALL_COLS, rows, cells, approachSpeed };
+  return { tier: 1, cols: WALL_COLS, rows, cells, approachSpeed, wrap };
 }
 
 function world(l: LevelDef): WallWorld {
@@ -73,8 +73,8 @@ describe('Wall data model', () => {
 });
 
 describe('Grid lookup', () => {
-  it('maps a world position to the cell under it (row 0 is the top, the wall hangs above offset y)', () => {
-    const w = world(level(3));
+  it('maps a world position to the cell under it (row 0 is the top, the wall hangs above offset y); a flat wall ends at its sides', () => {
+    const w = world(level(3, () => plain(), 0, false));
     // offset 0: the bottom row (2) fills y in [-54, 0), row 0 fills [-162, -108)
     expect(w.cellAt(10, -1)).toEqual({ col: 0, row: 2 });
     expect(w.cellAt(CELL * 5 + 1, -54 - 1)).toEqual({ col: 5, row: 1 });
@@ -390,7 +390,7 @@ describe('Shared hit pipeline on a wall', () => {
   });
 
   it('a bouncing shot ricochets off the left and right world edges; others leave the world', () => {
-    const w = world(level(3));
+    const w = world(level(3, () => plain(), 0, false));
     w.setWallOffset(300);
     const i = shoot(w, 3, 600, 10, [{ type: 'bouncing' }], { vx: -600, vy: 0 });
     w.update(1 / 60, null);

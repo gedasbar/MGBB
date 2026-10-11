@@ -4,6 +4,7 @@ import { Modifier } from './compilerTypes';
 import { SpatialHash } from './spatialHash';
 import { EnemyStats, applyDamage } from './damage';
 import { EnemyField, TargetField } from './targets';
+import { wrapDx } from './wrap';
 
 export interface EnemyEntity extends EnemyStats {
   id: number;
@@ -56,6 +57,9 @@ export class ProjectileSystem {
   pool: ProjectilePool;
 
   modifiersTable: Modifier[][] = [];
+
+  /** Ring walls: width of the ring in px, so homing takes the short way round; 0 (Free Fly, flat walls) keeps plain x maths. */
+  wrapW = 0;
 
   /** Scratch lists reused by every projectile (no per-shot allocation). */
   private near: EnemyEntity[] = [];
@@ -118,7 +122,7 @@ export class ProjectileSystem {
         if (field) field.collectNear(pool.x[i], pool.y[i], HOMING_RANGE, near);
         for (const e of field ? near : (targets as EnemyEntity[])) {
           if (e.hp <= 0) continue;
-          const dx = e.x - pool.x[i];
+          const dx = this.wrapW > 0 ? wrapDx(e.x, pool.x[i], this.wrapW) : e.x - pool.x[i];
           const dy = e.y - pool.y[i];
           const d2 = dx * dx + dy * dy;
           if (d2 > best) continue;

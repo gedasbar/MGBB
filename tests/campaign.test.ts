@@ -203,17 +203,27 @@ describe('Edge columns', () => {
     return w;
   }
 
-  it('the ship dot reaches world x 0 and the wall width, so the ejector can carve column 0 and column 20', () => {
+  it('on a ring the dot wraps (world x 1134 is x 0), so the ejector carves column 0 from either side of the seam and column 20 too', () => {
     const left = shootFrom(0, false);
-    expect(left.shipX).toBe(0);
+    expect(left.shipX).toBeCloseTo(0, 6);
     expect(left.blocks[2 * 21 + 0]).toBeNull();
     expect(left.blocks[2 * 21 + 1]).not.toBeNull();
-    const right = shootFrom(540, true);
-    expect(right.shipX).toBe(WORLD_WIDTH);
+    const right = shootFrom(540, true);   // 594 + 540 = 1134 = the seam
+    expect(right.shipX).toBeCloseTo(0, 6);
+    expect(right.blocks[2 * 21 + 0]).toBeNull();
     const near = shootFrom(520, true); // dot at 1114, ejector at about 1124
     expect(near.blocks[2 * 21 + 20]).toBeNull();
     expect(near.blocks[2 * 21 + 19]).not.toBeNull();
     expect(CELL * 21).toBe(WORLD_WIDTH);
+  });
+
+  it('a flat wall (wrap: false) still clamps the dot to 0 .. the wall width', () => {
+    const level = { ...makeTestWall({ tier: 1, rows: 3, approachSpeed: 0 }), wrap: false };
+    const w = new WallWorld(level, { grid: buildStarterGrid() });
+    for (let i = 0; i < 5; i++) w.update(1 / 60, { x: 5000, y: 700 });
+    expect(w.shipX).toBe(WORLD_WIDTH);
+    for (let i = 0; i < 5; i++) w.update(1 / 60, { x: -300, y: 700 });
+    expect(w.shipX).toBe(0);
   });
 });
 
