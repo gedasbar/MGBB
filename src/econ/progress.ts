@@ -1,18 +1,19 @@
 import { MAX_TIER } from '../wall/generator';
 import { pickerBlocks } from '../data/blocks';
 import { HULL_BUILDERS } from '../game/gridUtils';
+import { STARTER_HULL } from '../data/hulls';
 import {
   copyPrice, DEFAULT_OWNED, HULL_PRICE, maxLevelOf, upgradePrice,
 } from './economy';
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime. The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 3;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 4;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 3;
+  version: 4;
   credits: number;
   owned: Record<string, number>;
   levels: Record<string, number>;
@@ -46,7 +47,7 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 3, credits: 0, owned, levels, ownedHulls: ['shuttle'], bestTier: 0, bestTime: 0, totalKills: 0, runs: 0,
+    version: 4, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, medals: 0, highestCleared: 0,
   };
 }
@@ -98,7 +99,10 @@ export function sanitizeProgress(raw: unknown): Progress {
     out.levels[id] = int(r.levels?.[id], 1, maxLevelOf(id), 1);
   }
   const hulls = Array.isArray(r.ownedHulls) ? r.ownedHulls.filter((h: unknown) => typeof h === 'string' && h in HULL_BUILDERS) : [];
-  out.ownedHulls = Array.from(new Set(['shuttle', ...hulls]));
+  // Every save owns the Dart; hulls it already owned (the Shuttle of old saves, a bought Fan) are kept.
+  // Saves older than v4 owned the Shuttle for free; it stays owned (a save with no usable hull list is just garbage).
+  const legacyHulls = Array.isArray(r.ownedHulls) && !(typeof r.version === 'number' && r.version >= 4) ? ['shuttle'] : [];
+  out.ownedHulls = Array.from(new Set([STARTER_HULL, ...legacyHulls, ...hulls]));
   return out;
 }
 

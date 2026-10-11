@@ -1,5 +1,4 @@
 import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
-import { CONFIG } from '../config';
 import { Grid } from '../engine/compiler';
 import { clientToGame } from '../input';
 import { makeText } from '../builder/ui';
@@ -16,6 +15,7 @@ import { MapScreen } from './MapScreen';
 import { LevelDef } from '../wall/level';
 import { scrollSpeed, WallWorld } from '../wall/wallWorld';
 import { PointerGate } from '../engine/control';
+import { ShipView } from '../ui/shipArt';
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { Screen, ScreenManager } from './ScreenManager';
 import type { StatsInfo } from '../ui/stats';
@@ -66,7 +66,7 @@ export class WallScreen implements Screen {
 
   private blockLayer = new Container();
   private projLayer = new Container();
-  private shipGfx = new Graphics().circle(0, 0, CONFIG.PLAYER.HITBOX_R).fill(0x00ff00);
+  private ship: ShipView;
   private fxLayer = new Container();
   private uiLayer = new Container();
   /** The HUD text and its plate; moved down while the stats overlay is on. */
@@ -95,7 +95,11 @@ export class WallScreen implements Screen {
     debugHooks.wall = this.world;
     this.camera = new WallCamera();
 
-    this.container.addChild(this.blockLayer, this.projLayer, this.shipGfx, this.fxLayer, this.uiLayer);
+    this.ship = new ShipView(
+      this.sm.app.renderer, grid.hullId ?? 'shuttle',
+      this.world.recipes.map((r, i) => ({ x: this.world.spawnOffsets[i].x, y: this.world.spawnOffsets[i].y, dir: r.direction })),
+    );
+    this.container.addChild(this.blockLayer, this.projLayer, this.ship.container, this.fxLayer, this.uiLayer);
 
     // Enough views for every cell that can be on screen at once (11 partial columns x 19 partial rows, with slack).
     const slots = 12 * (Math.ceil(VIEW_H / CELL) + 2);
@@ -220,8 +224,8 @@ export class WallScreen implements Screen {
 
     this.drawBlocks();
     this.drawProjectiles();
-    this.shipGfx.position.set(w.shipX - this.camera.x, w.shipY);
-    this.shipGfx.alpha = w.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1;
+    this.ship.setPosition(w.shipX - this.camera.x, w.shipY);
+    this.ship.setAlpha(w.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1);
 
     for (const pu of this.popups) {
       if (pu.life <= 0) continue;

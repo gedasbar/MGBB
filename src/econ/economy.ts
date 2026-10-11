@@ -1,5 +1,6 @@
 import { CONFIG } from '../config';
 import { BLOCKS } from '../data/blocks';
+import { HULL_PRICES } from '../data/hulls';
 
 /** Seconds of survival per tier step inside one run. */
 export const TIER_SECONDS = 15;
@@ -29,7 +30,8 @@ export const BASE_PRICE: Record<string, number> = {
   pure_converter: 300, armor_piercer: 220, curving_right: 150, random_curve: 150, homing: 400, fork_impact: 450,
 };
 
-export const HULL_PRICE: Record<string, number> = { shuttle: 0, fan: 600 };
+/** Shop price per hull (constants live in data/hulls.ts). */
+export const HULL_PRICE: Record<string, number> = { ...HULL_PRICES };
 
 /** New-game inventory: only these blocks are owned, everything else starts at 0. */
 export const DEFAULT_OWNED: Record<string, number> = { turn_l: 2, turn_r: 2, flat_plus: 1 };

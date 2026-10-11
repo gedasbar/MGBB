@@ -12,6 +12,7 @@ import { getProgressStore } from '../econ/progress';
 import { debugHooks } from '../debug/hooks';
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { PointerGate } from '../engine/control';
+import { ShipView } from '../ui/shipArt';
 
 const ROCK_COLOR = 0xffa500;
 const FLASH_TIME = 0.08;
@@ -31,7 +32,7 @@ export class FlyScreen implements Screen {
   fxLayer = new Container();
   uiLayer = new Container();
   
-  shipGfx = new Graphics().circle(0, 0, CONFIG.PLAYER.HITBOX_R).fill(0x00ff00);
+  ship: ShipView;
   hullBarBg = new Graphics().rect(0, 0, 100, 10).fill(0xff0000);
   hullBarFg = new Graphics().rect(0, 0, 100, 10).fill(0x00ff00);
   
@@ -56,7 +57,12 @@ export class FlyScreen implements Screen {
     debugHooks.world = this.world;
     
     this.container.addChild(this.projLayer, this.enemyLayer);
-    this.container.addChild(this.shipGfx, this.fxLayer, this.uiLayer);
+    const w = this.world;
+    this.ship = new ShipView(
+      this.screenManager.app.renderer, grid.hullId ?? 'shuttle',
+      w.recipes.map((r, i) => ({ x: w.spawnOffsets[i].x, y: w.spawnOffsets[i].y, dir: r.direction })),
+    );
+    this.container.addChild(this.ship.container, this.fxLayer, this.uiLayer);
 
     this.hullBarBg.position.set(20, 20);
     this.hullBarFg.position.set(20, 20);
@@ -167,8 +173,8 @@ export class FlyScreen implements Screen {
     }
     this.world.splits.length = 0;
 
-    this.shipGfx.position.set(this.world.shipX, this.world.shipY);
-    this.shipGfx.alpha = this.world.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1;
+    this.ship.setPosition(this.world.shipX, this.world.shipY);
+    this.ship.setAlpha(this.world.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1);
     this.hullBarFg.width = Math.max(0, (this.world.hull / this.world.maxHull) * 100);
     // The HUD sits below the stats overlay while it is on.
     const hudDy = this.screenManager.stats.hudOffset;

@@ -11,6 +11,7 @@ import {
 } from './constants';
 import { LevelDef, rewardPerBlock } from './level';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
+import { fireRateMul } from '../data/hulls';
 
 /** One living block of a wall. x/y are the block centre (x in world px, y in screen px); `radius` is the half size. */
 export interface Block extends EnemyEntity {
@@ -172,6 +173,8 @@ export class WallWorld {
   /** True when banking this level awarded a first-clear Medal. */
   medalEarned = false;
   autoFire = true;
+  /** Pulse-rate multiplier of the hull being flown (the Dart is slow). */
+  private fireRateMul = 1;
   private pulseTimer = 0;
 
   /** Events produced by update(); consumers clear them. */
@@ -182,6 +185,7 @@ export class WallWorld {
     this.controlStarted = !opts.safeStart;
     this.controlT = opts.safeStart ? 0 : Infinity;
     const hullGrid = opts.grid ?? buildStarterGrid();
+    this.fireRateMul = fireRateMul(hullGrid.hullId);
     const compiled = compile(opts.grid ?? buildStarterGrid());
     this.recipes = compiled.recipes;
     this.warnings = compiled.warnings;
@@ -358,7 +362,7 @@ export class WallWorld {
     // --- Auto-fire
     if (this.autoFire) {
       this.pulseTimer += dt;
-      const period = 1 / CONFIG.PULSE.BASE_RATE;
+      const period = 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul);
       while (this.pulseTimer >= period) {
         this.pulseTimer -= period;
         this.fire();

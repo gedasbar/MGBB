@@ -168,7 +168,7 @@ describe('Campaign progress', () => {
   it('migrates a save from before the campaign fields, and survives garbage in them', () => {
     const old = { version: 1, credits: 123, owned: { turn_l: 2 }, levels: {}, ownedHulls: ['shuttle'], bestTier: 4, bestTime: 50, totalKills: 9, runs: 3 };
     const p = loadProgress(JSON.stringify(old));
-    expect(p.version).toBe(3);
+    expect(p.version).toBe(4);
     expect(p.credits).toBe(123);
     expect(p.bestTier).toBe(4);
     expect(p.clearedTiers).toEqual([]);
@@ -271,7 +271,7 @@ describe('Passed tiers (6c)', () => {
 
   it('a v2 save (cleared tiers only) loads with those tiers passed', () => {
     const p = loadProgress(JSON.stringify({ version: 2, credits: 5, clearedTiers: [1, 2], medals: 2, wallBestPct: { '1': 100 }, wallBestTime: { '1': 40 } }));
-    expect(p.version).toBe(3);
+    expect(p.version).toBe(4);
     expect(p.passedTiers).toEqual([1, 2]);
     expect(p.wallBestClearTime).toEqual({});
     expect(isUnlocked(p, 3)).toBe(true);
