@@ -4,10 +4,12 @@ import { ABOVE_SCREEN_MAX, World } from '../src/game/world';
 import { PointerState } from '../src/input';
 import { ROSTER, SPECIES } from '../src/data/species';
 import { ENEMY_ART, rockShape } from '../src/ui/rockArt';
-import { rockHp } from '../src/econ/economy';
+import { rockHp, rockReward } from '../src/econ/economy';
+import { buildTwinGrid } from '../src/game/gridUtils';
+import { place } from '../src/game/starter';
 import { loadProgress, ProgressStore, PROGRESS_VERSION, serializeProgress, defaultProgress } from '../src/econ/progress';
 import { planWave, unlockedAt, WaveDirector, PlannedSpawn } from '../src/game/waves';
-import { ALIVE_HOLD, specialKind, SPECIAL_BUDGET_MUL, WAVE_TIME, waveBonus, waveBudget } from '../src/data/waves';
+import { ALIVE_HOLD, FREEFLY_REWARD_TIER_SCALE, freeFlyRewardTier, specialKind, SPECIAL_BUDGET_MUL, WAVE_TIME, waveBonus, waveBudget } from '../src/data/waves';
 
 const DT = 1 / 60;
 const VW = CONFIG.VIEW.W;
@@ -254,5 +256,78 @@ describe('Free Fly records (save v5)', () => {
     // A run without a wave (older callers) never touches the record.
     st.recordRun({ credits: 0, kills: 0, time: 1, tier: 1 });
     expect(st.data.bestWave).toBe(3);
+  });
+});
+
+
+describe('Free Fly species: armor and shield work with the existing blocks', () => {
+  /** A Twin with Flat+ next to the generator and `id` (or nothing) next to the ejector: one 101-damage shot. */
+  const gun = (id?: string) => { const g = buildTwinGrid(); place(g, 1, 3, 'flat_plus'); if (id) place(g, 1, 2, id); return g; };
+  /** Fires one shot into a fresh body of `defId`; returns HP lost, shield lost and the body after the hit. */
+  function oneHit(defId: string, id?: string) {
+    const w = new World({ grid: gun(id), autoSpawn: false });
+    w.fire();
+    let k = -1;
+    for (let i = 0; i < w.pool.max; i++) if (w.pool.active[i]) { k = i; break; }
+    const e = w.spawnSpecies(defId, w.pool.x[k], w.pool.y[k] - 12, { hp: 1000 })!;
+    const shield0 = e.shield;
+    w.update(DT, idle());
+    expect(w.hits.length).toBe(1);
+    return { hp: 1000 - e.hp, shield: shield0 - e.shield, e };
+  }
+
+  it('Armor-Piercer Tip doubles the damage on an Ironclad (armor halves it) and does nothing on a plain rock', () => {
+    const plain = oneHit('ironclad'), ap = oneHit('ironclad', 'armor_piercer');
+    expect(plain.hp).toBeCloseTo(101 / 2, 6);
+    expect(ap.hp).toBeCloseTo(101, 6);
+    expect(oneHit('mitotic_rock', 'armor_piercer').hp).toBeCloseTo(101, 6);
+  });
+
+  it("Shield-Breaker takes 3x as much off a Warden's shield (x1.5 direct, x2 against shields)", () => {
+    const plain = oneHit('warden'), sb = oneHit('warden', 'shield_breaker');
+    expect(plain.hp).toBe(0);
+    expect(plain.shield).toBeCloseTo(101, 6);
+    expect(sb.shield).toBeCloseTo(303, 6);
+  });
+
+  it('Corrosion strips 5% of an Ironclad\'s armor per hit and remembers the original', () => {
+    const c = oneHit('ironclad', 'corrosion');
+    expect(c.e.armor0).toBe(10);
+    expect(c.e.armor).toBeCloseTo(9.5, 9);
+    expect(oneHit('ironclad').e.armor).toBe(10);
+  });
+
+  it('Pure Converter: its pure share ignores the Ironclad\'s armor', () => {
+    const pc = oneHit('ironclad', 'pure_converter');
+    expect(pc.hp).toBeCloseTo(101 * 0.85 / 2 + 101 * 0.15, 6);
+    expect(pc.hp).toBeGreaterThan(oneHit('ironclad').hp);
+  });
+
+  it('a Warden shield regenerates 2 s after the last hit, at 25% a second', () => {
+    const w = new World({ autoSpawn: false });
+    const e = w.spawnSpecies('warden', 60, 300, { hp: 1000 })!; // away from the ship's line of fire
+    e.shield = 0; e.lastHit = 0;
+    for (let i = 0; i < Math.round(1.9 / DT); i++) { w.update(DT, idle()); e.y = 300; e.x = 60; }
+    expect(e.shield).toBe(0);
+    for (let i = 0; i < Math.round(1.1 / DT); i++) { w.update(DT, idle()); e.y = 300; e.x = 60; }
+    expect(e.shield / e.maxShield).toBeGreaterThan(0.2);
+    expect(e.shield / e.maxShield).toBeLessThan(0.3);
+  });
+});
+
+describe('Free Fly rewards', () => {
+  it('a kill pays rockReward at the Free Fly reward tier x the species multiplier', () => {
+    const pay = (defId: string, tier: number) => {
+      const w = new World({ autoSpawn: false });
+      const e = w.spawnSpecies(defId, 270, 300, { hp: 10 })!;
+      e.tier = tier; e.hp = 0;
+      w.update(DT, idle());
+      return w.killEvents[0].reward;
+    };
+    expect(pay('mitotic_rock', 1)).toBeCloseTo(rockReward(1, 1), 12);
+    expect(pay('mother', 1)).toBeCloseTo(rockReward(1, 1) * SPECIES.mother.rewardMul, 12);
+    expect(pay('mitotic_rock', 11)).toBeCloseTo(rockReward(freeFlyRewardTier(11), 1), 12);
+    expect(freeFlyRewardTier(11)).toBeCloseTo(1 + 10 * FREEFLY_REWARD_TIER_SCALE, 12);
+    expect(pay('darter', 1)).toBeLessThan(pay('mitotic_rock', 1));
   });
 });
