@@ -216,7 +216,8 @@ export class ShopScreen implements Screen {
     for (const ch of this.listC.removeChildren()) ch.destroy({ children: true });
     this.rows = [];
     const p = this.store.data;
-    const keys = this.section === 'blocks' ? pickerBlocks().map(b => b.id) : HULL_INFO.map(h => h.id);
+    // A block whose unlock is 'map' is not sold here (a later node map hands it out); today every block is 'shop'.
+    const keys = this.section === 'blocks' ? pickerBlocks().filter(b => b.unlock !== 'map').map(b => b.id) : HULL_INFO.map(h => h.id);
     keys.forEach((key, i) => {
       const y = ROW_GAP + i * (ROW_H + ROW_GAP);
       const rect: Rect = { x: ROW_X, y, w: ROW_W, h: ROW_H };
@@ -234,7 +235,8 @@ export class ShopScreen implements Screen {
         this.listC.addChild(plate);
         const name = makeText(def.name, 17, THEME.text, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: 170 });
         name.position.set(rect.x + 82, rect.y + 12);
-        const info = makeText(`Owned ${p.owned[key] ?? 0} · Lv ${p.levels[key] ?? 1}/${maxLevelOf(key)}`, 13, THEME.textDim, { fontWeight: 'bold' });
+        const rarity = def.rarity && def.rarity !== 'common' ? `${def.rarity[0].toUpperCase()}${def.rarity.slice(1)} · ` : '';
+        const info = makeText(`${rarity}Owned ${p.owned[key] ?? 0} · Lv ${p.levels[key] ?? 1}/${maxLevelOf(key)}`, 13, THEME.textDim, { fontWeight: 'bold' });
         info.position.set(rect.x + 82, rect.y + ROW_H - 28);
         const strip = new Graphics().rect(rect.x, rect.y, 4, rect.h).fill(CATEGORY_COLOR[def.category]);
         this.listC.addChild(strip, name, info);

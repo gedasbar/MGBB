@@ -12,14 +12,7 @@ export const COLORS = {
   warn: THEME.warn,
 };
 
-export const CATEGORY_COLOR: Record<string, number> = {
-  pathing: 0x59b9ff,
-  damage: 0xff7a5c,
-  modifier: 0xd27bff,
-  status: 0x62e68a,
-  mitosis: 0xffd24d,
-  passive: 0xb0b0b0,
-};
+export { CATEGORY_COLOR } from '../ui/theme';
 
 /** Pixi connects a new arc to the previous path point (the origin on a fresh path), so always start it explicitly. */
 export function arcPath(g: Graphics, x: number, y: number, r: number, a0: number, a1: number, anticlockwise = false) {

@@ -1,4 +1,14 @@
 /** Single source of UI colours and style constants (grey theme). Hull art, block categories and the red signal line stay in builder/draw.ts. */
+/** Block category colours (picker headers, plates, shop strips). Status is a teal that no other category uses. */
+export const CATEGORY_COLOR: Record<string, number> = {
+  pathing: 0x59b9ff,
+  damage: 0xff7a5c,
+  modifier: 0xd27bff,
+  status: 0x22d3b0,
+  mitosis: 0xffd24d,
+  passive: 0xb0b0b0,
+};
+
 export const THEME = {
   bg: 0x1c1c1e,
   panel: 0x2a2a2d,

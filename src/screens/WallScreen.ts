@@ -19,6 +19,7 @@ import { ShipView } from '../ui/shipArt';
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { Screen, ScreenManager } from './ScreenManager';
 import type { StatsInfo } from '../ui/stats';
+import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_TRAVEL, PHASE_MINE_WAIT, PHASE_ORBIT } from '../engine/projectiles';
 
 /** Seconds between the level ending and the summary appearing (a crash restarts faster). */
 const END_DELAY = 0.6;
@@ -32,6 +33,13 @@ const INNER_BG = THEME.plateFace;
 const GREEN = 0x6fbf73;
 const GREEN_FLASH = 0xd2f0d4;
 const SHIELD_BAR = 0x5fd4e8;
+/** Faint status overlays on a block: a burning one is washed orange, a frozen one pale blue. */
+const BURN_TINT = 0xff7a1a;
+const FROZEN_TINT = 0xbfe6ff;
+const OVERLAY_ALPHA = 0.42;
+const ARC_COLOR = 0xe8f4ff;
+const MINE_COLOR = 0xff5050;
+const LOOP_COLOR = 0xffe14d;
 
 /** Block art: a frame, a dark well and a green square that shrinks with the HP left. */
 const GAP = 1;
@@ -41,7 +49,7 @@ const PAD = 2;
 const MIN_INNER = 5;
 const SHIELD_H = 3;
 
-interface BlockView { frame: Sprite; well: Sprite; inner: Sprite; shield: Sprite }
+interface BlockView { frame: Sprite; well: Sprite; inner: Sprite; shield: Sprite; status: Sprite }
 interface Popup { t: Text; life: number }
 
 function whiteSprite(color: number): Sprite {
@@ -49,6 +57,12 @@ function whiteSprite(color: number): Sprite {
   s.tint = color;
   s.visible = false;
   return s;
+}
+
+function lerpColor(a: number, b: number, t: number): number {
+  const ch = (c: number, s: number) => (c >> s) & 255;
+  const mix = (s: number) => Math.round(ch(a, s) + (ch(b, s) - ch(a, s)) * t);
+  return (mix(16) << 16) | (mix(8) << 8) | mix(0);
 }
 
 /** Side of the green square for a block of `hpFrac` HP left (exported for tests and the e2e hook). */
@@ -67,6 +81,7 @@ export class WallScreen implements Screen {
   private blockLayer = new Container();
   private projLayer = new Container();
   private ship: ShipView;
+  private arcG = new Graphics();
   private fxLayer = new Container();
   private uiLayer = new Container();
   /** The HUD text and its plate; moved down while the stats overlay is on. */
@@ -100,12 +115,14 @@ export class WallScreen implements Screen {
       this.world.recipes.map((r, i) => ({ x: this.world.spawnOffsets[i].x, y: this.world.spawnOffsets[i].y, dir: r.direction })),
     );
     this.container.addChild(this.blockLayer, this.projLayer, this.ship.container, this.fxLayer, this.uiLayer);
+    this.fxLayer.addChild(this.arcG);
 
     // Enough views for every cell that can be on screen at once (11 partial columns x 19 partial rows, with slack).
     const slots = 12 * (Math.ceil(VIEW_H / CELL) + 2);
     for (let i = 0; i < slots; i++) {
-      const v: BlockView = { frame: whiteSprite(FRAME), well: whiteSprite(INNER_BG), inner: whiteSprite(GREEN), shield: whiteSprite(SHIELD_BAR) };
-      this.blockLayer.addChild(v.frame, v.well, v.inner, v.shield);
+      const v: BlockView = { frame: whiteSprite(FRAME), well: whiteSprite(INNER_BG), inner: whiteSprite(GREEN), shield: whiteSprite(SHIELD_BAR), status: whiteSprite(BURN_TINT) };
+      v.status.alpha = OVERLAY_ALPHA;
+      this.blockLayer.addChild(v.frame, v.well, v.inner, v.shield, v.status);
       this.views.push(v);
     }
 
@@ -163,6 +180,8 @@ export class WallScreen implements Screen {
       controlStarted: w.controlStarted, invuln: w.invuln, shipWorldX: w.shipX, shipScreenX: w.shipX - this.camera.x, shipY: w.shipY, projectiles: w.pool.count,
       hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.nameText.text, spike: this.spikeText.visible, blocks: this.blocksText.text },
       drawn: this.lastDrawn.length,
+      effects: { ...w.projSys.fx, ...w.gun.fx },
+      arcs: Array.from(w.projSys.arcT).filter(t => t > 0).length,
     };
   }
 
@@ -224,6 +243,7 @@ export class WallScreen implements Screen {
 
     this.drawBlocks();
     this.drawProjectiles();
+    this.drawArcs();
     this.ship.setPosition(w.shipX - this.camera.x, w.shipY);
     this.ship.setAlpha(w.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1);
 
@@ -270,9 +290,11 @@ export class WallScreen implements Screen {
         const x = c * CELL - camX + GAP;
         const y = w.blockTop(r) + GAP;
         const size = CELL - 2 * GAP;
-        const ft = armored ? FRAME_W_ARMOR : FRAME_W;
+        // Corrosion strips armor: the thick frame thins (and dims) in step with the armor that is left.
+        const armorLeft = armored ? Math.min(1, b.armor / (b.armor0 ?? b.armor)) : 0;
+        const ft = armored ? FRAME_W + (FRAME_W_ARMOR - FRAME_W) * armorLeft : FRAME_W;
         v.frame.visible = v.well.visible = v.inner.visible = true;
-        v.frame.tint = armored ? FRAME_ARMOR : FRAME;
+        v.frame.tint = armored ? (armorLeft >= 1 ? FRAME_ARMOR : lerpColor(FRAME, FRAME_ARMOR, armorLeft)) : FRAME;
         v.frame.position.set(x, y);
         v.frame.width = v.frame.height = size;
         v.well.position.set(x + ft, y + ft);
@@ -282,6 +304,16 @@ export class WallScreen implements Screen {
         v.inner.tint = b.flash > 0 ? GREEN_FLASH : GREEN;
         v.inner.width = v.inner.height = inner;
         v.inner.position.set(x + (size - inner) / 2, y + (size - inner) / 2);
+        const burning = (b.burnT ?? 0) > 0;
+        const frozen = (b.freezeT ?? 0) > 0;
+        if (burning || frozen) {
+          v.status.visible = true;
+          v.status.tint = frozen && !burning ? FROZEN_TINT : BURN_TINT;
+          v.status.position.set(x, y);
+          v.status.width = v.status.height = size;
+        } else {
+          v.status.visible = false;
+        }
         if (b.maxShield > 0 && b.shield > 0) {
           v.shield.visible = true;
           v.shield.position.set(x, y);
@@ -296,7 +328,7 @@ export class WallScreen implements Screen {
     for (let i = used; i < this.views.length; i++) {
       const v = this.views[i];
       if (!v.frame.visible) break; // everything after the first hidden one was already hidden
-      v.frame.visible = v.well.visible = v.inner.visible = v.shield.visible = false;
+      v.frame.visible = v.well.visible = v.inner.visible = v.shield.visible = v.status.visible = false;
     }
   }
 
@@ -309,14 +341,36 @@ export class WallScreen implements Screen {
         const sx = pool.x[i] - camX;
         if (sx < -20 || sx > VIEW_W + 20) { s.visible = false; continue; }
         s.position.set(sx, pool.y[i]);
-        s.width = 6 * pool.size[i];
-        s.height = 14 * pool.size[i];
-        s.rotation = Math.atan2(pool.vy[i], pool.vx[i]) + Math.PI / 2;
+        const ph = pool.phase[i];
+        if (ph === PHASE_MINE_WAIT) {
+          s.width = s.height = 14 * pool.size[i];
+          s.tint = MINE_COLOR;
+          s.rotation = Math.PI / 4;
+        } else {
+          s.width = 6 * pool.size[i];
+          s.height = 14 * pool.size[i];
+          s.tint = ph === PHASE_ORBIT || ph === PHASE_BOOM_OUT || ph === PHASE_BOOM_BACK ? LOOP_COLOR : ph === PHASE_MINE_TRAVEL ? MINE_COLOR : 0x00ffff;
+          s.rotation = Math.atan2(pool.vy[i], pool.vx[i]) + Math.PI / 2;
+        }
         s.visible = true;
       } else if (s.visible) {
         s.visible = false;
       }
     }
+  }
+
+  /** Chain-lightning arcs, from the arc ring (world x -> screen x through the camera). */
+  private drawArcs() {
+    const proj = this.world.projSys;
+    const camX = this.camera.x;
+    this.arcG.clear();
+    let n = 0;
+    for (let k = 0; k < ARC_MAX; k++) {
+      if (proj.arcT[k] <= 0) continue;
+      this.arcG.moveTo(proj.arcX0[k] - camX, proj.arcY0[k]).lineTo(proj.arcX1[k] - camX, proj.arcY1[k]);
+      n++;
+    }
+    if (n > 0) this.arcG.stroke({ width: 2, color: ARC_COLOR, alpha: 0.9 });
   }
 
   /** The level is over: bank the credits exactly once and show the summary. */

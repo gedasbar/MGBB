@@ -235,15 +235,23 @@ export class ProjectileSystem {
       pool.vy[i] = (dy / d) * speed;
       pool.age[i] = 0;
     } else if (ph === PHASE_MINE_TRAVEL) {
-      pool.s1[i] += Math.hypot(pool.vx[i], pool.vy[i]) * dt;
-      if (pool.s1[i] >= mineDistance(mi.mine)) {
-        pool.vx[i] = 0;
-        pool.vy[i] = 0;
+      const step = Math.hypot(pool.vx[i], pool.vy[i]) * dt;
+      const dist = mineDistance(mi.mine);
+      if (pool.s1[i] + step >= dist) {
+        // This frame's move ends exactly `dist` px from the start; from the next frame on the mine sits still.
+        const k = step > 0 ? (dist - pool.s1[i]) / step : 0;
+        pool.vx[i] *= k;
+        pool.vy[i] *= k;
+        pool.s1[i] = dist;
         pool.s2[i] = 0;
         pool.size[i] = MINE_SIZE;
         pool.phase[i] = PHASE_MINE_WAIT;
+      } else {
+        pool.s1[i] += step;
       }
     } else if (ph === PHASE_MINE_WAIT) {
+      pool.vx[i] = 0;
+      pool.vy[i] = 0;
       pool.s2[i] += dt;
       pool.age[i] = 0; // a waiting mine is exempt from the wall's projectile age limit
       if (pool.s2[i] >= MINE_WAIT) { this.fx.mineExpired++; pool.free(i); }
