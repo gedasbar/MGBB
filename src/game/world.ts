@@ -279,6 +279,11 @@ export class World {
     this.budState.delete(id);
   }
 
+  /** After a pause: the ship eases to the pointer again (the spawn-safety ease) instead of jumping to where it is now. */
+  resumeEase() {
+    if (this.controlStarted) this.controlT = 0;
+  }
+
   /** The player's first move: the ship starts easing to the pointer and is untouchable by enemies for GRACE_TIME. */
   beginControl() {
     if (this.controlStarted) return;

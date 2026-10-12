@@ -335,6 +335,11 @@ export class WallWorld {
     return true;
   }
 
+  /** After a pause: the ship eases to the pointer again (the spawn-safety ease) instead of jumping to where it is now. */
+  resumeEase() {
+    if (this.controlStarted) this.controlT = 0;
+  }
+
   /** The player's first move: the ship starts easing to the pointer and cannot crash for GRACE_TIME. */
   beginControl() {
     if (this.controlStarted) return;

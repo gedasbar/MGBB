@@ -18,7 +18,7 @@ import { PointerGate } from '../engine/control';
 import { ShipView } from '../ui/shipArt';
 import { BackgroundView, backgroundForTier, forcedBackground } from '../ui/background';
 import { RunSummaryScreen } from './RunSummaryScreen';
-import { Screen, ScreenManager } from './ScreenManager';
+import { Pausable, Screen, ScreenManager } from './ScreenManager';
 import type { StatsInfo } from '../ui/stats';
 import { drawFieldFx } from '../ui/fieldFx';
 import { sfx } from '../audio';
@@ -115,6 +115,19 @@ export class WallScreen implements Screen {
   private endSounded = false;
   /** Slots used by the last draw, for the e2e hook. */
   private lastDrawn: { col: number; row: number; inner: number }[] = [];
+
+/** The pause menu's view of this level: pausable from the first move until the level ends. */
+  readonly pausable: Pausable = {
+    canPause: () => this.world.controlStarted && this.world.state === 'playing' && !this.finished,
+    resume: () => this.world.resumeEase(),
+    restart: () => {
+      if (this.finished) return;
+      this.finished = true;
+      this.world.bank(getProgressStore());
+      this.sm.switchTo(new WallScreen(this.sm, this.levelDef, this.grid));
+    },
+    quit: () => { if (!this.finished) this.finish(); },
+  };
 
   constructor(private sm: ScreenManager, readonly levelDef: LevelDef, private grid: Grid) {
     this.world = new WallWorld(levelDef, { grid, safeStart: true });

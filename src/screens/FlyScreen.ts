@@ -4,7 +4,7 @@ import { World } from '../game/world';
 import { specialKind } from '../data/waves';
 import type { StatsInfo } from '../ui/stats';
 import { clientToGame } from '../input';
-import { Screen, ScreenManager } from './ScreenManager';
+import { Pausable, Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
 import { CATEGORY_COLOR, THEME } from '../ui/theme';
 import { HIT_CLOUD } from '../engine/projectiles';
@@ -19,6 +19,7 @@ import { BackgroundView, forcedBackground, freeFlyThemeAt } from '../ui/backgrou
 import { ShipView } from '../ui/shipArt';
 import { drawFieldFx } from '../ui/fieldFx';
 import { sfx } from '../audio';
+import { bankFlyRun } from '../game/runEnd';
 import { SfxFeed } from '../audio/feed';
 import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_WAIT, PHASE_MINE_TRAVEL, PHASE_ORBIT } from '../engine/projectiles';
 
@@ -92,7 +93,20 @@ export class FlyScreen implements Screen {
   private bg: BackgroundView | null = null;
   private bgForced = forcedBackground();
 
-  constructor(private screenManager: ScreenManager, grid: Grid, opts: { startWave?: number } = {}) {
+  /** The pause menu's view of this run: it may pause once the ship is under control and until the run ends. */
+  readonly pausable: Pausable = {
+    canPause: () => this.world.controlStarted && !this.world.gameOver && !this.finished,
+    resume: () => this.world.resumeEase(),
+    restart: () => {
+      if (this.finished) return;
+      this.finished = true;
+      bankFlyRun(this.world, getProgressStore());
+      this.screenManager.switchTo(new FlyScreen(this.screenManager, this.grid, this.opts));
+    },
+    quit: () => { if (!this.finished) this.finish(); },
+  };
+
+  constructor(private screenManager: ScreenManager, private grid: Grid, private opts: { startWave?: number } = {}) {
     // A new seed per run: the waves are deterministic for a seed (World.seed, shown by the debug hook).
     this.world = new World({ grid, safeStart: true, seed: (Math.random() * 0x7fffffff) | 0, startWave: opts.startWave });
     debugHooks.world = this.world;
@@ -365,9 +379,7 @@ export class FlyScreen implements Screen {
   /** The run is over: bank it exactly once and show the summary. */
   private finish() {
     this.finished = true;
-    const w = this.world;
-    const result = { credits: w.credits, kills: w.kills, time: w.time, tier: w.maxTier, wave: Math.max(1, w.wave) };
-    const marks = getProgressStore().recordRun(result);
+    const { result, marks } = bankFlyRun(this.world, getProgressStore());
     this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks));
   }
 

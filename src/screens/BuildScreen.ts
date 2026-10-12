@@ -104,13 +104,14 @@ export class BuildScreen implements Screen {
       this.sm.app.canvas as HTMLCanvasElement,
       (cx, cy) => clientToGame(cx, cy, this.sm.app.canvas.getBoundingClientRect(), CONFIG.VIEW.W, CONFIG.VIEW.H),
       {
-        onTap: (x, y) => this.handleTap(x, y),
-        onDrag: (dx, dy) => this.handleDrag(dx, dy),
-        onPinch: (f, cx, cy) => this.zoom(f, cx, cy),
-        onWheel: (dy, x, y) => this.handleWheel(dy, x, y),
-        canDrag: (x, y) => this.canDrag(x, y),
-        onMove: (x, y) => this.handleHover(x, y),
-        onLongPress: (x, y) => this.handleLongPress(x, y),
+        // While the settings panel is open (or was closed by this very tap) the builder underneath ignores the pointer.
+        onTap: (x, y) => { if (!this.sm.overlays?.blocking) this.handleTap(x, y); },
+        onDrag: (dx, dy) => { if (!this.sm.overlays?.blocking) this.handleDrag(dx, dy); },
+        onPinch: (f, cx, cy) => { if (!this.sm.overlays?.blocking) this.zoom(f, cx, cy); },
+        onWheel: (dy, x, y) => { if (!this.sm.overlays?.blocking) this.handleWheel(dy, x, y); },
+        canDrag: (x, y) => !this.sm.overlays?.blocking && this.canDrag(x, y),
+        onMove: (x, y) => { if (!this.sm.overlays?.blocking) this.handleHover(x, y); },
+        onLongPress: (x, y) => { if (!this.sm.overlays?.blocking) this.handleLongPress(x, y); },
         onLongPressEnd: () => this.hideTip(),
       },
     );
@@ -180,6 +181,24 @@ export class BuildScreen implements Screen {
     this.addButton(new UIButton({
       id: 'help', rect: { x: 56, y: 4, w: 44, h: 44 }, onTap: () => this.info.show('How the builder works', HELP_TEXT),
       draw: (g, b) => this.flatFace(g, b, 'help', 28),
+    }));
+
+    this.addButton(new UIButton({
+      id: 'settings', rect: { x: 106, y: 4, w: 44, h: 44 }, onTap: () => this.sm.overlays?.openSettings(false),
+      draw: (g, bb) => {
+        g.rect(1, 1, bb.rect.w - 2, bb.rect.h - 2).fill(bb.lit ? THEME.pressedFill : THEME.buttonFill).stroke({ color: THEME.buttonLine, width: 1.5 });
+        // A gear: a ring with eight teeth.
+        const c = bb.lit ? THEME.pressedIcon : THEME.buttonIcon;
+        const gear = new Graphics();
+        for (let i = 0; i < 8; i++) {
+          const a = (i * Math.PI) / 4;
+          gear.moveTo(Math.cos(a) * 7, Math.sin(a) * 7).lineTo(Math.cos(a) * 13, Math.sin(a) * 13);
+        }
+        gear.stroke({ color: c, width: 4 });
+        gear.circle(0, 0, 8).stroke({ color: c, width: 3 });
+        gear.position.set(bb.rect.w / 2, bb.rect.h / 2);
+        g.addChild(gear);
+      },
     }));
 
     // Grid corner buttons.

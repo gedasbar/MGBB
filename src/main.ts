@@ -40,6 +40,8 @@ import { installAudioUnlock } from './audio';
   const screenManager = new ScreenManager(app, input);
   const stats = screenManager.stats;
   screenManager.mountStats();
+  screenManager.mountOverlays();
+  screenManager.installPauseTriggers();
   // The stats go beside the game when the window has room for them, else into the canvas; re-decided on every resize.
   stats.layout();
   window.addEventListener('resize', () => { fit(); stats.layout(); });
