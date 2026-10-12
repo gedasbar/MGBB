@@ -59,7 +59,7 @@ describe('run modifiers math', () => {
     expect(mod('cad_prospector').creditMul).toBeCloseTo(1.05);
     expect(mod('cad_lucky').medalDouble).toBeCloseTo(0.10);
     expect(mod('cad_dividend').waveBonusMul).toBeCloseTo(1.5);
-    expect(mod('cad_toll').passCredits).toBeCloseTo(0.10);
+    expect(mod('cad_toll').passCredits).toBeCloseTo(0.15);
     expect(mod('bul_second').secondChances).toBe(1);
     expect(mod('bul_steady').spawnInvuln).toBe(1);
     expect(mod('bul_plating').hullMul).toBeCloseTo(1.3);
@@ -71,7 +71,7 @@ describe('run modifiers math', () => {
     expect(mod('gun_hunter').vsFragment).toBeCloseTo(0.3);
     expect(mod('pth_slip').boostZone).toBeCloseTo(1.3);
     expect(mod('pth_reach').projSpeedMul).toBeCloseTo(1.2);
-    expect(mod('pth_breaker').wallDamageMul).toBeCloseTo(1.15);
+    expect(mod('pth_breaker').wallDamageMul).toBeCloseTo(1.12);
     expect(mod('pth_quarry').wallCreditMul).toBeCloseTo(1.2);
     const aegis = mod('bul_aegis');
     expect([aegis.secondChances, aegis.hullMul]).toEqual([1, 1.25]);
@@ -303,7 +303,7 @@ describe('hooks: damage', () => {
   });
   it('damage %, wall damage % and the vs-armor / vs-shield bonuses change the hit as the data says', () => {
     expect(firstWallHit(plain, mod('gun_barrel'))).toBeCloseTo(101 * 1.08, 5);
-    expect(firstWallHit(plain, mod('pth_breaker'))).toBeCloseTo(101 * 1.15, 5);
+    expect(firstWallHit(plain, mod('pth_breaker'))).toBeCloseTo(101 * 1.12, 5);
     const arm = firstWallHit(armored);
     expect(firstWallHit(armored, mod('gun_breaker'))).toBeCloseTo(arm * 1.3, 5);
     expect(firstWallHit(plain, mod('gun_breaker'))).toBe(101); // no armor, no bonus
@@ -354,18 +354,21 @@ describe('hooks: economy', () => {
     expect(bonus(mod('cad_dividend'))).toBeCloseTo(bonus() * 1.5, 6);
     expect(WAVE_TIME).toBeGreaterThan(0);
   });
-  it('a pass or clear pays passCredits x the wall value once; a crash pays nothing extra', () => {
+  it('a pass or clear pays passCredits x the credits earned in the run, once; a run that earned nothing gets nothing', () => {
     const make = (mods = neutralModifiers()) => {
       const level: LevelDef = { tier: 1, cols: 21, rows: 1, cells: Array.from({ length: 21 }, () => plain), approachSpeed: 0 };
       return new WallWorld(level, { grid: buildDartStarterGrid(), modifiers: mods });
     };
     const w = make(mod('cad_toll'));
     w.autoFire = false;
+    for (let i = 0; i < 5; i++) w.destroyBlock(w.blocks[i]!);
+    const earned = w.creditsExact;
+    expect(earned).toBeGreaterThan(0);
     w.setWallOffset(2000); // the wall has scrolled by: the pass line is below the ship
     w.update(DT, { x: w.shipX, y: w.shipY });
     expect(w.state).toBe('passed');
-    expect(w.fx.passBonus).toBeCloseTo(0.1 * 21 * 0.4, 6);
-    expect(w.creditsExact).toBeCloseTo(w.fx.passBonus, 6);
+    expect(w.fx.passBonus).toBeCloseTo(0.15 * earned, 6);
+    expect(w.creditsExact).toBeCloseTo(1.15 * earned, 6);
     const n = make();
     n.autoFire = false;
     n.setWallOffset(2000);

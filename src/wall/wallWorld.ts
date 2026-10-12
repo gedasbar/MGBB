@@ -477,11 +477,11 @@ export class WallWorld {
     } else if (this.shipY < this.finishY) this.end('passed');
   }
 
-  /** Ends the level as cleared or passed; a captain's pass bonus is paid once, here (a crash pays nothing extra). */
+  /** Ends the level as cleared or passed; a captain's pass bonus (a share of the credits earned so far) is paid once, here. A crash pays nothing extra. */
   private end(s: 'cleared' | 'passed') {
     this.state = s;
     if (this.mods.passCredits > 0) {
-      const bonus = this.mods.passCredits * this.total * rewardPerBlock(this.level.tier);
+      const bonus = this.mods.passCredits * this.creditsExact;
       this.creditsExact += bonus;
       this.fx.passBonus = bonus;
     }

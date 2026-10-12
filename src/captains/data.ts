@@ -77,7 +77,7 @@ export const CAPTAINS: CaptainDef[] = [
     id: 'cadet', name: 'Cadet', theme: 'Economy: credits and Medals', accent: 0xf2c230, emblem: 'cadet', unlockCost: 0,
     tiers: [
       [o('cad_prospector', 'Prospector', 1, e('creditPct', 0.05)), o('cad_lucky', 'Lucky Charm', 1, e('medalDoublePct', 0.10))],
-      [o('cad_dividend', 'Wave Dividend', 2, e('waveBonusPct', 0.5)), o('cad_toll', 'Toll Collector', 2, e('passCreditsPct', 0.10))],
+      [o('cad_dividend', 'Wave Dividend', 2, e('waveBonusPct', 0.5)), o('cad_toll', 'Toll Collector', 2, e('passCreditsPct', 0.15))],
       [o('cad_broker', 'Broker', 3, e('creditPct', 0.10)), o('cad_fortune', "Fortune's Favour", 3, e('medalDoublePct', 0.25))],
       [o('cad_tycoon', 'Tycoon', 4, e('creditPct', 0.20), e('waveBonusPct', 0.25)), o('cad_mint', 'Mint', 4, e('medalDoublePct', 0.40), e('creditPct', 0.05))],
     ],
@@ -97,16 +97,16 @@ export const CAPTAINS: CaptainDef[] = [
       [o('gun_barrel', 'Hot Barrel', 1, e('damagePct', 0.08)), o('gun_trigger', 'Quick Trigger', 1, e('fireRatePct', 0.08))],
       [o('gun_breaker', 'Armor Breaker', 2, e('vsArmorPct', 0.30)), o('gun_cracker', 'Shield Cracker', 2, e('vsShieldPct', 0.30))],
       [o('gun_hunter', 'Fragment Hunter', 3, e('vsFragmentPct', 0.30)), o('gun_rounds', 'Heavy Rounds', 3, e('damagePct', 0.10))],
-      [o('gun_overdrive', 'Overdrive', 4, e('fireRatePct', 0.15), e('projSpeedPct', 0.20)), o('gun_siege', 'Siege Rounds', 4, e('damagePct', 0.15), e('vsArmorPct', 0.15), e('vsShieldPct', 0.15))],
+      [o('gun_overdrive', 'Overdrive', 4, e('fireRatePct', 0.15), e('projSpeedPct', 0.20)), o('gun_siege', 'Siege Rounds', 4, e('damagePct', 0.12), e('vsArmorPct', 0.12), e('vsShieldPct', 0.12))],
     ],
   },
   {
     id: 'pathfinder', name: 'Pathfinder', theme: 'Walls: fast passes, paid', accent: 0x6fbf73, emblem: 'pathfinder', unlockCost: 50,
     tiers: [
       [o('pth_slip', 'Slipstream', 1, e('boostZonePct', 0.30)), o('pth_reach', 'Long Reach', 1, e('projSpeedPct', 0.20))],
-      [o('pth_breaker', 'Wall Breaker', 2, e('wallDamagePct', 0.15)), o('pth_toll', 'Toll Road', 2, e('passCreditsPct', 0.15))],
+      [o('pth_breaker', 'Wall Breaker', 2, e('wallDamagePct', 0.12)), o('pth_toll', 'Toll Road', 2, e('passCreditsPct', 0.25))],
       [o('pth_current', 'Rip Current', 3, e('boostZonePct', 0.30)), o('pth_quarry', 'Quarry', 3, e('wallCreditPct', 0.20))],
-      [o('pth_throttle', 'Full Throttle', 4, e('boostZonePct', 0.40), e('passCreditsPct', 0.15)), o('pth_demo', 'Demolition', 4, e('wallDamagePct', 0.25))],
+      [o('pth_throttle', 'Full Throttle', 4, e('boostZonePct', 0.40), e('passCreditsPct', 0.25)), o('pth_demo', 'Demolition', 4, e('wallDamagePct', 0.20))],
     ],
   },
 ];
@@ -137,7 +137,7 @@ export function describeEffect(ef: Effect): string {
     case 'creditPct': return `+${PCT(v)} credits`;
     case 'wallCreditPct': return `+${PCT(v)} credits from wall blocks`;
     case 'waveBonusPct': return `+${PCT(v)} wave bonus credits`;
-    case 'passCreditsPct': return `+${PCT(v)} credits for passing a wall`;
+    case 'passCreditsPct': return `+${PCT(v)} credits when a wall is passed or cleared`;
     case 'medalDoublePct': return `${PCT(v)} chance to double a Medal`;
     case 'secondChance': return `+${v} Second Chance${v === 1 ? '' : 's'} (forgives a hit)`;
     case 'spawnInvulnSec': return `+${SECONDS(v)} spawn invulnerability`;

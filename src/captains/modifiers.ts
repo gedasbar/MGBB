@@ -22,7 +22,7 @@ export interface RunModifiers {
   wallCreditMul: number;
   /** Multiplier on the credits paid at wave 5, 10, 15 ... */
   waveBonusMul: number;
-  /** Share of a wall's full block value paid extra when the level ends PASSED or CLEARED (0 = none). */
+  /** Share of the credits a wall run earned that is paid again when the level ends PASSED or CLEARED (0 = none). */
   passCredits: number;
   /** Chance a Medal award is doubled, 0..1. */
   medalDouble: number;

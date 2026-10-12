@@ -1,0 +1,45 @@
+Captain balance. Guns: Dart + Flat+, Twin + Flat+. Free Fly bot: 3 seeds, until dead (cap 900 s). Wall bots on the fresh Dart + Flat+.
+Tiers carved: 1/5/10/20; cleared: 5/10/20. FLAG = any ratio to the baseline >= 2.
+
+build                                        | est DPS ratio (Dart/Twin) | Free Fly Dart: wave credits kills | Free Fly Twin: wave credits kills | carve % t1/5/10/20 | carve credits t1/5/10/20 | clear-all % t5/10/20 | carve ratio t1/5/10/20 | flags
+starter, nothing bought                      | 1.00 / 1.00                  | 5.0 60 48              | 7.7 191 197            | 3/2/2/5          | 2/1/2/13           | 10/7/2       | 1.83/3.17/1.74/0.33 | -
+Cadet: all first options                     | 1.10 / 1.10                  | 5.0 90 57              | 8.3 296 232            | 3/2/2/5          | 2/1/3/17           | 10/7/2       | 2.01/3.48/1.91/0.36 | -
+Cadet: all second options                    | 1.10 / 1.10                  | 5.0 66 57              | 8.3 227 232            | 3/2/2/5          | 2/1/2/15           | 10/7/2       | 2.01/3.48/1.91/0.36 | -
+Cadet: best credits                          | 1.10 / 1.10                  | 5.0 85 57              | 8.3 291 232            | 3/2/2/5          | 3/2/3/20           | 10/7/2       | 2.01/3.48/1.91/0.36 | -
+Bulwark: all first options                   | 1.10 / 1.10                  | 5.0 69 68              | 9.0 225 239            | 3/2/2/5          | 2/1/2/13           | 12/9/3       | 2.01/3.48/1.91/0.36 | -
+Bulwark: all second options                  | 1.10 / 1.10                  | 5.3 72 68              | 9.0 239 248            | 3/2/2/5          | 2/1/2/13           | 10/7/2       | 2.01/3.48/1.91/0.36 | -
+Gunner: all first options                    | 1.36 / 1.36                  | 5.0 83 78              | 9.3 275 280            | 3/2/2/5          | 2/1/2/13           | 13/9/3       | 2.50/4.32/2.37/0.45 | -
+Gunner: all second options                   | 1.45 / 1.45                  | 5.0 80 84              | 9.0 241 268            | 3/2/2/5          | 2/1/2/13           | 27/7/3       | 2.65/4.59/2.51/0.48 | -
+Gunner: best damage                          | 1.45 / 1.45                  | 5.0 80 84              | 9.0 252 278            | 3/2/2/5          | 2/1/2/13           | 27/7/4       | 2.65/4.59/2.51/0.48 | -
+Pathfinder: all first options                | 1.10 / 1.10                  | 5.0 63 57              | 8.3 217 232            | 3/2/2/5          | 2/1/3/16           | 25/7/2       | 2.25/3.90/2.14/0.41 | -
+Pathfinder: all second options               | 1.10 / 1.10                  | 5.0 67 60              | 8.3 213 230            | 3/2/2/5          | 3/2/3/19           | 25/7/2       | 2.41/4.18/2.29/0.44 | -
+Pathfinder: best wall damage                 | 1.10 / 1.10                  | 5.0 63 57              | 8.3 217 232            | 3/2/2/5          | 2/1/2/13           | 25/7/3       | 2.65/4.59/2.52/0.48 | -
+Pathfinder: best credits                     | 1.10 / 1.10                  | 5.0 63 57              | 8.3 217 232            | 3/2/2/5          | 3/2/4/23           | 10/7/2       | 2.01/3.48/1.91/0.36 | -
+
+Builds (ids):
+  Cadet: all first options: cad_prospector, cad_dividend, cad_broker, cad_tycoon
+  Cadet: all second options: cad_lucky, cad_toll, cad_fortune, cad_mint
+  Cadet: best credits: cad_prospector, cad_toll, cad_broker, cad_tycoon
+  Bulwark: all first options: bul_second, bul_plating, bul_wind, bul_aegis
+  Bulwark: all second options: bul_steady, bul_salvage, bul_fortress, bul_repair
+  Gunner: all first options: gun_barrel, gun_breaker, gun_hunter, gun_overdrive
+  Gunner: all second options: gun_trigger, gun_cracker, gun_rounds, gun_siege
+  Gunner: best damage: gun_trigger, gun_breaker, gun_rounds, gun_siege
+  Pathfinder: all first options: pth_slip, pth_breaker, pth_current, pth_throttle
+  Pathfinder: all second options: pth_reach, pth_toll, pth_quarry, pth_demo
+  Pathfinder: best wall damage: pth_slip, pth_breaker, pth_current, pth_demo
+  Pathfinder: best credits: pth_slip, pth_toll, pth_quarry, pth_throttle
+
+Flagged (>= 2x the baseline): none
+
+Small-number ratios (baseline under 5 credits or 15% destroyed; shown, not flags): 
+  Cadet: best credits: carveCredits t5 x2.00
+  Gunner: all second options: clearAll t5 x2.58
+  Gunner: best damage: clearAll t5 x2.58, clearAll t20 x2.20
+  Pathfinder: all first options: clearAll t5 x2.42
+  Pathfinder: all second options: carveCredits t5 x2.00, clearAll t5 x2.42
+  Pathfinder: best wall damage: clearAll t5 x2.42
+  Pathfinder: best credits: carveCredits t5 x2.00, carveCredits t10 x2.00
+x2.42
+  Pathfinder: best wall damage: clearAll t5 x2.42
+  Pathfinder: best credits: carveCredits t5 x2.00, carveCredits t10 x2.00
