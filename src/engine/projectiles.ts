@@ -42,8 +42,9 @@ export interface EnemyEntity extends EnemyStats {
   /** Fission Catalyst: level of a hit that asked for a split (the world acts on it after the hits), and when this rock may be forced again. */
   fissionLevel?: number;
   fissionReady?: number;
-  /** Overkill Spill: share of the kill's excess to send on to the children. */
-  spillFrac?: number;
+  /** Overkill Spill: damage each child takes when this rock dies (a share of the killing hit), and the chain step it is at. */
+  spillBurst?: number;
+  spillDepth?: number;
   /** Static Charge: hits counted in the current window, and when the window began (projectile-system clock). */
   scN?: number;
   scFirst?: number;
@@ -630,7 +631,7 @@ export class ProjectileSystem {
         this.fx.cauterizeMarks++;
       }
       if (killed) {
-        if (mi.spill) { t.spillFrac = Math.max(t.spillFrac ?? 0, spillFrac(mi.spill)); this.fx.spillMarks++; }
+        if (mi.spill) { t.spillBurst = Math.max(t.spillBurst ?? 0, d * spillFrac(mi.spill)); this.fx.spillMarks++; }
       } else if (mi.fission) {
         t.fissionLevel = Math.max(t.fissionLevel ?? 0, mi.fission);
         this.fx.fissionMarks++;

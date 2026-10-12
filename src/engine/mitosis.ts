@@ -29,11 +29,13 @@ export interface MitosisEnemy {
   tracked?: boolean;
   /** World time of the last hit (shield regeneration waits for it). */
   lastHit?: number;
-  // Chunk 11a (see EnemyEntity in projectiles.ts): Cauterize bonus, Fission Catalyst request and cooldown, Overkill Spill share, Static Charge count.
+  // Chunk 11a (see EnemyEntity in projectiles.ts): Cauterize bonus, Fission Catalyst request and cooldown, Overkill Spill burst, Static Charge count.
   cauterizeBonus?: number;
   fissionLevel?: number;
   fissionReady?: number;
-  spillFrac?: number;
+  /** Overkill Spill: damage each child takes when this rock dies, and how many chain steps it has already made. */
+  spillBurst?: number;
+  spillDepth?: number;
   scN?: number;
   scFirst?: number;
 }

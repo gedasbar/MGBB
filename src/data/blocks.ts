@@ -5,7 +5,7 @@ import {
   CORROSION_STEP, delaySeconds, executionerMul, EXECUTIONER_BELOW, frostBonus, frostSlow, frostTime, igniteFrac, IGNITE_TIME,
   mineDistance, MINE_WAIT, orbitTime, ORBIT_RADIUS, ORBIT_REHIT, overclockAverage, overclockGain, OVERCLOCK_CAP, OVERCLOCK_WINDOW,
   bounceCount, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct, fissionCooldown, residueFrac,
-  RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, routerBoth, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac, WELL_RADIUS, WELL_TIME, wellPull,
+  RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, routerBoth, SPILL_CHAIN_DEPTH, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac, WELL_RADIUS, WELL_TIME, wellPull,
 } from '../engine/effects';
 
 export const BLOCKS: Record<string, BlockDef> = {};
@@ -221,7 +221,7 @@ newMod('residue_seed', 'Residue Seed', 'mitosis', 'rare', 'residue_seed',
   (l) => `A kill leaves a ${RESIDUE_RADIUS} px cloud for ${RESIDUE_TIME} s: every ${RESIDUE_TICK} s it deals ${pct(residueFrac(l))}% of the killing hit to all inside, new children too. Rocks and wall blocks.`);
 register({
   id: 'overkill_spill', name: 'Overkill Spill', category: 'mitosis', outputs: FWD, ...rare('uncommon'), maxLevel: 6,
-  desc: (l) => `Damage beyond a killed rock's HP also hits its children: +${pct(spillFrac(l))}% on top of the 100% a split already passes on. ${ROCKS}`,
+  desc: (l) => `When this shot kills a rock that splits, every child at once takes ${pct(spillFrac(l))}% of the killing hit's total damage. A child it kills splits as usual and passes the burst on once more (${SPILL_CHAIN_DEPTH} generations at most). Rocks only, no effect on wall blocks. ${ROCKS}`,
   transform: (p, l) => { p.mods.push({ type: 'overkill_spill', level: l }); },
 });
 
