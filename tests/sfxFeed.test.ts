@@ -5,7 +5,10 @@ import { HIT_BURN, HIT_CLOUD } from '../src/engine/projectiles';
 
 function feed() {
   const played: { id: SfxId; pitch?: number }[] = [];
-  const f = new SfxFeed({ play: (id: SfxId, o?: { pitch?: number }) => { played.push({ id, pitch: o?.pitch }); return true; } });
+  const f = new SfxFeed({
+    play: (id: SfxId, o?: { pitch?: number }) => { played.push({ id, pitch: o?.pitch }); return true; },
+    playShot: () => { played.push({ id: 'shot' }); return true; },
+  });
   return { f, played };
 }
 const hit = (o: Partial<{ id: number; damage: number; kind: number; armor: number; shield: number; maxShield: number }> = {}) =>

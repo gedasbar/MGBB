@@ -25,11 +25,11 @@ export class SfxFeed {
   private bounces = 0;
   private readonly shielded = new Set<number>();
 
-  constructor(private readonly engine: Pick<SfxEngine, 'play'>) {}
+  constructor(private readonly engine: Pick<SfxEngine, 'play' | 'playShot'>) {}
 
   /** Once per frame: shots, chain lightning, gravity wells and bounces since the last call (one sound each; rate limits do the rest). */
   frame(c: SfxCounters) {
-    if (c.shots > this.shots) this.engine.play('shot');
+    if (c.shots > this.shots) this.engine.playShot();
     if (c.chainJumps > this.chain) this.engine.play('chain');
     if (c.wellsMade > this.wells) this.engine.play('well');
     if (c.bounces > this.bounces) this.engine.play('bounce');

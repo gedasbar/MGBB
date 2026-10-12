@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { SfxEngine, VOICE_CAP } from '../src/audio/engine';
-import { MAX_PEAK, SOUND_IDS, SOUNDS } from '../src/audio/sounds';
+import { MAX_PEAK, PEAK_CAP, PEAK_CAP_PROTECTED, SFX_BOOST, SOUND_IDS, SOUNDS } from '../src/audio/sounds';
+import { loadSettings } from '../src/ui/settings';
+import { tuningJson } from '../src/debug/soundLab';
 
 /** A context that records what is made and started; nothing is heard. */
 function mockContext() {
-  const log = { oscillators: 0, sources: 0, stopped: 0, peaks: [] as number[], created: 0 };
+  const log = { oscillators: 0, sources: 0, stopped: 0, peaks: [] as number[], created: 0, limiters: 0 };
   const param = () => ({
     value: 0,
     setValueAtTime() {}, exponentialRampToValueAtTime() {},
@@ -19,6 +21,7 @@ function mockContext() {
     createBuffer(_c: number, len: number) { return { getChannelData: () => new Float32Array(len) }; },
     createOscillator() { log.oscillators++; return { ...node(), type: 'sine', frequency: param(), start() {}, stop() { log.stopped++; } }; },
     createBufferSource() { log.sources++; return { ...node(), buffer: null, loop: false, start() {}, stop() { log.stopped++; } }; },
+    createDynamicsCompressor() { log.limiters++; return { ...node(), threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() }; },
     createBiquadFilter() { return { ...node(), type: 'lowpass', frequency: param(), Q: param() }; },
   };
   return { ctx, log };
@@ -144,6 +147,106 @@ describe('SfxEngine', () => {
     const { e, log } = engine();
     e.unlock();
     e.play('medal', { gain: 50 });
-    expect(Math.max(...log.peaks)).toBeLessThanOrEqual(MAX_PEAK);
+    expect(Math.max(...log.peaks)).toBeLessThanOrEqual(PEAK_CAP_PROTECTED);
+  });
+});
+
+describe('12b loudness, weapon sound and tuning', () => {
+  it('every sound is boosted by SFX_BOOST (and capped), and a limiter sits on the master bus', () => {
+    const { e, log } = engine();
+    e.unlock();
+    expect(log.limiters).toBe(1);
+    e.play('uiTap');
+    const def = SOUNDS.uiTap.parts[0].peak;
+    expect(Math.max(...log.peaks)).toBeCloseTo(def * SFX_BOOST, 6);
+    log.peaks.length = 0;
+    e.play('rockHit', { gain: 100 });
+    expect(Math.max(...log.peaks)).toBeCloseTo(PEAK_CAP, 6);
+    log.peaks.length = 0;
+    e.play('medal', { gain: 100 });
+    expect(Math.max(...log.peaks)).toBeCloseTo(PEAK_CAP_PROTECTED, 6);
+    expect(PEAK_CAP).toBeCloseTo(MAX_PEAK * SFX_BOOST, 6);
+  });
+
+  it('Weapon sound Off (the default) plays nothing for shots', () => {
+    const { e, setTime } = engine();
+    e.unlock();
+    expect(e.settings.weaponSound).toBe('off');
+    let n = 0;
+    for (let i = 0; i < 100; i++) { setTime(i * 0.01); if (e.playShot()) n++; }
+    expect(n).toBe(0);
+    expect(e.stats.played).toBe(0);
+  });
+
+  it('Soft plays at most 4 shots a second and Normal at most 6, however many projectiles', () => {
+    for (const [mode, cap] of [['soft', 4], ['normal', 6]] as const) {
+      const { e, setTime } = engine();
+      e.unlock();
+      e.setWeaponSound(mode);
+      let n = 0;
+      for (let i = 0; i < 100; i++) { setTime(i * 0.01); if (e.playShot()) n++; } // 100 shots in one second
+      expect(n).toBeGreaterThan(0);
+      expect(n).toBeLessThanOrEqual(cap);
+    }
+  });
+
+  it('the soft thump has no highs and is much quieter than a rock pop', () => {
+    const soft = SOUNDS.shotSoft.parts[0];
+    expect(soft.wave).toBe('sine');
+    expect(Math.max(soft.f0, soft.f1)).toBeLessThanOrEqual(180);
+    expect(soft.dur).toBeLessThanOrEqual(0.05);
+    expect(soft.peak).toBeLessThan(SOUNDS.rockPop.parts[0].peak * 0.5);
+  });
+
+  it('hit sounds share one limit: 100 mixed hits in a second play at most 8', () => {
+    const { e, setTime } = engine();
+    e.unlock();
+    const ids = ['tick', 'rockHit', 'armorPing', 'shieldHit'] as const;
+    let n = 0;
+    for (let i = 0; i < 100; i++) { setTime(i * 0.01); if (e.play(ids[i % 4])) n++; }
+    expect(n).toBeLessThanOrEqual(8);
+    expect(n).toBeGreaterThanOrEqual(6);
+  });
+
+  it('the weapon setting and per-sound multipliers persist, apply on top of the boost, and reset', () => {
+    const store = memStore();
+    const a = engine({ storage: store });
+    a.e.unlock();
+    a.e.setWeaponSound('soft');
+    a.e.setSoundMult('uiTap', 2);
+    a.e.setSoundMult('denied', 0.5);
+    a.log.peaks.length = 0;
+    a.e.play('uiTap');
+    expect(Math.max(...a.log.peaks)).toBeCloseTo(SOUNDS.uiTap.parts[0].peak * SFX_BOOST * 2, 6);
+    const b = engine({ storage: store });
+    expect(b.e.settings.weaponSound).toBe('soft');
+    expect(b.e.soundMult('uiTap')).toBe(2);
+    expect(b.e.soundMult('denied')).toBe(0.5);
+    expect(b.e.soundMult('crash')).toBe(1);
+    b.e.setSoundMult('uiTap', 9);               // clamped to 3
+    expect(b.e.soundMult('uiTap')).toBe(3);
+    b.e.resetSoundMult();
+    expect(loadSettings(store).soundMult).toEqual({});
+  });
+
+  it('junk stored multipliers are cleaned up (clamped 0..3, non-numbers dropped) and an unknown weapon value falls back to off', () => {
+    const store = memStore();
+    store.m.set('mgbm_settings', '{"weaponSound":"loud","soundMult":{"a":"x","b":99,"c":-1,"d":1.5}}');
+    const { e } = engine({ storage: store });
+    expect(e.settings.weaponSound).toBe('off');
+    expect(e.settings.soundMult).toEqual({ b: 3, c: 0, d: 1.5 });
+  });
+});
+
+describe('Sound lab', () => {
+  it('Copy tuning lists only the changed multipliers, rounded to 0.1, and Reset empties it', () => {
+    const { e } = engine();
+    expect(tuningJson(e)).toBe('{}');
+    e.setSoundMult('rockPop', 1.5);
+    e.setSoundMult('shot', 0.3);
+    e.setSoundMult('crash', 1);
+    expect(JSON.parse(tuningJson(e))).toEqual({ shot: 0.3, rockPop: 1.5 });
+    e.resetSoundMult();
+    expect(tuningJson(e)).toBe('{}');
   });
 });

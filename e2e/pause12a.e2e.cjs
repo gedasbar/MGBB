@@ -83,6 +83,13 @@ const snapshot = (page) => page.evaluate(() => {
   await clickBtn(page, 'mute');
   check(await page.evaluate(() => window.__mgbmSfx.settings.muted), 'mute toggled on');
   await clickBtn(page, 'mute');
+  check(await page.evaluate(() => window.__mgbmSfx.settings.weaponSound) === 'off', 'Weapon sound is Off by default');
+  await clickBtn(page, 'weapon');
+  check(await page.evaluate(() => window.__mgbmSfx.settings.weaponSound) === 'soft', 'Weapon sound cycles to Soft');
+  await page.evaluate(() => { document.getElementById('dbg-sounds').open = true; });
+  await page.fill('#dbg-snd-mult-rockPop', '1.5');
+  await page.locator('#dbg-snd-mult-rockPop').dispatchEvent('change');
+  check(await page.evaluate(() => window.__mgbmSfx.soundMult('rockPop')) === 1.5, 'the sound lab multiplier applies');
   await snap(page, 'settings_panel.png');
   await clickBtn(page, 'testSound');
   await clickBtn(page, 'settingsBack');
@@ -97,6 +104,8 @@ const snapshot = (page) => page.evaluate(() => {
   await page.waitForFunction(() => !!window.__mgbm && !!window.__mgbmSfx);
   const after = await page.evaluate(() => ({ m: window.__mgbmSfx.settings.masterVolume, s: window.__mgbmSfx.settings.sfxVolume, muted: window.__mgbmSfx.settings.muted }));
   check(Math.abs(after.m - 0.8) < 1e-9 && Math.abs(after.s - 0.9) < 1e-9 && after.muted === false, `volumes survive a reload: ${JSON.stringify(after)}`);
+  const kept = await page.evaluate(() => ({ w: window.__mgbmSfx.settings.weaponSound, r: window.__mgbmSfx.soundMult('rockPop') }));
+  check(kept.w === 'soft' && kept.r === 1.5, `weapon sound and sound-lab multiplier survive a reload: ${JSON.stringify(kept)}`);
 
   // Settings from the Build screen (gear), and Quit gives the run summary.
   await click(page, 128, 26);
