@@ -40,5 +40,7 @@ The owner is not a programmer. They test in the browser and describe what they s
 
 **Art language.** Sharp geometric shapes, flat fills, no gradients or textures, no glow. Block plates: nested squares (outer #55555a, mid = category colour darkened, inner #26262a) with a light-grey (#d4d4d8) entry bar and exit triangles. Ships are shades of grey with small coloured pieces. Rocks use warm muted tones with generated cracks. UI theme in `src/ui/theme.ts` (grey #1c1c1e background, panels #2a2a2d, yellow currency #f2c230).
 
+**Sound, pause, settings (12a).** Sound effects are synthesized in code (`src/audio/`, data in `sounds.ts`, no files, no music yet); `sfx.play(id, {pitch, gain})`. Fly screens expose `pausable`; pause/settings UI is `src/ui/overlays.ts`. Dev hooks: `window.__mgbmSm` (screen manager, overlays), `window.__mgbmSfx` (engine, stats). Headless tests cannot hear anything: only the engine logic and the playback calls are verified.
+
 ## Backlog (not built yet, do not start unless a chunk says so)
 More blocks (more pathing like Merger/Portal/Reflector, passives), new enemy types and Free Fly waves, bosses, sound, Captains/hero upgrades (Medals), node map and infinite tiers (also unlocks blocks), quests, skill tree, hull silhouette redesign.

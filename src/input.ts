@@ -36,21 +36,39 @@ export function clientToGame(
   return { x: (clientX - offX) / scale, y: (clientY - offY) / scale };
 }
 
+/** A press is a tap when it is released within this many ms and moved less than this many client px. */
+const TAP_MAX_MS = 600;
+const TAP_MAX_MOVE = 12;
+
 /** Mouse and touch only. No keyboard movement. */
 export class InputManager {
   pointer: PointerState = { x: 0, y: 0, active: false, type: 'mouse', seen: false };
+  /** Called with game coordinates for every tap (a press and release that barely moved), whatever screen is up. */
+  private tapListeners: ((x: number, y: number) => void)[] = [];
+  private down: { cx: number; cy: number; t: number } | null = null;
 
   constructor(private element: HTMLElement) {
     element.style.touchAction = 'none';
     element.addEventListener('pointerdown', (e) => {
       this.pointer.active = true;
+      this.down = { cx: e.clientX, cy: e.clientY, t: performance.now() };
       this.updatePointer(e);
+    });
+    window.addEventListener('pointerup', (e) => {
+      const d = this.down;
+      this.down = null;
+      if (!d || performance.now() - d.t > TAP_MAX_MS || Math.hypot(e.clientX - d.cx, e.clientY - d.cy) > TAP_MAX_MOVE) return;
+      const p = clientToGame(e.clientX, e.clientY, this.element.getBoundingClientRect());
+      for (const f of this.tapListeners) f(p.x, p.y);
     });
     // Track on window so the ship keeps following when the cursor is in the letterbox.
     window.addEventListener('pointermove', (e) => this.updatePointer(e));
     window.addEventListener('pointerup', () => { this.pointer.active = false; });
     window.addEventListener('pointercancel', () => { this.pointer.active = false; });
   }
+
+  /** Registers a tap listener (game coordinates). */
+  onTap(f: (x: number, y: number) => void) { this.tapListeners.push(f); }
 
   private updatePointer(e: PointerEvent) {
     const p = clientToGame(e.clientX, e.clientY, this.element.getBoundingClientRect());

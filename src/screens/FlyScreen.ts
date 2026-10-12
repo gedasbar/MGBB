@@ -4,7 +4,7 @@ import { World } from '../game/world';
 import { specialKind } from '../data/waves';
 import type { StatsInfo } from '../ui/stats';
 import { clientToGame } from '../input';
-import { Screen, ScreenManager } from './ScreenManager';
+import { Pausable, Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
 import { CATEGORY_COLOR, THEME } from '../ui/theme';
 import { HIT_CLOUD } from '../engine/projectiles';
@@ -18,6 +18,9 @@ import { FragmentPool, RockView, enemyArt } from '../ui/rockArt';
 import { BackgroundView, forcedBackground, freeFlyThemeAt } from '../ui/background';
 import { ShipView } from '../ui/shipArt';
 import { drawFieldFx } from '../ui/fieldFx';
+import { sfx } from '../audio';
+import { bankFlyRun } from '../game/runEnd';
+import { SfxFeed } from '../audio/feed';
 import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_WAIT, PHASE_MINE_TRAVEL, PHASE_ORBIT } from '../engine/projectiles';
 
 /** Status tints of a rock: burning is a redder orange, frozen a pale blue. */
@@ -84,11 +87,26 @@ export class FlyScreen implements Screen {
   private endTimer = 0;
   private finished = false;
   private gate = new PointerGate();
+  private sfxFeed = new SfxFeed(sfx);
+  private crashSounded = false;
   /** Galaxy first, then the next theme every 3 minutes (3 s crossfade); ?bg=<id> forces one, ?bg=off hides it. */
   private bg: BackgroundView | null = null;
   private bgForced = forcedBackground();
 
-  constructor(private screenManager: ScreenManager, grid: Grid, opts: { startWave?: number } = {}) {
+  /** The pause menu's view of this run: it may pause once the ship is under control and until the run ends. */
+  readonly pausable: Pausable = {
+    canPause: () => this.world.controlStarted && !this.world.gameOver && !this.finished,
+    resume: () => this.world.resumeEase(),
+    restart: () => {
+      if (this.finished) return;
+      this.finished = true;
+      bankFlyRun(this.world, getProgressStore());
+      this.screenManager.switchTo(new FlyScreen(this.screenManager, this.grid, this.opts));
+    },
+    quit: () => { if (!this.finished) this.finish(); },
+  };
+
+  constructor(private screenManager: ScreenManager, private grid: Grid, private opts: { startWave?: number } = {}) {
     // A new seed per run: the waves are deterministic for a seed (World.seed, shown by the debug hook).
     this.world = new World({ grid, safeStart: true, seed: (Math.random() * 0x7fffffff) | 0, startWave: opts.startWave });
     debugHooks.world = this.world;
@@ -216,6 +234,9 @@ export class FlyScreen implements Screen {
     if (!this.world.controlStarted && this.gate.observe(pointer, pointer.seen)) this.world.beginControl();
     this.world.god = debugHooks.god;
     this.world.update(dt, pointer);
+    const fx = this.world.projSys.fx;
+    this.sfxFeed.frame({ shots: this.world.gun.shots, chainJumps: fx.chainJumps, wellsMade: fx.wellsMade, bounces: fx.bounces + fx.edgeBounces });
+    if (this.world.gameOver && !this.crashSounded) { this.crashSounded = true; sfx.play('crash'); }
     if (this.bg) {
       // Constant slow scroll (no horizontal motion: Free Fly is one fixed screen).
       this.bg.update(frameTime, BG_SCROLL);
@@ -223,6 +244,7 @@ export class FlyScreen implements Screen {
     }
 
     for (const h of this.world.hits) {
+      this.sfxFeed.hit({ id: h.enemyId, damage: h.damage, kind: h.kind, armor: h.armor, shield: h.shield, maxShield: h.maxShield }, true);
       if (h.kind === 1) {
         // A burn tick: a small orange number, no hit flash.
         this.showNumber(h.x, h.y, `${Math.round(h.damage)}`, 0xff9a3c, 11);
@@ -239,6 +261,7 @@ export class FlyScreen implements Screen {
     this.world.hits.length = 0;
 
     for (const k of this.world.killEvents) {
+      this.sfxFeed.kill(k.generation);
       this.popupTotal += k.reward;
       const whole = Math.floor(this.popupTotal + 1e-9);
       if (whole > this.shownCredits) {
@@ -252,6 +275,7 @@ export class FlyScreen implements Screen {
     this.waveText.text = `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
     this.killsText.text = `Kills ${this.world.kills}`;
     for (const ev of this.world.waveEvents) {
+      sfx.play('wave');
       const kind = specialKind(ev.wave);
       this.bannerTitle.text = `WAVE ${ev.wave}`;
       this.bannerSub.text = [kind === 'swarm' ? 'SWARM' : kind === 'mothers' ? 'MOTHERS' : '', ev.bonus > 0 ? `+${fmtBig(ev.bonus)} credits` : ''].filter(Boolean).join('  ');
@@ -266,6 +290,7 @@ export class FlyScreen implements Screen {
     }
 
     // A rock splitting throws 2 to 4 fragments (the children already exist as normal rocks).
+    if (this.world.splits.length > 0) this.sfxFeed.split(); // one crack a frame however many rocks split
     for (const s of this.world.splits) this.fragPool(s.defId).emit(s.x, s.y, s.radius, s.parentId, enemyArt(s.defId));
     this.world.splits.length = 0;
     for (const p of this.fragPools.values()) p.update(frameTime);
@@ -354,9 +379,7 @@ export class FlyScreen implements Screen {
   /** The run is over: bank it exactly once and show the summary. */
   private finish() {
     this.finished = true;
-    const w = this.world;
-    const result = { credits: w.credits, kills: w.kills, time: w.time, tier: w.maxTier, wave: Math.max(1, w.wave) };
-    const marks = getProgressStore().recordRun(result);
+    const { result, marks } = bankFlyRun(this.world, getProgressStore());
     this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks));
   }
 

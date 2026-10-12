@@ -3,6 +3,7 @@ import { CompileStats } from '../engine/compiler';
 import { COLORS, drawWarn } from './draw';
 import { THEME } from '../ui/theme';
 import { inRect, LAYOUT, Rect, VIEW_W } from './layout';
+import { sfx } from '../audio';
 
 export function makeText(text: string, size: number, color: number = COLORS.text, opts: Partial<TextStyleOptions> = {}): Text {
   return new Text({ text, style: { fontFamily: 'Arial, Helvetica, sans-serif', fontSize: size, fill: color, ...opts } });
@@ -53,6 +54,7 @@ export class UIButton {
 
   /** Press feedback shared by every button: invert for a moment, then go back to the normal state. */
   flash(ms = 120) {
+    sfx.play('uiTap');
     this.flashing = true;
     this.redraw();
     setTimeout(() => {
