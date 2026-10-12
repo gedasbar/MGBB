@@ -86,6 +86,7 @@ const snapshot = (page) => page.evaluate(() => {
   check(await page.evaluate(() => window.__mgbmSfx.settings.weaponSound) === 'off', 'Weapon sound is Off by default');
   await clickBtn(page, 'weapon');
   check(await page.evaluate(() => window.__mgbmSfx.settings.weaponSound) === 'soft', 'Weapon sound cycles to Soft');
+  await page.evaluate(() => { document.getElementById('dbg-sounds').open = true; });
   await page.fill('#dbg-snd-mult-rockPop', '1.5');
   await page.locator('#dbg-snd-mult-rockPop').dispatchEvent('change');
   check(await page.evaluate(() => window.__mgbmSfx.soundMult('rockPop')) === 1.5, 'the sound lab multiplier applies');
