@@ -1,4 +1,4 @@
-import { CONFIG } from '../config';
+import { CONFIG, shipHalfW } from '../config';
 import { ProjectilePool } from '../engine/pools';
 import { MitosisSystem } from '../engine/mitosis';
 import { ProjectileSystem } from '../engine/projectiles';
@@ -323,7 +323,8 @@ export class World {
     if (Math.abs(this.knockX) < 0.05) this.knockX = 0;
     if (Math.abs(this.knockY) < 0.05) this.knockY = 0;
     const m = CONFIG.PLAYER.MARGIN;
-    this.shipX = Math.max(m, Math.min(VW - m, baseX + this.knockX));
+    const mx = shipHalfW(VW);
+    this.shipX = Math.max(mx, Math.min(VW - mx, baseX + this.knockX));
     this.shipY = Math.max(m, Math.min(CONFIG.VIEW.H - m, baseY + this.knockY));
 
     // --- Auto-fire (the gun also releases shots a Delay Line held back)

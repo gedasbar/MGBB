@@ -7,7 +7,7 @@ import { getProgressStore } from '../econ/progress';
 import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { TOUCH_OFFSET_Y } from '../game/world';
-import { ringScreenX, WallCamera } from '../wall/camera';
+import { clampShipX, ringScreenX, WallCamera } from '../wall/camera';
 import { CELL, VIEW_H, VIEW_W } from '../wall/constants';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 import { BuildScreen } from './BuildScreen';
@@ -238,11 +238,13 @@ export class WallScreen implements Screen {
     // Spawn safety: nothing follows the pointer (ship and camera alike) until the first move or press after the run started.
     if (!w.controlStarted && this.gate.observe(p, p.seen)) w.beginControl();
     const pushing = w.controlStarted && p.seen && (p.type !== 'touch' || p.active);
-    this.camera.update(dt, pushing ? p.x : null);
+    // The pointer may sit outside the canvas (tracked at window level); the ship's screen x is clamped so it is fully visible.
+    const shipSx = clampShipX(p.x);
+    this.camera.update(dt, pushing ? shipSx : null);
     let target: { x: number; y: number } | null = null;
     if (w.controlStarted && p.seen) {
-      if (p.type === 'touch') { if (p.active) target = { x: p.x + this.camera.x, y: p.y + TOUCH_OFFSET_Y }; }
-      else target = { x: p.x + this.camera.x, y: p.y };
+      if (p.type === 'touch') { if (p.active) target = { x: shipSx + this.camera.x, y: p.y + TOUCH_OFFSET_Y }; }
+      else target = { x: shipSx + this.camera.x, y: p.y };
     }
     w.god = debugHooks.god;
     w.update(dt, target);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CONFIG } from '../src/config';
+import { CONFIG, shipHalfW } from '../src/config';
 import { ABOVE_SCREEN_MAX, World } from '../src/game/world';
 import { PointerState } from '../src/input';
 
@@ -41,5 +41,21 @@ describe('Free Fly is one screen wide and nothing leaves it sideways', () => {
     let t = 0;
     while (far.y < 0 && t < 8) { w.update(DT, p); t += DT; }
     expect(t).toBeLessThan(ABOVE_SCREEN_MAX + 0.1);
+  });
+});
+
+describe('Free Fly ship stays fully on screen', () => {
+  it('pointer x from -500 to W+500: ship x is always within [m, W-m]; at m its body is inside the screen', () => {
+    const m = shipHalfW(VW);
+    const w = new World({ autoSpawn: false, safeStart: false });
+    for (let px = -500; px <= VW + 500; px += 25) {
+      w.update(DT, { x: px, y: 700, active: false, type: 'mouse', seen: true });
+      expect(w.shipX).toBeGreaterThanOrEqual(m);
+      expect(w.shipX).toBeLessThanOrEqual(VW - m);
+    }
+    w.update(DT, { x: -500, y: 700, active: false, type: 'mouse', seen: true });
+    expect(w.shipX - m).toBeGreaterThanOrEqual(0);
+    w.update(DT, { x: VW + 500, y: 700, active: false, type: 'mouse', seen: true });
+    expect(w.shipX + m).toBeLessThanOrEqual(VW);
   });
 });
