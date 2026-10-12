@@ -72,8 +72,8 @@ export const fissionCooldown = (l: number) => Math.max(0.4, 1 - 0.1 * (l - 1));
 export const cauterizeTime = (l: number) => 3 + 0.5 * (l - 1);
 export const cauterizeBonus = (l: number) => 0.25 + 0.05 * (l - 1);
 /** Cleaver: damage multiplier against fragments (generation 2 and later) and against parents (generation 1). */
-export const cleaverBonus = (l: number) => 1.5 + 0.1 * (l - 1);
-export const cleaverPenalty = (l: number) => Math.min(1, 0.75 + 0.05 * (l - 1));
+export const cleaverBonus = (l: number) => 2 + 0.1 * (l - 1);
+export const cleaverPenalty = (l: number) => Math.min(1, 0.9 + 0.025 * (l - 1));
 /** Rocks count generations from 1 (the parent); this is the first one Cleaver treats as a fragment. */
 export const FRAGMENT_GENERATION = 2;
 /** Culling Bolt: share of the target's max HP dealt on top of the hit, capped at this many times the packet's damage. */
@@ -83,7 +83,7 @@ export const CULLING_CAP = 6;
 export const RESIDUE_RADIUS = 40;
 export const RESIDUE_TIME = 2.5;
 export const RESIDUE_TICK = 0.5;
-export const residueFrac = (l: number) => 0.15 + 0.05 * (l - 1);
+export const residueFrac = (l: number) => 0.4 + 0.1 * (l - 1);
 /** Overkill Spill: share of a kill's excess damage sent to the children on top of what rocks already pass on (100%). */
 export const spillFrac = (l: number) => Math.min(1, 0.5 + 0.1 * (l - 1));
 /** Gravity Well: pull radius (px), lifetime (s) and pull speed (px/s). */

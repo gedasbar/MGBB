@@ -168,8 +168,8 @@ describe('Cleaver', () => {
     expect(dealt(1)).toBeCloseTo(100 * cleaverPenalty(lvl), 6);
     expect(dealt(2)).toBeCloseTo(100 * cleaverBonus(lvl), 6);
     expect(dealt(4)).toBeCloseTo(100 * cleaverBonus(lvl), 6);
-    expect(cleaverBonus(1)).toBe(1.5);
-    expect(cleaverPenalty(1)).toBe(0.75);
+    expect(cleaverBonus(1)).toBe(2);
+    expect(cleaverPenalty(1)).toBe(0.9);
     const ww = wall(wallLevel(3, () => plainBlock(1000)));
     const b = ww.blocks[1 * WALL_COLS + 4]!;
     shootAt(ww, b.x, b.y, 100, [{ type: 'cleaver', level: lvl }]);
@@ -198,7 +198,7 @@ describe('Culling Bolt', () => {
 });
 
 describe('Residue Seed', () => {
-  it('a kill leaves a 40 px cloud for 2.5 s that ticks 15% of the killing hit every 0.5 s, children included', () => {
+  it('a kill leaves a 40 px cloud for 2.5 s that ticks 40% of the killing hit every 0.5 s, children included', () => {
     const w = ff();
     const e = rock(w, 200, 300, 400, { maxHp: 400 });
     shootRock(w, e, 400, [{ type: 'residue_seed', level: 1 }]);
@@ -209,7 +209,7 @@ describe('Residue Seed', () => {
     expect(hp0.every(h => Math.abs(h - 220) < 1e-6)).toBe(true);
     run(w, 0.55);
     expect(w.projSys.fx.residueTicks).toBe(2); // one tick, both children inside
-    expect(kids.every((k, i) => Math.abs(hp0[i] - k.hp - 60) < 1e-6)).toBe(true); // 15% of 400
+    expect(kids.every((k, i) => Math.abs(hp0[i] - k.hp - 160) < 1e-6)).toBe(true); // 40% of 400
     run(w, 0.5);
     expect(w.projSys.fx.residueTicks).toBeGreaterThanOrEqual(3); // a second tick (the rocks drift on and one soon leaves the cloud)
     run(w, 2.5);                                                  // the cloud is over (2.5 s in all)
@@ -226,7 +226,7 @@ describe('Residue Seed', () => {
     ww.update(DT, null);
     expect(ww.blocks[1 * WALL_COLS + 4]).toBeNull();
     for (let k = 0; k < 35; k++) ww.update(DT, null);
-    expect(n.hp).toBeCloseTo(100 - 30, 4); // one tick of 15% of 200 on the neighbour inside the cloud
+    expect(n.hp).toBeCloseTo(100 - 80, 4); // one tick of 40% of 200 on the neighbour inside the cloud
   });
 });
 

@@ -114,7 +114,7 @@ const fanWith = (center: string) => {
   place(g, 8, 5, 'flat_plus');
   return g;
 };
-const ROUTING = new Set(['turn_l', 'turn_r', 'splitter_2', 'splitter_3', 'alternator']);
+const ROUTING = new Set(['turn_l', 'turn_r', 'splitter_2', 'splitter_3', 'alternator', 'random_router']);
 const twinBase = compile(twinWith('flat_plus')).stats.estDps;
 const fanBase = compile(fanWith('splitter_2')).stats.estDps;
 export const BLOCK_RATIOS: { id: string; ratio: number; dps: number; where: string }[] = [];
