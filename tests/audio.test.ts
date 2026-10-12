@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SfxEngine, VOICE_CAP } from '../src/audio/engine';
 import { MAX_PEAK, PEAK_CAP, PEAK_CAP_PROTECTED, SFX_BOOST, SOUND_IDS, SOUNDS } from '../src/audio/sounds';
 import { loadSettings } from '../src/ui/settings';
+import { tuningJson } from '../src/debug/soundLab';
 
 /** A context that records what is made and started; nothing is heard. */
 function mockContext() {
@@ -234,5 +235,18 @@ describe('12b loudness, weapon sound and tuning', () => {
     const { e } = engine({ storage: store });
     expect(e.settings.weaponSound).toBe('off');
     expect(e.settings.soundMult).toEqual({ b: 3, c: 0, d: 1.5 });
+  });
+});
+
+describe('Sound lab', () => {
+  it('Copy tuning lists only the changed multipliers, rounded to 0.1, and Reset empties it', () => {
+    const { e } = engine();
+    expect(tuningJson(e)).toBe('{}');
+    e.setSoundMult('rockPop', 1.5);
+    e.setSoundMult('shot', 0.3);
+    e.setSoundMult('crash', 1);
+    expect(JSON.parse(tuningJson(e))).toEqual({ shot: 0.3, rockPop: 1.5 });
+    e.resetSoundMult();
+    expect(tuningJson(e)).toBe('{}');
   });
 });
