@@ -24,7 +24,8 @@ export interface Block extends EnemyEntity {
   flash: number;
 }
 
-export interface WallHitEvent { blockId: number; damage: number; x: number; y: number; kind: number }
+/** One hit on a block. `armor`, `shield` and `maxShield` are what the block has left AFTER the hit (the sound layer reads them). */
+export interface WallHitEvent { blockId: number; damage: number; x: number; y: number; kind: number; armor: number; shield: number; maxShield: number }
 export interface WallKillEvent { x: number; y: number; reward: number }
 /** How a level ends: every block destroyed, the ship flew past the end of the wall, or the ship touched a live block. */
 export type WallState = 'playing' | 'cleared' | 'passed' | 'crashed';
@@ -230,7 +231,7 @@ export class WallWorld {
       const b = e as Block;
       // A burn tick hurts the block but does not flash it or hold back its shield regeneration.
       if (kind !== HIT_BURN && kind !== HIT_CLOUD) { b.lastHit = this.time; b.flash = FLASH_TIME; }
-      this.hits.push({ blockId: b.id, damage: dmg, x, y, kind });
+      this.hits.push({ blockId: b.id, damage: dmg, x, y, kind, armor: b.armor, shield: b.shield, maxShield: b.maxShield });
       if (b.hp <= 0) this.destroyBlock(b);
     };
   }

@@ -30,7 +30,8 @@ export const ENEMY_SPEED = SPECIES.mitotic_rock.speed;
 export const ABOVE_SCREEN_MAX = 6;
 
 /** `kind`: 0 projectile hit, 1 burn tick, 2 chain jump (HIT_* in engine/projectiles). */
-export interface HitEvent { enemyId: number; damage: number; x: number; y: number; kind: number }
+/** One hit on a rock. `armor`, `shield` and `maxShield` are what the rock has left AFTER the hit (the sound layer reads them). */
+export interface HitEvent { enemyId: number; damage: number; x: number; y: number; kind: number; armor: number; shield: number; maxShield: number }
 /** An enemy body died: `reward` is the credits it paid (fractional; the run keeps the exact total). */
 export interface KillEvent { x: number; y: number; reward: number; generation: number; }
 export interface SplitEvent { parentId: number; x: number; y: number; radius: number; childIds: number[]; defId: string; }
@@ -126,7 +127,7 @@ export class World {
     this.controlT = opts.safeStart ? 0 : Infinity;
     this.safeStart = !!opts.safeStart;
     this.projSys.onHit = (e, dmg, x, y, kind = 0) => {
-      this.hits.push({ enemyId: e.id, damage: dmg, x, y, kind });
+      this.hits.push({ enemyId: e.id, damage: dmg, x, y, kind, armor: e.armor, shield: e.shield, maxShield: e.maxShield });
       // A shield regenerates SHIELD_REGEN_DELAY after the last hit; a burn tick does not hold it back (as on the wall).
       if (kind !== HIT_BURN && kind !== HIT_CLOUD) (e as MitosisEnemy).lastHit = this.time;
     };

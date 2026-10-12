@@ -13,6 +13,7 @@ import { generateLevel } from './wall/generator';
 import { getBuilderModel } from './builder/session';
 import { buildStarterGrid } from './game/starter';
 import { makeTestWall } from './wall/level';
+import { installAudioUnlock } from './audio';
 
 (async () => {
   const app = new Application();
@@ -34,6 +35,7 @@ import { makeTestWall } from './wall/level';
   }
   fit();
 
+  installAudioUnlock();
   const input = new InputManager(canvas);
   const screenManager = new ScreenManager(app, input);
   const stats = screenManager.stats;

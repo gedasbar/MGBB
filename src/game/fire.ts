@@ -46,6 +46,8 @@ export interface GunCounters {
 export class Gun {
   /** Seconds of simulated time (advanced by update). */
   time = 0;
+  /** Projectiles fired so far (read by the sound layer; no effect on play). */
+  shots = 0;
   readonly fx: GunCounters = {
     alternations: 0, routerSingle: 0, routerBoth: 0, capacitorAbsorbed: 0, capacitorEmits: 0, delayedShots: 0, delayReleases: 0, overclockPeak: 1, overclockResets: 0,
   };
@@ -224,6 +226,7 @@ export class Gun {
     const off = this.offsets[ri];
     const i = this.pool.spawn(shipX + off.x, shipY + off.y, vx, vy, damage, r.packet.pure || 0, ri);
     if (i >= 0) {
+      this.shots++;
       this.projSys.shipX = shipX;
       this.projSys.shipY = shipY;
       this.projSys.init(i);

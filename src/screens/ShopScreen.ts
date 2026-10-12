@@ -8,6 +8,7 @@ import { GestureTracker } from '../builder/gestures';
 import { getBuilderModel } from '../builder/session';
 import { inRect, LAYOUT, Rect, VIEW_H, VIEW_W } from '../builder/layout';
 import { makeTabButtons } from '../builder/tabs';
+import { sfx } from '../audio';
 import { Inspector, makeText, Toast, UIButton } from '../builder/ui';
 import { CATEGORY_COLOR } from '../builder/draw';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
@@ -310,6 +311,11 @@ export class ShopScreen implements Screen {
   }
 
   private press(b: ShopButton) {
+    const before = this.store.data.credits;
+    try { this.pressInner(b); } finally { sfx.play(this.store.data.credits < before ? 'purchase' : 'denied'); }
+  }
+
+  private pressInner(b: ShopButton) {
     if (!b.enabled) {
       this.toast.show(b.kind !== 'hull' && b.label === 'MAX' ? 'Already at max level' : 'Not enough credits');
       return;

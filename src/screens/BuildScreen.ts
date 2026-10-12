@@ -26,6 +26,7 @@ import { THEME } from '../ui/theme';
 import { CreditsBadge } from '../ui/hud';
 import { makeTabButtons } from '../builder/tabs';
 import { ShopScreen } from './ShopScreen';
+import { sfx } from '../audio';
 
 const HOVER_MS = 800;
 
@@ -428,6 +429,7 @@ export class BuildScreen implements Screen {
   }
 
   private disabledHint(id: string) {
+    sfx.play('denied');
     if (id === 'undo' || id === 'redo') this.toast.show(`Nothing to ${id}`);
     else this.toast.show('Select a block first');
   }
@@ -439,6 +441,7 @@ export class BuildScreen implements Screen {
   }
 
   openPicker(target: { x: number; y: number }) {
+    sfx.play('pickerOpen');
     this.viewBeforePicker = { ...this.view };
     const visible = { x: 0, y: LAYOUT.gridArea.y, w: VIEW_W, h: LAYOUT.sheet.y - 34 - LAYOUT.gridArea.y };
     this.view = panToReveal(this.view, target.x, target.y, visible);
@@ -455,6 +458,7 @@ export class BuildScreen implements Screen {
   }
 
   closePicker() {
+    if (this.picker.isOpen) sfx.play('pickerClose');
     this.picker.close();
     this.preview = null;
     this.dim.visible = false;

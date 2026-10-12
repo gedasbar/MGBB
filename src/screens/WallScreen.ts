@@ -21,6 +21,8 @@ import { RunSummaryScreen } from './RunSummaryScreen';
 import { Screen, ScreenManager } from './ScreenManager';
 import type { StatsInfo } from '../ui/stats';
 import { drawFieldFx } from '../ui/fieldFx';
+import { sfx } from '../audio';
+import { SfxFeed } from '../audio/feed';
 import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_TRAVEL, PHASE_MINE_WAIT, PHASE_ORBIT } from '../engine/projectiles';
 
 /** Seconds between the level ending and the summary appearing (a crash restarts faster). */
@@ -109,6 +111,8 @@ export class WallScreen implements Screen {
   private endTimer = 0;
   private finished = false;
   private gate = new PointerGate();
+  private sfxFeed = new SfxFeed(sfx);
+  private endSounded = false;
   /** Slots used by the last draw, for the e2e hook. */
   private lastDrawn: { col: number; row: number; inner: number }[] = [];
 
@@ -248,11 +252,16 @@ export class WallScreen implements Screen {
     }
     w.god = debugHooks.god;
     w.update(dt, target);
+    const fx = w.projSys.fx;
+    this.sfxFeed.frame({ shots: w.gun.shots, chainJumps: fx.chainJumps, wellsMade: fx.wellsMade, bounces: fx.bounces + fx.edgeBounces });
+    for (const h of w.hits) this.sfxFeed.hit({ id: h.blockId, damage: h.damage, kind: h.kind, armor: h.armor, shield: h.shield, maxShield: h.maxShield }, false);
+    if (w.state !== 'playing' && !this.endSounded) { this.endSounded = true; sfx.play(w.state === 'crashed' ? 'crash' : 'cleared'); }
     // The background scrolls with the real wall speed (top-edge boost included); on a ring also sideways with the camera.
     if (this.bg) this.bg.update(frameTime, scrollSpeed(w.level.approachSpeed, w.shipY), w.ring ? this.camera.x : 0);
 
     // Credit popups: a small yellow +N each time the running total crosses a whole credit.
     for (const k of w.killEvents) {
+      this.sfxFeed.kill();
       this.popupTotal += k.reward;
       const whole = Math.floor(this.popupTotal + 1e-9);
       if (whole > this.shownCredits) {
@@ -433,6 +442,7 @@ export class WallScreen implements Screen {
     } else {
       buttons = [build, retry]; // a debug test wall: as before
     }
+    if (w.medalEarned) sfx.play('medal');
     sm.switchTo(new RunSummaryScreen(sm, result, marks, { result: outcome, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }));
   }
 
