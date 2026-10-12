@@ -162,7 +162,7 @@ export class FlyScreen implements Screen {
           banner: this.banner.visible ? { title: this.bannerTitle.text, sub: this.bannerSub.text, alpha: this.banner.alpha } : null,
           species: this.world.mitosis.enemies.map(e => e.defId),
           popups: this.dmgNums.filter(d => d.life > 0 && d.t.text.startsWith('+')).map(d => ({ text: d.t.text, alpha: d.t.alpha })),
-          effects: { ...this.world.projSys.fx, ...this.world.gun.fx },
+          effects: { ...this.world.projSys.fx, ...this.world.gun.fx, ...this.world.fx },
           arcs: Array.from(this.world.projSys.arcT).filter(t => t > 0).length,
         }),
         clientToGame: (cx: number, cy: number) => clientToGame(cx, cy, this.screenManager.app.canvas.getBoundingClientRect()),

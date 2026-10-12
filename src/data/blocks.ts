@@ -210,7 +210,7 @@ register({
 // ---- Mitosis category (chunk 11a). Rocks count generations from 1 (the parent); wall blocks have none, so the rock-only ones do nothing there.
 const ROCKS = 'Free Fly rocks only.';
 newMod('fission_catalyst', 'Fission Catalyst', 'mitosis', 'epic', 'fission_catalyst',
-  (l) => `A hit that does not kill forces the rock to split at once; the children share its remaining HP equally. Each rock can be forced again after ${fissionCooldown(l).toFixed(1)} s. Does nothing on rocks that cannot split (Darter, Budder). ${ROCKS}`);
+  (l) => `A hit that does not kill splits the rock now; the children share its remaining HP. Again after ${fissionCooldown(l).toFixed(1)} s. Not Darter or Budder. ${ROCKS}`);
 newMod('cauterize', 'Cauterize', 'mitosis', 'uncommon', 'cauterize',
   (l) => `A hit rock cannot split for ${cauterizeTime(l)} s. A kill inside that window leaves no children and pays +${pct(cauterizeBonus(l))}% credits. ${ROCKS}`);
 newMod('cleaver', 'Cleaver', 'mitosis', 'uncommon', 'cleaver',
@@ -218,10 +218,10 @@ newMod('cleaver', 'Cleaver', 'mitosis', 'uncommon', 'cleaver',
 newMod('culling_bolt', 'Culling Bolt', 'mitosis', 'rare', 'culling_bolt',
   (l) => `Adds ${pct(cullingPct(l))}% of the target's max HP to the hit, at most ${CULLING_CAP}× the shot's damage. Works on rocks and on wall blocks.`);
 newMod('residue_seed', 'Residue Seed', 'mitosis', 'rare', 'residue_seed',
-  (l) => `When the shot kills a target it leaves a ${RESIDUE_RADIUS} px cloud for ${RESIDUE_TIME} s that deals ${pct(residueFrac(l))}% of the killing hit every ${RESIDUE_TICK} s to everything inside, including the children just spawned. Works on rocks and on wall blocks.`);
+  (l) => `A kill leaves a ${RESIDUE_RADIUS} px cloud for ${RESIDUE_TIME} s: every ${RESIDUE_TICK} s it deals ${pct(residueFrac(l))}% of the killing hit to all inside, new children too. Rocks and wall blocks.`);
 register({
   id: 'overkill_spill', name: 'Overkill Spill', category: 'mitosis', outputs: FWD, ...rare('uncommon'), maxLevel: 6,
-  desc: (l) => `When the shot kills a rock, ${pct(spillFrac(l))}% of the damage beyond its HP is dealt to its children, spread evenly, on top of the 100% a split already passes on. ${ROCKS}`,
+  desc: (l) => `Damage beyond a killed rock's HP also hits its children: +${pct(spillFrac(l))}% on top of the 100% a split already passes on. ${ROCKS}`,
   transform: (p, l) => { p.mods.push({ type: 'overkill_spill', level: l }); },
 });
 
@@ -266,7 +266,7 @@ newMod('chain_lightning', 'Chain Lightning', 'modifier', 'epic', 'chain_lightnin
 newMod('mine', 'Mine', 'modifier', 'uncommon', 'mine',
   (l) => `Stops after ${mineDistance(l)} px and waits up to ${MINE_WAIT} s; detonates for its full damage when something touches it. In the Wall it stays where it is and the wall runs into it.`);
 newMod('gravity_well', 'Gravity Well', 'modifier', 'rare', 'gravity_well',
-  (l) => `On impact, creates an attractor for ${WELL_TIME} s that pulls rocks within ${WELL_RADIUS} px toward the impact point at ${wellPull(l)} px/s (never past it). Free Fly rocks only; a wall does not move.`);
+  (l) => `On impact, pulls rocks within ${WELL_RADIUS} px toward the impact point at ${wellPull(l)} px/s for ${WELL_TIME} s. Free Fly rocks only.`);
 modBlock('magnetized', 'Magnetized', 'modifier', 1, { type: 'magnetized' }, 'Projectiles are magnetised.');
 
 levelMod('curving_right', 'Curving Right', 3, { type: 'curve', dir: 'right' },
@@ -290,7 +290,7 @@ newMod('frostbite', 'Frostbite', 'status', 'rare', 'frostbite',
 newMod('corrosion', 'Corrosion', 'status', 'rare', 'corrosion',
   (l) => `Each hit removes ${pct(CORROSION_STEP)}% of the target's remaining armor, up to ${pct(corrosionCap(l))}% of it in total. Armored wall blocks lose their thick frame as it is stripped.`);
 newMod('static_charge', 'Static Charge', 'status', 'uncommon', 'static_charge',
-  (l) => `After ${STATIC_HITS} hits on the same target within ${STATIC_WINDOW} s, releases an extra pulse of ${pct(staticFrac(l))}% of that hit's damage; the count then starts over. Works on rocks and on wall blocks.`);
+  (l) => `${STATIC_HITS} hits on one target within ${STATIC_WINDOW} s release an extra pulse of ${pct(staticFrac(l))}% of that hit's damage, then reset. Rocks and wall blocks.`);
 modBlock('magnetize_target', 'Magnetize Target', 'status', 1, { type: 'magnetize_target' }, 'Magnetises enemies.');
 modBlock('vampiric', 'Vampiric', 'status', 3, { type: 'vampiric' }, 'Heals the hull on hit.');
 
