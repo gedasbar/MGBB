@@ -13,7 +13,7 @@ import { generateLevel } from './wall/generator';
 import { getBuilderModel } from './builder/session';
 import { buildStarterGrid } from './game/starter';
 import { makeTestWall } from './wall/level';
-import { installAudioUnlock } from './audio';
+import { installAudioUnlock, sfx } from './audio';
 
 (async () => {
   const app = new Application();
@@ -51,6 +51,8 @@ import { installAudioUnlock } from './audio';
   });
   if (import.meta.env.DEV) {
     (window as any).__mgbmStats = stats;
+    (window as any).__mgbmSm = screenManager;
+    (window as any).__mgbmSfx = sfx;
     // For the e2e contact-sheet script: Pixi and the running app, so a sheet can be drawn with the game's own modules.
     void import('pixi.js').then((m) => { (window as any).__pixi = m; (window as any).__app = app; });
   }

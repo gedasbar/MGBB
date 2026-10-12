@@ -53,6 +53,12 @@ export class Overlays {
   /** Which panel is showing: 'none' | 'pause' | 'settings' | 'confirm' (for tests and the e2e hook). */
   get current(): View { return this.view; }
 
+  /** Centre of a panel button in game coordinates (for the e2e test). */
+  buttonCenter(id: string): { x: number; y: number } | null {
+    const b = this.buttons.find(bb => bb.id === id);
+    return b ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : null;
+  }
+
   /** True while the screen underneath must ignore taps and drags (a panel is open, or just closed with this tap). */
   get blocking(): boolean { return this.view !== 'none' || this.now() - this.closedAt < CLOSE_GUARD_MS; }
 

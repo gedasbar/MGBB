@@ -28,7 +28,7 @@ interface Voice {
 export interface SfxEngineOptions {
   /** Makes the AudioContext (tests pass a mock). Called on the first unlock only. */
   createContext?: () => AudioContext | null;
-  /** Seconds, monotonic. Defaults to the context's own clock. */
+  /** Seconds, monotonic. Defaults to the wall clock (performance.now). */
   clock?: () => number;
   /** Where volume and mute persist (defaults to localStorage); pass null to disable. */
   storage?: Pick<Storage, 'getItem' | 'setItem'> | null;
@@ -118,12 +118,14 @@ export class SfxEngine {
     this.sfx.gain.setValueAtTime(this.settings.sfxVolume, t);
   }
 
-  private now(): number { return this.clockFn ? this.clockFn() : (this.ctx ? this.ctx.currentTime : 0); }
+  /** Seconds for the rate limits and voice lifetimes: the wall clock, so a suspended context cannot freeze the bookkeeping. */
+  private now(): number { return this.clockFn ? this.clockFn() : performance.now() / 1000; }
 
   /** Plays a sound; returns whether it was started (false: not ready, muted, rate limited or dropped). */
   play(id: SfxId, opts?: PlayOpts): boolean {
     const ctx = this.ctx;
-    if (!ctx || !this.sfx || this.settings.muted || this.settings.masterVolume <= 0 || this.settings.sfxVolume <= 0) return false;
+    if (ctx && ctx.state !== 'running') this.resume(); // a suspended context would queue sounds up and play them in a burst later
+    if (!ctx || ctx.state !== 'running' || !this.sfx || this.settings.muted || this.settings.masterVolume <= 0 || this.settings.sfxVolume <= 0) return false;
     const k = this.index.get(id);
     if (k === undefined) return false;
     const def: SoundDef = SOUNDS[id];
