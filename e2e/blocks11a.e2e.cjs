@@ -96,7 +96,7 @@ async function flyWave10(page, seconds) {
   const e0 = await page.evaluate(() => { const v = window.__mgbm.buildScreen.view; return { x: v.ox + 3.5 * v.scale, y: v.oy + 5.5 * v.scale }; });
   await tap(page, e0.x, e0.y); await tap(page, e0.x, e0.y);
   const pk = await page.evaluate((NEW) => { const p = window.__mgbm.buildScreen.picker; return { tiles: p.tiles.length, max: p.maxScrollValue, has: NEW.every(id => p.tiles.some(t => t.id === id)) }; }, NEW);
-  check(pk.has && pk.max > 0, `the picker (owned blocks only) has ${pk.tiles - 1} tiles including all 9 new ones, and scrolls (max ${pk.max})`);
+  check(pk.has && pk.max > 0, `the picker has ${pk.tiles} tiles (all 41 blocks) including the 9 new ones, and scrolls (max ${pk.max})`);
   await page.evaluate(() => window.__mgbm.buildScreen.picker.reveal('fission_catalyst'));
   await page.waitForTimeout(250);
   const rect = await page.evaluate(() => window.__mgbm.buildScreen.picker.tileScreenRect('fission_catalyst'));
