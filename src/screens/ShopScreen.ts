@@ -4,6 +4,7 @@ import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
 import { BuildScreen } from './BuildScreen';
 import { MapScreen } from './MapScreen';
+import { CaptainScreen } from './CaptainScreen';
 import { GestureTracker } from '../builder/gestures';
 import { getBuilderModel } from '../builder/session';
 import { inRect, LAYOUT, Rect, VIEW_H, VIEW_W } from '../builder/layout';
@@ -294,6 +295,7 @@ export class ShopScreen implements Screen {
     if (id === 'tabShop') return;
     if (id === 'tabBuild') { this.sm.switchTo(new BuildScreen(this.sm)); return; }
     if (id === 'tabMap') { this.sm.switchTo(new MapScreen(this.sm)); return; }
+    if (id === 'tabCaptain') { this.sm.switchTo(new CaptainScreen(this.sm)); return; }
     this.toast.show('Coming soon');
   }
 
