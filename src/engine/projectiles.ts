@@ -8,6 +8,9 @@ import {
   BOOMERANG_CATCH, boomerangRange, BURN_TICK, CHAIN_FRAC, CHAIN_RANGE, CHAIN_ARC_LIFE, chainJumps, corrosionCap, CORROSION_STEP,
   executionerMul, EXECUTIONER_BELOW, frostBonus, frostSlow, frostTime, igniteFrac, IGNITE_TIME, mineDistance, MINE_SIZE, MINE_WAIT,
   orbitTime, ORBIT_OPEN, ORBIT_RADIUS, ORBIT_REHIT,
+  bounceCount, BOUNCE_SPREAD_DEG, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct,
+  FRAGMENT_GENERATION, residueFrac, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac,
+  WELL_TIME, wellPull,
 } from './effects';
 import { RING } from './pools';
 import { wrapDx } from './wrap';
@@ -30,12 +33,29 @@ export interface EnemyEntity extends EnemyStats {
   armor0?: number;
   /** Already in the status list. */
   tracked?: boolean;
+  // Chunk 11a. Present on Free Fly rocks (Mitosis blocks read and write them); absent on wall blocks.
+  /** Rocks count generations from 1 (the parent). */
+  generation?: number;
+  /** Cauterize: seconds left in which the rock cannot split, and the credit bonus of a kill inside it. */
+  cauterizedTimer?: number;
+  cauterizeBonus?: number;
+  /** Fission Catalyst: level of a hit that asked for a split (the world acts on it after the hits), and when this rock may be forced again. */
+  fissionLevel?: number;
+  fissionReady?: number;
+  /** Overkill Spill: share of the kill's excess to send on to the children. */
+  spillFrac?: number;
+  /** Static Charge: hits counted in the current window, and when the window began (projectile-system clock). */
+  scN?: number;
+  scFirst?: number;
 }
 
 /** How a hit reached the callback: a projectile hit, a burn tick or a chain jump. */
 export const HIT_NORMAL = 0;
 export const HIT_BURN = 1;
 export const HIT_CHAIN = 2;
+/** A Static Charge pulse (a normal hit with its own number) and a Residue Seed cloud tick (a quiet tick, like a burn). */
+export const HIT_PULSE = 3;
+export const HIT_CLOUD = 4;
 export type HitCallback = (enemy: EnemyEntity, hpDamage: number, x: number, y: number, kind?: number) => void;
 
 /** Movement phases of Orbit / Boomerang / Mine projectiles (pool.phase). */
@@ -48,6 +68,15 @@ export const PHASE_MINE_WAIT = 5;
 
 /** Short chain-lightning arcs: a fixed ring of lines the screens draw while their time is above 0. */
 export const ARC_MAX = 48;
+/** Residue Seed clouds and Gravity Well attractors alive at once (a ring: the oldest is replaced). */
+export const CLOUD_MAX = 32;
+export const WELL_MAX = 16;
+
+/** Levels of the effect modifiers on the projectile being processed (0 = absent). */
+export interface EffectLevels {
+  chain: number; boomerang: number; orbit: number; mine: number; ignite: number; corrosion: number; frostbite: number; executioner: number;
+  fission: number; cauterize: number; cleaver: number; culling: number; residue: number; spill: number; gravity: number; staticCharge: number;
+}
 
 /** Counters of what the effect blocks did (debug hook and tests). */
 export interface EffectCounters {
@@ -62,6 +91,18 @@ export interface EffectCounters {
   freezeApplied: number;
   frozenBonusHits: number;
   executionerHits: number;
+  // Chunk 11a
+  bounces: number;
+  edgeBounces: number;
+  cleaverHits: number;
+  cullingHits: number;
+  residueClouds: number;
+  residueTicks: number;
+  wellsMade: number;
+  staticPulses: number;
+  cauterizeMarks: number;
+  fissionMarks: number;
+  spillMarks: number;
 }
 
 /** Base hit radius of a projectile (scaled by the pool's size). */
@@ -96,8 +137,6 @@ export const armorPierceMul = (level: number) => 1 + level;
 export const aoeRectSize = (level: number) => ({ w: AOE_RECT_W + 40 * (level - 1), h: AOE_RECT_H + 6 * (level - 1) });
 /** Piercing: each hit costs 1/level of the damage dealt. */
 export const pierceCostMul = (level: number) => 1 / level;
-/** Bouncing: every ricochet adds 10% damage per level above 1. */
-export const bounceDamageMul = (level: number) => 1 + 0.1 * (level - 1);
 /** AoE - Circle blast radius in px: 50 at level 1, +10 per level. */
 export const aoeCircleRadius = (level: number) => 50 + 10 * (level - 1);
 /** Shield-Breaker direct-damage multiplier: x1.5 at level 1, +0.5 per level. */
@@ -137,10 +176,29 @@ export class ProjectileSystem {
   readonly fx: EffectCounters = {
     chainJumps: 0, boomerangReturns: 0, orbitLaunches: 0, mineDetonations: 0, mineExpired: 0, igniteApplied: 0, burnTicks: 0,
     corrosionStrips: 0, freezeApplied: 0, frozenBonusHits: 0, executionerHits: 0,
+    bounces: 0, edgeBounces: 0, cleaverHits: 0, cullingHits: 0, residueClouds: 0, residueTicks: 0, wellsMade: 0, staticPulses: 0,
+    cauterizeMarks: 0, fissionMarks: 0, spillMarks: 0,
   };
 
+  /** Residue Seed clouds (a ring): position, seconds left, damage per tick, seconds since the last tick. Drawn by the screens. */
+  readonly cloudX = new Float32Array(CLOUD_MAX);
+  readonly cloudY = new Float32Array(CLOUD_MAX);
+  readonly cloudT = new Float32Array(CLOUD_MAX);
+  readonly cloudD = new Float32Array(CLOUD_MAX);
+  private cloudTick = new Float32Array(CLOUD_MAX);
+  private cloudNext = 0;
+  /** Gravity Well attractors (a ring): position, seconds left, pull speed. Free Fly applies the pull to its rocks. */
+  readonly wellX = new Float32Array(WELL_MAX);
+  readonly wellY = new Float32Array(WELL_MAX);
+  readonly wellT = new Float32Array(WELL_MAX);
+  readonly wellS = new Float32Array(WELL_MAX);
+  private wellNext = 0;
+
   /** Levels of the effect modifiers on the projectile being processed (0 = absent); one reused object. */
-  private mi = { chain: 0, boomerang: 0, orbit: 0, mine: 0, ignite: 0, corrosion: 0, frostbite: 0, executioner: 0 };
+  private mi: EffectLevels = {
+    chain: 0, boomerang: 0, orbit: 0, mine: 0, ignite: 0, corrosion: 0, frostbite: 0, executioner: 0,
+    fission: 0, cauterize: 0, cleaver: 0, culling: 0, residue: 0, spill: 0, gravity: 0, staticCharge: 0,
+  };
 
   /** Optional hook fired once per enemy damaged (used for hit flash / damage numbers). */
   onHit: HitCallback | null = null;
@@ -156,6 +214,8 @@ export class ProjectileSystem {
   /** Called once right after a projectile is spawned: seeds the random-curve noise from the combat RNG stream. */
   init(i: number) {
     const mods = this.modsOf(i);
+    const bounce = mods.find(m => m.type === 'bouncing');
+    if (bounce) this.pool.bounces[i] = bounceCount(bounce.level ?? 1);
     if (mods.some(m => m.type === 'random_curve')) {
       this.pool.aux1[i] = rng.combat.next() * 2 - 1;
       this.pool.aux2[i] = rng.combat.next() * 2 - 1;
@@ -177,6 +237,7 @@ export class ProjectileSystem {
   private scan(mods: Modifier[]) {
     const mi = this.mi;
     mi.chain = mi.boomerang = mi.orbit = mi.mine = mi.ignite = mi.corrosion = mi.frostbite = mi.executioner = 0;
+    mi.fission = mi.cauterize = mi.cleaver = mi.culling = mi.residue = mi.spill = mi.gravity = mi.staticCharge = 0;
     for (const m of mods) {
       switch (m.type) {
         case 'chain_lightning': mi.chain = m.level ?? 1; break;
@@ -187,6 +248,14 @@ export class ProjectileSystem {
         case 'corrosion': mi.corrosion = m.level ?? 1; break;
         case 'frostbite': mi.frostbite = m.level ?? 1; break;
         case 'executioner': mi.executioner = m.level ?? 1; break;
+        case 'fission_catalyst': mi.fission = m.level ?? 1; break;
+        case 'cauterize': mi.cauterize = m.level ?? 1; break;
+        case 'cleaver': mi.cleaver = m.level ?? 1; break;
+        case 'culling_bolt': mi.culling = m.level ?? 1; break;
+        case 'residue_seed': mi.residue = m.level ?? 1; break;
+        case 'overkill_spill': mi.spill = m.level ?? 1; break;
+        case 'gravity_well': mi.gravity = m.level ?? 1; break;
+        case 'static_charge': mi.staticCharge = m.level ?? 1; break;
       }
     }
     return mi;
@@ -353,7 +422,6 @@ export class ProjectileSystem {
       const pierceMod = mods.find(m => m.type === 'piercing');
       const isPiercing = !!pierceMod;
       const bounceMod = mods.find(m => m.type === 'bouncing');
-      const isBouncing = !!bounceMod;
       const aoeMod = mods.find(m => m.type === 'aoe_circle');
       const rectMod = mods.find(m => m.type === 'aoe_rect');
       const forkMod = mods.find(m => m.type === 'fork_impact');
@@ -377,6 +445,7 @@ export class ProjectileSystem {
       }
       if (!target) continue;
       if (phase === PHASE_MINE_WAIT) this.fx.mineDetonations++;
+      if (mi.gravity) this.addWell(px, py, mi.gravity);
 
       if (aoeMod) {
         const radius = aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1);
@@ -408,39 +477,75 @@ export class ProjectileSystem {
           this.ringAdd(i, target.id); // orbiting: hits, and keeps going
         } else if (phase === PHASE_BOOM_OUT || phase === PHASE_BOOM_BACK) {
           this.pool.skipId[i] = target.id; // a boomerang flies on through what it hit; each leg hits a target once
-        } else if (isBouncing && target.armor > 0) {
-          // Bounce: keep full damage. Off a surface the field knows, reflect; otherwise pick a new direction.
-          this.pool.damage[i] *= bounceDamageMul(bounceMod!.level ?? 1);
-          const info = field.bounceInfo ? field.bounceInfo(target, px, py, hitR) : null;
-          if (info) {
-            const vn = this.pool.vx[i] * info.nx + this.pool.vy[i] * info.ny;
-            if (vn < 0) {
-              this.pool.vx[i] -= 2 * vn * info.nx;
-              this.pool.vy[i] -= 2 * vn * info.ny;
-            }
-            this.pool.x[i] += info.nx * info.push;
-            this.pool.y[i] += info.ny * info.push;
-          } else {
-            const speed = Math.sqrt(this.pool.vx[i]**2 + this.pool.vy[i]**2) || 200;
-            const angle = rng.combat.next() * Math.PI * 2;
-            this.pool.vx[i] = Math.cos(angle) * speed;
-            this.pool.vy[i] = Math.sin(angle) * speed;
-            // Advance slightly to avoid re-colliding immediately.
-            this.pool.x[i] += this.pool.vx[i] * 0.1;
-            this.pool.y[i] += this.pool.vy[i] * 0.1;
-          }
         } else if (isPiercing) {
           const damageSpent = res.hpDamage; // actual hp taken
           const drop = Math.max(damage * 0.1, damageSpent) * pierceCostMul(pierceMod!.level ?? 1);
           this.pool.damage[i] -= drop;
           if (this.pool.damage[i] <= 0) {
-            this.pool.free(i);
+            // Piercing first; a Bouncing block turns the shot that Piercing would have used up into a bounce, at full damage.
+            if (bounceMod && this.bouncesLeft(i, bounceMod.level ?? 1) > 0) { this.pool.damage[i] = damage; this.bounce(i, field, target, px, py, hitR); }
+            else this.pool.free(i);
           }
+        } else if (bounceMod && this.bouncesLeft(i, bounceMod.level ?? 1) > 0) {
+          this.bounce(i, field, target, px, py, hitR); // ricochet off whatever it hit, full damage kept
         } else {
           this.pool.free(i); // Destroy on hit
         }
       }
     }
+  }
+
+  // ------------------------------------------------------------------ bouncing
+  /** Bounces a projectile has left (set at launch; set here for a projectile made without init()). */
+  bouncesLeft(i: number, level: number): number {
+    if (this.pool.bounces[i] < 0) this.pool.bounces[i] = bounceCount(level);
+    return this.pool.bounces[i];
+  }
+
+  /**
+   * One bounce: reflect off the surface the field reports (the contact normal), add up to +/- BOUNCE_SPREAD_DEG of seeded
+   * random spread, keep the speed, use up one bounce. The target it hit is skipped until it hits something else, so a
+   * bounce that points back into it cannot hit it twice. A spread that would aim into the surface turns the other way.
+   */
+  private bounce(i: number, field: TargetField, target: EnemyEntity, px: number, py: number, hitR: number) {
+    const pool = this.pool;
+    const info = field.bounceInfo ? field.bounceInfo(target, px, py, hitR) : null;
+    let vx = pool.vx[i];
+    let vy = pool.vy[i];
+    const speed = Math.hypot(vx, vy) || 1;
+    if (info) {
+      const vn = vx * info.nx + vy * info.ny;
+      if (vn < 0) { vx -= 2 * vn * info.nx; vy -= 2 * vn * info.ny; }
+      pool.x[i] += info.nx * info.push;
+      pool.y[i] += info.ny * info.push;
+    } else { vx = -vx; vy = -vy; }
+    const spread = (rng.combat.next() * 2 - 1) * BOUNCE_SPREAD_DEG * RAD;
+    const base = Math.atan2(vy, vx);
+    let a = base + spread;
+    if (info && Math.cos(a) * info.nx + Math.sin(a) * info.ny < 0.1) a = base - spread;
+    if (info && Math.cos(a) * info.nx + Math.sin(a) * info.ny < 0.1) a = base;
+    pool.vx[i] = Math.cos(a) * speed;
+    pool.vy[i] = Math.sin(a) * speed;
+    pool.skipId[i] = target.id;
+    pool.bounces[i]--;
+    this.fx.bounces++;
+  }
+
+  /** Free Fly screen edges: a Bouncing projectile with bounces left reflects off the edge it crossed (no damage). Returns true if it did. */
+  edgeBounce(i: number, minX: number, maxX: number, minY: number, maxY: number): boolean {
+    const pool = this.pool;
+    if (pool.bounces[i] <= 0) return false;
+    let hit = false;
+    if (pool.x[i] < minX && pool.vx[i] < 0) { pool.x[i] = minX; pool.vx[i] = -pool.vx[i]; hit = true; }
+    else if (pool.x[i] > maxX && pool.vx[i] > 0) { pool.x[i] = maxX; pool.vx[i] = -pool.vx[i]; hit = true; }
+    if (pool.y[i] < minY && pool.vy[i] < 0) { pool.y[i] = minY; pool.vy[i] = -pool.vy[i]; hit = true; }
+    else if (pool.y[i] > maxY && pool.vy[i] > 0) { pool.y[i] = maxY; pool.vy[i] = -pool.vy[i]; hit = true; }
+    if (!hit) return false;
+    pool.bounces[i]--;
+    pool.skipId[i] = -1;
+    this.fx.bounces++;
+    this.fx.edgeBounces++;
+    return true;
   }
 
   // ------------------------------------------------------------------ orbit: recently hit targets
@@ -479,20 +584,111 @@ export class ProjectileSystem {
    */
   private strike(
     t: EnemyEntity, dmg: number, pure: number, tier: number, armorPierce: number, shieldBreaker: number | boolean,
-    mi: { ignite: number; frostbite: number; corrosion: number; executioner: number },
+    mi: EffectLevels,
     x: number, y: number, kind: number,
   ): DamageResult {
     let d = dmg;
+    // Cleaver (rocks only: wall blocks have no generation): fragments take more, parents less.
+    if (mi.cleaver && t.generation !== undefined) {
+      d *= t.generation >= FRAGMENT_GENERATION ? cleaverBonus(mi.cleaver) : cleaverPenalty(mi.cleaver);
+      this.fx.cleaverHits++;
+    }
+    // Culling Bolt: a share of the target's max HP on top of the hit, at most CULLING_CAP times the packet's damage.
+    if (mi.culling) { d += Math.min(cullingPct(mi.culling) * t.maxHp, CULLING_CAP * dmg); this.fx.cullingHits++; }
     if (mi.executioner && t.hp < t.maxHp * EXECUTIONER_BELOW) { d *= executionerMul(mi.executioner); this.fx.executionerHits++; }
     if ((t.freezeT ?? 0) > 0) { d *= 1 + (t.freezeBonus ?? 0); this.fx.frozenBonusHits++; }
     const res = applyDamage(t, d, pure, tier, armorPierce, shieldBreaker);
     if (this.onHit) this.onHit(t, res.hpDamage, x, y, kind);
+    this.afterHit(t, res.killed, d, mi, kind);
     if (t.hp > 0) {
       if (mi.ignite) this.ignite(t, d * igniteFrac(mi.ignite));
       if (mi.frostbite) this.freeze(t, mi.frostbite);
+      // Static Charge: the STATIC_HITS-th hit inside the window releases an extra pulse and the count starts over.
+      if (mi.staticCharge && this.staticCount(t)) {
+        const extra = d * staticFrac(mi.staticCharge);
+        const r2 = applyDamage(t, extra, pure, tier, armorPierce, shieldBreaker);
+        this.fx.staticPulses++;
+        if (this.onHit) this.onHit(t, r2.hpDamage, x, y, HIT_PULSE);
+        this.afterHit(t, r2.killed, extra, mi, HIT_PULSE);
+        if (r2.killed) res.killed = true;
+      }
     }
     if (mi.corrosion && t.armor > 0) this.corrode(t, mi.corrosion);
     return res;
+  }
+
+  /**
+   * What a hit leaves behind on the target: Cauterize and Overkill Spill marks (rocks), a Fission Catalyst request when it did
+   * not kill (rocks; the world acts on it), and a Residue Seed cloud where a target died. `d` is the damage of that hit.
+   */
+  private afterHit(t: EnemyEntity, killed: boolean, d: number, mi: EffectLevels, kind: number) {
+    const rock = t.generation !== undefined;
+    if (rock) {
+      if (mi.cauterize) {
+        t.cauterizedTimer = Math.max(t.cauterizedTimer ?? 0, cauterizeTime(mi.cauterize));
+        t.cauterizeBonus = Math.max(t.cauterizeBonus ?? 0, cauterizeBonus(mi.cauterize));
+        this.fx.cauterizeMarks++;
+      }
+      if (killed) {
+        if (mi.spill) { t.spillFrac = Math.max(t.spillFrac ?? 0, spillFrac(mi.spill)); this.fx.spillMarks++; }
+      } else if (mi.fission) {
+        t.fissionLevel = Math.max(t.fissionLevel ?? 0, mi.fission);
+        this.fx.fissionMarks++;
+      }
+    }
+    if (killed && mi.residue && kind !== HIT_CLOUD && kind !== HIT_BURN) this.addCloud(t.x, t.y, d * residueFrac(mi.residue));
+  }
+
+  /** Counts a hit on `t` for Static Charge; true when it is the STATIC_HITS-th inside STATIC_WINDOW (the count is reset then). */
+  private staticCount(t: EnemyEntity): boolean {
+    if (t.scN === undefined || this.clock - (t.scFirst ?? 0) > STATIC_WINDOW) { t.scN = 1; t.scFirst = this.clock; }
+    else t.scN++;
+    if (t.scN >= STATIC_HITS) { t.scN = 0; return true; }
+    return false;
+  }
+
+  // ------------------------------------------------------------------ Residue Seed clouds and Gravity Well attractors
+  private addCloud(x: number, y: number, dmgPerTick: number) {
+    const k = this.cloudNext;
+    this.cloudNext = (k + 1) % CLOUD_MAX;
+    this.cloudX[k] = x; this.cloudY[k] = y; this.cloudT[k] = RESIDUE_TIME; this.cloudD[k] = dmgPerTick; this.cloudTick[k] = 0;
+    this.fx.residueClouds++;
+  }
+
+  private addWell(x: number, y: number, level: number) {
+    const k = this.wellNext;
+    this.wellNext = (k + 1) % WELL_MAX;
+    this.wellX[k] = x; this.wellY[k] = y; this.wellT[k] = WELL_TIME; this.wellS[k] = wellPull(level);
+    this.fx.wellsMade++;
+  }
+
+  /** Moves every cloud down the screen with a scrolling wall (the cloud stays where the block died). */
+  shiftClouds(dy: number) {
+    for (let k = 0; k < CLOUD_MAX; k++) if (this.cloudT[k] > 0) this.cloudY[k] += dy;
+  }
+
+  /**
+   * Per step, after the hits: ages the clouds and the attractors, and ticks every cloud that is due: each living target inside
+   * the radius takes the tick's damage (armor and shield apply, nothing else; a kill by a cloud leaves no new cloud).
+   */
+  updateClouds(dt: number, field: TargetField, tier: number) {
+    for (let k = 0; k < WELL_MAX; k++) if (this.wellT[k] > 0) this.wellT[k] -= dt;
+    const buf = this.blast;
+    for (let k = 0; k < CLOUD_MAX; k++) {
+      if (this.cloudT[k] <= 0) continue;
+      this.cloudT[k] -= dt;
+      this.cloudTick[k] += dt;
+      while (this.cloudTick[k] >= RESIDUE_TICK - 1e-9) {
+        this.cloudTick[k] -= RESIDUE_TICK;
+        field.collectCircle(this.cloudX[k], this.cloudY[k], RESIDUE_RADIUS, buf);
+        for (const c of buf) {
+          if (c.hp <= 0) continue;
+          const res = applyDamage(c, this.cloudD[k], 0, tier);
+          this.fx.residueTicks++;
+          if (this.onHit) this.onHit(c, res.hpDamage, c.x, c.y, HIT_CLOUD);
+        }
+      }
+    }
   }
 
   private track(t: EnemyEntity) {
@@ -540,7 +736,7 @@ export class ProjectileSystem {
   /** Chain Lightning: from the target that was hit, jump to the nearest unhit living target in range, up to the level's count. */
   private chain(
     field: TargetField, origin: EnemyEntity, damage: number, pure: number, tier: number, armorPierce: number,
-    shieldBreaker: number | boolean, mi: { chain: number; ignite: number; frostbite: number; corrosion: number; executioner: number },
+    shieldBreaker: number | boolean, mi: EffectLevels,
   ) {
     const seen = this.chainSeen;
     const buf = this.chainBuf;

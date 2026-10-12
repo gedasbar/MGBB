@@ -56,11 +56,13 @@ export type DamageOp =
   | { t: 'oc'; gain: number; cap: number; avg: number }
   | { t: 'cap'; n: number; mul: number }
   | { t: 'alt'; key: number; branch: number; of: number }
+  // Random Router (chunk 11a): each pulse picks one of `of` outputs at random, or (with chance `both`) all of them.
+  | { t: 'rnd'; key: number; branch: number; of: number; both: number }
   | { t: 'delay'; sec: number };
 
 /** True when a packet's damage depends on state that changes from pulse to pulse (needs the Gun's evaluator). */
 export function isDynamic(p: Packet): boolean {
-  for (const op of p.ops) if (op.t === 'oc' || op.t === 'cap' || op.t === 'alt' || op.t === 'delay') return true;
+  for (const op of p.ops) if (op.t === 'oc' || op.t === 'cap' || op.t === 'alt' || op.t === 'rnd' || op.t === 'delay') return true;
   return false;
 }
 
@@ -74,6 +76,7 @@ export function emitRate(p: Packet): { pulse: number; branch: number } {
   for (const op of p.ops) {
     if (op.t === 'cap') pulse /= op.n;
     else if (op.t === 'alt') branch /= op.of;
+    else if (op.t === 'rnd') branch *= (1 - op.both) / op.of + op.both;
   }
   return { pulse, branch };
 }
@@ -119,7 +122,7 @@ export function evalDamage(p: Packet, roll?: () => number): number {
     else if (op.t === 'mul') d *= op.v;
     else if (op.t === 'oc') d *= op.avg;
     else if (op.t === 'cap') d *= op.n * op.mul;
-    else if (op.t === 'alt' || op.t === 'delay') continue;
+    else if (op.t === 'alt' || op.t === 'rnd' || op.t === 'delay') continue;
     else if (roll) d *= roll() < op.gate.prob ? op.gate.mult : op.gate.elseMult;
     else d *= op.gate.prob * op.gate.mult + (1 - op.gate.prob) * op.gate.elseMult;
   }
@@ -139,6 +142,8 @@ export interface BlockDef {
   transform?: (packet: Packet, level: number) => void;
   /** The outputs take turns (Alternator): each output's packet is tagged with its branch, one fires per pulse. */
   alternates?: boolean;
+  /** Random Router: each pulse the packet takes one output at random; `both(level)` is the chance it takes all of them. */
+  router?: { both: (level: number) => number };
   /** Shop rarity and base copy price (upgrade price follows the usual formula); set on the chunk 9a blocks. */
   rarity?: Rarity;
   baseCost?: number;

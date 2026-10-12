@@ -20,6 +20,7 @@ import { BackgroundView, backgroundForTier, forcedBackground } from '../ui/backg
 import { RunSummaryScreen } from './RunSummaryScreen';
 import { Screen, ScreenManager } from './ScreenManager';
 import type { StatsInfo } from '../ui/stats';
+import { drawFieldFx } from '../ui/fieldFx';
 import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_TRAVEL, PHASE_MINE_WAIT, PHASE_ORBIT } from '../engine/projectiles';
 
 /** Seconds between the level ending and the summary appearing (a crash restarts faster). */
@@ -83,6 +84,8 @@ export class WallScreen implements Screen {
   private projLayer = new Container();
   private ship: ShipView;
   private arcG = new Graphics();
+  /** Residue Seed clouds. */
+  private fieldG = new Graphics();
   private bg: BackgroundView | null = null;
   /** ?debug=1: a faint line at world x = 0 so the seam of a ring can be seen. */
   private seamLine: Graphics | null = null;
@@ -121,7 +124,7 @@ export class WallScreen implements Screen {
       this.world.recipes.map((r, i) => ({ x: this.world.spawnOffsets[i].x, y: this.world.spawnOffsets[i].y, dir: r.direction })),
     );
     this.container.addChild(this.blockLayer, this.projLayer, this.ship.container, this.fxLayer, this.uiLayer);
-    this.fxLayer.addChild(this.arcG);
+    this.fxLayer.addChild(this.fieldG, this.arcG);
     const forcedBg = forcedBackground();
     if (forcedBg !== 'off') {
       this.bg = new BackgroundView(this.sm.app.renderer, forcedBg ?? backgroundForTier(levelDef.tier, !!levelDef.spike));
@@ -393,6 +396,7 @@ export class WallScreen implements Screen {
   /** Chain-lightning arcs, from the arc ring (world x -> screen x through the camera). */
   private drawArcs() {
     const proj = this.world.projSys;
+    drawFieldFx(this.fieldG, proj, (x) => this.sx(x), false);
     this.arcG.clear();
     let n = 0;
     for (let k = 0; k < ARC_MAX; k++) {

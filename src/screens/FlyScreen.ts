@@ -6,7 +6,8 @@ import type { StatsInfo } from '../ui/stats';
 import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
-import { THEME } from '../ui/theme';
+import { CATEGORY_COLOR, THEME } from '../ui/theme';
+import { HIT_CLOUD } from '../engine/projectiles';
 import { fmtBig } from '../ui/format';
 import { makeText } from '../builder/ui';
 import { getProgressStore } from '../econ/progress';
@@ -16,6 +17,7 @@ import { PointerGate } from '../engine/control';
 import { FragmentPool, RockView, enemyArt } from '../ui/rockArt';
 import { BackgroundView, forcedBackground, freeFlyThemeAt } from '../ui/background';
 import { ShipView } from '../ui/shipArt';
+import { drawFieldFx } from '../ui/fieldFx';
 import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_WAIT, PHASE_MINE_TRAVEL, PHASE_ORBIT } from '../engine/projectiles';
 
 /** Status tints of a rock: burning is a redder orange, frozen a pale blue. */
@@ -50,6 +52,8 @@ export class FlyScreen implements Screen {
   uiLayer = new Container();
   /** Chain-lightning arcs: one Graphics, cleared and redrawn from the arc ring each frame. */
   private arcG = new Graphics();
+  /** Residue Seed clouds and Gravity Well rings. */
+  private fieldG = new Graphics();
   
   ship: ShipView;
   hullBarBg = new Graphics().rect(0, 0, 100, 10).fill(0xff0000);
@@ -98,7 +102,7 @@ export class FlyScreen implements Screen {
       w.recipes.map((r, i) => ({ x: w.spawnOffsets[i].x, y: w.spawnOffsets[i].y, dir: r.direction })),
     );
     this.container.addChild(this.ship.container, this.fxLayer, this.uiLayer);
-    this.fxLayer.addChild(this.arcG);
+    this.fxLayer.addChild(this.fieldG, this.arcG);
     if (this.bgForced !== 'off') {
       this.bg = new BackgroundView(this.screenManager.app.renderer, this.bgForced ?? freeFlyThemeAt(0));
       this.container.addChildAt(this.bg.container, 0);
@@ -224,6 +228,11 @@ export class FlyScreen implements Screen {
         this.showNumber(h.x, h.y, `${Math.round(h.damage)}`, 0xff9a3c, 11);
         continue;
       }
+      if (h.kind === HIT_CLOUD) {
+        // A Residue Seed tick: a small number in the Mitosis colour, no hit flash.
+        this.showNumber(h.x, h.y, `${Math.round(h.damage)}`, CATEGORY_COLOR.mitosis, 11);
+        continue;
+      }
       this.flash.set(h.enemyId, FLASH_TIME);
       this.showDamage(h.x, h.y, h.damage);
     }
@@ -319,6 +328,7 @@ export class FlyScreen implements Screen {
     }
 
     const proj = this.world.projSys;
+    drawFieldFx(this.fieldG, proj);
     this.arcG.clear();
     let arcs = 0;
     for (let k = 0; k < ARC_MAX; k++) {

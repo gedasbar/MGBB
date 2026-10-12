@@ -38,6 +38,8 @@ export class ProjectilePool {
   ringId: Int32Array;
   ringT: Float32Array;
   ringN: Uint8Array;
+  /** Bouncing: bounces left (-1 = the projectile has no Bouncing block). */
+  bounces: Int8Array;
 
   constructor(max: number = CONFIG.CAPS.PROJECTILES) {
     this.max = max;
@@ -64,6 +66,7 @@ export class ProjectilePool {
     this.ringId = new Int32Array(max * RING);
     this.ringT = new Float32Array(max * RING);
     this.ringN = new Uint8Array(max);
+    this.bounces = new Int8Array(max).fill(-1);
   }
 
   spawn(x: number, y: number, vx: number, vy: number, damage: number, pure: number = 0, modIndex: number = 0): number {
@@ -90,6 +93,7 @@ export class ProjectilePool {
         this.s2[i] = 0;
         this.s3[i] = 0;
         this.ringN[i] = 0;
+        this.bounces[i] = -1;
         this.count++;
         return i;
       }

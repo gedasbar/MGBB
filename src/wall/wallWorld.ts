@@ -4,7 +4,7 @@ import { ProjectilePool } from '../engine/pools';
 import { EnemyEntity, ProjectileSystem } from '../engine/projectiles';
 import { BounceInfo, TargetField } from '../engine/targets';
 import { Gun, spawnOffsetsFor } from '../game/fire';
-import { HIT_BURN } from '../engine/projectiles';
+import { HIT_BURN, HIT_CLOUD } from '../engine/projectiles';
 import { buildStarterGrid } from '../game/starter';
 import {
   BOOST_MAX, CELL, PASS_MARGIN_CELLS, PROJECTILE_MAX_AGE, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_H,
@@ -229,7 +229,7 @@ export class WallWorld {
     this.projSys.onHit = (e, dmg, x, y, kind = 0) => {
       const b = e as Block;
       // A burn tick hurts the block but does not flash it or hold back its shield regeneration.
-      if (kind !== HIT_BURN) { b.lastHit = this.time; b.flash = FLASH_TIME; }
+      if (kind !== HIT_BURN && kind !== HIT_CLOUD) { b.lastHit = this.time; b.flash = FLASH_TIME; }
       this.hits.push({ blockId: b.id, damage: dmg, x, y, kind });
       if (b.hp <= 0) this.destroyBlock(b);
     };
@@ -382,7 +382,9 @@ export class WallWorld {
     for (const b of this.all) if (b.flash > 0) b.flash -= dt;
 
     // --- Wall: always approaching, faster the higher the ship is on the screen
-    this.wallOffsetY += scrollSpeed(this.level.approachSpeed, this.shipY) * dt;
+    const scrollDy = scrollSpeed(this.level.approachSpeed, this.shipY) * dt;
+    this.wallOffsetY += scrollDy;
+    this.projSys.shiftClouds(scrollDy); // a Residue Seed cloud stays where its block died
     this.syncY();
 
     // --- Auto-fire (the gun also releases shots a Delay Line held back)
@@ -408,9 +410,14 @@ export class WallWorld {
       pool.y[i] += pool.vy[i] * dt;
       if (this.ring) pool.x[i] = wrapX(pool.x[i], this.worldW);
       else if (pool.x[i] < 0 || pool.x[i] > this.worldW) {
-        if (this.projSys.modifiersTable[pool.modIndex[i]]?.some(m => m.type === 'bouncing')) {
+        // A flat (non-ring) wall has side edges: a Bouncing shot with bounces left reflects off them (one bounce, no damage).
+        const bm = this.projSys.modifiersTable[pool.modIndex[i]]?.find(m => m.type === 'bouncing');
+        if (bm && this.projSys.bouncesLeft(i, bm.level ?? 1) > 0) {
           if (pool.x[i] < 0) { pool.x[i] = -pool.x[i]; pool.vx[i] = Math.abs(pool.vx[i]); }
           else { pool.x[i] = 2 * this.worldW - pool.x[i]; pool.vx[i] = -Math.abs(pool.vx[i]); }
+          pool.bounces[i]--;
+          this.projSys.fx.bounces++;
+          this.projSys.fx.edgeBounces++;
         } else {
           pool.free(i);
           continue;
@@ -424,6 +431,7 @@ export class WallWorld {
 
     // --- Hits (blocks die inside the hit callback)
     this.projSys.processField(this.field, this.level.tier);
+    this.projSys.updateClouds(dt, this.field, this.level.tier); // Residue Seed ticks (a block killed by one is destroyed in the hit callback)
 
     // --- End of level. Destroyed blocks never kill; a cleared wall beats a crash and a pass.
     if (this.alive === 0) this.state = 'cleared';

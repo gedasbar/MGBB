@@ -25,6 +25,9 @@ const DELAY_CAP = 512;
 export interface GunCounters {
   /** Pulses on which an Alternator sent the packet to its other output. */
   alternations: number;
+  /** Random Router pulses: how many picked a single output and how many took both. */
+  routerSingle: number;
+  routerBoth: number;
   capacitorAbsorbed: number;
   capacitorEmits: number;
   delayedShots: number;
@@ -44,7 +47,7 @@ export class Gun {
   /** Seconds of simulated time (advanced by update). */
   time = 0;
   readonly fx: GunCounters = {
-    alternations: 0, capacitorAbsorbed: 0, capacitorEmits: 0, delayedShots: 0, delayReleases: 0, overclockPeak: 1, overclockResets: 0,
+    alternations: 0, routerSingle: 0, routerBoth: 0, capacitorAbsorbed: 0, capacitorEmits: 0, delayedShots: 0, delayReleases: 0, overclockPeak: 1, overclockResets: 0,
   };
 
   private readonly dyn: boolean[];
@@ -55,6 +58,9 @@ export class Gun {
   private readonly altCount: Int32Array;
   private readonly altStamp: Int32Array;
   private readonly altCur: Int32Array;
+  /** Random Router: the pulse each router last picked on and what it picked (-1 = both outputs). */
+  private readonly rndStamp: Int32Array;
+  private readonly rndChoice: Int32Array;
   private pulseNo = 0;
   /** Overclock streaks reset after this long without a packet: 1 s, or 1.5 pulse periods on a slow hull. */
   private readonly window: number;
@@ -72,12 +78,14 @@ export class Gun {
     this.dyn = recipes.map(r => isDynamic(r.packet));
     this.st = recipes.map(r => new Float64Array(Math.max(1, r.packet.ops.length) * 3));
     for (const r of recipes) {
-      for (const op of r.packet.ops) if (op.t === 'alt' && !this.altKeys.has(op.key)) this.altKeys.set(op.key, this.altKeys.size);
+      for (const op of r.packet.ops) if ((op.t === 'alt' || op.t === 'rnd') && !this.altKeys.has(op.key)) this.altKeys.set(op.key, this.altKeys.size);
     }
     const n = Math.max(1, this.altKeys.size);
     this.altCount = new Int32Array(n);
     this.altStamp = new Int32Array(n).fill(-1);
     this.altCur = new Int32Array(n);
+    this.rndStamp = new Int32Array(n).fill(-1);
+    this.rndChoice = new Int32Array(n);
     this.window = Math.max(OVERCLOCK_WINDOW, 1.5 * pulsePeriod);
   }
 
@@ -103,6 +111,7 @@ export class Gun {
     for (const a of this.st) a.fill(0);
     this.altCount.fill(0);
     this.altStamp.fill(-1);
+    this.rndStamp.fill(-1);
   }
 
   /** One pulse from (shipX, shipY): one projectile per recipe that fires on it (see the class comment). */
@@ -182,6 +191,18 @@ export class Gun {
           const ki = this.altKeys.get(op.key) as number;
           if (this.altStamp[ki] !== this.pulseNo) { this.altStamp[ki] = this.pulseNo; this.altCur[ki] = this.altCount[ki]; }
           if (this.altCur[ki] % op.of !== op.branch) return 0;
+          break;
+        }
+        case 'rnd': {
+          const ki = this.altKeys.get(op.key) as number;
+          if (this.rndStamp[ki] !== this.pulseNo) {
+            // One pick per router per pulse, shared by every recipe below it: both outputs, or one of them.
+            this.rndStamp[ki] = this.pulseNo;
+            if (op.both > 0 && rng.combat.next() < op.both) { this.rndChoice[ki] = -1; this.fx.routerBoth++; }
+            else { this.rndChoice[ki] = Math.min(op.of - 1, Math.floor(rng.combat.next() * op.of)); this.fx.routerSingle++; }
+          }
+          const c = this.rndChoice[ki];
+          if (c !== -1 && c !== op.branch) return 0;
           break;
         }
         case 'delay': this.curDelay += op.sec; break;

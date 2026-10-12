@@ -11,6 +11,11 @@ import { leakDamage, rockHp, rockReward, tierOfTime } from '../econ/economy';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 import { fireRateMul } from '../data/hulls';
 import { SPECIES, speciesOf } from '../data/species';
+import { ENEMIES } from '../data/enemies';
+import { EnemyField } from '../engine/targets';
+import { HIT_BURN, HIT_CLOUD } from '../engine/projectiles';
+import { fissionCooldown, WELL_RADIUS } from '../engine/effects';
+import { PROJECTILE_MAX_AGE } from '../wall/constants';
 import { FREEFLY_REWARD_MUL, freeFlyRewardTier, waveBonus, waveHpMul, WAVE_TIME } from '../data/waves';
 import { PlannedSpawn, WaveDirector } from './waves';
 import { SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC } from '../wall/constants';
@@ -96,6 +101,8 @@ export class World {
   splits: SplitEvent[] = [];
   killEvents: KillEvent[] = [];
 
+  /** Counters of the Mitosis blocks that act in the world (debug hook and tests). */
+  readonly fx = { fissionSplits: 0, fissionBlocked: 0, cauterizedKills: 0, spillChildren: 0, wellPulls: 0 };
   /** Dev cheat (debugHooks.god): contact and leaks do no damage. */
   god = false;
   /** Dev cheat: the run starts at this wave (run time and tier follow it); 1 = normal. */
@@ -121,7 +128,7 @@ export class World {
     this.projSys.onHit = (e, dmg, x, y, kind = 0) => {
       this.hits.push({ enemyId: e.id, damage: dmg, x, y, kind });
       // A shield regenerates SHIELD_REGEN_DELAY after the last hit; a burn tick does not hold it back (as on the wall).
-      if (kind !== 1) (e as MitosisEnemy).lastHit = this.time;
+      if (kind !== HIT_BURN && kind !== HIT_CLOUD) (e as MitosisEnemy).lastHit = this.time;
     };
   }
 
@@ -131,6 +138,59 @@ export class World {
   private applyStartWave() {
     this.time = (this.startWave - 1) * WAVE_TIME;
     this.director.jumpTo(this.startWave);
+  }
+
+  /** True if this rock has a split rule it can still use (the generation cap and the species' own cap). */
+  private canSplit(e: MitosisEnemy): boolean {
+    const rule = ENEMIES[e.defId]?.split;
+    return !!rule && e.generation < Math.min(CONFIG.MITOSIS.MAX_GENERATION, rule.maxGeneration ?? Infinity);
+  }
+
+  /** Gravity Well: every live attractor pulls rocks inside WELL_RADIUS towards its point (never past it; the point is kept on the screen). */
+  private pullToWells(e: MitosisEnemy, dt: number) {
+    const ps = this.projSys;
+    for (let k = 0; k < ps.wellT.length; k++) {
+      if (ps.wellT[k] <= 0) continue;
+      const tx = Math.max(0, Math.min(CONFIG.VIEW.W, ps.wellX[k]));
+      const ty = Math.max(0, ps.wellY[k]);
+      const dx = tx - e.x, dy = ty - e.y;
+      const d = Math.hypot(dx, dy);
+      if (d > WELL_RADIUS || d < 1e-6) continue;
+      const step = Math.min(ps.wellS[k] * dt, d);
+      e.x += (dx / d) * step;
+      e.y += (dy / d) * step;
+      this.fx.wellPulls++;
+    }
+  }
+
+  /**
+   * Fission Catalyst: a rock that was hit without dying and asked for it splits now, if it can split, is not cauterized and its
+   * cooldown is over. The children share the rock's remaining HP and start with the cooldown. No kill, no credits.
+   */
+  private applyFission() {
+    const enemies = this.mitosis.enemies;
+    for (const e of [...enemies]) {
+      const lvl = e.fissionLevel ?? 0;
+      if (!lvl) continue;
+      e.fissionLevel = 0;
+      if (e.hp <= 0) continue;
+      if (!this.canSplit(e) || (e.cauterizedTimer ?? 0) > 0 || this.time < (e.fissionReady ?? 0)) { this.fx.fissionBlocked++; continue; }
+      const firstChildId = this.mitosis.nextId;
+      this.mitosis.handleDeath(e, 0, true, true);
+      const childIds: number[] = [];
+      for (const c of this.mitosis.enemies) {
+        if (c.id < firstChildId) continue;
+        childIds.push(c.id);
+        c.fissionReady = this.time + fissionCooldown(lvl);
+        c.x = Math.max(c.radius, Math.min(CONFIG.VIEW.W - c.radius, c.x));
+        const ang = Math.atan2(c.y - e.y, c.x - e.x) || 0;
+        this.kicks.set(c.id, { vx: Math.cos(ang) * 160, vy: Math.sin(ang) * 160 });
+        this.initMotion(c);
+      }
+      this.forget(e.id);
+      this.fx.fissionSplits++;
+      this.splits.push({ parentId: e.id, x: e.x, y: e.y, radius: e.radius, childIds, defId: e.defId });
+    }
   }
 
   /** Dev cheat: removes every enemy at once (no credits, no split). */
@@ -298,6 +358,11 @@ export class World {
       if (!pool.active[i]) continue;
       pool.x[i] += pool.vx[i] * dt;
       pool.y[i] += pool.vy[i] * dt;
+      // A Bouncing shot with bounces left reflects off the screen edges (no damage); one that carries the block cannot fly for ever.
+      if (pool.bounces[i] >= 0) {
+        this.projSys.edgeBounce(i, 0, VW, 0, CONFIG.VIEW.H);
+        if (pool.age[i] > PROJECTILE_MAX_AGE) { pool.free(i); continue; }
+      }
       if (pool.x[i] < -50 || pool.x[i] > VW + 50 || pool.y[i] < -50 || pool.y[i] > CONFIG.VIEW.H + 50) {
         pool.free(i);
       }
@@ -349,6 +414,8 @@ export class World {
       }
       e.x += e.vx * dt;
       e.y += e.vy * dt;
+      if ((e.cauterizedTimer ?? 0) > 0) e.cauterizedTimer = (e.cauterizedTimer as number) - dt;
+      this.pullToWells(e, dt);
 
       // Confined to the screen width: a side reflects the horizontal motion (sway and knockback) and clamps it back inside.
       const minX = e.radius, maxX = VW - e.radius;
@@ -395,19 +462,26 @@ export class World {
     // --- Projectile hits (rebuild hash with post-move positions)
     spatial.clear();
     for (const e of enemies) spatial.insert(e.id, e.x, e.y);
-    this.projSys.processHits(enemies, spatial, 1);
+    const field = new EnemyField(enemies, spatial);
+    this.projSys.processField(field, 1);
+    this.projSys.updateClouds(dt, field, 1); // Residue Seed ticks and the age of Gravity Wells
+    this.applyFission();
 
     // --- Death → mitosis
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       if (e.hp <= 0) {
-        const reward = rockReward(freeFlyRewardTier(e.tier), e.generation) * speciesOf(e.defId).rewardMul * FREEFLY_REWARD_MUL;
+        let reward = rockReward(freeFlyRewardTier(e.tier), e.generation) * speciesOf(e.defId).rewardMul * FREEFLY_REWARD_MUL;
+        // Cauterize: a kill inside the window leaves no children (the mitosis system's rule) and pays extra, if it would have split.
+        const cauterized = (e.cauterizedTimer ?? 0) > 0 && this.canSplit(e);
+        if (cauterized) { reward *= 1 + (e.cauterizeBonus ?? 0); this.fx.cauterizedKills++; }
         this.kills++;
         this.creditsExact += reward;
         this.killEvents.push({ x: e.x, y: e.y, reward, generation: e.generation });
         const firstChildId = this.mitosis.nextId;
         this.mitosis.handleDeath(e, -e.hp);
         const childIds: number[] = [];
+        const spill = (e.spillFrac ?? 0) * -e.hp;
         for (const c of this.mitosis.enemies) {
           if (c.id >= firstChildId) {
             childIds.push(c.id);
@@ -416,6 +490,10 @@ export class World {
             this.kicks.set(c.id, { vx: Math.cos(ang) * 160, vy: Math.sin(ang) * 160 });
             this.initMotion(c);
           }
+        }
+        // Overkill Spill: that share of the excess is dealt to the children on top of what the split already took off them.
+        if (spill > 0 && childIds.length > 0) {
+          for (const c of this.mitosis.enemies) if (childIds.includes(c.id)) { c.hp -= spill / childIds.length; this.fx.spillChildren++; }
         }
         this.forget(e.id);
         this.splits.push({ parentId: e.id, x: e.x, y: e.y, radius: e.radius, childIds, defId: e.defId });
