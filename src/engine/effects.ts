@@ -84,8 +84,13 @@ export const RESIDUE_RADIUS = 40;
 export const RESIDUE_TIME = 2.5;
 export const RESIDUE_TICK = 0.5;
 export const residueFrac = (l: number) => 0.4 + 0.1 * (l - 1);
-/** Overkill Spill: share of a kill's excess damage sent to the children on top of what rocks already pass on (100%). */
-export const spillFrac = (l: number) => Math.min(1, 0.5 + 0.1 * (l - 1));
+/**
+ * Overkill Spill: share of the killing hit's TOTAL damage that every child of the killed rock takes at once. The brief's 30% (+10% a
+ * level) scored 0.01 of a Flat+ (a hit is tens of damage against thousands of HP), so it is 300% at level 1, +50% a level (decision 169).
+ */
+export const spillFrac = (l: number) => 3 + 0.5 * (l - 1);
+/** Overkill Spill: how many generations deep a burst may chain from one kill (a child the burst kills passes it on once more). */
+export const SPILL_CHAIN_DEPTH = 2;
 /** Gravity Well: pull radius (px), lifetime (s) and pull speed (px/s). */
 export const WELL_RADIUS = 120;
 export const WELL_TIME = 1.5;

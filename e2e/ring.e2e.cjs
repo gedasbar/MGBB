@@ -56,7 +56,7 @@ async function snap(page, name) {
   s = await state(page);
   check(s.camTravel > ringW, `camera travelled ${s.camTravel.toFixed(0)} px = ${(s.camTravel / ringW).toFixed(2)} ring widths (needs more than ${ringW})`);
   check(s.cameraX >= 0 && s.cameraX < ringW, `camera x wrapped into [0, ${ringW}) (${s.cameraX.toFixed(1)})`);
-  const first = fr.findIndex(f => Math.abs(f.sx - 538) < 1.5);   // after the ship has eased onto the pointer
+  const first = fr.findIndex(f => Math.abs(f.sx - 527) < 1.5);   // after the ship has eased onto the pointer
   const steady = fr.slice(Math.max(0, first));
   let maxJump = 0, wraps = 0;
   for (let i = 1; i < steady.length; i++) {

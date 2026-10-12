@@ -1,4 +1,4 @@
-import { CONFIG } from '../config';
+import { CONFIG, shipHalfW } from '../config';
 import { ProjectilePool } from '../engine/pools';
 import { MitosisSystem } from '../engine/mitosis';
 import { ProjectileSystem } from '../engine/projectiles';
@@ -14,7 +14,7 @@ import { SPECIES, speciesOf } from '../data/species';
 import { ENEMIES } from '../data/enemies';
 import { EnemyField } from '../engine/targets';
 import { HIT_BURN, HIT_CLOUD } from '../engine/projectiles';
-import { fissionCooldown, WELL_RADIUS } from '../engine/effects';
+import { fissionCooldown, SPILL_CHAIN_DEPTH, WELL_RADIUS } from '../engine/effects';
 import { PROJECTILE_MAX_AGE } from '../wall/constants';
 import { FREEFLY_REWARD_MUL, freeFlyRewardTier, waveBonus, waveHpMul, WAVE_TIME } from '../data/waves';
 import { PlannedSpawn, WaveDirector } from './waves';
@@ -323,7 +323,8 @@ export class World {
     if (Math.abs(this.knockX) < 0.05) this.knockX = 0;
     if (Math.abs(this.knockY) < 0.05) this.knockY = 0;
     const m = CONFIG.PLAYER.MARGIN;
-    this.shipX = Math.max(m, Math.min(VW - m, baseX + this.knockX));
+    const mx = shipHalfW(VW);
+    this.shipX = Math.max(mx, Math.min(VW - mx, baseX + this.knockX));
     this.shipY = Math.max(m, Math.min(CONFIG.VIEW.H - m, baseY + this.knockY));
 
     // --- Auto-fire (the gun also releases shots a Delay Line held back)
@@ -483,7 +484,7 @@ export class World {
         const firstChildId = this.mitosis.nextId;
         this.mitosis.handleDeath(e, -e.hp);
         const childIds: number[] = [];
-        const spill = (e.spillFrac ?? 0) * -e.hp;
+        const burst = e.spillBurst ?? 0;
         for (const c of this.mitosis.enemies) {
           if (c.id >= firstChildId) {
             childIds.push(c.id);
@@ -493,9 +494,16 @@ export class World {
             this.initMotion(c);
           }
         }
-        // Overkill Spill: that share of the excess is dealt to the children on top of what the split already took off them.
-        if (spill > 0 && childIds.length > 0) {
-          for (const c of this.mitosis.enemies) if (childIds.includes(c.id)) { c.hp -= spill / childIds.length; this.fx.spillChildren++; }
+        // Overkill Spill: every child takes the burst (a share of the killing hit's total damage). A child it kills that can
+        // still split is marked with the same burst, so its own children take it when it dies, up to SPILL_CHAIN_DEPTH deep.
+        if (burst > 0 && childIds.length > 0) {
+          const depth = e.spillDepth ?? 0;
+          for (const c of this.mitosis.enemies) {
+            if (!childIds.includes(c.id)) continue;
+            c.hp -= burst;
+            this.fx.spillChildren++;
+            if (c.hp <= 0 && depth + 1 < SPILL_CHAIN_DEPTH && this.canSplit(c)) { c.spillBurst = burst; c.spillDepth = depth + 1; }
+          }
         }
         this.forget(e.id);
         this.splits.push({ parentId: e.id, x: e.x, y: e.y, radius: e.radius, childIds, defId: e.defId });

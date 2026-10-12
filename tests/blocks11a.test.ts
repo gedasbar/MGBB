@@ -231,16 +231,42 @@ describe('Residue Seed', () => {
 });
 
 describe('Overkill Spill', () => {
-  it('carries 50% of the excess (+10% a level, up to 100%) to the children on top of the split\'s own 100%', () => {
-    const childHp = (mods: Mod[]) => {
-      const w = ff();
-      const e = rock(w, 200, 300, 100, { maxHp: 1000 });
-      shootRock(w, e, 140, mods); // 40 beyond its HP
-      return w.mitosis.enemies.map(k => k.hp);
-    };
-    expect(childHp([])).toEqual([530, 530]);                                     // 550 - 40 / 2, as before this chunk
-    expect(childHp([{ type: 'overkill_spill', level: 1 }])).toEqual([520, 520]); // + 50% of 40, spread over 2
-    expect(childHp([{ type: 'overkill_spill', level: 6 }])).toEqual([510, 510]); // + 100%
+  const kill = (mods: Mod[], hp = 100, maxHp = 1000, dmg = 140) => {
+    const w = ff();
+    const e = rock(w, 200, 300, hp, { maxHp });
+    shootRock(w, e, dmg, mods);
+    return w;
+  };
+
+  it("every child takes 300% (+50% a level) of the killing hit's TOTAL damage on top of the split's own pass-on", () => {
+    const childHp = (mods: Mod[]) => kill(mods, 100, 4000, 140).mitosis.enemies.map(k => k.hp);
+    expect(childHp([])).toEqual([2180, 2180]);                                          // 2200 - 40 / 2, unchanged without the block
+    expect(childHp([{ type: 'overkill_spill', level: 1 }])).toEqual([2180 - 420, 2180 - 420]);  // 300% of 140 each, not of the 40 excess
+    expect(childHp([{ type: 'overkill_spill', level: 3 }])).toEqual([2180 - 560, 2180 - 560]);  // 400%
+    expect(childHp([{ type: 'overkill_spill', level: 6 }])).toEqual([2180 - 770, 2180 - 770]);  // 550%
+  });
+
+  it('does nothing when the rock does not die or cannot split, and nothing on wall blocks', () => {
+    const w = ff();
+    const e = rock(w, 200, 300, 1000, { maxHp: 1000 });
+    shootRock(w, e, 140, [{ type: 'overkill_spill', level: 6 }]);
+    expect(e.hp).toBe(860);
+    expect(w.fx.spillChildren).toBe(0);
+    const ww = wall(wallLevel(3, () => plainBlock(100)));
+    const b = ww.blocks[1 * WALL_COLS + 4]!;
+    shootAt(ww, b.x, b.y, 140, [{ type: 'overkill_spill', level: 6 }]);
+    ww.update(DT, null);
+    expect(ww.blocks[1 * WALL_COLS + 4]).toBeNull();
+    expect(ww.blocks.filter(Boolean).every(k => k!.hp === 100)).toBe(true); // no neighbour took anything
+  });
+
+  it('a child the burst kills splits as usual and passes the burst on once more, then it stops (2 generations deep)', () => {
+    const w = kill([{ type: 'overkill_spill', level: 1 }], 30, 300, 52); // burst 156 kills the children, and again their children
+    expect(w.fx.spillChildren).toBe(2);
+    for (let k = 0; k < 30; k++) w.update(DT, idle);
+    expect(w.fx.spillChildren).toBe(2 + 4);     // the 2 dead children each split into 2: 4 grandchildren took the burst
+    for (let k = 0; k < 120; k++) w.update(DT, idle);
+    expect(w.fx.spillChildren).toBe(6);         // no third step
   });
 });
 

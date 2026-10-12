@@ -1,16 +1,25 @@
+import { shipHalfW } from '../config';
 import { wrapDx, wrapX } from '../engine/wrap';
 import { CAMERA_EASE, CAMERA_MAX_X, EDGE_ZONE, MAX_CAMERA_SPEED, VIEW_W } from './constants';
 
-const smoothstep = (t: number) => t * t * (3 - 2 * t);
+/** Ship-centre x clamped so the whole ship stays on screen: [m, viewW - m]. */
+export function clampShipX(x: number, viewW = VIEW_W): number {
+  const m = shipHalfW(viewW);
+  return Math.max(m, Math.min(viewW - m, x));
+}
 
 /**
- * Target camera speed in px/s for a pointer at screen x (negative = scroll left).
- * 0 at the inner edge of the outer zone, MAX_CAMERA_SPEED at the screen edge, eased in between.
+ * Target camera speed in px/s for a ship at screen x (negative = scroll left).
+ * 0 at the inner edge of the outer zone, rising linearly to maxSpeed exactly at the clamp edge m (or viewW - m).
  */
-export function edgePushSpeed(pointerX: number, viewW = VIEW_W, zoneFrac = EDGE_ZONE, maxSpeed = MAX_CAMERA_SPEED): number {
+export function edgePushSpeed(shipX: number, viewW = VIEW_W, zoneFrac = EDGE_ZONE, maxSpeed = MAX_CAMERA_SPEED): number {
   const zone = viewW * zoneFrac;
-  if (pointerX < zone) return -maxSpeed * smoothstep(Math.min(1, (zone - pointerX) / zone));
-  if (pointerX > viewW - zone) return maxSpeed * smoothstep(Math.min(1, (pointerX - (viewW - zone)) / zone));
+  const m = shipHalfW(viewW);
+  const span = zone - m;
+  // Distance to the nearest side, so both sides use the same arithmetic and hit the max exactly at m.
+  const dLeft = shipX, dRight = viewW - shipX;
+  if (dLeft < zone) return -maxSpeed * Math.min(1, (zone - dLeft) / span);
+  if (dRight < zone) return maxSpeed * Math.min(1, (zone - dRight) / span);
   return 0;
 }
 
@@ -43,7 +52,7 @@ export class WallCamera {
   /** Unwrapped distance travelled (rings). */
   travel = 0;
 
-  /** `pointerX` is the pointer in screen px, or null when nothing should push (touch released, pointer unseen). */
+  /** `pointerX` is the (clamped) ship screen x in px, or null when nothing should push (touch released, pointer unseen). */
   update(dt: number, pointerX: number | null) {
     const target = pointerX === null ? 0 : edgePushSpeed(pointerX);
     this.speed += (target - this.speed) * (1 - Math.exp(-CAMERA_EASE * dt));

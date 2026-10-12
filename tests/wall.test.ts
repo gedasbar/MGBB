@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CONFIG } from '../src/config';
+import { CONFIG, shipHalfW } from '../src/config';
 import { World } from '../src/game/world';
 import { buildStarterGrid } from '../src/game/starter';
 import { applyDamage } from '../src/engine/damage';
@@ -8,7 +8,7 @@ import {
   BOOST_MAX, CAMERA_MAX_X, CELL, EDGE_ZONE, FIRE_OFFSET_SCALE, MAX_CAMERA_SPEED, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_W, WALL_COLS,
   PASS_MARGIN_CELLS, WORLD_WIDTH,
 } from '../src/wall/constants';
-import { edgePushSpeed, WallCamera } from '../src/wall/camera';
+import { clampShipX, edgePushSpeed, WallCamera } from '../src/wall/camera';
 import { BlockDef, blockHp, LevelDef, makeTestWall, rewardPerBlock } from '../src/wall/level';
 import { simulateWall } from '../src/wall/sim';
 import { boostT, scrollSpeed, WallWorld } from '../src/wall/wallWorld';
@@ -299,23 +299,45 @@ describe('Ejector offset', () => {
 });
 
 describe('Edge-push camera', () => {
-  it('is 0 at the inner edge of the 18% zone, 420 px/s at the screen edge, eased between, signed by side', () => {
+  it('is 0 at the inner edge of the 18% zone, rises linearly to exactly 420 px/s at the clamp edge m, signed by side', () => {
     const zone = VIEW_W * EDGE_ZONE;
+    const m = shipHalfW(VIEW_W);
     expect(zone).toBeCloseTo(97.2, 9);
+    expect(m).toBe(13);
     expect(edgePushSpeed(zone)).toBe(0);
-    expect(edgePushSpeed(VIEW_W - zone)).toBe(0);
+    expect(edgePushSpeed(VIEW_W - zone)).toBeCloseTo(0, 9);
     expect(edgePushSpeed(270)).toBe(0);
-    expect(edgePushSpeed(0)).toBe(-MAX_CAMERA_SPEED);
-    expect(edgePushSpeed(VIEW_W)).toBe(MAX_CAMERA_SPEED);
-    expect(edgePushSpeed(-30)).toBe(-MAX_CAMERA_SPEED); // pointer in the letterbox counts as the edge
-    const a = edgePushSpeed(VIEW_W - zone * 0.75);
-    const b = edgePushSpeed(VIEW_W - zone * 0.5);
-    const c = edgePushSpeed(VIEW_W - zone * 0.25);
-    expect(0).toBeLessThan(a);
-    expect(a).toBeLessThan(b);
-    expect(b).toBeLessThan(c);
-    expect(c).toBeLessThan(MAX_CAMERA_SPEED);
-    expect(b).toBeCloseTo(MAX_CAMERA_SPEED / 2, 6); // the easing is symmetric around the middle of the zone
+    expect(edgePushSpeed(m)).toBe(-MAX_CAMERA_SPEED);
+    expect(edgePushSpeed(VIEW_W - m)).toBe(MAX_CAMERA_SPEED);
+    // Never above the max, even for an unclamped input.
+    expect(edgePushSpeed(-30)).toBe(-MAX_CAMERA_SPEED);
+    expect(edgePushSpeed(VIEW_W + 30)).toBe(MAX_CAMERA_SPEED);
+    // Monotonic and linear from the zone edge to the clamp edge, both directions.
+    let prev = 0;
+    for (let x = VIEW_W - zone; x <= VIEW_W - m; x += 1) {
+      const v = edgePushSpeed(x);
+      expect(v).toBeGreaterThanOrEqual(prev);
+      expect(v).toBeLessThanOrEqual(MAX_CAMERA_SPEED);
+      prev = v;
+    }
+    const mid = edgePushSpeed(VIEW_W - (zone + m) / 2);
+    expect(mid).toBeCloseTo(MAX_CAMERA_SPEED / 2, 6);
+    expect(mid).toBeCloseTo(-edgePushSpeed((zone + m) / 2), 6); // the two sides mirror each other
+  });
+
+  it('the ship screen x stays in [m, W-m] for any pointer x, so the whole ship (half width m) is on screen', () => {
+    const m = shipHalfW(VIEW_W);
+    for (let px = -500; px <= VIEW_W + 500; px += 7) {
+      const x = clampShipX(px);
+      expect(x).toBeGreaterThanOrEqual(m);
+      expect(x).toBeLessThanOrEqual(VIEW_W - m);
+      expect(x - m).toBeGreaterThanOrEqual(0);       // left side of the art
+      expect(x + m).toBeLessThanOrEqual(VIEW_W);     // right side of the art
+    }
+    expect(clampShipX(-500)).toBe(m);
+    expect(clampShipX(VIEW_W + 500)).toBe(VIEW_W - m);
+    expect(clampShipX(200)).toBe(200);
+    expect(shipHalfW(1080)).toBe(26); // scales with the viewport
   });
 
   it('starts centred, speeds up to 420, clamps at both ends and stops when the pointer leaves the zone', () => {
