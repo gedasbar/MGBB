@@ -96,6 +96,16 @@ export class SfxEngine {
     this.resume();
   }
 
+  private lastResumeTry = -1e9;
+
+  /** A play() on a suspended context asks it to resume, at most four times a second. */
+  private retryResume() {
+    const t = this.now();
+    if (t - this.lastResumeTry < 0.25) return;
+    this.lastResumeTry = t;
+    this.resume();
+  }
+
   /** Resumes a suspended context (tab focus). */
   resume(): void {
     const c = this.ctx;
@@ -124,7 +134,7 @@ export class SfxEngine {
   /** Plays a sound; returns whether it was started (false: not ready, muted, rate limited or dropped). */
   play(id: SfxId, opts?: PlayOpts): boolean {
     const ctx = this.ctx;
-    if (ctx && ctx.state !== 'running') this.resume(); // a suspended context would queue sounds up and play them in a burst later
+    if (ctx && ctx.state !== 'running') this.retryResume(); // a suspended context would queue sounds up and play them in a burst later
     if (!ctx || ctx.state !== 'running' || !this.sfx || this.settings.muted || this.settings.masterVolume <= 0 || this.settings.sfxVolume <= 0) return false;
     const k = this.index.get(id);
     if (k === undefined) return false;

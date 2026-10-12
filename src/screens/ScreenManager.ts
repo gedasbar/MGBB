@@ -93,6 +93,8 @@ export class ScreenManager {
   installPauseTriggers(win: Window = window) {
     win.addEventListener('keydown', (e) => {
       if (e.repeat) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return; // typing in the debug panel
       if (e.code === 'Escape' || e.code === 'KeyP') this.onPauseKey();
     });
     win.addEventListener('blur', () => { this.pause(); });
