@@ -201,6 +201,9 @@ export class ProjectileSystem {
     fission: 0, cauterize: 0, cleaver: 0, culling: 0, residue: 0, spill: 0, gravity: 0, staticCharge: 0,
   };
 
+  /** Captain effects on every hit (chunk 13a). The neutral values change nothing; the world sets them at run start. */
+  readonly bonus = { damageMul: 1, vsArmor: 0, vsShield: 0, vsFragment: 0 };
+
   /** Optional hook fired once per enemy damaged (used for hit flash / damage numbers). */
   onHit: HitCallback | null = null;
 
@@ -589,6 +592,12 @@ export class ProjectileSystem {
     x: number, y: number, kind: number,
   ): DamageResult {
     let d = dmg;
+    // Captain effects: damage %, and the extra against armor, shields and fragments (all identity when neutral).
+    const cb = this.bonus;
+    if (cb.damageMul !== 1) d *= cb.damageMul;
+    if (cb.vsArmor > 0 && t.armor > 0) d *= 1 + cb.vsArmor;
+    if (cb.vsShield > 0 && t.shield > 0) d *= 1 + cb.vsShield;
+    if (cb.vsFragment > 0 && t.generation !== undefined && t.generation >= FRAGMENT_GENERATION) d *= 1 + cb.vsFragment;
     // Cleaver (rocks only: wall blocks have no generation): fragments take more, parents less.
     if (mi.cleaver && t.generation !== undefined) {
       d *= t.generation >= FRAGMENT_GENERATION ? cleaverBonus(mi.cleaver) : cleaverPenalty(mi.cleaver);

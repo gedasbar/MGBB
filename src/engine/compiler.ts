@@ -2,7 +2,7 @@ import { CONFIG } from '../config';
 import { BLOCKS } from '../data/blocks';
 import { fireRateMul } from '../data/hulls';
 import {
-  clonePacket, Dir, DIRS, dirToRotation, emitRate, evalDamage, newPacket, Packet, Rel, relToDir, Rotation, rotationToDir,
+  clonePacket, Dir, DIRS, GENERATOR_BASE_DAMAGE, dirToRotation, emitRate, evalDamage, newPacket, Packet, Rel, relToDir, Rotation, rotationToDir,
 } from './compilerTypes';
 
 export interface GridCell {
@@ -131,7 +131,11 @@ interface Signal {
 }
 
 /** Pure and deterministic: the same grid always gives the same result. */
-export function compile(grid: Grid): CompiledShip {
+/** Options of a compile: the extra base damage the active captain's hero level gives every packet (0 = none). */
+export interface CompileOptions { baseDamage?: number }
+
+export function compile(grid: Grid, opts: CompileOptions = {}): CompiledShip {
+  const baseDamage = GENERATOR_BASE_DAMAGE + (opts.baseDamage ?? 0);
   const { w, h, cells } = grid;
   const cellInfo: CellInfo[] = cells.map(c => ({
     onPath: false, inDirs: [], outDirs: [], effectiveRotation: c.rotation, orientationMode: c.manual ? 'manual' : 'auto',
@@ -150,7 +154,7 @@ export function compile(grid: Grid): CompiledShip {
     cellInfo[gi].onPath = true;
     cellInfo[gi].outDirs.push(facing);
     let steps = 0;
-    const stack: Signal[] = [{ x: gen.x, y: gen.y, dir: facing, packet: newPacket(), seen: new Set() }];
+    const stack: Signal[] = [{ x: gen.x, y: gen.y, dir: facing, packet: newPacket(baseDamage), seen: new Set() }];
 
     while (stack.length > 0) {
       const sig = stack.pop()!;

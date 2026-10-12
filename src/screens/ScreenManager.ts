@@ -6,6 +6,8 @@ import { Overlays } from '../ui/overlays';
 
 /** What a fly screen offers the pause menu. */
 export interface Pausable {
+  /** Called on every pause trigger (button, key, tab hidden, blur), even when pausing is not allowed: saves what the run has so far. */
+  persist?(): void;
   /** The run has started and is still going (pausing before the first move or after the end is not allowed). */
   canPause(): boolean;
   /** Called on resume: the ship eases back to the pointer. */
@@ -44,6 +46,7 @@ export class ScreenManager {
   /** Pauses the current run if it may be paused now (started, not over). Returns whether it paused. */
   pause(): boolean {
     const p = this.currentScreen?.pausable;
+    p?.persist?.();
     if (!p || !p.canPause()) return false;
     return this.pauseCtl.pause();
   }

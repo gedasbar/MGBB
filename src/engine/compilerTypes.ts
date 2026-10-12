@@ -82,6 +82,8 @@ export function emitRate(p: Packet): { pulse: number; branch: number } {
 }
 
 export interface Packet {
+  /** The damage the generator starts the packet with (1, plus the captain's hero-level bonus). The ops replay from it. */
+  base: number;
   /** Deterministic damage: every add/mul applied in order, chance gates NOT applied. */
   damage: number;
   pure: number; // 0..1
@@ -95,8 +97,11 @@ export interface Packet {
   tags: Set<string>;
 }
 
-export function newPacket(): Packet {
-  return { damage: 1, pure: 0, count: 1, speedMul: 1, lifeMul: 1, sizeMul: 1, mods: [], gates: [], ops: [], tags: new Set() };
+/** Damage of a packet as it leaves the generator, before any block. */
+export const GENERATOR_BASE_DAMAGE = 1;
+
+export function newPacket(base: number = GENERATOR_BASE_DAMAGE): Packet {
+  return { base, damage: base, pure: 0, count: 1, speedMul: 1, lifeMul: 1, sizeMul: 1, mods: [], gates: [], ops: [], tags: new Set() };
 }
 
 export function addDamage(p: Packet, v: number) {
@@ -116,7 +121,7 @@ export function gateDamage(p: Packet, gate: ChanceGate) {
 
 /** Replays the damage ops. `roll` supplies a 0..1 random number per gate; without it gates use their expected value. */
 export function evalDamage(p: Packet, roll?: () => number): number {
-  let d = 1;
+  let d = p.base;
   for (const op of p.ops) {
     if (op.t === 'add') d += op.v;
     else if (op.t === 'mul') d *= op.v;
@@ -165,6 +170,7 @@ export function describeBlock(def: BlockDef, level = 1): string {
 
 export function clonePacket(p: Packet): Packet {
   return {
+    base: p.base,
     damage: p.damage,
     pure: p.pure,
     count: p.count,

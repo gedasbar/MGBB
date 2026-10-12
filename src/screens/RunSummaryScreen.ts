@@ -35,6 +35,18 @@ export interface WallSummary {
   medal?: boolean;
 }
 
+/** What a finished run did for the captain (chunk 13a), shown under the totals. */
+export interface CaptainSummary {
+  name: string;
+  killsAdded: number;
+  killsTotal: number;
+  /** Medals earned this run (a doubled award counts both). */
+  medals: number;
+  doubled: boolean;
+  /** Optional extra line, e.g. the pass bonus. */
+  note?: string;
+}
+
 /** Shown when the hull reaches 0. The run has already been banked into the progress by FlyScreen. */
 export class RunSummaryScreen implements Screen {
   statsName = 'Summary';
@@ -44,7 +56,7 @@ export class RunSummaryScreen implements Screen {
   private gestures: GestureTracker | null = null;
   private rows: { label: string; value: string; best: boolean }[];
 
-  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean }, readonly wall?: WallSummary) {
+  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean }, readonly wall?: WallSummary, readonly captain?: CaptainSummary) {
     const bg = new Graphics().rect(0, 0, CONFIG.VIEW.W, CONFIG.VIEW.H).fill(THEME.bg);
     this.container.addChild(bg);
 
@@ -94,11 +106,25 @@ export class RunSummaryScreen implements Screen {
     total.position.set(VIEW_W / 2, 580);
     this.container.addChild(total);
 
-    if (wall?.medal) {
-      const m = makeText('+1 Medal', 22, THEME.currency, { fontWeight: 'bold' });
+    const medals = captain?.medals ?? (wall?.medal ? 1 : 0);
+    if (medals > 0) {
+      const m = makeText(`+${medals} Medal${medals === 1 ? '' : 's'}`, 22, THEME.currency, { fontWeight: 'bold' });
       m.anchor.set(0.5);
-      m.position.set(VIEW_W / 2, 284);
+      m.position.set(VIEW_W / 2, four ? 276 : 284);
       this.container.addChild(m);
+      if (captain?.doubled) {
+        const d = makeText('DOUBLED!', 16, THEME.good, { fontWeight: 'bold' });
+        d.anchor.set(0, 0.5);
+        d.position.set(VIEW_W / 2 + m.width / 2 + 10, four ? 276 : 284);
+        this.container.addChild(d);
+      }
+    }
+    if (captain) {
+      const line = `${captain.name}: +${captain.killsAdded} kills (${captain.killsTotal} in all)${captain.note ? `   ${captain.note}` : ''}`;
+      const c = makeText(line, 16, THEME.textDim, { fontWeight: 'bold' });
+      c.anchor.set(0.5);
+      c.position.set(VIEW_W / 2, 612);
+      this.container.addChild(c);
     }
 
     const buttons = wall
@@ -125,7 +151,7 @@ export class RunSummaryScreen implements Screen {
     if (import.meta.env.DEV) {
       (window as any).__mgbm = {
         screen: 'summary',
-        state: () => ({ title: title.text, wall: wall ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
+        state: () => ({ title: title.text, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
       };
     }
   }

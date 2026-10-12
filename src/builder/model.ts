@@ -3,6 +3,7 @@ import { normalizeRotation } from '../engine/compilerTypes';
 import { BLOCKS } from '../data/blocks';
 import { cloneGrid, HULL_BUILDERS } from '../game/gridUtils';
 import { ProgressStore } from '../econ/progress';
+import { modifiersFor } from '../captains/modifiers';
 import {
   BlockEntry, decodeLayout, defaultSave, DEFAULT_HULL, encodeLayout, entriesFromGrid, gridFromEntries, LEGACY_KEY,
   loadBuilder, SavedBuilder, serializeBuilder, SlotId, STORAGE_KEY,
@@ -73,7 +74,7 @@ export class BuilderModel {
     };
     for (const s of Object.values(this.slots)) this.syncLevels(s.grid);
     this.trimmed += this.trimToInventory();
-    this.compiled = compile(this.grid);
+    this.compiled = compile(this.grid, this.compileOpts());
   }
 
   /** Every placed block takes its level from the saved progress. */
@@ -125,8 +126,19 @@ export class BuilderModel {
     return () => { this.listeners.delete(fn); };
   }
 
+  /** The active captain's hero-level damage goes into the preview too, so the stats strip matches what a run fires. */
+  private compileOpts() {
+    const c = this.store.data.captains;
+    return { baseDamage: modifiersFor(c.selected, c.heroes[c.selected]).baseDamage };
+  }
+
+  /** Recompiles after something outside the circuit changed (the captain's hero level or the selected captain). */
+  refreshCaptain() {
+    this.commit();
+  }
+
   private commit() {
-    this.compiled = compile(this.grid);
+    this.compiled = compile(this.grid, this.compileOpts());
     this.persist();
     for (const l of this.listeners) l();
   }
@@ -326,7 +338,7 @@ export class BuilderModel {
     c.level = blockId ? this.levelOf(blockId) : 1;
     c.rotation = 0;
     c.manual = false;
-    return { grid: g, compiled: compile(g) };
+    return { grid: g, compiled: compile(g, this.compileOpts()) };
   }
 
   /** Fresh grid copy for the Fly screen. */

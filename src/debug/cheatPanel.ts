@@ -2,7 +2,7 @@ import { getProgressStore } from '../econ/progress';
 import { getBuilderModel } from '../builder/session';
 import { SPECIES } from '../data/species';
 import { debugHooks } from './hooks';
-import { addCredits, addMedals, ownAllBlocks, ownAllHulls, resetCampaign, resetEverything, unlockAllTiers } from './cheats';
+import { addCaptainKillsCheat, setHeroLevel, unlockAllCaptains, addCredits, addMedals, ownAllBlocks, ownAllHulls, resetCampaign, resetEverything, unlockAllTiers } from './cheats';
 
 /**
  * The Cheats section of the ?debug=1 panel. Dev builds only: the panel imports this module behind `import.meta.env.DEV`,
@@ -64,8 +64,9 @@ export function addCheats(parent: HTMLElement) {
   }
   const amount = number(eco, 'dbg-add-n', 'credits', '5000');
   button(eco, 'dbg-add-custom', 'Add that many', () => { addCredits(store(), Math.floor(Number(amount.value)) || 0); say(`credits ${store().data.credits}`); });
-  button(eco, 'dbg-medal-1', '+1 Medal', () => { addMedals(store(), 1); say(`medals ${store().data.medals} (kept until reload)`); });
-  button(eco, 'dbg-medal-10', '+10 Medals', () => { addMedals(store(), 10); say(`medals ${store().data.medals} (kept until reload)`); });
+  button(eco, 'dbg-medal-1', '+1 Medal', () => { addMedals(store(), 1); say(`medals ${store().data.medals}`); });
+  button(eco, 'dbg-medal-10', '+10 Medals', () => { addMedals(store(), 10); say(`medals ${store().data.medals}`); });
+  button(eco, 'dbg-medal-100', '+100 Medals', () => { addMedals(store(), 100); say(`medals ${store().data.medals}`); });
   const copies = number(eco, 'dbg-own-n', 'copies', '10');
   const maxLv = document.createElement('label');
   const maxBox = document.createElement('input');
@@ -100,6 +101,23 @@ export function addCheats(parent: HTMLElement) {
     if (!debugHooks.startTier) return say('not ready');
     debugHooks.startTier(Math.min(100, int(tierN, 1)));
     say(`tier ${int(tierN, 1)} started`);
+  });
+
+  // ---- Captains (chunk 13a)
+  const cap = group('dbg-g-cap', 'Captains');
+  const kills = number(cap, 'dbg-cap-kills-n', 'kills', '300');
+  button(cap, 'dbg-cap-kills', 'Add kills to the active captain', () => {
+    addCaptainKillsCheat(store(), int(kills));
+    const c = store().data.captains;
+    say(`${c.selected}: ${c.heroes[c.selected].kills} kills`);
+  });
+  button(cap, 'dbg-cap-unlock', 'Unlock all captains', () => { unlockAllCaptains(store()); say(`captains ${store().data.captains.owned.join(',')}`); });
+  const lvl = number(cap, 'dbg-cap-level-n', 'hero level', '5');
+  button(cap, 'dbg-cap-level', 'Set hero level (active captain)', () => {
+    setHeroLevel(store(), int(lvl));
+    getBuilderModel().refreshCaptain();
+    const c = store().data.captains;
+    say(`${c.selected}: level ${c.heroes[c.selected].level}`);
   });
 
   // ---- Free Fly

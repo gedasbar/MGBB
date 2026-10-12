@@ -13,11 +13,13 @@ import { generateLevel, MAX_TIER } from '../wall/generator';
 import { BuildScreen } from './BuildScreen';
 import { MapScreen } from './MapScreen';
 import { LevelDef } from '../wall/level';
-import { scrollSpeed, WallWorld } from '../wall/wallWorld';
+import { WallWorld } from '../wall/wallWorld';
 import { PointerGate } from '../engine/control';
 import { ShipView } from '../ui/shipArt';
 import { BackgroundView, backgroundForTier, forcedBackground } from '../ui/background';
-import { RunSummaryScreen } from './RunSummaryScreen';
+import { RunSummaryScreen, CaptainSummary } from './RunSummaryScreen';
+import { KillBanker } from '../captains/state';
+import { CAPTAIN_BY_ID } from '../captains/data';
 import { Pausable, Screen, ScreenManager } from './ScreenManager';
 import type { StatsInfo } from '../ui/stats';
 import { drawFieldFx } from '../ui/fieldFx';
@@ -30,6 +32,8 @@ const END_DELAY = 0.6;
 const CRASH_DELAY = 0.3;
 const POPUPS = 40;
 const POPUP_LIFE = 0.6;
+/** Seconds the SECOND CHANCE hint blinks. */
+const HINT_TIME = 1.2;
 
 const FRAME = 0x55555a;
 const FRAME_ARMOR = 0xd4d4d8;
@@ -113,24 +117,33 @@ export class WallScreen implements Screen {
   private gate = new PointerGate();
   private sfxFeed = new SfxFeed(sfx);
   private endSounded = false;
+  /** The captain flying this level: the hand-over of its kills, and the Second Chance hint. */
+  private banker: KillBanker;
+  private hint = makeText('SECOND CHANCE', 22, THEME.good, { fontWeight: 'bold' });
+  private hintT = 0;
+  private seenSecondChance = 0;
   /** Slots used by the last draw, for the e2e hook. */
   private lastDrawn: { col: number; row: number; inner: number }[] = [];
 
 /** The pause menu's view of this level: pausable from the first move until the level ends. */
   readonly pausable: Pausable = {
+    persist: () => { if (!this.finished) this.banker.flush(this.world.destroyed); },
     canPause: () => this.world.controlStarted && this.world.state === 'playing' && !this.finished,
     resume: () => this.world.resumeEase(),
     restart: () => {
       if (this.finished) return;
       this.finished = true;
       this.world.bank(getProgressStore());
+      this.banker.flush(this.world.destroyed);
       this.sm.switchTo(new WallScreen(this.sm, this.levelDef, this.grid));
     },
     quit: () => { if (!this.finished) this.finish(); },
   };
 
   constructor(private sm: ScreenManager, readonly levelDef: LevelDef, private grid: Grid) {
-    this.world = new WallWorld(levelDef, { grid, safeStart: true });
+    const store = getProgressStore();
+    this.banker = new KillBanker(store, store.data.captains.selected);
+    this.world = new WallWorld(levelDef, { grid, safeStart: true, modifiers: store.runModifiers() });
     debugHooks.wall = this.world;
     const worldW = this.world.worldW;
     // A ring wall: the camera is unclamped and wraps; a flat wall (wrap: false) clamps to its width.
@@ -190,7 +203,10 @@ export class WallScreen implements Screen {
     // A dim plate behind the HUD text so it stays readable over the blocks.
     this.hudBox.addChild(new Graphics().rect(10, 12, 190, 92).fill({ color: THEME.bg, alpha: 0.72 }));
     this.hudBox.addChild(this.creditsText, this.tierText, this.spikeText, this.nameText, this.blocksText);
-    this.uiLayer.addChild(this.hudBox, this.progressBg, this.progressFg);
+    this.hint.anchor.set(0.5);
+    this.hint.position.set(VIEW_W / 2, 250);
+    this.hint.visible = false;
+    this.uiLayer.addChild(this.hudBox, this.progressBg, this.progressFg, this.hint);
 
     this.updateTexts();
 
@@ -212,11 +228,12 @@ export class WallScreen implements Screen {
     const w = this.world;
     return {
       state: w.state, time: w.time, finishY: w.finishY, progress: w.progress, alive: w.alive, total: w.total, destroyed: w.destroyed,
-      credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), scrollSpeed: scrollSpeed(w.level.approachSpeed, w.shipY), cameraX: this.camera.x, cameraSpeed: this.camera.speed,
+      credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), scrollSpeed: w.scroll, cameraX: this.camera.x, cameraSpeed: this.camera.speed,
       controlStarted: w.controlStarted, invuln: w.invuln, shipWorldX: w.shipX, shipScreenX: this.sx(w.shipX), camTravel: this.camera.travel, worldW: w.worldW, ring: w.ring, shipY: w.shipY, projectiles: w.pool.count,
       hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.nameText.text, spike: this.spikeText.visible, blocks: this.blocksText.text },
       drawn: this.lastDrawn.length,
-      effects: { ...w.projSys.fx, ...w.gun.fx },
+      effects: { ...w.projSys.fx, ...w.gun.fx, ...w.fx },
+      captain: { id: this.banker.captainId, mods: w.mods, secondChancesLeft: w.secondChancesLeft, killsHanded: this.banker.added },
       arcs: Array.from(w.projSys.arcT).filter(t => t > 0).length,
     };
   }
@@ -231,7 +248,7 @@ export class WallScreen implements Screen {
     o.enemies = w.alive;
     o.fx = fx;
     o.kills = w.total - w.alive;
-    o.extra = `blocks ${w.alive}/${w.total}  scroll ${Math.round(scrollSpeed(w.level.approachSpeed, w.shipY))}  camX ${Math.round(this.camera.x)}`;
+    o.extra = `blocks ${w.alive}/${w.total}  scroll ${Math.round(w.scroll)}  camX ${Math.round(this.camera.x)}`;
   }
 
   private updateTexts() {
@@ -270,7 +287,7 @@ export class WallScreen implements Screen {
     for (const h of w.hits) this.sfxFeed.hit({ id: h.blockId, damage: h.damage, kind: h.kind, armor: h.armor, shield: h.shield, maxShield: h.maxShield }, false);
     if (w.state !== 'playing' && !this.endSounded) { this.endSounded = true; sfx.play(w.state === 'crashed' ? 'crash' : 'cleared'); }
     // The background scrolls with the real wall speed (top-edge boost included); on a ring also sideways with the camera.
-    if (this.bg) this.bg.update(frameTime, scrollSpeed(w.level.approachSpeed, w.shipY), w.ring ? this.camera.x : 0);
+    if (this.bg) this.bg.update(frameTime, w.scroll, w.ring ? this.camera.x : 0);
 
     // Credit popups: a small yellow +N each time the running total crosses a whole credit.
     for (const k of w.killEvents) {
@@ -286,6 +303,12 @@ export class WallScreen implements Screen {
     w.hits.length = 0;
 
     this.updateTexts();
+    const sc = w.fx.secondChance;
+    if (sc > this.seenSecondChance) { this.seenSecondChance = sc; this.hintT = HINT_TIME; }
+    if (this.hintT > 0) {
+      this.hintT -= frameTime;
+      this.hint.visible = this.hintT > 0 && Math.floor(this.hintT / 0.15) % 2 === 0;
+    }
 
     this.drawBlocks();
     this.drawProjectiles();
@@ -437,7 +460,9 @@ export class WallScreen implements Screen {
   private finish() {
     this.finished = true;
     const w = this.world;
-    w.bank(getProgressStore());
+    const store = getProgressStore();
+    w.bank(store);
+    this.banker.flush(w.destroyed);
     const result = { credits: w.credits, kills: w.destroyed, time: w.time, tier: w.tier };
     const marks = { newBestTier: false, newBestTime: false };
     const level = this.levelDef;
@@ -456,7 +481,13 @@ export class WallScreen implements Screen {
       buttons = [build, retry]; // a debug test wall: as before
     }
     if (w.medalEarned) sfx.play('medal');
-    sm.switchTo(new RunSummaryScreen(sm, result, marks, { result: outcome, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }));
+    const id = this.banker.captainId;
+    const captain: CaptainSummary = {
+      name: CAPTAIN_BY_ID[id]?.name ?? id, killsAdded: this.banker.added, killsTotal: store.data.captains.heroes[id]?.kills ?? 0,
+      medals: w.medalsEarned, doubled: w.medalDoubled,
+      note: w.fx.passBonus > 0 ? `pass bonus +${fmtBig(Math.floor(w.fx.passBonus))}` : undefined,
+    };
+    sm.switchTo(new RunSummaryScreen(sm, result, marks, { result: outcome, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }, captain));
   }
 
   destroy() {
