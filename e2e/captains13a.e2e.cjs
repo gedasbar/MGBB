@@ -71,6 +71,16 @@ const centre = (r) => [r.x + r.w / 2, r.y + r.h / 2];
   p = await saved();
   check(p.captains.heroes.bulwark.active['1'] === 'bul_second' && p.medals === 84, 'switching back to an owned option is free');
 
+  // ---- a drag scrolls the detail, and a tap on a locked option after scrolling reaches the right button
+  const sy0 = (await state(page)).scrollY;
+  await lib.drag(page, 270, 760, 270, 360);
+  s = await state(page);
+  check(sy0 === 0 && s.scrollY > 200, `dragging scrolls the detail (scrollY ${sy0} -> ${s.scrollY})`);
+  await press('opt:bul_wind');
+  s = await state(page);
+  check(s.toast === 'Needs 1500 kills (have 0)', `a locked option answers a tap with its reason after scrolling: "${s.toast}"`);
+  await page.evaluate(() => { window.__mgbm.captainScreen.scrollBy(-2000); });
+
   // ---- kills by cheat open tier 2
   await setNum('dbg-cap-kills-n', 300);
   await click('dbg-cap-kills');
