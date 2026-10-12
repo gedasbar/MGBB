@@ -4,6 +4,7 @@ import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
 import { BuildScreen } from './BuildScreen';
 import { ShopScreen } from './ShopScreen';
+import { CaptainScreen } from './CaptainScreen';
 import { WallScreen } from './WallScreen';
 import { GestureTracker } from '../builder/gestures';
 import { getBuilderModel } from '../builder/session';
@@ -219,6 +220,7 @@ export class MapScreen implements Screen {
     if (id === 'tabMap') return;
     if (id === 'tabBuild') this.sm.switchTo(new BuildScreen(this.sm));
     else if (id === 'tabShop') this.sm.switchTo(new ShopScreen(this.sm));
+    else if (id === 'tabCaptain') this.sm.switchTo(new CaptainScreen(this.sm));
     else this.toast.show('Coming soon');
   }
 

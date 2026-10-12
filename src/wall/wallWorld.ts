@@ -13,6 +13,8 @@ import { LevelDef, rewardPerBlock } from './level';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 import { fireRateMul } from '../data/hulls';
 import { wrapDx, wrapX } from '../engine/wrap';
+import { neutralModifiers, RunModifiers } from '../captains/modifiers';
+import { SECOND_CHANCE_INVULN } from '../captains/data';
 
 /** One living block of a wall. x/y are the block centre (x in world px, y in screen px); `radius` is the half size. */
 export interface Block extends EnemyEntity {
@@ -30,20 +32,20 @@ export interface WallKillEvent { x: number; y: number; reward: number }
 /** How a level ends: every block destroyed, the ship flew past the end of the wall, or the ship touched a live block. */
 export type WallState = 'playing' | 'cleared' | 'passed' | 'crashed';
 
-/** 0 with the ship at TOP_ZONE x viewport height or lower, 1 at the top edge of the screen, linear in between. */
-export function boostT(shipY: number): number {
-  const zone = TOP_ZONE * VIEW_H;
+/** 0 with the ship at TOP_ZONE x viewport height or lower, 1 at the top edge of the screen, linear in between. `zoneMul` is a captain's boost-zone multiplier (1 = none). */
+export function boostT(shipY: number, zoneMul = 1): number {
+  const zone = Math.min(1, TOP_ZONE * zoneMul) * VIEW_H;
   return Math.max(0, Math.min(1, (zone - shipY) / zone));
 }
 
 /** Wall scroll speed in px/s for a base speed and the ship's height. */
-export function scrollSpeed(base: number, shipY: number): number {
-  return base * (1 + (BOOST_MAX - 1) * boostT(shipY));
+export function scrollSpeed(base: number, shipY: number, zoneMul = 1): number {
+  return base * (1 + (BOOST_MAX - 1) * boostT(shipY, zoneMul));
 }
 
 /** What the world needs from the progress store at the end of a level. */
 export interface WallBank {
-  recordWallRun(run: { credits: number; kills: number; tier?: number; destroyed?: number; total?: number; time?: number; passed?: boolean }): { medal: boolean } | void;
+  recordWallRun(run: { credits: number; kills: number; tier?: number; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number }): { medal: boolean; medals?: number; medalDoubled?: boolean } | void;
 }
 
 /** Ship position the pointer asks for, in world px (x) and screen px (y). */
@@ -149,6 +151,12 @@ export class WallWorld {
   readonly blocks: (Block | null)[] = [];
   /** Dev cheat (debugHooks.god): the ship cannot crash. */
   god = false;
+  /** The active captain's effects for this level (neutral when none was given). */
+  readonly mods: RunModifiers;
+  /** Second Chance charges left: the next live block the ship touches is destroyed instead of ending the run. */
+  secondChancesLeft = 0;
+  /** Counters of the captain effects (debug hook and tests). */
+  readonly fx = { secondChance: 0, passBonus: 0 };
   /** Every block ever created, for iteration. */
   readonly all: Block[] = [];
   /** Blocks with a shield pool (regeneration only walks these). */
@@ -177,8 +185,10 @@ export class WallWorld {
   destroyed = 0;
   creditsExact = 0;
   private banked = false;
-  /** True when banking this level awarded a first-clear Medal. */
+  /** True when banking this level awarded a first-clear Medal; `medalsEarned` is how many (2 when doubled). */
   medalEarned = false;
+  medalsEarned = 0;
+  medalDoubled = false;
   autoFire = true;
   /** Pulse-rate multiplier of the hull being flown (the Dart is slow). */
   private fireRateMul = 1;
@@ -188,7 +198,9 @@ export class WallWorld {
   hits: WallHitEvent[] = [];
   killEvents: WallKillEvent[] = [];
 
-  constructor(readonly level: LevelDef, opts: { grid?: Grid; safeStart?: boolean } = {}) {
+  constructor(readonly level: LevelDef, opts: { grid?: Grid; safeStart?: boolean; modifiers?: RunModifiers } = {}) {
+    this.mods = opts.modifiers ?? neutralModifiers();
+    this.secondChancesLeft = this.mods.secondChances;
     this.controlStarted = !opts.safeStart;
     this.controlT = opts.safeStart ? 0 : Infinity;
     this.ring = level.wrap !== false;
@@ -196,13 +208,18 @@ export class WallWorld {
     this.shipX = this.worldW / 2;
     this.projSys.wrapW = this.ring ? this.worldW : 0;
     const hullGrid = opts.grid ?? buildStarterGrid();
-    this.fireRateMul = fireRateMul(hullGrid.hullId);
-    const compiled = compile(opts.grid ?? buildStarterGrid());
+    this.fireRateMul = fireRateMul(hullGrid.hullId) * this.mods.fireRateMul;
+    const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage });
     this.recipes = compiled.recipes;
     this.warnings = compiled.warnings;
     this.spawnOffsets = spawnOffsetsFor(this.recipes, hullGrid);
     this.projSys.modifiersTable = this.recipes.map(r => r.packet.mods);
     this.gun = new Gun(this.pool, this.projSys, this.recipes, this.spawnOffsets, 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul));
+    this.gun.speedMul = this.mods.projSpeedMul;
+    const bonus = this.projSys.bonus;
+    bonus.damageMul = this.mods.damageMul * this.mods.wallDamageMul;
+    bonus.vsArmor = this.mods.vsArmor;
+    bonus.vsShield = this.mods.vsShield;
 
     this.rowAlive = new Array(level.rows).fill(0);
     let alive = 0;
@@ -312,7 +329,7 @@ export class WallWorld {
     this.alive--;
     this.destroyed++;
     if (b.row === this.lowRow && this.rowAlive[b.row] === 0) this.lowRow = this.findLowRow(b.row);
-    const reward = rewardPerBlock(this.level.tier);
+    const reward = rewardPerBlock(this.level.tier) * this.mods.creditMul * this.mods.wallCreditMul;
     this.creditsExact += reward;
     this.killEvents.push({ x: b.x, y: b.y, reward });
   }
@@ -329,9 +346,11 @@ export class WallWorld {
     const campaign = this.level.campaign;
     const res = store.recordWallRun({
       credits: this.credits, kills: this.destroyed,
-      ...(campaign ? { tier: this.level.tier, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed' } : {}),
+      ...(campaign ? { tier: this.level.tier, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed', medalDouble: this.mods.medalDouble } : {}),
     });
     this.medalEarned = !!(res && res.medal);
+    this.medalsEarned = (res && res.medals) || 0;
+    this.medalDoubled = !!(res && res.medalDoubled);
     return true;
   }
 
@@ -345,8 +364,11 @@ export class WallWorld {
     if (this.controlStarted) return;
     this.controlStarted = true;
     this.controlT = 0;
-    this.invuln = GRACE_TIME;
+    this.invuln = GRACE_TIME + this.mods.spawnInvuln;
   }
+
+  /** Wall scroll speed now (px/s), with the captain's boost zone. */
+  get scroll(): number { return scrollSpeed(this.level.approachSpeed, this.shipY, this.mods.boostZone); }
 
   get isBanked(): boolean { return this.banked; }
 
@@ -388,7 +410,7 @@ export class WallWorld {
     for (const b of this.all) if (b.flash > 0) b.flash -= dt;
 
     // --- Wall: always approaching, faster the higher the ship is on the screen
-    const scrollDy = scrollSpeed(this.level.approachSpeed, this.shipY) * dt;
+    const scrollDy = this.scroll * dt;
     this.wallOffsetY += scrollDy;
     this.projSys.shiftClouds(scrollDy); // a Residue Seed cloud stays where its block died
     this.syncY();
@@ -440,13 +462,33 @@ export class WallWorld {
     this.projSys.updateClouds(dt, this.field, this.level.tier); // Residue Seed ticks (a block killed by one is destroyed in the hit callback)
 
     // --- End of level. Destroyed blocks never kill; a cleared wall beats a crash and a pass.
-    if (this.alive === 0) this.state = 'cleared';
-    else if (this.invuln <= 0 && !this.god && this.shipHitsBlock()) this.state = 'crashed';
-    else if (this.shipY < this.finishY) this.state = 'passed';
+    if (this.alive === 0) this.end('cleared');
+    else if (this.invuln <= 0 && !this.god && this.shipHitsBlock()) {
+      if (this.secondChancesLeft > 0) {
+        // Second Chance: the blocks touched are destroyed (they pay and count), the run goes on, one second untouchable.
+        const touched: Block[] = [];
+        this.shipHitsBlock(touched);
+        for (const b of touched) this.destroyBlock(b);
+        this.secondChancesLeft--;
+        this.fx.secondChance++;
+        this.invuln = SECOND_CHANCE_INVULN;
+        if (this.alive === 0) this.end('cleared');
+      } else this.state = 'crashed';
+    } else if (this.shipY < this.finishY) this.end('passed');
   }
 
-  /** True if the ship's hit point overlaps the cell of a living block. */
-  shipHitsBlock(): boolean {
+  /** Ends the level as cleared or passed; a captain's pass bonus (a share of the credits earned so far) is paid once, here. A crash pays nothing extra. */
+  private end(s: 'cleared' | 'passed') {
+    this.state = s;
+    if (this.mods.passCredits > 0) {
+      const bonus = this.mods.passCredits * this.creditsExact;
+      this.creditsExact += bonus;
+      this.fx.passBonus = bonus;
+    }
+  }
+
+  /** True if the ship's hit point overlaps the cell of a living block. With `out`, every such block is collected into it. */
+  shipHitsBlock(out?: Block[]): boolean {
     const R = SHIP_HIT_R;
     const x = this.shipX;
     const y = this.shipY;
@@ -459,9 +501,13 @@ export class WallWorld {
     for (let r = r0; r <= r1; r++) {
       for (let c = c0; c <= c1; c++) {
         const cc = this.ring ? ((c % cols) + cols) % cols : c;
-        if (this.blocks[r * cols + cc] && this.boxDistSq(x, y, cc, r) < R * R) return true;
+        const b = this.blocks[r * cols + cc];
+        if (b && this.boxDistSq(x, y, cc, r) < R * R) {
+          if (!out) return true;
+          out.push(b);
+        }
       }
     }
-    return false;
+    return out ? out.length > 0 : false;
   }
 }

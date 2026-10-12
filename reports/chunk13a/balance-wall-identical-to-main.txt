@@ -1,0 +1,21 @@
+Starter gun: est. 101 DPS (all shots landing). Effective HP counts shields and doubles armored HP.
+Pass = carve the cheapest straight column while the wall crosses at max boost (x4 with the ship at the top).
+Clear = destroy every block before the wall's lowest edge reaches a ship parked at the bottom of the screen.
+
+Tier | name            | rows | base px/s | cross s (max boost) | cheapest col HP | median col HP | pass DPS | ratio | total eff. HP | clear s avail | clear DPS | ratio | bot carve | bot clear-all | credits carve / full clear
+   1 | Slab            |    9 |        26 |                 9.1 |             500 |           800 |       55 |  0.55 |         16200 |          35.7 |       453 |  4.49 | passed 10s 3%    | crashed 40s 24%  |     2 /    65
+   5 | Stairs          |   14 |        26 |                11.7 |             372 |          1115 |       32 |  0.32 |         22670 |          35.7 |       634 |  6.28 | passed 13s 1%    | crashed 40s 10%  |     1 /    89
+   8 | Towers          |   19 |        26 |                14.3 |             233 |           465 |       16 |  0.16 |         47481 |          35.7 |      1329 | 13.16 | passed 16s 0%    | crashed 38s 5%   |     0 /   115
+  10 | Gatehouse       |   13 |        26 |                11.1 |             648 |          1943 |       58 |  0.58 |         36430 |          35.7 |      1020 | 10.09 | passed 12s 1%    | crashed 36s 6%   |     2 /   140
+  14 | Corridor        |   14 |        26 |                11.7 |            1605 |          4172 |      138 |  1.36 |         83761 |          35.7 |      2344 | 23.21 | passed 21s 2%    | crashed 36s 2%   |     3 /   186
+  20 | Bands           |   16 |        26 |                12.7 |            3872 |          4148 |      305 |  3.02 |         86565 |          35.7 |      2423 | 23.99 | passed 43s 4%    | crashed 36s 1%   |    13 /   291
+  30 | Diamond         |   35 |        26 |                22.6 |            5669 |          8976 |      251 |  2.49 |        205263 |          35.7 |      5745 | 56.88 | passed 61s 1%    | crashed 40s 1%   |     9 /   612
+  50 | The Maze        |   64 |        26 |                37.6 |            9649 |         22054 |      257 |  2.54 |        886991 |          35.7 |     24824 | 245.78 | passed 102s 1%   | crashed 36s 0%   |    30 /  2176
+  75 | Stairs          |   53 |        26 |                31.9 |           57820 |        409993 |     1812 | 17.94 |       6833219 |          35.7 |    191242 | 1893.48 | crashed 53s 0%   | crashed 36s 0%   |     0 / 10163
+ 100 | The Last Wall   |   41 |        26 |                25.7 |          821821 |       1523376 |    32011 | 316.94 |      42875015 |          35.7 |   1199947 | 11880.66 | crashed 30s 0%   | crashed 36s 0%   |     0 / 42832
+
+Cheapest column vs the median column, tiers where it is under 25% of the median (a lane that is nearly free):
+42 Stairs 23%, 75 Stairs 14%, 87 Stairs 23%, 95 Rings 14%
+lowest ratio over all tiers: 14%
+
+Full-clear credits of all 100 tiers once: 752183

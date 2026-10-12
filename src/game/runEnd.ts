@@ -1,5 +1,6 @@
 import type { World } from './world';
 import type { ProgressStore, RunResult } from '../econ/progress';
+import type { KillBanker } from '../captains/state';
 
 /** The Free Fly run as the summary and the save see it. A quit mid-run reports exactly what the run has so far. */
 export function flyRunResult(w: Pick<World, 'credits' | 'kills' | 'time' | 'maxTier' | 'wave'>): RunResult {
@@ -7,8 +8,10 @@ export function flyRunResult(w: Pick<World, 'credits' | 'kills' | 'time' | 'maxT
 }
 
 /** Banks a Free Fly run (crash, quit and restart all end here): credits so far are kept. Call once per run. */
-export function bankFlyRun(w: Pick<World, 'credits' | 'kills' | 'time' | 'maxTier' | 'wave'>, store: Pick<ProgressStore, 'recordRun'>) {
+export function bankFlyRun(w: Pick<World, 'credits' | 'kills' | 'time' | 'maxTier' | 'wave'>, store: Pick<ProgressStore, 'recordRun'>, banker?: KillBanker) {
   const result = flyRunResult(w);
   const marks = store.recordRun(result);
+  // The kills go to the captain that flew the run (those already handed over at a pause are not counted twice).
+  banker?.flush(w.kills);
   return { result, marks };
 }

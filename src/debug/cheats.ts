@@ -3,6 +3,7 @@ import { maxLevelOf } from '../econ/economy';
 import { ProgressStore, defaultProgress } from '../econ/progress';
 import { HULL_BUILDERS } from '../game/gridUtils';
 import { MAX_TIER } from '../wall/generator';
+import { CAPTAINS, HERO_MAX_LEVEL } from '../captains/data';
 
 /**
  * Dev cheats (?debug=1 panel, dev builds only). Each one changes the progress through the normal store and commits, so the
@@ -14,9 +15,30 @@ export function addCredits(store: ProgressStore, n: number) {
   store.commit();
 }
 
-/** Medals are one per cleared tier in a saved game: extra ones last until the page is reloaded (the loader caps them). */
+/** Medals are a spendable balance (v6 saves): cheat Medals are saved like earned ones. Never below zero. */
 export function addMedals(store: ProgressStore, n: number) {
   store.data.medals = Math.max(0, store.data.medals + Math.floor(n));
+  store.commit();
+}
+
+/** Lifetime kills for the ACTIVE captain (opens its option tiers: 300 / 1500 / 6000). */
+export function addCaptainKillsCheat(store: ProgressStore, n: number) {
+  const c = store.data.captains;
+  c.heroes[c.selected].kills = Math.max(0, c.heroes[c.selected].kills + Math.floor(n));
+  store.commit();
+}
+
+/** Owns every captain without paying (the selected one stays selected). */
+export function unlockAllCaptains(store: ProgressStore) {
+  const c = store.data.captains;
+  for (const def of CAPTAINS) if (!c.owned.includes(def.id)) c.owned.push(def.id);
+  store.commit();
+}
+
+/** Sets the ACTIVE captain's hero level (0..max). */
+export function setHeroLevel(store: ProgressStore, level: number) {
+  const c = store.data.captains;
+  c.heroes[c.selected].level = Math.max(0, Math.min(HERO_MAX_LEVEL, Math.floor(level)));
   store.commit();
 }
 
@@ -51,6 +73,7 @@ export function resetCampaign(store: ProgressStore) {
   p.clearedTiers = d.clearedTiers; p.passedTiers = d.passedTiers;
   p.wallBestPct = d.wallBestPct; p.wallBestTime = d.wallBestTime; p.wallBestClearTime = d.wallBestClearTime;
   p.medals = 0; p.highestCleared = 0;
+  p.captains = defaultProgress().captains;
   store.commit();
 }
 

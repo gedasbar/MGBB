@@ -158,9 +158,9 @@ describe('Campaign progress', () => {
 
   it('the store banks a campaign run once, with the medal flag, and a debug wall without a tier gives no campaign progress', () => {
     const store = new ProgressStore(null);
-    expect(store.recordWallRun({ credits: 10, kills: 5, tier: 1, destroyed: 5, total: 5, time: 12 })).toEqual({ medal: true });
+    expect(store.recordWallRun({ credits: 10, kills: 5, tier: 1, destroyed: 5, total: 5, time: 12 })).toEqual({ medal: true, medals: 1, medalDoubled: false });
     expect(store.data.clearedTiers).toEqual([1]);
-    expect(store.recordWallRun({ credits: 3, kills: 3 })).toEqual({ medal: false });
+    expect(store.recordWallRun({ credits: 3, kills: 3 })).toEqual({ medal: false, medals: 0, medalDoubled: false });
     expect(store.data.clearedTiers).toEqual([1]);
     expect(store.data.credits).toBe(13);
   });

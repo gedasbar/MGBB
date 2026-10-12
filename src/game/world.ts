@@ -20,10 +20,14 @@ import { FREEFLY_REWARD_MUL, freeFlyRewardTier, waveBonus, waveHpMul, WAVE_TIME 
 import { PlannedSpawn, WaveDirector } from './waves';
 import { SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC } from '../wall/constants';
 import type { MitosisEnemy } from '../engine/mitosis';
+import { neutralModifiers, RunModifiers } from '../captains/modifiers';
+import { SECOND_CHANCE_INVULN } from '../captains/data';
 
 export const TOUCH_OFFSET_Y = -40; // finger sits below the ship on touch
 export { PROJECTILE_SPEED, PX_PER_CELL };
 export const CONTACT_DAMAGE = 10;
+/** Hull of an unmodified ship. Leak damage always uses this base (a captain's extra hull does not make leaks hurt more). */
+export const BASE_HULL = 100;
 /** Rock fall speed (px/s). */
 export const ENEMY_SPEED = SPECIES.mitotic_rock.speed;
 /** A rock whose centre stays above the top edge this long is moved in at the edge. */
@@ -60,8 +64,12 @@ export class World {
   controlStarted: boolean;
   private controlT: number;
   private easeFrom = { x: 0, y: 0 };
-  hull = 100;
-  readonly maxHull = 100;
+  hull = BASE_HULL;
+  readonly maxHull: number;
+  /** The active captain's effects for this run (neutral when none was given). */
+  readonly mods: RunModifiers;
+  /** Second Chance charges left: the next enemy contact deals no damage. */
+  secondChancesLeft = 0;
   invuln = 0;
   knockX = 0;
   knockY = 0;
@@ -103,25 +111,35 @@ export class World {
   killEvents: KillEvent[] = [];
 
   /** Counters of the Mitosis blocks that act in the world (debug hook and tests). */
-  readonly fx = { fissionSplits: 0, fissionBlocked: 0, cauterizedKills: 0, spillChildren: 0, wellPulls: 0 };
+  readonly fx = { fissionSplits: 0, fissionBlocked: 0, cauterizedKills: 0, spillChildren: 0, wellPulls: 0, secondChance: 0, killHealed: 0 };
   /** Dev cheat (debugHooks.god): contact and leaks do no damage. */
   god = false;
   /** Dev cheat: the run starts at this wave (run time and tier follow it); 1 = normal. */
   private startWave: number;
 
-  constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean; seed?: number; startWave?: number } = {}) {
+  constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean; seed?: number; startWave?: number; modifiers?: RunModifiers } = {}) {
+    this.mods = opts.modifiers ?? neutralModifiers();
+    this.maxHull = BASE_HULL * this.mods.hullMul;
+    this.hull = this.maxHull;
+    this.secondChancesLeft = this.mods.secondChances;
     this.seed = opts.seed ?? 1;
     this.director = new WaveDirector(this.seed);
     this.startWave = Math.max(1, Math.floor(opts.startWave ?? 1));
     this.applyStartWave();
-    const compiled = compile(opts.grid ?? buildStarterGrid());
+    const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage });
     const hull = opts.grid ?? buildStarterGrid();
     this.recipes = compiled.recipes;
-    this.fireRateMul = fireRateMul(hull.hullId);
+    this.fireRateMul = fireRateMul(hull.hullId) * this.mods.fireRateMul;
     this.spawnOffsets = spawnOffsetsFor(this.recipes, hull);
     this.warnings = compiled.warnings;
     this.projSys.modifiersTable = this.recipes.map(r => r.packet.mods);
     this.gun = new Gun(this.pool, this.projSys, this.recipes, this.spawnOffsets, 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul));
+    this.gun.speedMul = this.mods.projSpeedMul;
+    const b = this.projSys.bonus;
+    b.damageMul = this.mods.damageMul;
+    b.vsArmor = this.mods.vsArmor;
+    b.vsShield = this.mods.vsShield;
+    b.vsFragment = this.mods.vsFragment;
     this.autoSpawn = opts.autoSpawn ?? true;
     this.controlStarted = !opts.safeStart;
     this.controlT = opts.safeStart ? 0 : Infinity;
@@ -220,6 +238,7 @@ export class World {
     this.bonusCredits = 0;
     this.waveEvents.length = 0;
     this.hull = this.maxHull;
+    this.secondChancesLeft = this.mods.secondChances;
     this.invuln = 0;
     this.knockX = 0;
     this.knockY = 0;
@@ -289,7 +308,7 @@ export class World {
     if (this.controlStarted) return;
     this.controlStarted = true;
     this.controlT = 0;
-    this.invuln = Math.max(this.invuln, GRACE_TIME);
+    this.invuln = Math.max(this.invuln, GRACE_TIME + this.mods.spawnInvuln);
   }
 
   /** Fire one pulse: one projectile per compiled ejector recipe (chance gates may drop or boost it). */
@@ -348,7 +367,7 @@ export class World {
     if (this.autoSpawn) {
       const started = this.director.update(this.time, this.mitosis.enemies.length, this.due);
       if (started) {
-        const bonus = waveBonus(started);
+        const bonus = waveBonus(started) * this.mods.waveBonusMul;
         this.bonusCredits += bonus;
         this.creditsExact += bonus;
         this.waveEvents.push({ wave: started, bonus });
@@ -446,8 +465,15 @@ export class World {
       const sy = this.shipY - e.y;
       const d = Math.sqrt(sx * sx + sy * sy) || 1;
       if (d < e.radius + CONFIG.PLAYER.HITBOX_R && this.invuln <= 0 && !this.god) {
-        this.hull -= CONTACT_DAMAGE;
-        this.invuln = 0.5;
+        if (this.secondChancesLeft > 0) {
+          // Second Chance: this contact deals no damage; the ship is untouchable for a second.
+          this.secondChancesLeft--;
+          this.fx.secondChance++;
+          this.invuln = SECOND_CHANCE_INVULN;
+        } else {
+          this.hull -= CONTACT_DAMAGE;
+          this.invuln = 0.5;
+        }
         this.knockX += (sx / d) * 50;
         this.knockY += (sy / d) * 50;
         if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
@@ -480,11 +506,16 @@ export class World {
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       if (e.hp <= 0) {
-        let reward = rockReward(freeFlyRewardTier(e.tier), e.generation) * speciesOf(e.defId).rewardMul * FREEFLY_REWARD_MUL;
+        let reward = rockReward(freeFlyRewardTier(e.tier), e.generation) * speciesOf(e.defId).rewardMul * FREEFLY_REWARD_MUL * this.mods.creditMul;
         // Cauterize: a kill inside the window leaves no children (the mitosis system's rule) and pays extra, if it would have split.
         const cauterized = (e.cauterizedTimer ?? 0) > 0 && this.canSplit(e);
         if (cauterized) { reward *= 1 + (e.cauterizeBonus ?? 0); this.fx.cauterizedKills++; }
         this.kills++;
+        if (this.mods.killHeal > 0 && this.hull < this.maxHull) {
+          const healed = Math.min(this.maxHull - this.hull, this.mods.killHeal);
+          this.hull += healed;
+          this.fx.killHealed += healed;
+        }
         this.creditsExact += reward;
         this.killEvents.push({ x: e.x, y: e.y, reward, generation: e.generation });
         const firstChildId = this.mitosis.nextId;
@@ -519,7 +550,7 @@ export class World {
         this.forget(e.id);
         this.leaks++;
         if (!this.god) {
-          this.hull -= leakDamage(this.maxHull, e.generation) * speciesOf(e.defId).leakMul;
+          this.hull -= leakDamage(BASE_HULL, e.generation) * speciesOf(e.defId).leakMul;
           if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
         }
       }

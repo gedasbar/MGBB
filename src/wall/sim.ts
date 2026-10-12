@@ -4,6 +4,7 @@ import { wrapDx, wrapX } from '../engine/wrap';
 import { CELL, SHIP_HIT_R, VIEW_H } from './constants';
 import { LevelDef } from './level';
 import { ShipTarget, WallState, WallWorld } from './wallWorld';
+import type { RunModifiers } from '../captains/modifiers';
 
 /** Which headless pilot plays the level. */
 export type BotKind = 'carve' | 'clearAll';
@@ -101,10 +102,10 @@ export class ClearAllBot {
 }
 
 /** Plays a level headlessly with a bot until it ends or `maxTime` seconds pass. */
-export function simulateWall(level: LevelDef, grid: Grid, bot: BotKind = 'carve', opts: { maxTime?: number; dt?: number } = {}): WallSimResult {
+export function simulateWall(level: LevelDef, grid: Grid, bot: BotKind = 'carve', opts: { maxTime?: number; dt?: number; modifiers?: RunModifiers } = {}): WallSimResult {
   const dt = opts.dt ?? 1 / 60;
   const maxTime = opts.maxTime ?? 240;
-  const world = new WallWorld(level, { grid });
+  const world = new WallWorld(level, { grid, modifiers: opts.modifiers });
   const pilot = bot === 'carve' ? new CarveBot() : new ClearAllBot();
   while (world.state === 'playing' && world.time < maxTime) {
     world.update(dt, pilot.step(world, dt));

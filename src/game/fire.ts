@@ -48,6 +48,8 @@ export class Gun {
   time = 0;
   /** Projectiles fired so far (read by the sound layer; no effect on play). */
   shots = 0;
+  /** Captain effect: every projectile's speed is multiplied by this (1 = none). */
+  speedMul = 1;
   readonly fx: GunCounters = {
     alternations: 0, routerSingle: 0, routerBoth: 0, capacitorAbsorbed: 0, capacitorEmits: 0, delayedShots: 0, delayReleases: 0, overclockPeak: 1, overclockResets: 0,
   };
@@ -160,7 +162,7 @@ export class Gun {
   private evalDynamic(ri: number): number {
     const ops = this.recipes[ri].packet.ops;
     const st = this.st[ri];
-    let d = 1;
+    let d = this.recipes[ri].packet.base;
     this.curDelay = 0;
     for (let k = 0; k < ops.length; k++) {
       const op = ops[k];
@@ -216,7 +218,7 @@ export class Gun {
 
   private spawn(ri: number, damage: number, shipX: number, shipY: number) {
     const r = this.recipes[ri];
-    const speed = PROJECTILE_SPEED * (r.packet.speedMul || 1);
+    const speed = PROJECTILE_SPEED * (r.packet.speedMul || 1) * this.speedMul;
     let vx = 0;
     let vy = 0;
     if (r.direction === 'N') vy = -speed;

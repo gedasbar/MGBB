@@ -26,6 +26,7 @@ import { THEME } from '../ui/theme';
 import { CreditsBadge } from '../ui/hud';
 import { makeTabButtons } from '../builder/tabs';
 import { ShopScreen } from './ShopScreen';
+import { CaptainScreen } from './CaptainScreen';
 import { sfx } from '../audio';
 
 const HOVER_MS = 800;
@@ -444,6 +445,7 @@ export class BuildScreen implements Screen {
     if (id === 'tabBuild') return;
     if (id === 'tabShop') { this.sm.switchTo(new ShopScreen(this.sm)); return; }
     if (id === 'tabMap') { this.sm.switchTo(new MapScreen(this.sm)); return; }
+    if (id === 'tabCaptain') { this.sm.switchTo(new CaptainScreen(this.sm)); return; }
     this.toast.show('Coming soon');
   }
 

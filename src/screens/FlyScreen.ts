@@ -12,7 +12,10 @@ import { fmtBig } from '../ui/format';
 import { makeText } from '../builder/ui';
 import { getProgressStore } from '../econ/progress';
 import { debugHooks } from '../debug/hooks';
-import { RunSummaryScreen, fmtTime } from './RunSummaryScreen';
+import { RunSummaryScreen, fmtTime, CaptainSummary } from './RunSummaryScreen';
+import { KillBanker } from '../captains/state';
+import { RunModifiers } from '../captains/modifiers';
+import { CAPTAIN_BY_ID } from '../captains/data';
 import { PointerGate } from '../engine/control';
 import { FragmentPool, RockView, enemyArt } from '../ui/rockArt';
 import { BackgroundView, forcedBackground, freeFlyThemeAt } from '../ui/background';
@@ -42,6 +45,8 @@ const BANNER_FADE = 0.3;
 const BANNER_Y = 300;
 const BANNER_W = 220;
 const BANNER_H = 72;
+/** Seconds the SECOND CHANCE hint blinks. */
+const HINT_TIME = 1.2;
 
 interface DmgNum { t: Text; life: number; }
 
@@ -80,6 +85,18 @@ export class FlyScreen implements Screen {
   private bannerTitle = makeText('WAVE 1', 30, THEME.text, { fontWeight: 'bold' });
   private bannerSub = makeText('', 14, THEME.textDim, { fontWeight: 'bold' });
   private bannerT = 0;
+  /** Medal milestone banner ("+2 Medals") and the Second Chance hint (a short blink). */
+  private medalBanner = new Container();
+  private medalTitle = makeText('', 20, THEME.currency, { fontWeight: 'bold' });
+  private medalT = 0;
+  private hint = makeText('SECOND CHANCE', 22, THEME.good, { fontWeight: 'bold' });
+  private hintT = 0;
+  private seenSecondChance = 0;
+  /** The captain flying this run: its effects, and the hand-over of its kills. */
+  private mods: RunModifiers;
+  private banker: KillBanker;
+  private medalsRun = 0;
+  private medalsDoubled = false;
 
   /** Credits already shown as "+N" popups (whole credits), and the exact total they are measured against. */
   private shownCredits = 0;
@@ -95,12 +112,13 @@ export class FlyScreen implements Screen {
 
   /** The pause menu's view of this run: it may pause once the ship is under control and until the run ends. */
   readonly pausable: Pausable = {
+    persist: () => { if (!this.finished) this.banker.flush(this.world.kills); },
     canPause: () => this.world.controlStarted && !this.world.gameOver && !this.finished,
     resume: () => this.world.resumeEase(),
     restart: () => {
       if (this.finished) return;
       this.finished = true;
-      bankFlyRun(this.world, getProgressStore());
+      bankFlyRun(this.world, getProgressStore(), this.banker);
       this.screenManager.switchTo(new FlyScreen(this.screenManager, this.grid, this.opts));
     },
     quit: () => { if (!this.finished) this.finish(); },
@@ -108,7 +126,10 @@ export class FlyScreen implements Screen {
 
   constructor(private screenManager: ScreenManager, private grid: Grid, private opts: { startWave?: number } = {}) {
     // A new seed per run: the waves are deterministic for a seed (World.seed, shown by the debug hook).
-    this.world = new World({ grid, safeStart: true, seed: (Math.random() * 0x7fffffff) | 0, startWave: opts.startWave });
+    const store = getProgressStore();
+    this.mods = store.runModifiers();
+    this.banker = new KillBanker(store, store.data.captains.selected);
+    this.world = new World({ grid, safeStart: true, seed: (Math.random() * 0x7fffffff) | 0, startWave: opts.startWave, modifiers: this.mods });
     debugHooks.world = this.world;
     
     this.fragPools.set('mitotic_rock', this.fragments);
@@ -163,6 +184,15 @@ export class FlyScreen implements Screen {
     this.banner.position.set(CONFIG.VIEW.W / 2, BANNER_Y);
     this.banner.visible = false;
     this.uiLayer.addChild(this.banner);
+    const mPanel = new Graphics().rect(-BANNER_W / 2, -22, BANNER_W, 44).fill(THEME.panel).stroke({ color: THEME.currency, width: 1.5 });
+    this.medalTitle.anchor.set(0.5);
+    this.medalBanner.addChild(mPanel, this.medalTitle);
+    this.medalBanner.position.set(CONFIG.VIEW.W / 2, BANNER_Y + BANNER_H / 2 + 40);
+    this.medalBanner.visible = false;
+    this.hint.anchor.set(0.5);
+    this.hint.position.set(CONFIG.VIEW.W / 2, BANNER_Y - 90);
+    this.hint.visible = false;
+    this.uiLayer.addChild(this.medalBanner, this.hint);
 
     // Dev-only hook
     if (import.meta.env.DEV) {
@@ -181,6 +211,7 @@ export class FlyScreen implements Screen {
           species: this.world.mitosis.enemies.map(e => e.defId),
           popups: this.dmgNums.filter(d => d.life > 0 && d.t.text.startsWith('+')).map(d => ({ text: d.t.text, alpha: d.t.alpha })),
           effects: { ...this.world.projSys.fx, ...this.world.gun.fx, ...this.world.fx },
+          captain: { id: this.banker.captainId, mods: this.mods, medalsRun: this.medalsRun, killsHanded: this.banker.added, maxHull: this.world.maxHull, secondChancesLeft: this.world.secondChancesLeft, medalBanner: this.medalBanner.visible ? this.medalTitle.text : null },
           arcs: Array.from(this.world.projSys.arcT).filter(t => t > 0).length,
         }),
         clientToGame: (cx: number, cy: number) => clientToGame(cx, cy, this.screenManager.app.canvas.getBoundingClientRect()),
@@ -281,8 +312,31 @@ export class FlyScreen implements Screen {
       this.bannerSub.text = [kind === 'swarm' ? 'SWARM' : kind === 'mothers' ? 'MOTHERS' : '', ev.bonus > 0 ? `+${fmtBig(ev.bonus)} credits` : ''].filter(Boolean).join('  ');
       this.bannerSub.style.fill = ev.bonus > 0 ? THEME.currency : THEME.textDim;
       this.bannerT = BANNER_TIME;
+      // Free Fly Medal milestones (first time only per save). A run started at a later wave by a cheat earns none.
+      if ((this.opts.startWave ?? 1) <= 1) {
+        const award = getProgressStore().claimFlyMilestone(ev.wave, this.mods.medalDouble);
+        if (award) {
+          this.medalsRun += award.medals;
+          this.medalsDoubled ||= award.doubled;
+          this.medalTitle.text = `+${award.medals} Medal${award.medals === 1 ? '' : 's'}${award.doubled ? ' DOUBLED!' : ''}`;
+          this.medalT = BANNER_TIME + 0.5;
+          sfx.play('medal');
+        }
+      }
     }
     this.world.waveEvents.length = 0;
+    if (this.medalT > 0) {
+      this.medalT -= frameTime;
+      this.medalBanner.visible = this.medalT > 0;
+      this.medalBanner.alpha = Math.min(1, Math.max(0, this.medalT) / BANNER_FADE);
+    }
+    const sc = this.world.fx.secondChance;
+    if (sc > this.seenSecondChance) { this.seenSecondChance = sc; this.hintT = HINT_TIME; }
+    if (this.hintT > 0) {
+      this.hintT -= frameTime;
+      // A blink: on for 0.15 s, off for 0.15 s.
+      this.hint.visible = this.hintT > 0 && Math.floor(this.hintT / 0.15) % 2 === 0;
+    }
     if (this.bannerT > 0) {
       this.bannerT -= frameTime;
       this.banner.visible = this.bannerT > 0;
@@ -379,8 +433,14 @@ export class FlyScreen implements Screen {
   /** The run is over: bank it exactly once and show the summary. */
   private finish() {
     this.finished = true;
-    const { result, marks } = bankFlyRun(this.world, getProgressStore());
-    this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks));
+    const store = getProgressStore();
+    const { result, marks } = bankFlyRun(this.world, store, this.banker);
+    const id = this.banker.captainId;
+    const captain: CaptainSummary = {
+      name: CAPTAIN_BY_ID[id]?.name ?? id, killsAdded: this.banker.added, killsTotal: store.data.captains.heroes[id]?.kills ?? 0,
+      medals: this.medalsRun, doubled: this.medalsDoubled,
+    };
+    this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks, undefined, captain));
   }
 
   destroy() {

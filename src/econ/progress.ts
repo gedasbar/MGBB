@@ -1,4 +1,6 @@
 import { MAX_TIER } from '../wall/generator';
+import { CaptainsState, defaultCaptains, sanitizeCaptains, addCaptainKills, buyOption, activateOption, claimFlyMilestone, rollMedals, selectCaptain, unlockCaptain, upgradeHero, CaptainResult, MedalAward } from '../captains/state';
+import { modifiersFor, RunModifiers } from '../captains/modifiers';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
 import { HULL_BUILDERS } from '../game/gridUtils';
 import { STARTER_HULL } from '../data/hulls';
@@ -8,12 +10,12 @@ import {
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 5;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance. The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 6;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 5;
+  version: 6;
   credits: number;
   owned: Record<string, number>;
   levels: Record<string, number>;
@@ -33,8 +35,10 @@ export interface Progress {
   /** Best time of a pass or a clear, and best time of a clear alone. */
   wallBestTime: Record<string, number>;
   wallBestClearTime: Record<string, number>;
-  /** One per tier, earned by its first full clear. */
+  /** Medals in hand: one per tier's first full clear and the Free Fly milestones, minus what the captains took. */
   medals: number;
+  /** Captains (chunk 13a): owned, selected, levels, kills, options, claimed Free Fly milestones. */
+  captains: CaptainsState;
   highestCleared: number;
 }
 
@@ -49,8 +53,8 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 5, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
-    clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, medals: 0, highestCleared: 0,
+    version: 6, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
   };
 }
 
@@ -62,6 +66,8 @@ export function richProgress(count = 20): Progress {
   return p;
 }
 
+/** No save can honestly hold more than this many Medals (campaign 100 + milestones 23, doubled, with room to spare). */
+const MEDALS_CEILING = 100_000;
 const num = (v: unknown, min: number, fallback: number) =>
   typeof v === 'number' && isFinite(v) && v >= min ? v : fallback;
 const int = (v: unknown, min: number, max: number, fallback: number) =>
@@ -95,8 +101,11 @@ export function sanitizeProgress(raw: unknown): Progress {
       if (Number.isInteger(t) && t >= 1 && t <= MAX_TIER && typeof v === 'number' && isFinite(v) && v >= 0 && v <= max) dst[k] = v;
     }
   }
-  // Medals are one per cleared tier; never trust a stored count above that or below nothing.
-  out.medals = Math.min(out.clearedTiers.length, int(r.medals, 0, MAX_TIER, out.clearedTiers.length));
+  // Saves older than v6 held one Medal per cleared tier: never trust a stored count above that. From v6 on Medals are a
+  // balance (earned minus spent, Free Fly milestones included), so only a sanity ceiling applies.
+  const v6 = typeof r.version === 'number' && r.version >= 6;
+  out.medals = v6 ? int(r.medals, 0, MEDALS_CEILING, 0) : Math.min(out.clearedTiers.length, int(r.medals, 0, MAX_TIER, out.clearedTiers.length));
+  out.captains = sanitizeCaptains(r.captains);
   out.highestCleared = out.clearedTiers.length ? out.clearedTiers[out.clearedTiers.length - 1] : 0;
   for (const id of Object.keys(d.owned)) {
     out.owned[id] = int(r.owned?.[id], 0, 1e6, d.owned[id]);
@@ -149,13 +158,16 @@ export interface WallRunResult {
   kills: number;
   /** The ship flew past the end of the wall with blocks left. A full clear counts as passed too. */
   passed?: boolean;
+  /** Captain effect: chance the first-clear Medal is doubled, and the RNG that rolls it (Math.random when absent). */
+  medalDouble?: number;
+  rand?: () => number;
 }
 
 /**
  * Books one campaign wall run (win or lose): credits for the blocks destroyed, the best result of the tier, and a Medal
  * the first time the tier is fully cleared. Replays pay credits but no Medal.
  */
-export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean; newBestPct: boolean; newBestTime: boolean; newlyPassed: boolean } {
+export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean; /** Medals paid (2 when doubled). */ medals: number; medalDoubled: boolean; newBestPct: boolean; newBestTime: boolean; newlyPassed: boolean } {
   p.credits += Math.floor(run.credits);
   p.totalKills += run.kills;
   p.runs++;
@@ -168,6 +180,8 @@ export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean;
   if (newBestPct) p.wallBestPct[key] = shown;
   let newBestTime = false;
   let medal = false;
+  let medals = 0;
+  let medalDoubled = false;
   let newlyPassed = false;
   if (passed) {
     if (run.time < (p.wallBestTime[key] ?? Infinity)) { p.wallBestTime[key] = run.time; newBestTime = true; }
@@ -182,12 +196,15 @@ export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean;
     if (!isCleared(p, run.tier)) {
       p.clearedTiers.push(run.tier);
       p.clearedTiers.sort((a, b) => a - b);
-      p.medals++;
+      const award = rollMedals(1, run.medalDouble ?? 0, run.rand ?? Math.random);
+      p.medals += award.medals;
+      medals = award.medals;
+      medalDoubled = award.doubled;
       medal = true;
     }
     p.highestCleared = Math.max(p.highestCleared, run.tier);
   }
-  return { medal, newBestPct, newBestTime, newlyPassed };
+  return { medal, medals, medalDoubled, newBestPct, newBestTime, newlyPassed };
 }
 
 export type BuyResult = { ok: true; price: number } | { ok: false; error: string };
@@ -260,6 +277,31 @@ export class ProgressStore {
   buyUpgrade(id: string): BuyResult { const r = buyUpgrade(this.data, id); if (r.ok) this.commit(); return r; }
   buyHull(id: string): BuyResult { const r = buyHull(this.data, id); if (r.ok) this.commit(); return r; }
 
+  // ---- Captains (chunk 13a): rules live in captains/state.ts, the store commits and notifies.
+  private captainAct(r: CaptainResult): CaptainResult { if (r.ok) this.commit(); return r; }
+  unlockCaptain(id: string) { return this.captainAct(unlockCaptain(this.data, id)); }
+  selectCaptain(id: string) { return this.captainAct(selectCaptain(this.data, id)); }
+  upgradeHero(id: string) { return this.captainAct(upgradeHero(this.data, id)); }
+  buyOption(optionId: string) { return this.captainAct(buyOption(this.data, optionId)); }
+  activateOption(optionId: string) { return this.captainAct(activateOption(this.data, optionId)); }
+  /** Lifetime kills for a captain (called in instalments by KillBanker: run end, pause, tab hidden). */
+  addCaptainKills(id: string, n: number) {
+    if (!(n > 0)) return;
+    addCaptainKills(this.data, id, n);
+    this.commit();
+  }
+  /** Pays a Free Fly milestone once per save; the Medals are in hand at once. */
+  claimFlyMilestone(wave: number, doubleChance = 0, rand: () => number = Math.random): MedalAward | null {
+    const a = claimFlyMilestone(this.data, wave, doubleChance, rand);
+    if (a) this.commit();
+    return a;
+  }
+  /** The selected captain's effects for a run that starts now. */
+  runModifiers(): RunModifiers {
+    const c = this.data.captains;
+    return modifiersFor(c.selected, c.heroes[c.selected]);
+  }
+
   /** Adds one finished run to the totals. Call exactly once per run. */
   recordRun(run: RunResult): { newBestTier: boolean; newBestTime: boolean; newBestWave: boolean } {
     const d = this.data;
@@ -281,17 +323,20 @@ export class ProgressStore {
    * tier's best result and awards the first-clear Medal. Best tier and best time belong to Free Fly and are not touched.
    * Call exactly once per level (WallWorld.bank guards this).
    */
-  recordWallRun(run: { credits: number; kills: number; tier?: number; destroyed?: number; total?: number; time?: number; passed?: boolean }): { medal: boolean } {
+  recordWallRun(run: { credits: number; kills: number; tier?: number; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; rand?: () => number }): { medal: boolean; medals: number; medalDoubled: boolean } {
     let medal = false;
+    let medals = 0;
+    let medalDoubled = false;
     if (run.tier !== undefined && run.destroyed !== undefined && run.total !== undefined) {
-      medal = applyWallRun(this.data, { tier: run.tier, destroyed: run.destroyed, total: run.total, time: run.time ?? 0, credits: run.credits, kills: run.kills, passed: run.passed }).medal;
+      const r = applyWallRun(this.data, { tier: run.tier, destroyed: run.destroyed, total: run.total, time: run.time ?? 0, credits: run.credits, kills: run.kills, passed: run.passed, medalDouble: run.medalDouble, rand: run.rand });
+      medal = r.medal; medals = r.medals; medalDoubled = r.medalDoubled;
     } else {
       this.data.credits += Math.floor(run.credits);
       this.data.totalKills += run.kills;
       this.data.runs++;
     }
     this.commit();
-    return { medal };
+    return { medal, medals, medalDoubled };
   }
 }
 
