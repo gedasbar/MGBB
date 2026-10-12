@@ -1,0 +1,14 @@
+CAUGHT  KillBanker counts the whole total each flush (double counting)
+    failing: kill banking > kills go to the captain that flew the run, in instalments, each counted once
+CAUGHT  buyOption ignores the kill threshold of the tier
+    failing: tiers, buying and switching > an option costs its tier price, needs its tier open, cannot be bought twice, and a locked tier does not charge
+CAUGHT  Second Chance charges do not stack
+    failing: run modifiers math > values of one type add across tiers; Medal double is capped at 100%; unknown ids are ignored
+CAUGHT  Free Fly Second Chance is never spent
+    failing: hooks: survival > Free Fly Second Chance: the first contact deals no damage and gives 1 s, the second hurts; neutral hurts at once
+CAUGHT  Medal doubling roll uses <= (boundary)
+    failing: Medals and the injected RNG > a doubling chance doubles exactly when the roll is below it; no chance never rolls
+CAUGHT  Free Fly milestone can be claimed again
+    failing: Medals and the injected RNG > Free Fly milestones pay once per save, only on their waves, and can double | save v6 > a v6 save round-trips, and a spent balance below the cleared count is kept (Medals are a balance now)
+CAUGHT  vs-armor bonus applies to every target
+    failing: hooks: damage > damage %, wall damage % and the vs-armor / vs-shield bonuses change the hit as the data says

@@ -41,7 +41,7 @@ to the world at run start. Nothing in gameplay code knows a captain or option id
 | `creditPct`          | +fraction    | `creditMul`          | kill reward in `World` and block reward in `WallWorld.destroyBlock`                       |
 | `wallCreditPct`      | +fraction    | `wallCreditMul`      | `WallWorld.destroyBlock` only                                                             |
 | `waveBonusPct`       | +fraction    | `waveBonusMul`       | the credits paid when a wave 5/10/15... starts (`waveBonus`)                              |
-| `passCreditsPct`     | +fraction    | `passCredits`        | `WallWorld.bank`: a PASSED or CLEARED level pays this share of the wall's full block value |
+| `passCreditsPct`     | +fraction    | `passCredits`        | `WallWorld.end`: a PASSED or CLEARED level pays this share of the credits the run earned, once (see section 6) |
 | `medalDoublePct`     | +chance      | `medalDouble`        | every Medal award (first clear, Free Fly milestone), rolled with an injected RNG          |
 | `secondChance`       | +n charges   | `secondChances`      | WallWorld: a touched live block is destroyed, run goes on, 1 s invulnerability. World: the first enemy contact deals no damage, 1 s invulnerability |
 | `spawnInvulnSec`     | +seconds     | `spawnInvuln`        | `beginControl()` (both worlds): `GRACE_TIME` + this                                       |
@@ -66,7 +66,7 @@ Unlock cost: Cadet 0 (owned from the start), Bulwark 10, Gunner 25, Pathfinder 5
 | tier (kills) | option A                                   | option B                                       |
 |--------------|--------------------------------------------|------------------------------------------------|
 | 1 (0)        | **Prospector** +5% credits                 | **Lucky Charm** 10% chance a Medal is doubled  |
-| 2 (300)      | **Wave Dividend** +50% wave bonus credits  | **Toll Collector** passing/clearing a wall pays +10% of its full value |
+| 2 (300)      | **Wave Dividend** +50% wave bonus credits  | **Toll Collector** +15% credits when a wall is passed or cleared |
 | 3 (1500)     | **Broker** +10% credits                    | **Fortune's Favour** 25% Medal double chance    |
 | 4 (6000)     | **Tycoon** +20% credits, +25% wave bonus   | **Mint** 40% Medal double chance, +5% credits   |
 
@@ -88,7 +88,7 @@ Unlock cost: Cadet 0 (owned from the start), Bulwark 10, Gunner 25, Pathfinder 5
 | 1 (0)        | **Hot Barrel** +8% damage                  | **Quick Trigger** +8% fire rate                    |
 | 2 (300)      | **Armor Breaker** +30% damage vs armor     | **Shield Cracker** +30% damage vs shields          |
 | 3 (1500)     | **Fragment Hunter** +30% vs fragments      | **Heavy Rounds** +10% damage                       |
-| 4 (6000)     | **Overdrive** +15% fire rate, +20% projectile speed | **Siege Rounds** +15% damage, +15% vs armor, +15% vs shields |
+| 4 (6000)     | **Overdrive** +15% fire rate, +20% projectile speed | **Siege Rounds** +12% damage, +12% vs armor, +12% vs shields |
 
 ### Pathfinder (50 Medals) - wall specialist
 *Catch:* campaign walls. In Free Fly it is only the +1/level and projectile speed; in a wall it gets faster passes and pays.
@@ -96,9 +96,9 @@ Unlock cost: Cadet 0 (owned from the start), Bulwark 10, Gunner 25, Pathfinder 5
 | tier (kills) | option A                                   | option B                                         |
 |--------------|--------------------------------------------|--------------------------------------------------|
 | 1 (0)        | **Slipstream** boost zone +30%             | **Long Reach** +20% projectile speed             |
-| 2 (300)      | **Wall Breaker** +15% damage vs wall blocks | **Toll Road** +15% pass/clear credits           |
+| 2 (300)      | **Wall Breaker** +12% damage vs wall blocks | **Toll Road** +25% credits when a wall is passed or cleared |
 | 3 (1500)     | **Rip Current** boost zone +30%            | **Quarry** +20% credits from wall blocks         |
-| 4 (6000)     | **Full Throttle** boost zone +40%, +15% pass credits | **Demolition** +25% damage vs wall blocks |
+| 4 (6000)     | **Full Throttle** boost zone +40%, +25% pass credits | **Demolition** +20% damage vs wall blocks |
 
 Option ids and exact data: `src/captains/data.ts`. Playstyle summary: Cadet = bank more per run, Bulwark = survive
 mistakes and long Free Fly runs, Gunner = clear faster, Pathfinder = fly walls fast and get paid for passing.
@@ -154,3 +154,8 @@ upper steps are a bonus for strong players, not something the economy depends on
 * Medals become a spendable balance. The old load rule "never more Medals than cleared tiers" is gone (it would erase the
   Medals a player earned from Free Fly); old saves start at their cleared-tier count, as before.
 * `hullPct` does not enlarge leak damage (leaks use a fixed 100 HP base), otherwise more hull would not help against leaks.
+* **One balance pass after `npm run balance-captains`** (`reports/chunk13a/`): the first version paid the pass bonus as a share of
+  the wall's full value, which made carved passes pay 4x to 28x the baseline (a carved pass destroys about 3% of the blocks).
+  It is now a share of the credits the run earned (Toll Collector 15%, Toll Road 25%, Full Throttle 25%), and Wall Breaker
+  (15 -> 12%), Demolition (25 -> 20%) and Siege Rounds (15 -> 12%) were trimmed. After the pass nothing is above 2x of the
+  baseline; the strongest builds are about x1.45 damage per second and x1.5 Free Fly credits.
