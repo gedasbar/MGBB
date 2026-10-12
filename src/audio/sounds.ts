@@ -27,14 +27,24 @@ export interface SoundDef {
   priority: SoundPriority;
   /** Least seconds between two plays of this sound (0 = no limit). Ignored for priority 2. */
   minInterval: number;
+  /** Sounds of one group share a single rate limit (hit sounds: a busy screen must not turn into a buzz). */
+  group?: string;
   /** Random pitch variation, +/- as a share of the pitch (cosmetic, uses Math.random so combat randomness is untouched). */
   pitchVar?: number;
 }
 
+/** Largest peak a sound may be DEFINED with (before the boost). */
 export const MAX_PEAK = 0.15;
+/** Every sound is played this much louder than defined (12b: playtesting found everything quiet). Saved volumes stay valid. */
+export const SFX_BOOST = 1.8;
+/** Largest peak after boost and tuning multipliers: 0.15 x 1.8, and a little more room for the protected sounds. */
+export const PEAK_CAP = 0.27;
+export const PEAK_CAP_PROTECTED = 0.35;
+/** Hit sounds share this many plays per second. */
+export const HIT_RATE = 8;
 
 export const SOUND_IDS = [
-  'shot', 'tick', 'rockHit', 'rockPop', 'split', 'blockDestroyed', 'armorPing', 'shieldHit', 'shieldBreak', 'chain', 'well',
+  'shot', 'shotSoft', 'tick', 'rockHit', 'rockPop', 'split', 'blockDestroyed', 'armorPing', 'shieldHit', 'shieldBreak', 'chain', 'well',
   'bounce', 'crash', 'cleared', 'medal', 'wave', 'uiTap', 'purchase', 'denied', 'pickerOpen', 'pickerClose',
 ] as const;
 export type SfxId = (typeof SOUND_IDS)[number];
@@ -45,9 +55,12 @@ const P = (wave: SoundWave, f0: number, f1: number, at: number, dur: number, pea
   ({ wave, f0, f1, at, dur, peak, ...extra });
 
 export const SOUNDS: Record<SfxId, SoundDef> = {
-  shot: { priority: 0, minInterval: 0.06, pitchVar: 0.08, parts: [P('square', 880, 520, 0, 0.05, 0.035)] },
-  tick: { priority: 0, minInterval: 1 / 12, pitchVar: 0.05, parts: [P('triangle', 640, 420, 0, 0.04, 0.05)] },
-  rockHit: { priority: 0, minInterval: 1 / 12, pitchVar: 0.06, parts: [P('square', 300, 170, 0, 0.06, 0.06, { filter: { type: 'lowpass', freq: 1800 } })] },
+  // The weapon sound is off by default (see Settings.weaponSound). Normal: the old blip, at most 6 a second.
+  shot: { priority: 0, minInterval: 1 / 6, pitchVar: 0.08, parts: [P('square', 880, 520, 0, 0.05, 0.035)] },
+  // Soft: a muted low thump (sine, no highs), at most 4 a second, about 35% as loud as the others.
+  shotSoft: { priority: 0, minInterval: 0.25, pitchVar: 0.08, parts: [P('sine', 170, 120, 0, 0.045, 0.04, { filter: { type: 'lowpass', freq: 400 } })] },
+  tick: { priority: 0, minInterval: 1 / HIT_RATE, group: 'hit', pitchVar: 0.05, parts: [P('triangle', 640, 420, 0, 0.04, 0.05)] },
+  rockHit: { priority: 0, minInterval: 1 / HIT_RATE, group: 'hit', pitchVar: 0.06, parts: [P('square', 300, 170, 0, 0.06, 0.06, { filter: { type: 'lowpass', freq: 1800 } })] },
   rockPop: { priority: 1, minInterval: 0.1, pitchVar: 0.06, parts: [
     P('triangle', 260, 90, 0, 0.12, 0.11),
     P('noise', 0, 0, 0, 0.07, 0.06, { filter: { type: 'bandpass', freq: 1400, q: 0.8 } }),
@@ -60,8 +73,8 @@ export const SOUNDS: Record<SfxId, SoundDef> = {
     P('sine', 140, 55, 0, 0.14, 0.14),
     P('noise', 0, 0, 0, 0.05, 0.05, { filter: { type: 'lowpass', freq: 900 } }),
   ] },
-  armorPing: { priority: 0, minInterval: 0.07, pitchVar: 0.04, parts: [P('triangle', 2100, 1900, 0, 0.07, 0.06)] },
-  shieldHit: { priority: 0, minInterval: 0.07, pitchVar: 0.05, parts: [P('sawtooth', 900, 1500, 0, 0.06, 0.05, { filter: { type: 'bandpass', freq: 1600, q: 3 } })] },
+  armorPing: { priority: 0, minInterval: 1 / HIT_RATE, group: 'hit', pitchVar: 0.04, parts: [P('triangle', 2100, 1900, 0, 0.07, 0.06)] },
+  shieldHit: { priority: 0, minInterval: 1 / HIT_RATE, group: 'hit', pitchVar: 0.05, parts: [P('sawtooth', 900, 1500, 0, 0.06, 0.05, { filter: { type: 'bandpass', freq: 1600, q: 3 } })] },
   shieldBreak: { priority: 1, minInterval: 0.15, parts: [
     P('sawtooth', 1600, 200, 0, 0.18, 0.09, { filter: { type: 'lowpass', freq: 3000 } }),
     P('noise', 0, 0, 0, 0.12, 0.05, { filter: { type: 'highpass', freq: 3000 } }),

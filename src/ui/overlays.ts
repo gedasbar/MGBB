@@ -3,6 +3,7 @@ import { CONFIG } from '../config';
 import { makeText } from '../builder/ui';
 import { sfx } from '../audio';
 import { THEME } from './theme';
+import { WEAPON_SOUNDS } from './settings';
 import type { ScreenManager } from '../screens/ScreenManager';
 import { PROGRESS_KEY } from '../econ/progress';
 import { LEGACY_KEY, STORAGE_KEY } from '../builder/persist';
@@ -178,7 +179,7 @@ export class Overlays {
   }
 
   private buildSettings() {
-    const pw = 440, ph = 520;
+    const pw = 440, ph = 580;
     const { x, y } = this.panelBox(pw, ph, 'SETTINGS');
     let cy = y + 74;
     const stepper = (id: 'master' | 'sfx', label: string, get: () => number, set: (v: number) => void) => {
@@ -201,8 +202,15 @@ export class Overlays {
       cy += 60;
     };
     toggle('mute', () => `Sound: ${sfx.settings.muted ? 'MUTED' : 'ON'}`, () => sfx.setMuted(!sfx.settings.muted));
+    const WORD: Record<string, string> = { off: 'Off', soft: 'Soft', normal: 'Normal' };
+    toggle('weapon', () => `Weapon sound: ${WORD[sfx.settings.weaponSound]}`, () => {
+      const i = WEAPON_SOUNDS.indexOf(sfx.settings.weaponSound);
+      sfx.setWeaponSound(WEAPON_SOUNDS[(i + 1) % WEAPON_SOUNDS.length]);
+      sfx.unlock();
+      sfx.playShot();
+    });
     toggle('statsToggle', () => `Stats panel: ${this.sm.stats.enabled ? 'ON' : 'OFF'}`, () => this.sm.stats.toggle());
-    this.addButton('testSound', x + 24, cy, pw - 48, 48, 'Test sound', () => { sfx.unlock(); sfx.play('shot', { gain: 3 }); });
+    this.addButton('testSound', x + 24, cy, pw - 48, 48, 'Test sound', () => { sfx.unlock(); if (!sfx.playShot()) sfx.play('rockPop'); });
     cy += 60;
     this.addButton('resetSave', x + 24, cy, pw - 48, 48, 'Reset save...', () => this.show('confirm'));
     cy += 60;

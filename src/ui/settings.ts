@@ -1,9 +1,17 @@
+export type WeaponSound = 'off' | 'soft' | 'normal';
+export const WEAPON_SOUNDS: readonly WeaponSound[] = ['off', 'soft', 'normal'];
+export const MAX_SOUND_MULT = 3;
+
 export interface Settings {
   masterVolume: number;
   sfxVolume: number;
   musicVolume: number;
   /** Silences all sound without losing the volume settings. */
   muted: boolean;
+  /** The per-projectile shot sound: off (default), a soft low thump, or the normal blip (all rate limited). */
+  weaponSound: WeaponSound;
+  /** Per-sound loudness multipliers set in the debug sound lab (absent = 1); applied on top of the global boost. */
+  soundMult: Record<string, number>;
   screenShake: boolean;
   visualClarity: boolean;
   colorBlind: boolean;
@@ -16,6 +24,8 @@ export const DEFAULT_SETTINGS: Settings = {
   sfxVolume: 1.0,
   musicVolume: 1.0,
   muted: false,
+  weaponSound: 'off',
+  soundMult: {},
   screenShake: true,
   visualClarity: false, // if true, reduce trails / thinner projectiles / opaque-enemy outline
   colorBlind: false,
@@ -35,14 +45,20 @@ const clamp01 = (v: unknown, fallback: number) => (typeof v === 'number' && isFi
 export function loadSettings(storage: Pick<Storage, 'getItem'> | null = defaultStorage()): Settings {
   try {
     const data = storage?.getItem(SETTINGS_KEY);
-    if (!data) return { ...DEFAULT_SETTINGS };
+    if (!data) return { ...DEFAULT_SETTINGS, soundMult: {} };
     const s = { ...DEFAULT_SETTINGS, ...JSON.parse(data) } as Settings;
     s.masterVolume = clamp01(s.masterVolume, DEFAULT_SETTINGS.masterVolume);
     s.sfxVolume = clamp01(s.sfxVolume, DEFAULT_SETTINGS.sfxVolume);
     s.muted = s.muted === true;
+    if (!WEAPON_SOUNDS.includes(s.weaponSound)) s.weaponSound = 'off';
+    const m: Record<string, number> = {};
+    if (s.soundMult && typeof s.soundMult === 'object') {
+      for (const [k, v] of Object.entries(s.soundMult)) if (typeof v === 'number' && isFinite(v)) m[k] = Math.max(0, Math.min(MAX_SOUND_MULT, v));
+    }
+    s.soundMult = m;
     return s;
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, soundMult: {} };
   }
 }
 

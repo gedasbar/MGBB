@@ -1,5 +1,5 @@
-import { loadSettings, saveSettings, Settings } from '../ui/settings';
-import { MAX_PEAK, SFX_ORDER, SfxId, SoundDef, SOUNDS } from './sounds';
+import { loadSettings, MAX_SOUND_MULT, saveSettings, Settings, WeaponSound } from '../ui/settings';
+import { PEAK_CAP, PEAK_CAP_PROTECTED, SFX_BOOST, SFX_ORDER, SfxId, SoundDef, SOUNDS } from './sounds';
 
 /** At most this many sounds sound at once; the lowest-priority, oldest one is stolen for a newer one. */
 export const VOICE_CAP = 16;
@@ -49,8 +49,10 @@ export class SfxEngine {
   private sfx: GainNode | null = null;
   private noise: AudioBuffer | null = null;
   private readonly voices: Voice[] = [];
+  /** Last play time per rate-limit slot (one per sound, or one per group). */
   private readonly last: Float64Array;
   private readonly index = new Map<string, number>();
+  private readonly limitSlot: Int32Array;
   private readonly storage: Pick<Storage, 'getItem' | 'setItem'> | null | undefined;
   private readonly clockFn: (() => number) | null;
   private readonly makeCtx: () => AudioContext | null;
@@ -61,7 +63,14 @@ export class SfxEngine {
     this.clockFn = opts.clock ?? null;
     this.makeCtx = opts.createContext ?? defaultContext;
     SFX_ORDER.forEach((id, i) => this.index.set(id, i));
-    this.last = new Float64Array(SFX_ORDER.length).fill(-1e9);
+    const slots = new Map<string, number>();
+    this.limitSlot = new Int32Array(SFX_ORDER.length);
+    SFX_ORDER.forEach((id, i) => {
+      const key = SOUNDS[id].group ?? id;
+      if (!slots.has(key)) slots.set(key, slots.size);
+      this.limitSlot[i] = slots.get(key)!;
+    });
+    this.last = new Float64Array(slots.size).fill(-1e9);
     for (let i = 0; i < VOICE_CAP; i++) this.voices.push({ live: false, id: -1, priority: 0, start: 0, end: 0, sources: [], nodes: [] });
   }
 
@@ -86,7 +95,19 @@ export class SfxEngine {
       this.master = c.createGain();
       this.sfx = c.createGain();
       this.sfx.connect(this.master);
-      this.master.connect(c.destination);
+      // A soft limiter on the bus: many overlapping sounds squash instead of clipping.
+      if (typeof c.createDynamicsCompressor === 'function') {
+        const lim = c.createDynamicsCompressor();
+        lim.threshold.setValueAtTime(-6, c.currentTime);
+        lim.knee.setValueAtTime(6, c.currentTime);
+        lim.ratio.setValueAtTime(12, c.currentTime);
+        lim.attack.setValueAtTime(0.003, c.currentTime);
+        lim.release.setValueAtTime(0.12, c.currentTime);
+        this.master.connect(lim);
+        lim.connect(c.destination);
+      } else {
+        this.master.connect(c.destination);
+      }
       const len = Math.max(1, Math.floor(c.sampleRate * NOISE_SECONDS));
       this.noise = c.createBuffer(1, len, c.sampleRate);
       const d = this.noise.getChannelData(0);
@@ -115,6 +136,23 @@ export class SfxEngine {
   setMasterVolume(v: number) { this.settings.masterVolume = clamp01(v); this.changed(); }
   setSfxVolume(v: number) { this.settings.sfxVolume = clamp01(v); this.changed(); }
   setMuted(m: boolean) { this.settings.muted = m; this.changed(); }
+  setWeaponSound(w: WeaponSound) { this.settings.weaponSound = w; this.changed(); }
+
+  /** Tuning multiplier of one sound (1 = untouched). */
+  soundMult(id: string): number { return this.settings.soundMult[id] ?? 1; }
+  setSoundMult(id: string, v: number) {
+    const m = Math.max(0, Math.min(MAX_SOUND_MULT, v));
+    if (m === 1) delete this.settings.soundMult[id]; else this.settings.soundMult[id] = m;
+    this.changed();
+  }
+  resetSoundMult() { this.settings.soundMult = {}; this.changed(); }
+
+  /** The player's shot sound for the current Weapon sound setting (nothing when Off). Callers may call it once per projectile. */
+  playShot(): boolean {
+    const w = this.settings.weaponSound;
+    if (w === 'off') return false;
+    return this.play(w === 'soft' ? 'shotSoft' : 'shot');
+  }
 
   private changed() {
     this.applyVolumes();
@@ -139,20 +177,23 @@ export class SfxEngine {
     const k = this.index.get(id);
     if (k === undefined) return false;
     const def: SoundDef = SOUNDS[id];
+    if (this.soundMult(id) === 0) return false; // muted in the sound lab
     const t = this.now();
-    if (def.priority < 2 && t - this.last[k] < def.minInterval) { this.stats.rateLimited++; return false; }
+    const slot = this.limitSlot[k];
+    if (def.priority < 2 && t - this.last[slot] < def.minInterval) { this.stats.rateLimited++; return false; }
     const v = this.acquire(def.priority, t);
     if (!v) { this.stats.dropped++; return false; }
-    this.last[k] = t;
+    this.last[slot] = t;
 
     const pitch = (opts?.pitch ?? 1) * (def.pitchVar ? 1 + (Math.random() * 2 - 1) * def.pitchVar : 1);
-    const gain = opts?.gain ?? 1;
+    const gain = (opts?.gain ?? 1) * SFX_BOOST * this.soundMult(id);
+    const cap = def.priority === 2 ? PEAK_CAP_PROTECTED : PEAK_CAP;
     let end = 0;
     const t0 = ctx.currentTime;
     for (const p of def.parts) {
       const at = t0 + p.at;
       const g = ctx.createGain();
-      const peak = Math.max(SILENT * 2, Math.min(MAX_PEAK, p.peak * gain));
+      const peak = Math.max(SILENT * 2, Math.min(cap, p.peak * gain));
       g.gain.setValueAtTime(SILENT, at);
       g.gain.linearRampToValueAtTime(peak, at + (p.attack ?? 0.004));
       g.gain.exponentialRampToValueAtTime(SILENT, at + p.dur);
