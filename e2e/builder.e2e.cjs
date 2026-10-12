@@ -133,7 +133,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   check(st.inspector.title === 'Empty cell', 'inspector strip stays visible above the sheet (and shows the cell)');
   await shot(page, 'b04_picker_open.png');
   const tiles = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; return { ids: p.tiles.map(t => t.id), visible: p.tiles.filter(t => { const r = p.tileScreenRect(t.id); return r.y >= p.listRect.y && r.y + r.h <= p.listRect.y + p.listRect.h; }).map(t => t.id), minTile: Math.min(...p.tiles.map(t => Math.min(t.w, t.h))) }; });
-  check(tiles.ids.length === 32, `picker lists 32 placeable blocks (no Remove tile on an empty cell): ${tiles.ids.length}`);
+  check(tiles.ids.length === 41, `picker lists 41 placeable blocks (no Remove tile on an empty cell): ${tiles.ids.length}`);
   check(tiles.minTile >= 44, `tiles are at least 44 px: ${tiles.minTile}`);
   check(!tiles.visible.includes('pure_converter'), `pure_converter is not visible before scrolling (visible: ${tiles.visible.length} tiles)`);
   const tr0 = await page.evaluate(() => window.__mgbm.buildScreen.picker.tileScreenRect('turn_r'));

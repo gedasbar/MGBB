@@ -28,7 +28,7 @@ The owner is not a programmer. They test in the browser and describe what they s
 ## Game design (current state)
 **Circuit model.** The Generator (fixed hull cell) always emits a red signal that travels through empty cells as implicit straight pieces. Blocks transform packets in path order and output relative directions (F/L/R). Auto-orient is the default; manual rotation switches a block to a manual mode (wrong side = dead end). Lines may cross freely, and each signal interacts with shared blocks independently. Same-axis overlap cuts the later signal. The compiler is in `src/engine/compiler.ts`.
 
-**Blocks.** Data in `src/data/blocks.ts`. Categories: Pathing (blue), Damage (salmon/orange), Modifiers (purple), Status (teal). Each block has levels. Copy price = base x 1.18^owned, upgrade price = base x 2.0 x 2.2^(level-1). More blocks are hidden until added by a chunk.
+**Blocks.** Data in `src/data/blocks.ts`. Categories: Pathing (blue), Damage (salmon/orange), Modifiers (purple), Status (teal), Mitosis (amber, Free Fly rock mechanics; 41 blocks are shown in all). Each block has levels. Copy price = base x 1.18^owned, upgrade price = base x 2.0 x 2.2^(level-1). More blocks are hidden until added by a chunk.
 
 **Hulls.** `src/data/hulls.ts`. Dart (free, 1 slot, weak gun) is the starter, then Twin (2), Prong (3 slots, 2 ejectors), Fan, Shuttle. Ejector offsets from the ship centre are scaled by `FIRE_OFFSET_SCALE`.
 
@@ -41,4 +41,4 @@ The owner is not a programmer. They test in the browser and describe what they s
 **Art language.** Sharp geometric shapes, flat fills, no gradients or textures, no glow. Block plates: nested squares (outer #55555a, mid = category colour darkened, inner #26262a) with a light-grey (#d4d4d8) entry bar and exit triangles. Ships are shades of grey with small coloured pieces. Rocks use warm muted tones with generated cracks. UI theme in `src/ui/theme.ts` (grey #1c1c1e background, panels #2a2a2d, yellow currency #f2c230).
 
 ## Backlog (not built yet, do not start unless a chunk says so)
-More blocks (a mitosis-aware batch, more pathing like Merger/Portal/Reflector), new enemy types and Free Fly waves, bosses, sound, Captains/hero upgrades (Medals), node map and infinite tiers (also unlocks blocks), quests, skill tree, hull silhouette redesign.
+More blocks (more pathing like Merger/Portal/Reflector, passives), new enemy types and Free Fly waves, bosses, sound, Captains/hero upgrades (Medals), node map and infinite tiers (also unlocks blocks), quests, skill tree, hull silhouette redesign.

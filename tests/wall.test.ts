@@ -407,7 +407,7 @@ describe('Shared hit pipeline on a wall', () => {
     expect(w.pool.active[k]).toBe(0);
   });
 
-  it('a bouncing shot reflects off an armored block and keeps its damage; a plain block stops it', () => {
+  it('a bouncing shot reflects off an armored block AND a plain block and keeps its damage (chunk 11a: it used to bounce only off armor)', () => {
     const w = world(level(3, (_r, c) => (c === 4 ? { hp: 1000, armor: 10, shield: 0 } : plain(1000))));
     w.setWallOffset(300);
     const b = blockAt(w, 2, 4);
@@ -420,7 +420,10 @@ describe('Shared hit pipeline on a wall', () => {
     const p = blockAt(w, 2, 9);
     const j = shoot(w, p.x, 300 + 4, 20, [{ type: 'bouncing', level: 1 }], { vx: 0, vy: -600 });
     w.update(1 / 60, null);
-    expect(w.pool.active[j]).toBe(0);
+    expect(p.hp).toBeLessThan(1000);
+    expect(w.pool.active[j]).toBe(1);
+    expect(w.pool.vy[j]).toBeGreaterThan(0); // reflected back down (the random spread is at most 35 degrees)
+    expect(w.pool.damage[j]).toBe(20);
   });
 
   it('fork on impact spawns two smaller copies that hit neighbouring blocks', () => {

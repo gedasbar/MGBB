@@ -480,11 +480,11 @@ describe('chunk 9a blocks: data', () => {
     expect(describeBlock(b, 1)).not.toBe(describeBlock(b, b.maxLevel));
     expect(pickerBlocks().some(p => p.id === id)).toBe(true);
   });
-  it('the picker has 32 blocks in 4 categories (Status is its own, between Modifiers and the rest)', () => {
+  it('the picker has 41 blocks in 5 categories (Status and Mitosis are their own sections)', () => {
     const cats = new Set(pickerBlocks().map(b => b.category));
-    expect(pickerBlocks().length).toBe(32);
-    expect([...cats].sort()).toEqual(['damage', 'modifier', 'pathing', 'status']);
-    expect(pickerBlocks().filter(b => b.category === 'status').map(b => b.id).sort()).toEqual(['corrosion', 'frostbite', 'ignite']);
+    expect(pickerBlocks().length).toBe(41);
+    expect([...cats].sort()).toEqual(['damage', 'mitosis', 'modifier', 'pathing', 'status']);
+    expect(pickerBlocks().filter(b => b.category === 'status').map(b => b.id).sort()).toEqual(['corrosion', 'frostbite', 'ignite', 'static_charge']);
   });
 });
 

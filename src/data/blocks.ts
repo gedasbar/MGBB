@@ -4,6 +4,8 @@ import {
   alternatorMul, boomerangRange, capacitorMul, CAPACITOR_N, chainJumps, CHAIN_ARC_LIFE, CHAIN_FRAC, CHAIN_RANGE, corrosionCap,
   CORROSION_STEP, delaySeconds, executionerMul, EXECUTIONER_BELOW, frostBonus, frostSlow, frostTime, igniteFrac, IGNITE_TIME,
   mineDistance, MINE_WAIT, orbitTime, ORBIT_RADIUS, ORBIT_REHIT, overclockAverage, overclockGain, OVERCLOCK_CAP, OVERCLOCK_WINDOW,
+  bounceCount, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct, fissionCooldown, residueFrac,
+  RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, routerBoth, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac, WELL_RADIUS, WELL_TIME, wellPull,
 } from '../engine/effects';
 
 export const BLOCKS: Record<string, BlockDef> = {};
@@ -111,10 +113,10 @@ register({
   alternates: true,
 });
 register({
-  id: 'random_router', name: 'Random Router', category: 'pathing', maxLevel: 1, outputs: ['L', 'F', 'R'],
-  desc: 'Sends the signal left, straight or right at random, dividing its damage by three.',
-  transform: (p) => { mulDamage(p, 1 / 3); },
-  shown: false, hideReason: 'Random routing is not modelled; as a fixed three-way split it would just duplicate Splitter 3.',
+  id: 'random_router', name: 'Random Router', category: 'pathing', outputs: ['L', 'R'], ...rare('uncommon'),
+  desc: (l) => `One in, two out (left and right). Each pulse the packet takes one of the two at random, 50/50, at full damage.${l > 1 ? ` ${pct(routerBoth(l))}% of pulses it takes both.` : ''}`,
+  transform: (p, l) => { p.mods.push({ type: 'random_router', level: l }); },
+  router: { both: routerBoth },
 });
 register({
   id: 'merger', name: 'Merger', category: 'pathing', maxLevel: 1, outputs: FWD,
@@ -205,13 +207,23 @@ register({
   shown: false, hideReason: 'Only a damage penalty; its benefit (tithe) is not consumed by anything yet.',
 });
 
-// Mitosis-aware blocks
-modBlock('fission_catalyst', 'Fission Catalyst', 'damage', 1, { type: 'fission_catalyst' }, 'Affects how enemies split.');
-modBlock('cauterize', 'Cauterize', 'damage', 1, { type: 'cauterize' }, 'Prevents splitting.');
-modBlock('cleaver', 'Cleaver', 'damage', 1, { type: 'cleaver' }, 'Cleaves enemies.');
-modBlock('culling_bolt', 'Culling Bolt', 'damage', 1, { type: 'culling_bolt' }, 'Culls weak enemies.');
-modBlock('residue_seed', 'Residue Seed', 'damage', 1, { type: 'residue_seed' }, 'Leaves residue.');
-modBlock('overkill_spill', 'Overkill Spill', 'damage', 1, { type: 'overkill_spill' }, 'Spills overkill damage.');
+// ---- Mitosis category (chunk 11a). Rocks count generations from 1 (the parent); wall blocks have none, so the rock-only ones do nothing there.
+const ROCKS = 'Free Fly rocks only.';
+newMod('fission_catalyst', 'Fission Catalyst', 'mitosis', 'epic', 'fission_catalyst',
+  (l) => `A hit that does not kill splits the rock now; the children share its remaining HP. Again after ${fissionCooldown(l).toFixed(1)} s. Not Darter or Budder. ${ROCKS}`);
+newMod('cauterize', 'Cauterize', 'mitosis', 'uncommon', 'cauterize',
+  (l) => `A hit rock cannot split for ${cauterizeTime(l)} s. A kill inside that window leaves no children and pays +${pct(cauterizeBonus(l))}% credits. ${ROCKS}`);
+newMod('cleaver', 'Cleaver', 'mitosis', 'uncommon', 'cleaver',
+  (l) => `×${cleaverBonus(l).toFixed(1)} damage to fragments (generation 2 and later) and ×${cleaverPenalty(l).toFixed(2)} to parents (generation 1). ${ROCKS}`);
+newMod('culling_bolt', 'Culling Bolt', 'mitosis', 'rare', 'culling_bolt',
+  (l) => `Adds ${pct(cullingPct(l))}% of the target's max HP to the hit, at most ${CULLING_CAP}× the shot's damage. Works on rocks and on wall blocks.`);
+newMod('residue_seed', 'Residue Seed', 'mitosis', 'rare', 'residue_seed',
+  (l) => `A kill leaves a ${RESIDUE_RADIUS} px cloud for ${RESIDUE_TIME} s: every ${RESIDUE_TICK} s it deals ${pct(residueFrac(l))}% of the killing hit to all inside, new children too. Rocks and wall blocks.`);
+register({
+  id: 'overkill_spill', name: 'Overkill Spill', category: 'mitosis', outputs: FWD, ...rare('uncommon'), maxLevel: 6,
+  desc: (l) => `Damage beyond a killed rock's HP also hits its children: +${pct(spillFrac(l))}% on top of the 100% a split already passes on. ${ROCKS}`,
+  transform: (p, l) => { p.mods.push({ type: 'overkill_spill', level: l }); },
+});
 
 // ---------------------------------------------------------------- Projectile modifiers
 /** A shown projectile modifier whose strength scales with the block level (the level travels in the modifier). */
@@ -227,7 +239,7 @@ levelMod('piercing', 'Piercing', 5, { type: 'piercing' },
     ? 'Projectiles pass through enemies. Each hit costs the projectile the damage it dealt (at least 10% of its damage).'
     : `Projectiles pass through enemies. Each hit costs the projectile 1/${l} of the damage it dealt (at least ${Math.round(10 / l * 10) / 10}% of its damage).`);
 levelMod('bouncing', 'Bouncing', 5, { type: 'bouncing' },
-  (l) => `Projectiles that hit an armored enemy ricochet in a random direction, keeping their damage${l > 1 ? ` and gaining ${(l - 1) * 10}% on every ricochet` : ''}.`);
+  (l) => `Bounces off the first ${bounceCount(l)} things it hits instead of stopping. Keeps full damage.`);
 levelMod('aoe_circle', 'AoE - Circle', 5, { type: 'aoe_circle' },
   (l) => `Projectiles explode on impact, hitting every enemy within ${aoeCircleRadius(l)} units for full damage.`);
 levelMod('shield_breaker', 'Shield-Breaker', 3, { type: 'shield_breaker' },
@@ -253,7 +265,8 @@ newMod('chain_lightning', 'Chain Lightning', 'modifier', 'epic', 'chain_lightnin
   (l) => `On a hit, jumps to up to ${chainJumps(l)} more targets within ${CHAIN_RANGE} px for ${pct(CHAIN_FRAC)}% damage each, drawing a short arc (${CHAIN_ARC_LIFE} s). In the Wall it jumps to nearby blocks.`);
 newMod('mine', 'Mine', 'modifier', 'uncommon', 'mine',
   (l) => `Stops after ${mineDistance(l)} px and waits up to ${MINE_WAIT} s; detonates for its full damage when something touches it. In the Wall it stays where it is and the wall runs into it.`);
-modBlock('gravity_well', 'Gravity Well', 'modifier', 3, { type: 'gravity_well' }, 'Projectiles pull enemies in.');
+newMod('gravity_well', 'Gravity Well', 'modifier', 'rare', 'gravity_well',
+  (l) => `On impact, pulls rocks within ${WELL_RADIUS} px toward the impact point at ${wellPull(l)} px/s for ${WELL_TIME} s. Free Fly rocks only.`);
 modBlock('magnetized', 'Magnetized', 'modifier', 1, { type: 'magnetized' }, 'Projectiles are magnetised.');
 
 levelMod('curving_right', 'Curving Right', 3, { type: 'curve', dir: 'right' },
@@ -276,7 +289,8 @@ newMod('frostbite', 'Frostbite', 'status', 'rare', 'frostbite',
   (l) => `A hit slows the target's drift by ${pct(frostSlow(l))}% for ${frostTime(l)} s (rocks; wall blocks do not move). Frozen targets take +${pct(frostBonus(l))}% damage from everything.`);
 newMod('corrosion', 'Corrosion', 'status', 'rare', 'corrosion',
   (l) => `Each hit removes ${pct(CORROSION_STEP)}% of the target's remaining armor, up to ${pct(corrosionCap(l))}% of it in total. Armored wall blocks lose their thick frame as it is stripped.`);
-modBlock('static_charge', 'Static Charge', 'status', 1, { type: 'static_charge' }, 'Charges enemies.');
+newMod('static_charge', 'Static Charge', 'status', 'uncommon', 'static_charge',
+  (l) => `${STATIC_HITS} hits on one target within ${STATIC_WINDOW} s release an extra pulse of ${pct(staticFrac(l))}% of that hit's damage, then reset. Rocks and wall blocks.`);
 modBlock('magnetize_target', 'Magnetize Target', 'status', 1, { type: 'magnetize_target' }, 'Magnetises enemies.');
 modBlock('vampiric', 'Vampiric', 'status', 3, { type: 'vampiric' }, 'Heals the hull on hit.');
 
@@ -294,6 +308,9 @@ for (const [id, name, max] of [
 export const MOD_LABEL: Record<string, string> = {
   piercing: 'Piercing', bouncing: 'Bouncing', aoe_circle: 'AoE - Circle', shield_breaker: 'Shield-Breaker',
   curve: 'Curving Right', random_curve: 'Random Curve', homing: 'Homing', aoe_rect: 'AoE - Rectangle', fork_impact: 'Fork on Impact', armor_piercer: 'Armor-Piercer Tip',
+  // Chunk 11a
+  fission_catalyst: 'Fission Catalyst', cauterize: 'Cauterize', cleaver: 'Cleaver', culling_bolt: 'Culling Bolt', residue_seed: 'Residue Seed',
+  overkill_spill: 'Overkill Spill', gravity_well: 'Gravity Well', static_charge: 'Static Charge', random_router: 'Random Router',
 };
 
 /** Blocks the player can place, in picker order. */

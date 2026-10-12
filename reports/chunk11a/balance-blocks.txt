@@ -1,0 +1,70 @@
+
+> mitosis-gun-builder@0.0.0 balance-blocks
+> vite-node scripts/balance-blocks11a.ts
+
+Fixed fields (wave 10 mix, tier 25); a Twin tracks the lowest enemy; clear speed (Swarm: credits by 6 s, falling at the normal speed); mean of 3 seeds.
+Cell = the block's gain over a bare Twin + Flat+ as a share of the gain of a SECOND Flat+ (1.00 = as good as a Flat+; negative = slower than without it). Random Router: credits against the same Fan with a Splitter 2.
+Reference (bare Twin + Flat+ / with a second Flat+): Mother wave 55.6 s / 29.4 s, Ironclad 110.8 s / 61.3 s, Warden 67.7 s / 36.8 s, Swarm 12.4 / 15.7 credits
+
+FIELD SCORE, level 1
+block               | Mother wave |    Ironclad |      Warden |       Swarm | flags
+Fission Catalyst    |        2.09 |        2.93 |        0.59 |       -0.11 | Swarm:LOW
+Cauterize           |        3.14 |        2.64 |        1.27 |        0.04 | Mother wave:HIGH Swarm:LOW
+Cleaver             |        0.48 |        0.38 |        0.15 |       -1.50 | Warden:LOW Swarm:LOW
+Culling Bolt        |        1.00 |        0.35 |        0.36 |        0.00 | Swarm:LOW
+Residue Seed        |        0.16 |        0.45 |        0.01 |        0.00 | Mother wave:LOW Warden:LOW Swarm:LOW
+Overkill Spill      |        0.00 |        0.01 |        0.00 |        0.00 | Mother wave:LOW Ironclad:LOW Warden:LOW Swarm:LOW
+Gravity Well        |        0.18 |        0.21 |        0.46 |       -0.22 | Mother wave:LOW Ironclad:LOW Swarm:LOW
+Static Charge       |        0.44 |        0.33 |        0.28 |        0.00 | Warden:LOW Swarm:LOW
+Bouncing            |        0.26 |        0.39 |        0.13 |        0.74 | Mother wave:LOW Warden:LOW
+Random Router       |        0.49 |        0.56 |        0.50 |        0.73 | 
+
+FIELD SCORE, level 5
+block               | Mother wave |    Ironclad |      Warden |       Swarm | flags
+Fission Catalyst L5 |        1.69 |        3.31 |        0.59 |       -0.11 | Ironclad:HIGH Swarm:LOW
+Cauterize L5        |        3.14 |        2.64 |        1.27 |        0.07 | Mother wave:HIGH Swarm:LOW
+Cleaver L5          |        0.67 |        0.56 |        0.45 |        0.39 | 
+Culling Bolt L5     |        1.66 |        0.62 |        0.99 |        0.00 | Swarm:LOW
+Residue Seed L5     |        0.39 |        0.76 |        0.07 |        0.00 | Warden:LOW Swarm:LOW
+Overkill Spill L5   |        0.01 |        0.01 |        0.00 |        0.00 | Mother wave:LOW Ironclad:LOW Warden:LOW Swarm:LOW
+Gravity Well L5     |        0.20 |        0.28 |        0.62 |       -0.17 | Mother wave:LOW Ironclad:LOW Swarm:LOW
+Static Charge L5    |        0.62 |        0.55 |        0.57 |        0.00 | Swarm:LOW
+Bouncing L5         |        0.39 |        0.62 |        0.28 |        1.31 | Warden:LOW
+Random Router L5    |        0.67 |        0.74 |        0.67 |        0.82 | 
+
+CREDITS PER SECOND OF CLEARING, level 1, as a multiple of the bare Twin + Flat+ (Random Router: of the Splitter Fan)
+block               | Mother wave |    Ironclad |      Warden |       Swarm
+Fission Catalyst    |        0.69 |        0.36 |        0.64 |        0.97
+Cauterize           |        1.69 |        2.24 |        1.47 |        1.01
+Cleaver             |        1.43 |        1.30 |        1.13 |        0.60
+Culling Bolt        |        1.89 |        1.29 |        1.30 |        1.00
+Residue Seed        |        1.14 |        1.37 |        1.01 |        1.00
+Overkill Spill      |        1.00 |        1.00 |        1.00 |        1.00
+Gravity Well        |        1.16 |        0.78 |        1.38 |        0.94
+Static Charge       |        1.39 |        1.27 |        1.23 |        1.00
+Bouncing            |        1.23 |        1.31 |        1.11 |        1.20
+Random Router       |        0.49 |        0.56 |        0.50 |        0.73
+
+FREE FLY BOT, Twin + Flat+ + block, 3 minutes, mean of 3 seeds (a run that ends earlier counts its last wave and credits)
+circuit                       | wave @3 min | credits @3 min | survived
+Twin + Flat+ (baseline)       |         5.0 |             98 | 180 s
+Twin + 2 Flat+                |         5.0 |             96 | 180 s
+Twin + Flat+ + Fission Catalyst |         5.0 |             56 | 180 s
+Twin + Flat+ + Cauterize      |         5.0 |             68 | 180 s
+Twin + Flat+ + Cleaver        |         5.0 |             96 | 180 s
+Twin + Flat+ + Culling Bolt   |         5.0 |            100 | 180 s
+Twin + Flat+ + Residue Seed   |         5.0 |            101 | 180 s
+Twin + Flat+ + Overkill Spill |         5.0 |             99 | 180 s
+Twin + Flat+ + Gravity Well   |         5.0 |             98 | 180 s
+Twin + Flat+ + Static Charge  |         5.0 |             98 | 180 s
+Twin + Flat+ + Bouncing       |         5.0 |             99 | 180 s
+Fan: Random Router, 2 Flat+   |         5.0 |             98 | 180 s
+Fan: Splitter 2, 2 Flat+      |         5.0 |            101 | 180 s
+
+WALL, Twin + Flat+ with / without Bouncing (and with a second Flat+): blocks destroyed %, carve bot | clear-all bot
+tier | bare Twin + Flat+ | + Bouncing L1   | + Bouncing L3   | + 2nd Flat+     | Bouncing L1 gain as a share of a Flat+'s (clear-all)
+   1 |   3% | 100%     |   6% | 100%     |   8% | 100%     |   3% | 100%     | n/a
+   5 |   2% |  58%     |   3% |  69%     |   4% |  67%     |   2% | 100%     | 0.26
+  10 |   2% |  40%     |   3% |  48%     |   6% |  50%     |   2% | 100%     | 0.13
+  20 |   5% |   8%     |   8% |   8%     |  11% |   8%     |   5% |  25%     | 0.02
+  50 |   1% |   1%     |   1% |   1%     |   2% |   1%     |   1% |   3%     | 0.00

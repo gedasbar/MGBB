@@ -82,7 +82,7 @@ async function fly(page, seconds, onTick) {
   await tap(page, ...TAB.shop);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.shopScreen);
   const rowsKeys = await page.evaluate(() => window.__mgbm.state().rows.map(r => r.key));
-  check(rowsKeys.length === 32, `the Shop lists 32 blocks (${rowsKeys.length})`);
+  check(rowsKeys.length === 41, `the Shop lists 41 blocks (${rowsKeys.length})`);
   const wanted = ['overclock', 'executioner', 'chain_lightning', 'ignite', 'frostbite', 'capacitor', 'delay_line', 'orbit', 'boomerang', 'corrosion', 'alternator', 'mine'];
   for (const id of wanted) await buy(page, id);
   const ownedNow = await page.evaluate(() => JSON.parse(localStorage.getItem('mgbm.progress.v1')).owned);
@@ -103,7 +103,7 @@ async function fly(page, seconds, onTick) {
     const p = window.__mgbm.buildScreen.picker;
     return { tiles: p.tiles.length, max: p.maxScrollValue, headers: p.tiles.map(t => t.id).filter(id => id !== '__remove').length };
   });
-  check(pk.tiles === 32 && pk.max > 0, `picker has ${pk.tiles} tiles and scrolls (max scroll ${pk.max})`);
+  check(pk.tiles === 41 && pk.max > 0, `picker has ${pk.tiles} tiles and scrolls (max scroll ${pk.max})`);
   await snap(page, 'picker_top.png');
   // Scroll with the real wheel until Modifiers and Status are showing.
   const sheet = await page.evaluate(() => { const r = window.__mgbm.buildScreen.picker.listRect; return { x: r.x + r.w / 2, y: r.y + r.h / 2 }; });

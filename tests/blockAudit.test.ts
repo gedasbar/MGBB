@@ -56,10 +56,11 @@ const newWorld = (g: Grid) => new World({ grid: g, autoSpawn: false });
 describe('block audit: the picker only offers blocks that compile and change Fly', () => {
   it('the picker lists exactly the audited blocks', () => {
     expect(pickerBlocks().map(b => b.id).sort()).toEqual([
-      'alternator', 'aoe_circle', 'aoe_rect', 'armor_piercer', 'boomerang', 'bouncing', 'capacitor', 'chain_lightning',
-      'corrosion', 'curving_right', 'delay_line', 'executioner', 'flat_plus', 'fork_impact', 'frostbite', 'gamblers_gate',
-      'homing', 'ignite', 'jackpot', 'lucky_strike', 'mine', 'orbit', 'overclock', 'percent_mult', 'piercing',
-      'pure_converter', 'random_curve', 'shield_breaker', 'splitter_2', 'splitter_3', 'turn_l', 'turn_r',
+      'alternator', 'aoe_circle', 'aoe_rect', 'armor_piercer', 'boomerang', 'bouncing', 'capacitor', 'cauterize', 'chain_lightning',
+      'cleaver', 'corrosion', 'culling_bolt', 'curving_right', 'delay_line', 'executioner', 'fission_catalyst', 'flat_plus',
+      'fork_impact', 'frostbite', 'gamblers_gate', 'gravity_well', 'homing', 'ignite', 'jackpot', 'lucky_strike', 'mine',
+      'orbit', 'overclock', 'overkill_spill', 'percent_mult', 'piercing', 'pure_converter', 'random_curve', 'random_router',
+      'residue_seed', 'shield_breaker', 'splitter_2', 'splitter_3', 'static_charge', 'turn_l', 'turn_r',
     ]);
   });
 

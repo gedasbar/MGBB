@@ -61,4 +61,12 @@ export class EnemyField implements TargetField {
     out.length = 0;
     for (const e of this.enemies) if (e.hp > 0) out.push(e);
   }
+
+  /** A rock is a circle: the contact normal points from its centre to the hit. */
+  bounceInfo(t: EnemyEntity, x: number, y: number, r: number): BounceInfo | null {
+    const dx = x - t.x, dy = y - t.y;
+    const d = Math.hypot(dx, dy);
+    if (d > 1e-6) return { nx: dx / d, ny: dy / d, push: Math.max(0, t.radius + r - d) + 0.5 };
+    return { nx: 0, ny: -1, push: t.radius + r + 0.5 };
+  }
 }

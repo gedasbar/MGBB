@@ -35,7 +35,7 @@ describe('pricing formulas', () => {
   });
   it('every picker block has a base price, and the hull ladder is free then strictly ascending', () => {
     for (const b of pickerBlocks()) expect(BASE_PRICE[b.id]).toBeGreaterThan(0);
-    expect(pickerBlocks().length).toBe(32);
+    expect(pickerBlocks().length).toBe(41);
     expect(HULL_PRICE.dart).toBe(0);
     const ladder = ['dart', 'twin', 'prong', 'fan', 'shuttle'].map(id => HULL_PRICE[id]);
     for (let i = 1; i < ladder.length; i++) expect(ladder[i]).toBeGreaterThan(ladder[i - 1]);
@@ -268,7 +268,7 @@ describe('inventory and levels in the builder', () => {
 describe('level scaling of the formerly flat modifiers', () => {
   const cases: [string, number, number, number][] = [
     // formula, level, expected at level, expected at level 1
-    ['aoeCircleRadius', 3, 70, 50], ['shieldBreakMul', 2, 2, 1.5], ['pierceCostMul', 2, 0.5, 1], ['bounceDamageMul', 3, 1.2, 1],
+    ['aoeCircleRadius', 3, 70, 50], ['shieldBreakMul', 2, 2, 1.5], ['pierceCostMul', 2, 0.5, 1],
   ];
   it.each(cases)('%s at level %i is %d (level 1: %d)', async (fn, level, atLevel, atOne) => {
     const proj = (await import('../src/engine/projectiles')) as unknown as Record<string, (l: number) => number>;

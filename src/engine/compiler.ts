@@ -270,6 +270,8 @@ export function compile(grid: Grid): CompiledShip {
           const child = clonePacket(packet);
           // An alternating block gives each output its own turn: the packet carries (block, branch) and the Gun lets one fire.
           if (def.alternates) child.ops.push({ t: 'alt', key: nidx, branch: oi, of: outs.length });
+          // A random router: the Gun picks the output (or both) at random each pulse, from the seeded combat RNG.
+          if (def.router) child.ops.push({ t: 'rnd', key: nidx, branch: oi, of: outs.length, both: def.router.both(cell.level) });
           children.push({ x: nx, y: ny, dir: od, packet: child, seen: new Set(sig.seen) });
         });
         // Reverse so the left branch is walked first.

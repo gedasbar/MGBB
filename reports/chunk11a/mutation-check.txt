@@ -1,0 +1,23 @@
+== Bouncing gives 1 bounce at level 1 instead of 2  (src/engine/effects.ts: 'export const bounceCount = (l: number) => 1 + l;' -> 'export const bounceCount = (l: number) => l;')
+   × Bouncing: bounces off whatever it hits > hits a plain wall block, bounces, and hits again; it is stopped by the (N+1)th hit: 2 bounces at level 1, 4 at level 3
+   × Bouncing: bounces off whatever it hits > Free Fly: bounces off a screen edge (no damage) and keeps going; it is freed once the bounces are used
+   × Bouncing: bounces off whatever it hits > Piercing first: a pierce that leaves damage keeps the shot flying with its bounces; one that would use it up becomes a bounce at full damage
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 28 passed (31)
+== Fission Catalyst ignores its cooldown  (src/game/world.ts: 'this.time < (e.fissionReady ?? 0)' -> 'false')
+   × Fission Catalyst > a hit that does not kill splits the rock at once; the children share the remaining HP; a cooldown stops a second forced split
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 30 passed (31)
+== Culling Bolt cap 60x instead of 6x  (src/engine/effects.ts: 'export const CULLING_CAP = 6;' -> 'export const CULLING_CAP = 60;')
+   × Culling Bolt > adds 4% of max HP (+1% a level), capped at 6x the packet; also on wall blocks
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 30 passed (31)
+== Static Charge pulses on the 2nd hit  (src/engine/effects.ts: 'export const STATIC_HITS = 3;' -> 'export const STATIC_HITS = 2;')
+   × Static Charge > the 3rd hit within 2 s releases an extra pulse of 150% of the hit; the count then starts over; a slow trickle never pulses
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 30 passed (31)
+== Cleaver treats generation 2 as a parent  (src/engine/projectiles.ts: 't.generation >= FRAGMENT_GENERATION ? cleaverBonus' -> 't.generation > FRAGMENT_GENERATION ? cleaverBonus')
+   × Cleaver > damage ratio by generation at level 1: parents x penalty, fragments x bonus, wall blocks untouched
+   × Cleaver > damage ratio by generation at level 5: parents x penalty, fragments x bonus, wall blocks untouched
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 29 passed (31)

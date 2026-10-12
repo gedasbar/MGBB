@@ -326,6 +326,86 @@ export const GLYPHS: Record<string, Glyph> = {
       p.fill(p.rect(0.35, 0.1, 0.6, 0.4));
     },
   },
+  // ---- Chunk 11a
+  fission_catalyst: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.outline(p.rect(-0.95, -0.6, -0.12, 0.6), 0.9);
+      p.outline(p.rect(0.12, -0.6, 0.95, 0.6), 0.9);
+      p.fill([[0, -0.9], [0.14, -0.55], [-0.14, -0.55]]);
+      p.fill([[0, 0.9], [0.14, 0.55], [-0.14, 0.55]]);
+    },
+  },
+  cauterize: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.outline([[0, -0.95], [0.85, 0], [0, 0.95], [-0.85, 0]], 0.9);
+      p.line([[-0.55, 0], [0.55, 0]], 1.6);
+    },
+  },
+  cleaver: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.fill([[-0.9, -0.75], [0.15, -0.75], [0.15, 0.45], [-0.9, 0.05]]);
+      p.fill(p.rect(0.15, -0.5, 0.9, -0.2));
+    },
+  },
+  culling_bolt: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.outline(p.rect(-0.4, -0.9, 0.4, 0.9), 0.9);
+      p.fill(p.rect(-0.4, 0.15, 0.4, 0.9));
+      p.line([[-0.95, -0.2], [0.95, -0.2]], 1.2);
+    },
+  },
+  residue_seed: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.outline(arc(0, 0, 0.85, 0, 2 * Math.PI, 8).slice(0, 8), 0.8);
+      p.fill(p.rect(-0.2, -0.2, 0.2, 0.2));
+    },
+  },
+  overkill_spill: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.outline(p.rect(-0.85, -0.9, 0.85, 0.05), 0.9);
+      p.line([[0, 0.05], [0, 0.4]]);
+      p.line([[-0.6, 0.4], [0.6, 0.4]]);
+      p.head(-0.6, 0.95, 0, 1, 0.45, 0.32);
+      p.head(0.6, 0.95, 0, 1, 0.45, 0.32);
+    },
+  },
+  gravity_well: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.fill(p.rect(-0.14, -0.14, 0.14, 0.14));
+      p.head(0, -0.3, 0, 1, 0.45, 0.32);
+      p.head(0, 0.3, 0, -1, 0.45, 0.32);
+      p.head(-0.3, 0, 1, 0, 0.45, 0.32);
+      p.head(0.3, 0, -1, 0, 0.45, 0.32);
+      p.outline(arc(0, 0, 0.95, 0, 2 * Math.PI, 8).slice(0, 8), 0.6);
+    },
+  },
+  static_charge: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.line([[0.25, -0.95], [-0.3, -0.15], [0.3, -0.15], [-0.25, 0.5]], 1.1);
+      p.fill(p.rect(-0.85, 0.7, -0.5, 0.95));
+      p.fill(p.rect(-0.17, 0.7, 0.17, 0.95));
+      p.fill(p.rect(0.5, 0.7, 0.85, 0.95));
+    },
+  },
+  random_router: {
+    rotatesWithBlock: true,
+    draw: (p) => {
+      p.line([[0, 1], [0, 0.55]]);
+      p.outline(p.rect(-0.2, 0.15, 0.2, 0.55), 0.9);
+      p.line([[0, 0.15], [0, -0.1]]);
+      p.line([[-0.5, -0.1], [0.5, -0.1]]);
+      p.head(-1, -0.1, -1, 0);
+      p.head(1, -0.1, 1, 0);
+    },
+  },
   frostbite: {
     rotatesWithBlock: false,
     draw: (p) => {
