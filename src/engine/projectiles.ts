@@ -662,6 +662,12 @@ export class ProjectileSystem {
     this.fx.wellsMade++;
   }
 
+  /** Drops every cloud and attractor (a restarted run). */
+  clearFieldFx() {
+    this.cloudT.fill(0);
+    this.wellT.fill(0);
+  }
+
   /** Moves every cloud down the screen with a scrolling wall (the cloud stays where the block died). */
   shiftClouds(dy: number) {
     for (let k = 0; k < CLOUD_MAX; k++) if (this.cloudT[k] > 0) this.cloudY[k] += dy;

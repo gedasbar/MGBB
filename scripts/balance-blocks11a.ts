@@ -20,6 +20,8 @@ import { rockHp } from '../src/econ/economy';
 import { PEBBLE_GENERATION, PEBBLE_RADIUS, waveHpMul } from '../src/data/waves';
 import { botRun } from '../src/debug/freeflyBot';
 import { BLOCKS } from '../src/data/blocks';
+import { generateLevel } from '../src/wall/generator';
+import { simulateWall } from '../src/wall/sim';
 import { SPECIES } from '../src/data/species';
 
 const WAVE = 10;
@@ -165,5 +167,17 @@ function print(rows: Row[], title: string) {
     const runs = SEEDS.map(seed => { rng.reset(seed); return botRun(new World({ grid: make(), seed }), 180, [180]); });
     const at = runs.map(r => r.at[180] ?? { wave: r.wave, credits: r.credits });
     console.log(`${name.padEnd(29)} | ${mean(at.map(a => a.wave)).toFixed(1).padStart(11)} | ${mean(at.map(a => a.credits)).toFixed(0).padStart(14)} | ${mean(runs.map(r => r.time)).toFixed(0)} s`);
+  }
+
+  // ---- Part 3: Bouncing in the campaign wall (chunk 11a, step L1b). The bots of src/wall/sim.ts on a few tiers: how many blocks
+  // are destroyed (carve bot: it flies at the cheapest column; clear-all bot: it sweeps), with and without Bouncing on a Twin.
+  console.log('\nWALL, Twin + Flat+ with / without Bouncing (and with a second Flat+): blocks destroyed %, carve bot | clear-all bot');
+  console.log('tier | bare Twin + Flat+ | + Bouncing L1   | + Bouncing L3   | + 2nd Flat+     | Bouncing L1 gain as a share of a Flat+\'s (clear-all)');
+  const pct = (g: Grid, t: number, bot: 'carve' | 'clearAll') => { const r = simulateWall(generateLevel(t), g, bot); return (100 * r.destroyed) / r.total; };
+  for (const t of [1, 5, 10, 20, 50]) {
+    const cells = [twinWith(null), twinWith('bouncing', 1), twinWith('bouncing', 3), twinWith('flat_plus')].map(g => [pct(g, t, 'carve'), pct(g, t, 'clearAll')]);
+    const gain = (c: number[][], i: number) => c[i][1] - c[0][1];
+    const share = gain(cells, 3) > 0.01 ? (gain(cells, 1) / gain(cells, 3)).toFixed(2) : 'n/a';
+    console.log(`${String(t).padStart(4)} | ${cells.map(c => `${c[0].toFixed(0).padStart(3)}% | ${c[1].toFixed(0).padStart(3)}%`.padEnd(15)).join(' | ')} | ${share}`);
   }
 }

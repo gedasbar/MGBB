@@ -169,6 +169,7 @@ export class World {
    */
   private applyFission() {
     const enemies = this.mitosis.enemies;
+    if (!enemies.some(e => e.fissionLevel)) return; // the usual case: nothing asked for a split (no array copy)
     for (const e of [...enemies]) {
       const lvl = e.fissionLevel ?? 0;
       if (!lvl) continue;
@@ -226,6 +227,7 @@ export class World {
     this.pool.active.fill(0);
     this.pool.count = 0;
     this.gun.reset();
+    this.projSys.clearFieldFx();
     this.gameOver = false;
     this.shipX = CONFIG.VIEW.W / 2;
     this.shipY = CONFIG.VIEW.H * 0.8;

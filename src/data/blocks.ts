@@ -308,6 +308,9 @@ for (const [id, name, max] of [
 export const MOD_LABEL: Record<string, string> = {
   piercing: 'Piercing', bouncing: 'Bouncing', aoe_circle: 'AoE - Circle', shield_breaker: 'Shield-Breaker',
   curve: 'Curving Right', random_curve: 'Random Curve', homing: 'Homing', aoe_rect: 'AoE - Rectangle', fork_impact: 'Fork on Impact', armor_piercer: 'Armor-Piercer Tip',
+  // Chunk 11a
+  fission_catalyst: 'Fission Catalyst', cauterize: 'Cauterize', cleaver: 'Cleaver', culling_bolt: 'Culling Bolt', residue_seed: 'Residue Seed',
+  overkill_spill: 'Overkill Spill', gravity_well: 'Gravity Well', static_charge: 'Static Charge', random_router: 'Random Router',
 };
 
 /** Blocks the player can place, in picker order. */
