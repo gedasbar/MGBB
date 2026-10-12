@@ -67,7 +67,7 @@ const setScale = async (page, n) => { await page.fill('#dbg-time-scale', String(
   await page.waitForTimeout(2600);
   const right = await state(page);
   check(right.ring === true && right.camTravel > 700 && right.cameraX >= 0 && right.cameraX < ringW, `ring: camera ran right ${right.camTravel.toFixed(0)} px and wrapped into [0, ${ringW}) (x ${right.cameraX.toFixed(1)})`);
-  check(Math.abs(right.shipScreenX - 535) < 2, `ship stays under the pointer at screen x ${right.shipScreenX.toFixed(1)}`);
+  check(Math.abs(right.shipScreenX - 527) < 2, `ship is clamped to the right edge (W - 13) at screen x ${right.shipScreenX.toFixed(1)}`);
   await moveTo(page, 5, 800);
   await page.waitForTimeout(3200);
   const left = await state(page);
