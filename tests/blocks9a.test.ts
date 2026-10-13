@@ -320,9 +320,9 @@ const ROWS: Row[] = [
       expect(times.length).toBeLessThanOrEqual(4);
       for (let k = 1; k < times.length; k++) expect(times[k] - times[k - 1]).toBeGreaterThan(0.29);
       expect(big.hp).toBeLessThan(100000);
-      // level 3: 2.0 s
+      // level 5: 2.0 s (1 + 0.25 a level)
       const r3 = rig();
-      const j = r3.launch([mod('orbit', 3)], 270, 600, 0, -600, 100, ship);
+      const j = r3.launch([mod('orbit', 5)], 270, 600, 0, -600, 100, ship);
       r3.step(110);
       expect(r3.pool.phase[j]).not.toBe(PHASE_NORMAL);
       r3.step(15);

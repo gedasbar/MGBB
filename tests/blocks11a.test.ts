@@ -359,27 +359,30 @@ describe('Random Router', () => {
     }
     return { seq, w };
   };
-  it('is seeded: the same seed gives the same sequence, another seed another; each pulse sends one packet left or right at 50/50 on level 1', () => {
+  it('is seeded: the same seed gives the same sequence, another seed another; level 1: half the pulses take both outputs, the rest one side at 50/50', () => {
     const a = pulses(1, 7, 2000), b = pulses(1, 7, 2000), c = pulses(1, 8, 2000);
     expect(a.seq).toEqual(b.seq);
     expect(a.seq).not.toEqual(c.seq);
-    expect(a.seq.every(s => s === '10' || s === '01')).toBe(true);
-    const left = a.seq.filter(s => s === '10').length / 2000;
-    expect(left).toBeGreaterThan(0.46);
-    expect(left).toBeLessThan(0.54);
-    expect(a.w.gun.fx.routerBoth).toBe(0);
-    expect(compile(fanWithRouter(1)).stats.projectilesPerPulse).toBeCloseTo(1, 9);
-  });
-  it('level 5: 40% of pulses take both outputs (so 1.4 projectiles per pulse), the rest split evenly', () => {
-    const a = pulses(5, 11, 4000);
-    const both = a.seq.filter(s => s === '11').length / 4000;
-    expect(both).toBeGreaterThan(0.36);
-    expect(both).toBeLessThan(0.44);
-    expect(compile(fanWithRouter(5)).stats.projectilesPerPulse).toBeCloseTo(1.4, 9);
+    expect(a.seq.every(s => s === '10' || s === '01' || s === '11')).toBe(true);
+    const both = a.seq.filter(s => s === '11').length / 2000;
+    expect(both).toBeGreaterThan(0.46);
+    expect(both).toBeLessThan(0.54);
     const one = a.seq.filter(s => s !== '11');
     const left = one.filter(s => s === '10').length / one.length;
-    expect(left).toBeGreaterThan(0.45);
-    expect(left).toBeLessThan(0.55);
+    expect(left).toBeGreaterThan(0.44);
+    expect(left).toBeLessThan(0.56);
+    expect(compile(fanWithRouter(1)).stats.projectilesPerPulse).toBeCloseTo(1.5, 9);
+  });
+  it('level 5: 90% of pulses take both outputs (so 1.9 projectiles per pulse), the rest split evenly', () => {
+    const a = pulses(5, 11, 4000);
+    const both = a.seq.filter(s => s === '11').length / 4000;
+    expect(both).toBeGreaterThan(0.88);
+    expect(both).toBeLessThan(0.92);
+    expect(compile(fanWithRouter(5)).stats.projectilesPerPulse).toBeCloseTo(1.9, 9);
+    const one = a.seq.filter(s => s !== '11');
+    const left = one.filter(s => s === '10').length / one.length;
+    expect(left).toBeGreaterThan(0.38);
+    expect(left).toBeLessThan(0.62);
   });
 });
 

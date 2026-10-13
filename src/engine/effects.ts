@@ -59,7 +59,11 @@ export const boomerangRange = (l: number) => 250 + 75 * (l - 1);
 /** The boomerang is gone when it is this close to the ship on its way back. */
 export const BOOMERANG_CATCH = 18;
 export const ORBIT_RADIUS = 60;
-export const orbitTime = (l: number) => 1 + 0.5 * (l - 1);
+/**
+ * Orbit seconds: 1 at L1, +0.25 a level (chunk 14a; it was +0.5, so L5 orbited 3 s, the projectile's whole life, and never
+ * launched: L5 did less damage than L1).
+ */
+export const orbitTime = (l: number) => 1 + 0.25 * (l - 1);
 /** An orbiting projectile hits the same target at most once per this many seconds. */
 export const ORBIT_REHIT = 0.3;
 /** Seconds the orbit radius takes to open from the ship to ORBIT_RADIUS. */
@@ -118,4 +122,5 @@ export const STATIC_HITS = 3;
 export const STATIC_WINDOW = 2;
 export const staticFrac = (l: number) => 1.5 + 0.25 * (l - 1);
 /** Random Router: chance that a packet takes BOTH outputs on a pulse (otherwise 50/50 left or right). */
-export const routerBoth = (l: number) => 0.1 * (l - 1);
+/** Chunk 14a: 50% at L1, +10% a level (it was 0% at L1: one lane per pulse, the same as a Turn at an uncommon price). */
+export const routerBoth = (l: number) => 0.5 + 0.1 * (l - 1);

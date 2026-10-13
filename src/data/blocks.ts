@@ -118,7 +118,7 @@ register({
 });
 register({
   id: 'random_router', name: 'Random Router', category: 'pathing', outputs: ['L', 'R'], ...rare('uncommon'),
-  desc: (l) => `One in, two out (left and right). Each pulse the packet takes one of the two at random, 50/50, at full damage.${l > 1 ? ` ${pct(routerBoth(l))}% of pulses it takes both.` : ''}`,
+  desc: (l) => `One in, two out (left and right). On ${pct(routerBoth(l))}% of pulses the packet takes both, otherwise one of the two at random (50/50), always at full damage.`,
   transform: (p, l) => { p.mods.push({ type: 'random_router', level: l }); },
   router: { both: routerBoth },
 });
