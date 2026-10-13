@@ -26,7 +26,7 @@ export const HULL_PRICES: Record<HullId, number> = {
 
 /**
  * Pulse rate of each hull as a share of CONFIG.PULSE.BASE_RATE (4 per second). Chunk 14a: every hull's basic shot deals 1,
- * so the pulse rate is the hull's main stat and climbs the ladder: Dart 2/s, Twin 3/s, Prong 4/s, Fan 4/s, Shuttle 5/s.
+ * so the pulse rate is the hull's main stat and climbs the ladder: Dart 2/s, Twin 2.5/s, Prong 4/s, Fan 4/s, Shuttle 5/s.
  * (Before: Dart 1/s, every other hull 4/s; the Prong was then no stronger than the Twin, and the Dart with a Flat+ could
  * not clear tier 1.) Fan and Prong share the rate: the Fan's three ejectors and 72 cells are its step up.
  */
