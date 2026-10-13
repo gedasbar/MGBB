@@ -31,7 +31,7 @@ export const HULL_PRICES: Record<HullId, number> = {
  * not clear tier 1.) Fan and Prong share the rate: the Fan's three ejectors and 72 cells are its step up.
  */
 export const DART_FIRE_RATE_MUL = 0.5;
-export const TWIN_FIRE_RATE_MUL = 0.75;
+export const TWIN_FIRE_RATE_MUL = 0.625;
 export const PRONG_FIRE_RATE_MUL = 1;
 export const FAN_FIRE_RATE_MUL = 1;
 export const SHUTTLE_FIRE_RATE_MUL = 1.25;
