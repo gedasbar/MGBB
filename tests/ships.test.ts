@@ -66,7 +66,7 @@ describe('hull ladder', () => {
     place(g, 1, 2, 'flat_plus');
     const dart = compile(g).stats;
     const shuttle = compile(buildStarterGrid()).stats;
-    expect(dart.damagePerShot).toBe(101);
+    expect(dart.damagePerShot).toBe(2);
     expect(dart.estDps / shuttle.estDps).toBeCloseTo(0.25, 2);
     expect(fireRateMul('dart')).toBe(0.25);
     expect(fireRateMul('shuttle')).toBe(1);

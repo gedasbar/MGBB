@@ -10,13 +10,13 @@
 | `crossover` | - | - | N: Future perk block (hook: crossoverBonus). Lines cross freely without it, so it has no effect yet. |
 | `diode` | - | - | N: No effect: every line already runs one way, and a manually rotated block already gates by side. |
 | `alternator` | blocks9a: alternator is a placeable shop block with levels, rarity, price and rule text | blocks9a: alternator does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall | **Y** |
-| `random_router` | - | - | N: Random routing is not modelled; as a fixed three-way split it would just duplicate Splitter 3. |
+| `random_router` | **MISSING** | **MISSING** | **Y** |
 | `merger` | - | - | N: Signals no longer share cells, so there is nothing to merge; needs a redesign. |
 | `delay_line` | blocks9a: delay_line is a placeable shop block with levels, rarity, price and rule text | blocks9a: delay_line does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall | **Y** |
 | `portal_pair` | - | - | N: Teleporting is not expressible in the relative-direction model yet. |
 | `reflector` | - | - | N: A reflected signal would overlap itself; not supported by the line model. |
 | `armored_plating` | - | - | N: Passive block: not on the signal path and no ship stat consumes it. |
-| `flat_plus` | compiles: flat_plus adds 100 | fly: flat_plus and percent_mult change the damage of the fired projectile | **Y** |
+| `flat_plus` | compiles: flat_plus adds 1 | fly: flat_plus and percent_mult change the damage of the fired projectile | **Y** |
 | `percent_mult` | compiles: percent_mult multiplies by 1.5 in path order | fly: flat_plus and percent_mult change the damage of the fired projectile | **Y** |
 | `lucky_strike` | compiles: lucky_strike adds a 33% x2 gate without changing the deterministic damage + levels (blocks9a: every shown block has at least 3 levels) | fly: lucky_strike doubles the damage of about 33% of the shots | **Y** |
 | `jackpot` | compiles: jackpot adds a 4% x10 gate + levels (blocks9a: every shown block has at least 3 levels) | fly: jackpot multiplies the damage of about 4% of the shots by ten | **Y** |
@@ -26,12 +26,12 @@
 | `berserker_coil` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `executioner` | blocks9a: executioner is a placeable shop block with levels, rarity, price and rule text | blocks9a: executioner does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall | **Y** |
 | `tithe` | - | - | N: Only a damage penalty; its benefit (tithe) is not consumed by anything yet. |
-| `fission_catalyst` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
-| `cauterize` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
-| `cleaver` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
-| `culling_bolt` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
-| `residue_seed` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
-| `overkill_spill` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
+| `fission_catalyst` | **MISSING** | **MISSING** | **Y** |
+| `cauterize` | **MISSING** | **MISSING** | **Y** |
+| `cleaver` | **MISSING** | **MISSING** | **Y** |
+| `culling_bolt` | **MISSING** | **MISSING** | **Y** |
+| `residue_seed` | **MISSING** | **MISSING** | **Y** |
+| `overkill_spill` | **MISSING** | **MISSING** | **Y** |
 | `piercing` | compiles: piercing, bouncing, aoe_circle and shield_breaker tag the packet + levels (blocks9a: every shown block has at least 3 levels) | fly: piercing lets the projectile survive a hit (baseline: it is destroyed) | **Y** |
 | `bouncing` | compiles: piercing, bouncing, aoe_circle and shield_breaker tag the packet | fly: bouncing ricochets off an armored enemy (baseline: destroyed) | **Y** |
 | `aoe_circle` | compiles: piercing, bouncing, aoe_circle and shield_breaker tag the packet | fly: aoe_circle also damages a neighbouring enemy (baseline: only the one hit) | **Y** |
@@ -41,7 +41,7 @@
 | `orbit` | blocks9a: orbit is a placeable shop block with levels, rarity, price and rule text | blocks9a: orbit does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall | **Y** |
 | `chain_lightning` | blocks9a: chain_lightning is a placeable shop block with levels, rarity, price and rule text | blocks9a: chain_lightning does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall | **Y** |
 | `mine` | blocks9a: mine is a placeable shop block with levels, rarity, price and rule text | blocks9a: mine does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall | **Y** |
-| `gravity_well` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
+| `gravity_well` | **MISSING** | **MISSING** | **Y** |
 | `magnetized` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `curving_right` | hiddenBlocks: curving_right: compile | hiddenBlocks: curving_right: fly (heading turns 45 deg in 0.5 s, baseline straight) | **Y** |
 | `random_curve` | hiddenBlocks: random_curve: compile + levels (blocks9a: every shown block has at least 3 levels) | hiddenBlocks: random_curve: fly (seeded, deterministic, max 120 deg/s) | **Y** |
@@ -52,7 +52,7 @@
 | `ignite` | blocks9a: ignite is a placeable shop block with levels, rarity, price and rule text | blocks9a: ignite does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall | **Y** |
 | `frostbite` | blocks9a: frostbite is a placeable shop block with levels, rarity, price and rule text | blocks9a: frostbite does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall | **Y** |
 | `corrosion` | blocks9a: corrosion is a placeable shop block with levels, rarity, price and rule text | blocks9a: corrosion does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall | **Y** |
-| `static_charge` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
+| `static_charge` | **MISSING** | **MISSING** | **Y** |
 | `magnetize_target` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `vampiric` | - | - | N: No ship stat or projectile behaviour consumes this effect yet, so it would change nothing in Fly. |
 | `shield_emitter` | - | - | N: Passive block: not on the signal path and no ship stat consumes it. |
@@ -63,7 +63,7 @@
 | `lucky_charm` | - | - | N: Passive block: not on the signal path and no ship stat consumes it. |
 | `sensor_array` | - | - | N: Passive block: not on the signal path and no ship stat consumes it. |
 
-32 of 62 blocks are shown in the picker; the rest stay in the data and are hidden.
+41 of 62 blocks are shown in the picker; the rest stay in the data and are hidden.
 
 ### Hidden blocks: implementation status
 
@@ -74,22 +74,13 @@
 | `straight` | pathing | no | no | data-only stub |
 | `crossover` | pathing | yes | no | compiler-only stub |
 | `diode` | pathing | no | no | data-only stub |
-| `random_router` | pathing | yes | no | compiler-only stub |
 | `merger` | pathing | no | no | data-only stub |
 | `portal_pair` | pathing | no | no | data-only stub |
 | `reflector` | pathing | no | no | data-only stub |
 | `armored_plating` | pathing | no | no | data-only stub |
 | `berserker_coil` | damage | yes | no | compiler-only stub |
 | `tithe` | damage | yes | no | compiler-only stub |
-| `fission_catalyst` | damage | yes | no | compiler-only stub |
-| `cauterize` | damage | yes | no | compiler-only stub |
-| `cleaver` | damage | yes | no | compiler-only stub |
-| `culling_bolt` | damage | yes | no | compiler-only stub |
-| `residue_seed` | damage | yes | no | compiler-only stub |
-| `overkill_spill` | damage | yes | no | compiler-only stub |
-| `gravity_well` | modifier | yes | no | compiler-only stub |
 | `magnetized` | modifier | yes | no | compiler-only stub |
-| `static_charge` | status | yes | no | compiler-only stub |
 | `magnetize_target` | status | yes | no | compiler-only stub |
 | `vampiric` | status | yes | no | compiler-only stub |
 | `shield_emitter` | passive | no | no | data-only stub |
@@ -100,4 +91,4 @@
 | `lucky_charm` | passive | no | no | data-only stub |
 | `sensor_array` | passive | no | no | data-only stub |
 
-30 hidden blocks, 2 fully implemented.
+21 hidden blocks, 2 fully implemented.

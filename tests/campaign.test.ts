@@ -35,7 +35,7 @@ describe('Level generator', () => {
       expect(l.tier % 10).not.toBe(0);
       expect(isSpike(l.tier)).toBe(true);
       const first = l.cells.find(c => c)!;
-      expect(first.hp).toBeCloseTo(blockHp(l.tier) * 1.6, 6);
+      expect(first.hp).toBe(Math.round(blockHp(l.tier) * 1.6));
     }
     const plain = all.find(l => !l.spike)!;
     expect(plain.cells.find(c => c)!.hp).toBeCloseTo(blockHp(plain.tier), 6);

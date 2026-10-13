@@ -40,8 +40,8 @@ export const MAX_CAMERA_SPEED = 420;
 /** How fast the camera speed follows its target (1/s); smooths starts and stops so the view never jitters. */
 export const CAMERA_EASE = 14;
 
-/** Block stats at tier T. */
-export const BLOCK_HP_BASE = 100;
+/** Block stats at tier T. HP is a whole number (chunk 14a: base 2 against the basic shot's 1; it was 100 against Flat+'s 101). */
+export const BLOCK_HP_BASE = 2;
 export const BLOCK_HP_GROWTH = 1.055;
 /** A shield pool absorbs damage before HP; it regenerates after SHIELD_REGEN_DELAY seconds without a hit. */
 export const SHIELD_REGEN_DELAY = 2;

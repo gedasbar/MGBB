@@ -94,7 +94,7 @@ describe('compiler: the automatic red line', () => {
     expect(info(6, 10)).toMatchObject({ onPath: true, inDirs: ['N'], effectiveRotation: 0, orientationMode: 'auto' });
     expect(info(7, 9)).toMatchObject({ onPath: true, inDirs: ['E'], effectiveRotation: 90, orientationMode: 'auto' });
     expect(info(9, 6)).toMatchObject({ onPath: true, inDirs: ['N'], effectiveRotation: 0, orientationMode: 'auto' });
-    expect(res.recipes[0].packet.damage).toBe(301);
+    expect(res.recipes[0].packet.damage).toBe(4);
   });
 
   it('auto orientation ignores the stored rotation; an off-path block keeps its stored rotation', () => {
@@ -102,7 +102,7 @@ describe('compiler: the automatic red line', () => {
     put(g, 9, 6, 'flat_plus', { rotation: 180 }); // stored rotation, but still auto
     put(g, 4, 4, 'flat_plus', { rotation: 270 }); // not on the line
     const res = compile(g);
-    expect(res.recipes[0].packet.damage).toBe(101);
+    expect(res.recipes[0].packet.damage).toBe(2);
     expect(res.cellInfo[idx(g, 9, 6)].effectiveRotation).toBe(0);
     expect(res.cellInfo[idx(g, 4, 4)]).toMatchObject({ onPath: false, effectiveRotation: 270 });
     expect(res.stats.wastedBlocks).toBe(1);
@@ -122,7 +122,7 @@ describe('compiler: the automatic red line', () => {
     put(north, 9, 6, 'flat_plus', { rotation: 0, manual: true });
     const pass = compile(north);
     expect(pass.recipes.length).toBe(1);
-    expect(pass.recipes[0].packet.damage).toBe(101);
+    expect(pass.recipes[0].packet.damage).toBe(2);
     expect(pass.cellInfo[idx(north, 9, 6)]).toMatchObject({ effectiveRotation: 0, orientationMode: 'manual' });
 
     east.cells[idx(east, 9, 6)].manual = false; // Auto-orient
@@ -164,7 +164,7 @@ describe('compiler: the automatic red line', () => {
     expect(res.recipes.length).toBe(2);
     const north = res.recipes.find(r => r.direction === 'N')!;
     const east = res.recipes.find(r => r.direction === 'E')!;
-    expect(north.packet.damage).toBe(101);
+    expect(north.packet.damage).toBe(2);
     expect(east.packet.damage).toBe(2);
     // Both lines run through the shared cell (6,6): one vertically, one horizontally.
     expect(res.cellInfo[idx(g, 6, 6)].inDirs.sort()).toEqual(['E', 'N']);
@@ -179,7 +179,7 @@ describe('compiler: the automatic red line', () => {
     put(g, 6, 6, 'flat_plus');
     const res = compile(g);
     expect(res.recipes.length).toBe(2);
-    expect(res.recipes.map(r => r.packet.damage)).toEqual([101, 101]);
+    expect(res.recipes.map(r => r.packet.damage)).toEqual([2, 2]);
     // The displayed orientation follows the first signal in traversal order (the upper generator, travelling east).
     expect(res.cellInfo[idx(g, 6, 6)]).toMatchObject({ effectiveRotation: 90, orientationMode: 'auto' });
   });
@@ -212,12 +212,12 @@ describe('compiler: the automatic red line', () => {
     const a = routedShuttle();
     put(a, 9, 6, 'flat_plus');
     put(a, 9, 5, 'percent_mult', { level: 2 });
-    expect(compile(a).recipes[0].packet.damage).toBe((1 + 100) * 2);
+    expect(compile(a).recipes[0].packet.damage).toBe((1 + 1) * 2);
 
     const b = routedShuttle();
     put(b, 9, 6, 'percent_mult', { level: 2 });
     put(b, 9, 5, 'flat_plus');
-    expect(compile(b).recipes[0].packet.damage).toBe(1 * 2 + 100);
+    expect(compile(b).recipes[0].packet.damage).toBe(1 * 2 + 1);
   });
 
   it('chance blocks keep their position in the damage order and count towards the expected DPS', () => {
@@ -229,10 +229,10 @@ describe('compiler: the automatic red line', () => {
     put(before, 9, 5, 'flat_plus');
     const a = compile(after);
     const b = compile(before);
-    expect(a.recipes[0].packet.damage).toBe(101); // gates are not part of the deterministic damage
+    expect(a.recipes[0].packet.damage).toBe(2); // gates are not part of the deterministic damage
     expect(a.recipes[0].packet.gates.length).toBe(1);
-    expect(a.stats.estDps).toBeCloseTo(101 * 1.33 * a.stats.pulsesPerSecond, 6);
-    expect(b.stats.estDps).toBeCloseTo((1 * 1.33 + 100) * b.stats.pulsesPerSecond, 6);
+    expect(a.stats.estDps).toBeCloseTo(2 * 1.33 * a.stats.pulsesPerSecond, 6);
+    expect(b.stats.estDps).toBeCloseTo((1 * 1.33 + 1) * b.stats.pulsesPerSecond, 6);
   });
 
   it('an ejector entered from the wrong side is a dead end', () => {
@@ -264,12 +264,12 @@ describe('compiler: the automatic red line', () => {
     expect(a.recipes.map(r => r.packet.damage)).toEqual(b.recipes.map(r => r.packet.damage));
   });
 
-  it('default circuit reaches the ejector with at least 100 damage per shot', () => {
+  it('default circuit reaches the ejector with at least 2 damage per shot', () => {
     const res = compile(buildStarterGrid());
     expect(res.recipes.length).toBe(1);
-    expect(res.stats.damagePerShot).toBeGreaterThanOrEqual(100);
+    expect(res.stats.damagePerShot).toBeGreaterThanOrEqual(2);
     expect(res.stats.projectilesPerPulse).toBe(1);
-    expect(res.stats.estDps).toBeCloseTo(101 * res.stats.pulsesPerSecond, 6);
+    expect(res.stats.estDps).toBeCloseTo(2 * res.stats.pulsesPerSecond, 6);
   });
 
   it('compile of a fully built 11x11 board (splitters everywhere) takes < 5 ms on average (100 runs)', () => {
@@ -298,11 +298,11 @@ describe('compiler: ledger (packet after each cell)', () => {
     const info = (c: number, r: number) => compile(g).cellInfo[idx(g, c, r)];
     expect(info(6, 10).ledger).toMatchObject({ damage: 1, pure: 0, count: 1, mods: [] });
     expect(info(9, 7).ledger?.damage).toBe(1); // before Flat+
-    expect(info(9, 6).ledger?.damage).toBe(101); // after Flat+
-    expect(info(9, 5).ledger?.damage).toBe(101);
-    expect(info(9, 4).ledger?.damage).toBe(202); // after x2
+    expect(info(9, 6).ledger?.damage).toBe(2); // after Flat+
+    expect(info(9, 5).ledger?.damage).toBe(2);
+    expect(info(9, 4).ledger?.damage).toBe(4); // after x2
     expect(info(9, 3).ledger?.mods).toEqual(['piercing']);
-    expect(info(9, 2).ledger).toMatchObject({ damage: 202, mods: ['piercing'] }); // arriving at the ejector
+    expect(info(9, 2).ledger).toMatchObject({ damage: 4, mods: ['piercing'] }); // arriving at the ejector
     expect(info(3, 3).ledger).toBeUndefined(); // off the path
   });
 

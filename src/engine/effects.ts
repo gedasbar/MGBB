@@ -11,6 +11,9 @@ export const alternatorMul = (l: number) => 2 + 0.1 * (l - 1);
 export const delaySeconds = (l: number) => 0.1 * l;
 
 // ---- Damage
+/** Flat+: damage added per block level (chunk 14a: +1, the size of the basic shot; it was +100). */
+export const FLAT_PLUS_PER_LEVEL = 1;
+export const flatPlusAdd = (l: number) => FLAT_PLUS_PER_LEVEL * l;
 export const OVERCLOCK_CAP = 1; // +100%
 /** Overclock: damage gained per consecutive packet (2% at level 1, +0.5% per level). */
 export const overclockGain = (l: number) => 0.02 + 0.005 * (l - 1);

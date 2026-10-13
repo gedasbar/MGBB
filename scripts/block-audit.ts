@@ -8,7 +8,7 @@ const COMPILES: Record<string, string> = {
   turn_r: 'compiles: turn_r sends the line right',
   splitter_2: 'compiles: splitter_2 makes a left and a right branch only',
   splitter_3: 'compiles: splitter_3 makes left, forward and right branches',
-  flat_plus: 'compiles: flat_plus adds 100',
+  flat_plus: 'compiles: flat_plus adds 1',
   percent_mult: 'compiles: percent_mult multiplies by 1.5 in path order',
   lucky_strike: 'compiles: lucky_strike adds a 33% x2 gate without changing the deterministic damage',
   jackpot: 'compiles: jackpot adds a 4% x10 gate',

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CAPTAINS, CAPTAIN_BY_ID, FLY_MEDAL_MILESTONES, HERO_LEVEL_COSTS, HERO_MAX_LEVEL, OPTION_BY_ID, TIER_COSTS, TIER_KILLS, describeOption,
+  HERO_LEVEL_BASE_DAMAGE, CAPTAINS, CAPTAIN_BY_ID, FLY_MEDAL_MILESTONES, HERO_LEVEL_COSTS, HERO_MAX_LEVEL, OPTION_BY_ID, TIER_COSTS, TIER_KILLS, describeOption,
 } from '../src/captains/data';
 import { computeRunModifiers, modifiersFor, neutralModifiers } from '../src/captains/modifiers';
 import {
@@ -291,22 +291,22 @@ function firstWallHit(block: BlockDef, mods = neutralModifiers(), tier = 1): num
 }
 
 describe('hooks: damage', () => {
-  it('base damage: the generator starts at 1 + hero level, so Flat+ L1 gives 101 + level', () => {
+  it('base damage: the generator starts at 1 + hero level, so Flat+ L1 gives 2 + level bonus', () => {
     const grid = buildDartStarterGrid();
-    expect(compile(grid).recipes[0].packet.damage).toBe(101);
-    expect(compile(grid, { baseDamage: 3 }).recipes[0].packet.damage).toBe(104);
-    expect(compile(grid, { baseDamage: 3 }).stats.damagePerShot).toBe(104);
+    expect(compile(grid).recipes[0].packet.damage).toBe(2);
+    expect(compile(grid, { baseDamage: 3 }).recipes[0].packet.damage).toBe(5);
+    expect(compile(grid, { baseDamage: 3 }).stats.damagePerShot).toBe(5);
   });
   it('the hero level reaches the shot a wall block takes', () => {
-    expect(firstWallHit(plain)).toBe(101);
-    expect(firstWallHit(plain, computeRunModifiers(5, []))).toBe(106);
+    expect(firstWallHit(plain)).toBe(2);
+    expect(firstWallHit(plain, computeRunModifiers(5, []))).toBe(2 + 5 * HERO_LEVEL_BASE_DAMAGE);
   });
   it('damage %, wall damage % and the vs-armor / vs-shield bonuses change the hit as the data says', () => {
-    expect(firstWallHit(plain, mod('gun_barrel'))).toBeCloseTo(101 * 1.08, 5);
-    expect(firstWallHit(plain, mod('pth_breaker'))).toBeCloseTo(101 * 1.12, 5);
+    expect(firstWallHit(plain, mod('gun_barrel'))).toBeCloseTo(2 * 1.08, 5);
+    expect(firstWallHit(plain, mod('pth_breaker'))).toBeCloseTo(2 * 1.12, 5);
     const arm = firstWallHit(armored);
     expect(firstWallHit(armored, mod('gun_breaker'))).toBeCloseTo(arm * 1.3, 5);
-    expect(firstWallHit(plain, mod('gun_breaker'))).toBe(101); // no armor, no bonus
+    expect(firstWallHit(plain, mod('gun_breaker'))).toBe(2); // no armor, no bonus
     const sh0 = firstWallHit(shielded);
     expect(firstWallHit(shielded, mod('gun_cracker'))).toBeCloseTo(sh0 * 1.3, 5);
   });

@@ -8,7 +8,7 @@ import { Pausable, Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
 import { CATEGORY_COLOR, THEME } from '../ui/theme';
 import { HIT_CLOUD } from '../engine/projectiles';
-import { fmtBig } from '../ui/format';
+import { fmtBig, fmtDamage } from '../ui/format';
 import { makeText } from '../builder/ui';
 import { getProgressStore } from '../econ/progress';
 import { debugHooks } from '../debug/hooks';
@@ -244,7 +244,7 @@ export class FlyScreen implements Screen {
   }
 
   showDamage(x: number, y: number, dmg: number) {
-    this.showNumber(x, y, `${Math.round(dmg)}`, 0xffffff, 18);
+    this.showNumber(x, y, fmtDamage(dmg), 0xffffff, 18);
   }
 
   /** Floating number from the shared pool: white damage numbers and small yellow "+N" credit popups. */
@@ -278,12 +278,12 @@ export class FlyScreen implements Screen {
       this.sfxFeed.hit({ id: h.enemyId, damage: h.damage, kind: h.kind, armor: h.armor, shield: h.shield, maxShield: h.maxShield }, true);
       if (h.kind === 1) {
         // A burn tick: a small orange number, no hit flash.
-        this.showNumber(h.x, h.y, `${Math.round(h.damage)}`, 0xff9a3c, 11);
+        this.showNumber(h.x, h.y, fmtDamage(h.damage), 0xff9a3c, 11);
         continue;
       }
       if (h.kind === HIT_CLOUD) {
         // A Residue Seed tick: a small number in the Mitosis colour, no hit flash.
-        this.showNumber(h.x, h.y, `${Math.round(h.damage)}`, CATEGORY_COLOR.mitosis, 11);
+        this.showNumber(h.x, h.y, fmtDamage(h.damage), CATEGORY_COLOR.mitosis, 11);
         continue;
       }
       this.flash.set(h.enemyId, FLASH_TIME);

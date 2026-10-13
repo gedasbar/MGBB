@@ -26,7 +26,7 @@ export const HULL_PRICES: Record<HullId, number> = {
 
 /**
  * Firing stat of the starter: its pulse rate as a share of CONFIG.PULSE.BASE_RATE (4 per second). With one Flat+ in its slot
- * the Dart does 101 damage per shot, so 0.25 x 4 x 101 = 101 DPS against the Shuttle starter's 404 (25%). The brief's first
+ * the Dart does 2 damage per shot (chunk 14a; it was 101), so 0.25 x 4 x 2 = 2 DPS against the Shuttle starter's 8 (25%). The brief's first
  * target was 35%, which put tier 1's carve ratio at 0.39; 0.25 puts it at 0.54, inside its 0.5 to 0.8 goal (G4, one
  * adjustment). Every other hull fires at the full rate.
  */

@@ -4,7 +4,7 @@ import {
   alternatorMul, boomerangRange, capacitorMul, CAPACITOR_N, chainJumps, CHAIN_ARC_LIFE, CHAIN_FRAC, CHAIN_RANGE, corrosionCap,
   CORROSION_STEP, delaySeconds, executionerMul, EXECUTIONER_BELOW, frostBonus, frostSlow, frostTime, igniteFrac, IGNITE_TIME,
   mineDistance, MINE_WAIT, orbitTime, ORBIT_RADIUS, ORBIT_REHIT, overclockAverage, overclockGain, OVERCLOCK_CAP, OVERCLOCK_WINDOW,
-  bounceCount, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct, fissionCooldown, residueFrac,
+  bounceCount, flatPlusAdd, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct, fissionCooldown, residueFrac,
   RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, routerBoth, SPILL_CHAIN_DEPTH, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac, WELL_RADIUS, WELL_TIME, wellPull,
 } from '../engine/effects';
 
@@ -147,8 +147,8 @@ register({
 // ---------------------------------------------------------------- Damage
 register({
   id: 'flat_plus', name: 'Flat +', category: 'damage', maxLevel: 10, outputs: FWD,
-  desc: (l) => `Adds +${100 * l} damage to each projectile.`,
-  transform: (p, l) => { addDamage(p, 100 * l); },
+  desc: (l) => `Adds +${flatPlusAdd(l)} damage to each projectile.`,
+  transform: (p, l) => { addDamage(p, flatPlusAdd(l)); },
   shown: true,
 });
 register({

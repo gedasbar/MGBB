@@ -1,6 +1,6 @@
 import { Mulberry32 } from '../rng';
 import { DEFAULT_APPROACH_SPEED, WALL_COLS } from './constants';
-import { BlockDef, blockHp, LevelDef, rowsForTier } from './level';
+import { BlockDef, blockHp, LevelDef, rowsForTier, wholeHp } from './level';
 
 export const MAX_TIER = 100;
 export const SPIKE_HP_MUL = 1.6;
@@ -170,10 +170,10 @@ export function generateLevel(tier: number): LevelDef {
   const armored = pickCluster(blocks, h, armorMode, nArmor, rand);
   const shielded = pickCluster(blocks, h, shieldMode, nShield, rand);
 
-  const hp = blockHp(t) * (spike ? SPIKE_HP_MUL : 1);
+  const hp = wholeHp(blockHp(t) * (spike ? SPIKE_HP_MUL : 1));
   const cells: (BlockDef | null)[] = new Array(mask.length).fill(null);
   blocks.forEach((b, i) => {
-    cells[b.idx] = { hp, armor: armored.has(i) ? armorValue(t) : 0, shield: shielded.has(i) ? hp * shieldShare(t) : 0 };
+    cells[b.idx] = { hp, armor: armored.has(i) ? armorValue(t) : 0, shield: shielded.has(i) ? wholeHp(hp * shieldShare(t)) : 0 };
   });
 
   const level: LevelDef = {

@@ -28,7 +28,9 @@ export interface LevelDef {
 
 /** Placeholder size curve: 8 rows at tier 1 growing linearly to 41 rows at tier 100. */
 export const rowsForTier = (tier: number) => Math.round(8 + ((tier - 1) * (41 - 8)) / 99);
-export const blockHp = (tier: number) => BLOCK_HP_BASE * Math.pow(BLOCK_HP_GROWTH, tier - 1);
+/** HP are whole numbers, at least 1 (chunk 14a). */
+export const wholeHp = (v: number) => Math.max(1, Math.round(v));
+export const blockHp = (tier: number) => wholeHp(BLOCK_HP_BASE * Math.pow(BLOCK_HP_GROWTH, tier - 1));
 export const rewardPerBlock = (tier: number) => REWARD_BASE * Math.pow(REWARD_GROWTH, tier - 1);
 
 export const cellIndex = (level: { cols: number }, col: number, row: number) => row * level.cols + col;
@@ -58,7 +60,7 @@ export function makeTestWall(o: TestWallOpts): LevelDef {
   for (let i = 0; i < WALL_COLS * o.rows; i++) {
     const armored = rand.next() < (o.armorFraction ?? 0);
     const shielded = rand.next() < (o.shieldFraction ?? 0);
-    cells.push({ hp, armor: armored ? TEST_ARMOR : 0, shield: shielded ? hp * TEST_SHIELD_OF_HP : 0 });
+    cells.push({ hp, armor: armored ? TEST_ARMOR : 0, shield: shielded ? wholeHp(hp * TEST_SHIELD_OF_HP) : 0 });
   }
   const gaps = Math.min(o.gaps ?? 0, cells.length - 1);
   for (let g = 0; g < gaps; g++) {
