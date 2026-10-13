@@ -40,9 +40,25 @@ export const MAX_CAMERA_SPEED = 420;
 /** How fast the camera speed follows its target (1/s); smooths starts and stops so the view never jitters. */
 export const CAMERA_EASE = 14;
 
-/** Block stats at tier T. HP is a whole number (chunk 14a: base 2 against the basic shot's 1; it was 100 against Flat+'s 101). */
+/**
+ * Block HP at tier T: BLOCK_HP_BASE x BLOCK_HP_GROWTH^(min(T, BLOCK_HP_GROWTH_END) - 1), a whole number. Chunk 14a: base 2
+ * against the basic shot's 1 (it was 100 against Flat+'s 101), +13% a tier up to tier 38 and flat after it (it was +5.5% a
+ * tier all the way). npm run balance-damage: the DPS a player can own climbs fast until the Fan / Shuttle and L3-L5 blocks
+ * (about tier 35-45) and then stops (every block at L5); with +5.5% the middle tiers were 4-9x too easy and tier 100 needed
+ * five times the best build. After tier 38 the walls still grow: more rows, more and heavier armor and shields.
+ */
 export const BLOCK_HP_BASE = 2;
-export const BLOCK_HP_GROWTH = 1.055;
+export const BLOCK_HP_GROWTH = 1.13;
+export const BLOCK_HP_GROWTH_END = 38;
+/** Rows of a wall: WALL_ROWS_FIRST at tier 1 growing linearly to WALL_ROWS_LAST at tier 100 (chunk 14a: was 8 at tier 1). */
+export const WALL_ROWS_FIRST = 4;
+export const WALL_ROWS_LAST = 41;
+/**
+ * The first walls approach slower: EARLY_APPROACH_MUL x the default speed at tier 1, reaching the default at
+ * EARLY_APPROACH_TIERS (chunk 14a: a Dart with a Flat+ can clear tier 1 slowly).
+ */
+export const EARLY_APPROACH_MUL = 0.7;
+export const EARLY_APPROACH_TIERS = 10;
 /** A shield pool absorbs damage before HP; it regenerates after SHIELD_REGEN_DELAY seconds without a hit. */
 export const SHIELD_REGEN_DELAY = 2;
 /** Share of the maximum shield restored per second while regenerating. */
@@ -58,4 +74,7 @@ export const TEST_SHIELD_OF_HP = 0.5;
 
 /** Default approach speed in px/s and the max projectile age (seconds) after which a shot is dropped. */
 export const DEFAULT_APPROACH_SPEED = 26;
+/** Approach speed of a campaign tier (slower for the first EARLY_APPROACH_TIERS tiers). */
+export const approachSpeedFor = (tier: number) =>
+  DEFAULT_APPROACH_SPEED * Math.min(1, EARLY_APPROACH_MUL + ((1 - EARLY_APPROACH_MUL) * (Math.max(1, tier) - 1)) / (EARLY_APPROACH_TIERS - 1));
 export const PROJECTILE_MAX_AGE = 3;

@@ -1,5 +1,5 @@
 import { Mulberry32 } from '../rng';
-import { DEFAULT_APPROACH_SPEED, WALL_COLS } from './constants';
+import { approachSpeedFor, WALL_COLS } from './constants';
 import { BlockDef, blockHp, LevelDef, rowsForTier, wholeHp } from './level';
 
 export const MAX_TIER = 100;
@@ -177,7 +177,7 @@ export function generateLevel(tier: number): LevelDef {
   });
 
   const level: LevelDef = {
-    tier: t, cols: WALL_COLS, rows: h, wrap: true, cells, approachSpeed: DEFAULT_APPROACH_SPEED,
+    tier: t, cols: WALL_COLS, rows: h, wrap: true, cells, approachSpeed: approachSpeedFor(t),
     name: ms ? ms.name : tpl.name,
     hint: ms ? ms.hint : tpl.hint + (nArmor > 0 ? ' Some blocks are armored.' : '') + (nShield > 0 ? ' Some have shields.' : ''),
     campaign: true,
