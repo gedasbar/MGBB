@@ -150,3 +150,92 @@ flies the existing Free Fly bot.
 - **Free Fly bot**, best reference circuit per hull (target for a strong build in brackets): Dart L5 7.3 (5), Twin L5
   14.7 (8), Prong L5 12.0 (12), Fan L5 38.0 (16), Shuttle L5 34.3 (20). By credits: 0 -> wave 5, 500 -> 11, 8000 -> 31.
   Free Fly is too easy for strong builds, and the Prong is no stronger than the Twin.
+
+## 3. Targets used (step 3)
+
+The step-3 targets were used as written, with two readings (DECISIONS 195, 201):
+
+- **2.5x rule.** "Top 5 of the search" are near-copies, so the rule compares an 8-copy search with a 2-copy reference
+  search (engine-benched). The Dart (one free cell, no circuit) is left out.
+- **Prong at wave 12.** Not reached. The Prong spends two of its three cells on routing (it equals a Twin per pulse), and
+  narrow guns die to wave 11's armored/shielded mix whatever their DPS. Fixing that needs a hull or wave change, not a number.
+
+## 4. Tuning (step 4): what changed and the result
+
+One commit per group: rescale; outliers (Piercing re-hit, diminishing returns on stacked multipliers); block curves
+(Orbit, Random Router); captain constant (hero +0.5 a level); outliers 2 (shared multiplier decay, Residue/Spill cap,
+Residue 20%); hull stats (pulse rates); enemy scaling (Free Fly wave HP); wall scaling (HP curve, tier-1 size and speed).
+Every number group and its reason is in DECISIONS 192-208. Full final output: `reports/balance-damage-after.md`.
+
+### Numbers changed
+
+| what | before chunk 14a | after |
+|---|---|---|
+| Flat+ | +100 a level | +1 a level |
+| Percent ×, Lucky, Jackpot, Gambler, Overclock, Capacitor (L2+), Alternator, Splitter (L2+) | compound freely | the n-th multiplier on a line adds 0.5^n of its bonus |
+| Piercing | re-hit the body it was inside every frame | hits a body once |
+| Residue Seed | 40% (+10%) of the killing hit a tick | 20% (+5%), the hit counted up to the target's max HP |
+| Overkill Spill | % of the killing hit | same %, the hit counted up to the rock's max HP |
+| Orbit | 1 s +0.5 s a level | 1 s +0.25 s a level |
+| Random Router | both outputs 0% at L1 (+10%) | 50% at L1 (+10%) |
+| Hero level | +1 base damage | +0.5 |
+| Pulse rate (per s) | Dart 1, others 4 | Dart 2, Twin 2.5, Prong 4, Fan 4, Shuttle 5 |
+| Wall block HP | 100 x 1.055^(t-1) | 2 x 1.13^(min(t,38)-1), whole numbers |
+| Wall rows | 8 at tier 1 -> 41 | 4 at tier 1 -> 41 |
+| Wall approach | 26 px/s | 0.7x at tier 1, full from tier 10 |
+| Rock HP tier 1 | 250 | 5 (whole numbers at spawn) |
+| Free Fly wave HP growth | 1.08 a wave | 1.25 a wave |
+
+### Outliers, before / after (engine, mixed HP/s; x = against the hull's 2-copy reference median)
+
+| hull, level | before: best 8-copy circuit | after |
+|---|---|---|
+| Shuttle L5 | 1,777,581 (164x): stacked Percent × L5 | 3,332 (2.34x) |
+| Fan L5 | 38,881 (10.4x): nested Splitter 3 L5 + Piercing re-hit | 1,418 (2.30x) |
+| Fan L1 | 584 (2.24x): repeated Jackpot / Gambler | 121 (1.22x) |
+| Shuttle L1 | 175 (1.24x) | 90 (1.35x) |
+| Twin / Prong L1-L5 | 1.00-1.20x | 1.00-1.52x |
+| Dart L5 | 4.8 (2.07x) | 9.4 (2.61x, flagged): Flat+ L5 on a 1-slot hull against blocks that add no damage (not a stack; left, DECISIONS 195) |
+| Piercing L5, one big target | 4.4x the reference | 1.0x (its niche, clusters, 1.45x) |
+
+### Final block table (L1, against the reference; full table with L5 in the report)
+
+Category check after tuning: every block is inside 0.6-1.6x of its category median single-target, or wins a niche,
+except **Mine** (0.53, best niche 0.93) and **Curving Right** (0.56 / 0.83). Both are setup / maze tools the bench
+cannot reward. **Turn Left / Right** (0.50) are routing only. L5/L1 is at most 2.33 (Flat+, Percent ×); nothing is
+above 4. The strongest niches: Cauterize and Overkill Spill 4.5x on splitting rocks (rocks only), AoE - Circle 3.4x on a
+cluster, Jackpot 2.6x and Fission Catalyst 2.5x on splitting rocks. Orbit L5 reads 0 on one target. That is the bench's
+fixed geometry, not a dead block: after exactly 2.0 s on a 60 px circle every shot launches 55 px beside the ship and
+misses the 40 px target. It launches 19 times in 10 s; L1 and L3 launch from 32-39 px and hit.
+
+### Progress curve (credits and owned DPS: the optimistic buyer of DECISIONS 205)
+
+| tier | clear DPS needed | credits by then | owned DPS | owned / needed | hero lvl | owned with hero / needed | before tuning (hero 0 / with hero) |
+|---|---|---|---|---|---|---|---|
+| 1 | 3.1 | 0 | 4.0 (Dart + Flat+) | 1.31 | 0 | 1.31 | 0.22 / 0.22 |
+| 5 | 6.9 | 230 | 7.5 | 1.08 | 3 | 1.89 | 1.95 / 4.73 |
+| 10 | 23.7 | 735 | 17.5 | 0.74 | 5 | 1.35 | 1.59 / 7.94 |
+| 20 | 137 | 2,917 | 71 | 0.52 | 8 | 1.28 | 12.1 / 73.8 |
+| 30 | 699 | 7,947 | 398 | 0.57 | 10 | 0.98 | 156 / 546 |
+| 50 | 3,036 | 40,040 | 5,110 | 1.68 | 10 | 2.21 | 361 / 1598 |
+| 75 | 6,494 | 220,285 | 5,110 | 0.79 | 10 | 1.03 | 2555 / 28101 |
+| 100 | 11,015 | 1,039,784 | 5,110 (best Shuttle L5) | 0.46 | 10 | 0.61 | 407 / 4472 |
+
+Reading: tiers 1-30 sit in the 0.5-1.3 band (clear in one to a few runs, hero levels help). A Dart + Flat+ clears tier
+1 (the wall bot: cleared in 44 s). Tier 50 is the easy spot (1.7-2.2: about one run): owned DPS saturates around tier
+40-45 (every block L5 on a Shuttle) while HP stopped growing at 38. Tiers 75-100 need the best build (0.5-1.0): tier 100
+needs the full L5 Shuttle, hero levels and several runs, or it is only passed.
+
+### Free Fly bot, waves reached (mean of 3 seeds)
+
+| build | Dart | Twin | Prong | Fan | Shuttle |
+|---|---|---|---|---|---|
+| target (strong build) | 5 | 8 | 12 | 16 | 20 |
+| before, best L1 circuit | 4.7 | 12.0 | 12.0 | 23.3 | 21.0 |
+| before, best L5 circuit | 7.3 | 14.7 | 12.0 | 38.0 | 34.3 |
+| after, best L1 circuit | 5.0 | 7.0 | 8.3 | 13.0 | 12.0 |
+| after, best L5 circuit | 7.7 | 10.3 | 9.0 | 15.3 | 20.7 |
+
+By credits spent (best affordable circuit, hero 0): 0 -> wave 5, 150 -> 7, 500 -> 7.3, 2,000 -> 9, 8,000 -> 12,
+30,000 -> 18 (before: 5, 6.3, 11, 12, 31, 37). Fan and Shuttle land on their targets. The Dart and Twin strong builds
+are about 2.5 waves above theirs. The Prong is 3 below (section 3).
