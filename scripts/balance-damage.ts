@@ -29,7 +29,7 @@ import { World } from '../src/game/world';
 import { botRun } from '../src/debug/freeflyBot';
 import { rng } from '../src/rng';
 import { computeRunModifiers } from '../src/captains/modifiers';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 const PARTS = new Set((process.env.PART ?? 'a,b,c,d').split(','));
 const QUICK = process.env.QUICK === '1';
@@ -397,11 +397,16 @@ function partD() {
 }
 
 // ------------------------------------------------------------------ run
-partA();
-if (PARTS.has('b') || PARTS.has('c') || PARTS.has('d')) partB();
+// IN_JSON=<circuits json> with PART=d: fly the per-hull circuits of an earlier run (no search; no credit table).
+if (process.env.IN_JSON) {
+  const d: { hull: string; level: number; ref: [number, string, number][][] }[] = JSON.parse(readFileSync(process.env.IN_JSON, 'utf8'));
+  for (const r of d) RESULTS.push({ hull: r.hull, level: r.level, ref: r.ref.map(cells => ({ key: '', hull: r.hull, level: r.level, cap: 2, score: 0, fly: 0, wall: 0, cost: 0, cells })), refBench: [], free: [], freeBench: [], median: 0 });
+}
+if (PARTS.has('a') || !process.env.IN_JSON) partA();
+if (!process.env.IN_JSON && (PARTS.has('b') || PARTS.has('c') || PARTS.has('d'))) partB();
 if (PARTS.has('c')) partC();
 if (PARTS.has('d')) partD();
 // The audited circuits for tests/damageBalance.test.ts: per hull and level, the reference top 5 and the free top 5.
-if (RESULTS.length) writeFileSync(process.env.OUT_JSON ?? 'reports/balance-damage-circuits.json', JSON.stringify(
+if (RESULTS.length && !process.env.IN_JSON) writeFileSync(process.env.OUT_JSON ?? 'reports/balance-damage-circuits.json', JSON.stringify(
   RESULTS.map(r => ({ hull: r.hull, level: r.level, ref: r.ref.map(f => f.cells), free: r.free.map(f => f.cells) })),
 ) + '\n');

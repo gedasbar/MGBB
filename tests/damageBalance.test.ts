@@ -1,6 +1,7 @@
 // Chunk 14a: invariants of the small-number damage balance (docs/balance-damage.md).
 import { describe, it, expect } from 'vitest';
 import AUDITED from '../reports/balance-damage-circuits.json';
+import { benchAll } from '../scripts/lib/dmgBench';
 import { compile, Grid } from '../src/engine/compiler';
 import { BLOCKS, pickerBlocks } from '../src/data/blocks';
 import { HULL_ORDER } from '../src/data/hulls';
@@ -28,6 +29,7 @@ const fromCells = (hull: string, cells: [number, string, number][]) => {
   return g;
 };
 const est = (g: Grid) => compile(g).stats.estDps;
+const median = (xs: number[]) => { const v = [...xs].sort((a, b) => a - b); return v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2; };
 
 describe('small numbers: the basic shot and Flat+', () => {
   it.each(HULL_ORDER.map(h => [h]))('%s: every shot of the bare hull deals exactly 1', (hull) => {
@@ -67,16 +69,20 @@ describe('small numbers: the basic shot and Flat+', () => {
 });
 
 describe('no circuit beats 2.5x its hull median (diminishing returns on stacking)', () => {
-  // The compile estimate is blind to AoE, chains and other target effects (the script benches those on the engine), so this
-  // checks what the estimate does see: no circuit with up to 8 copies of a block beats the best 2-copy circuit by 2.5x.
-  it('the audited circuits of npm run balance-damage: no 8-copy circuit beats 2.5x the best 2-copy circuit (compile estimate)', () => {
+  // The real rule (docs/balance-damage.md, step 3), on the engine: the circuits npm run balance-damage audited (per hull and
+  // level, the top 5 with at most 2 copies of a block and the top 5 with up to 8) are benched again with the current data, and
+  // the best 8-copy circuit may not beat 2.5x the median of the 2-copy ones. The Dart is left out: with one free cell a
+  // "circuit" is a single block, and Flat+ L5 beats blocks that add no damage of their own by 2.6x (DECISIONS 195).
+  it('the audited circuits of npm run balance-damage: the best 8-copy circuit stays within 2.5x the 2-copy median (engine bench)', () => {
     const data = AUDITED as unknown as { hull: string; level: number; ref: [number, string, number][][]; free: [number, string, number][][] }[];
     expect(data.length).toBe(HULL_ORDER.length * 2);
     for (const r of data) {
-      const best = Math.max(...r.ref.map(c => est(fromCells(r.hull, c))));
-      for (const c of r.free) expect(est(fromCells(r.hull, c)), `${r.hull} L${r.level}`).toBeLessThanOrEqual(2.5 * best);
+      if (r.hull === 'dart') continue;
+      const ref = r.ref.map(c => benchAll(fromCells(r.hull, c)).mixed);
+      const free = benchAll(fromCells(r.hull, r.free[0])).mixed;
+      expect(free, `${r.hull} L${r.level}`).toBeLessThanOrEqual(2.5 * median(ref));
     }
-  });
+  }, 120_000);
   // Bounded, not flat: the product of x3.5, x2.25, x1.63, ... converges to about x22 however many are stacked (it was 3.5^n).
   it('a line full of Percent x L5 (eight copies) is under 3x two copies; each further copy adds half the bonus of the one before', () => {
     const fan = (n: number) => {

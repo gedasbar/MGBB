@@ -32,6 +32,8 @@ for (const t of [1, 5, 10, 20]) {
 // A deterministic bot (src/debug/freeflyBot.ts: dodges what would touch the ship, otherwise lines up under the body closest
 // to leaking) flies each gun on SEEDS seeds until the hull is gone (cap 10 min). Targets (docs/freefly-design.md): a 3-minute
 // bare-Dart run pays ~55-65; the Twin (70) after 1-2 runs; the Prong (350) after 6-8 runs.
+// Chunk 14a (docs/balance-damage.md): the Dart fires 2/s and waves grow 1.25x in HP, so the ranges are now: a Dart run ~60-80,
+// the Twin after 1-2 runs, the Prong after 4-8 runs (it was 4 already before chunk 14a).
 const SEEDS = [1, 2, 3, 4, 5];
 const LIMIT = 600;
 const CHECK = [60, 180, 300];
@@ -71,7 +73,7 @@ for (const [name, make] of GUNS) {
     if (!flat && bank - copyPrice('flat_plus', 1) >= 0 && bank < HULL_PRICES.prong) { bank -= copyPrice('flat_plus', 1); flat = true; }
   }
   console.log(`\nPath: Twin after ${twinAt} Dart run(s); Prong after ${runs} runs in all (${minutes.toFixed(0)} min of play${flat ? ', a 2nd Flat+ bought on the way' : ''}).`);
-  console.log(`Targets: 3-min Dart run ~55-65 (bot: ${dart.credits.toFixed(0)} in ${fmtTime(dart.time)}), Twin after 1-2 runs, Prong after 6-8 runs.`);
+  console.log(`Targets (chunk 14a): 3-min Dart run ~60-80 (bot: ${dart.credits.toFixed(0)} in ${fmtTime(dart.time)}), Twin after 1-2 runs, Prong after 4-8 runs.`);
 }
 
 const perRun = FREEFLY_TABLE[0].credits;

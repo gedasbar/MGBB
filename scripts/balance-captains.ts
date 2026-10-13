@@ -1,6 +1,9 @@
 // Captain balance (chunk 13a): the starter captain with nothing bought against a fully built tree of each captain (hero level 10 and
 // one option in every tier). Prints the campaign carve ratio and the bots' results, and flags any build whose total power is
 // about 2x the baseline or more. Run: npm run balance-captains
+// Chunk 14a: with small numbers the hero level is real power (level 10 = base 6, Dart + Flat+ 2 -> 7 damage, x3.5), by design.
+// The flags therefore compare each captain's options against "hero level 10, no options"; the hero level's own jump is the
+// second row, printed against the starter and not flagged.
 import { compile } from '../src/engine/compiler';
 import { buildDartStarterGrid, place } from '../src/game/starter';
 import { buildTwinGrid } from '../src/game/gridUtils';
@@ -35,11 +38,11 @@ interface Build { label: string; ids: string[]; mods: RunModifiers }
 const mk = (label: string, level: number, ids: string[]): Build => ({ label, ids, mods: computeRunModifiers(level, ids) });
 
 // ---- the builds: nothing bought, and for each captain the 16 ways to fill 4 tiers, narrowed to 4 interesting ones
-const builds: Build[] = [mk('starter, nothing bought', 0, [])];
+const builds: Build[] = [mk('starter, nothing bought', 0, []), mk('hero level 10, no options', HERO_MAX_LEVEL, [])];
 for (const c of CAPTAINS) {
   const combos: string[][] = [];
   for (let m = 0; m < 16; m++) combos.push(c.tiers.map((pair, t) => pair[(m >> t) & 1].id));
-  const dps = (b: RunModifiers) => (1 + b.baseDamage / 101) * b.damageMul * b.fireRateMul * (1 + (b.vsArmor + b.vsShield) / 4);
+  const dps = (b: RunModifiers) => ((2 + b.baseDamage) / 2) * b.damageMul * b.fireRateMul * (1 + (b.vsArmor + b.vsShield) / 4);
   const wallDps = (b: RunModifiers) => dps(b) * b.wallDamageMul;
   const credit = (b: RunModifiers) => b.creditMul * (1 + b.wallCreditMul - 1) * (1 + b.passCredits);
   const pick = (score: (b: RunModifiers) => number) => combos.reduce((best, ids) => (score(computeRunModifiers(HERO_MAX_LEVEL, ids)) > score(computeRunModifiers(HERO_MAX_LEVEL, best)) ? ids : best));
@@ -106,7 +109,8 @@ const rows: Row[] = builds.map((build) => {
   return { build, dps, fly, carve, clear, carveRatio };
 });
 
-const base = rows[0];
+const starter = rows[0];
+const heroOnly = rows[1];
 const f1 = (v: number, d = 1) => v.toFixed(d);
 console.log(`Captain balance. Guns: ${GUNS.map(g => g[0]).join(', ')}. Free Fly bot: ${SEEDS.length} seeds, until dead (cap ${FLY_LIMIT} s). Wall bots on the fresh Dart + Flat+.`);
 console.log(`Tiers carved: ${CARVE_TIERS.join('/')}; cleared: ${CLEAR_TIERS.join('/')}. FLAG = any ratio to the baseline >= ${FLAG}.\n`);
@@ -114,6 +118,7 @@ console.log('build'.padEnd(44) + ' | est DPS ratio (Dart/Twin) | Free Fly Dart: 
 const flagged: string[] = [];
 const notes: string[] = [];
 for (const r of rows) {
+  const base = r === starter || r === heroOnly ? starter : heroOnly;
   const ratios: [string, number][] = [
     ['dps', r.dps[0] / base.dps[0]],
     ['flyCredits', r.fly[0].credits / base.fly[0].credits],
@@ -124,13 +129,13 @@ for (const r of rows) {
     ...r.clear.map((c, i) => [`clearAll t${CLEAR_TIERS[i]}`, base.clear[i] >= MIN_BASE_PCT ? c / base.clear[i] : 0] as [string, number]),
   ];
   const hot = ratios.filter(([, v]) => v >= FLAG).map(([k, v]) => `${k} x${v.toFixed(2)}`);
-  if (r !== base && hot.length) flagged.push(`${r.build.label}: ${hot.join(', ')}`);
+  if (r !== starter && r !== heroOnly && hot.length) flagged.push(`${r.build.label}: ${hot.join(', ')}`);
   // Small-number ratios (see MIN_BASE_*): shown as notes, not flags.
   const small = [
     ...r.carve.map((c, i) => [`carveCredits t${CARVE_TIERS[i]}`, base.carve[i].credits < MIN_BASE_CREDITS ? c.credits / Math.max(1e-9, base.carve[i].credits) : 0] as [string, number]),
     ...r.clear.map((c, i) => [`clearAll t${CLEAR_TIERS[i]}`, base.clear[i] < MIN_BASE_PCT ? c / Math.max(1e-9, base.clear[i]) : 0] as [string, number]),
   ].filter(([, v]) => v >= FLAG).map(([k, v]) => `${k} x${v.toFixed(2)}`);
-  if (r !== base && small.length) notes.push(`${r.build.label}: ${small.join(', ')}`);
+  if (r !== starter && r !== heroOnly && small.length) notes.push(`${r.build.label}: ${small.join(', ')}`);
   const fly = (x: Row['fly'][0]) => `${f1(x.wave)} ${f1(x.credits, 0)} ${f1(x.kills, 0)}`;
   console.log(
     `${r.build.label.padEnd(44)} | ${f1(r.dps[0] / base.dps[0], 2)} / ${f1(r.dps[1] / base.dps[1], 2)}`.padEnd(75) +
@@ -138,6 +143,7 @@ for (const r of rows) {
   );
 }
 console.log('\nBuilds (ids):');
-for (const b of builds.slice(1)) console.log(`  ${b.label}: ${b.ids.join(', ')}`);
-console.log(`\nFlagged (>= ${FLAG}x the baseline): ${flagged.length ? '\n  ' + flagged.join('\n  ') : 'none'}`);
+for (const b of builds.slice(2)) console.log(`  ${b.label}: ${b.ids.join(', ')}`);
+console.log(`\nHero level alone (row 2 against the starter): est DPS x${f1(heroOnly.dps[0] / starter.dps[0], 2)}, Free Fly Dart wave ${f1(starter.fly[0].wave)} -> ${f1(heroOnly.fly[0].wave)}.`);
+console.log(`\nFlagged (options: >= ${FLAG}x the hero-level-10 baseline): ${flagged.length ? '\n  ' + flagged.join('\n  ') : 'none'}`);
 console.log(`\nSmall-number ratios (baseline under ${MIN_BASE_CREDITS} credits or ${MIN_BASE_PCT}% destroyed; shown, not flags): ${notes.length ? "\n  " + notes.join("\n  ") : "none"}`);

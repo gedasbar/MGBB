@@ -58,14 +58,18 @@ function benchAt(grid: Grid, sc: Scenario, o: BenchOpts, est: number | undefined
     let removed = 0;
     let families = 0;
     const live = new Map<number, number>(); // id -> max HP (big / cluster)
+    // New targets alternate 90 px left and right of the centre, so what a kill leaves behind (a Residue cloud) does not
+    // sit on the next target as it would never in play.
+    let spawns = 0;
     const spawn = () => {
-      if (sc === 'big') { const e = w.spawnSpecies('darter', CONFIG.VIEW.W / 2, TARGET_Y, { hp, radius: 40 }); if (e) live.set(e.id, e.maxHp); }
+      const X = CONFIG.VIEW.W / 2 + (spawns++ % 2 ? 90 : -90);
+      if (sc === 'big') { const e = w.spawnSpecies('darter', X, TARGET_Y, { hp, radius: 40 }); if (e) live.set(e.id, e.maxHp); }
       else if (sc === 'cluster') {
         for (let k = 0; k < 8; k++) {
-          const e = w.spawnSpecies('darter', CONFIG.VIEW.W / 2 + ((k % 4) - 1.5) * 32, TARGET_Y + Math.floor(k / 4) * 32, { hp, radius: 14 });
+          const e = w.spawnSpecies('darter', X + ((k % 4) - 1.5) * 32, TARGET_Y + Math.floor(k / 4) * 32, { hp, radius: 14 });
           if (e) live.set(e.id, e.maxHp);
         }
-      } else w.spawnSpecies('mitotic_rock', CONFIG.VIEW.W / 2, TARGET_Y, { hp, radius: 20 });
+      } else w.spawnSpecies('mitotic_rock', X, TARGET_Y, { hp, radius: 20 });
     };
     spawn();
     const p = { x: CONFIG.VIEW.W / 2, y: SHIP_Y, active: false, type: 'mouse' as const, seen: true };
