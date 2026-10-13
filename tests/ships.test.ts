@@ -58,7 +58,7 @@ describe('hull ladder', () => {
     for (const id of HULL_ORDER) expect(HULL_BUILDERS[id]().hullId).toBe(id);
   });
 
-  it('the Dart is generator, one free cell, ejector in a line, and fires 25% of the Shuttle starter DPS with a Flat+ in its slot', () => {
+  it('the Dart is generator, one free cell, ejector in a line, and fires 40% of the Shuttle starter DPS with a Flat+ in its slot', () => {
     const g = buildDartGrid();
     expect(g.w).toBe(1);
     expect(g.cells.map(c => c.type)).toEqual(['ejector', 'empty', 'generator']);
@@ -67,9 +67,12 @@ describe('hull ladder', () => {
     const dart = compile(g).stats;
     const shuttle = compile(buildStarterGrid()).stats;
     expect(dart.damagePerShot).toBe(2);
-    expect(dart.estDps / shuttle.estDps).toBeCloseTo(0.25, 2);
-    expect(fireRateMul('dart')).toBe(0.25);
-    expect(fireRateMul('shuttle')).toBe(1);
+    expect(dart.estDps / shuttle.estDps).toBeCloseTo(0.4, 2); // 2 pulses/s against 5 (chunk 14a)
+    expect(fireRateMul('dart')).toBe(0.5);
+    expect(fireRateMul('shuttle')).toBe(1.25);
+    // the pulse rate climbs the hull ladder
+    const rates = ['dart', 'twin', 'prong', 'fan', 'shuttle'].map(fireRateMul);
+    for (let i = 1; i < rates.length; i++) expect(rates[i]).toBeGreaterThanOrEqual(rates[i - 1]);
   });
 
   it('the Dart world fires at the slow rate, the Shuttle at the full rate', () => {

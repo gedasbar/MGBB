@@ -7,6 +7,8 @@ import { World } from '../src/game/world';
 import { buildFanGrid } from '../src/game/gridUtils';
 import { buildStarterGrid, place } from '../src/game/starter';
 import { rng } from '../src/rng';
+import { CONFIG } from '../src/config';
+import { fireRateMul } from '../src/data/hulls';
 
 import { richModel } from './helpers';
 
@@ -288,7 +290,7 @@ describe('the stats strip equals what the ship fires', () => {
       expect(idx.length).toBe(stats.projectilesPerPulse);
       const dmg = idx.map(i => w.pool.damage[i]);
       expect(dmg.reduce((a, b) => a + b, 0) / dmg.length).toBeCloseTo(stats.damagePerShot, 6);
-      expect(stats.pulsesPerSecond).toBe(4);
+      expect(stats.pulsesPerSecond).toBe(CONFIG.PULSE.BASE_RATE * fireRateMul(g.hullId)); // the hull's pulse rate (chunk 14a)
     });
   }
 
