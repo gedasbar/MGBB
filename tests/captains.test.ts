@@ -51,8 +51,9 @@ describe('run modifiers math', () => {
     expect(computeRunModifiers(0, [])).toEqual(neutralModifiers());
     expect(modifiersFor('cadet', defaultCaptains().heroes.cadet)).toEqual(neutralModifiers());
   });
-  it('the hero level adds +1 base damage per level, nothing else', () => {
-    expect(computeRunModifiers(7, []).baseDamage).toBe(7);
+  it('the hero level adds HERO_LEVEL_BASE_DAMAGE (0.5) base damage per level, nothing else', () => {
+    expect(HERO_LEVEL_BASE_DAMAGE).toBe(0.5);
+    expect(computeRunModifiers(7, []).baseDamage).toBe(3.5);
     expect({ ...computeRunModifiers(7, []), baseDamage: 0 }).toEqual(neutralModifiers());
   });
   it('each effect type lands in its own field with the data value', () => {
@@ -87,7 +88,7 @@ describe('run modifiers math', () => {
     const hero = { level: 2, active: { '1': 'gun_barrel' } };
     expect(modifiersFor('cadet', hero).damageMul).toBe(1);
     expect(modifiersFor('gunner', hero).damageMul).toBeCloseTo(1.08);
-    expect(modifiersFor('gunner', hero).baseDamage).toBe(2);
+    expect(modifiersFor('gunner', hero).baseDamage).toBe(2 * HERO_LEVEL_BASE_DAMAGE);
   });
 });
 

@@ -16,8 +16,12 @@ export interface Effect { type: EffectType; value: number }
 
 // ---------------------------------------------------------------- shared constants
 
-/** Hero level: each level adds this much base damage (the generator's packet starts at 1). */
-export const HERO_LEVEL_BASE_DAMAGE = 1;
+/**
+ * Hero level: each level adds this much base damage (the generator's packet starts at 1). Chunk 14a: 0.5 (it was 1). With the
+ * small numbers +1 a level made level 10 an 11x gun, ahead of the walls' HP growth until about tier 45; 0.5 makes it 6x
+ * (docs/balance-damage.md, section 1c).
+ */
+export const HERO_LEVEL_BASE_DAMAGE = 0.5;
 export const HERO_MAX_LEVEL = 10;
 /** Medals to go from level n to n + 1 (index n - 1 for n >= 1; index 0 is level 0 -> 1). */
 export const HERO_LEVEL_COSTS = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5];

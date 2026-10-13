@@ -104,7 +104,7 @@ const centre = (r) => [r.x + r.w / 2, r.y + r.h / 2];
   s = await state(page);
   const cap = s.captain;
   check(cap.id === 'bulwark' && cap.maxHull === 130 && Math.round(s.hull) === 130, `Free Fly: hull x1.3 (max ${cap.maxHull}, hull ${s.hull})`);
-  check(s.damagePerShot[0] === 3, `Free Fly: hero level 2 adds +2 base damage to the bare shot (damage per shot ${s.damagePerShot[0]}, was 1)`);
+  check(s.damagePerShot[0] === 2, `Free Fly: hero level 2 adds +1 base damage (0.5 a level, chunk 14a) to the bare shot (damage per shot ${s.damagePerShot[0]}, was 1)`);
   check(cap.secondChancesLeft === 1, `Free Fly: Second Chance charge ready (${cap.secondChancesLeft})`);
   // Second Chance: a rock on the ship deals no damage the first time.
   await page.evaluate(() => { const w = window.__mgbm.world; w.beginControl(); w.invuln = 0; w.spawnRock(w.shipX, w.shipY, 1e9); });
@@ -142,7 +142,7 @@ const centre = (r) => [r.x + r.w / 2, r.y + r.h / 2];
   await click('dbg-start-tier');
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.screen === 'wall', null, { timeout: 5000 });
   s = await state(page);
-  check(s.captain.mods.secondChances === 1 && s.captain.mods.baseDamage === 2 && s.captain.mods.spawnInvuln === 0, `wall: modifiers ${JSON.stringify({ sc: s.captain.mods.secondChances, base: s.captain.mods.baseDamage })}`);
+  check(s.captain.mods.secondChances === 1 && s.captain.mods.baseDamage === 1 && s.captain.mods.spawnInvuln === 0, `wall: modifiers ${JSON.stringify({ sc: s.captain.mods.secondChances, base: s.captain.mods.baseDamage })}`);
   await page.evaluate(() => { const g = document.getElementById('dbg-god'); g.checked = false; g.dispatchEvent(new Event('change')); });
   await page.evaluate(() => {
     const w = window.__mgbm.wall;
