@@ -11,6 +11,21 @@ export const alternatorMul = (l: number) => 2 + 0.1 * (l - 1);
 export const delaySeconds = (l: number) => 0.1 * l;
 
 // ---- Damage
+/**
+ * Diminishing returns on stacking (chunk 14a): the n-th copy of the same multiplier block on one line (n = 0 for the first)
+ * adds STACK_DECAY^n of its bonus. Percent x L5 is x3.5, a second one x2.25, a third x1.63 ... (the product stays under
+ * about x22 however many are stacked; it used to grow without bound: eight Percent x L5 were x22,000).
+ */
+export const STACK_DECAY = 0.5;
+/** Blocks whose repeats on a line diminish. */
+export const STACKING_BLOCKS = ['percent_mult', 'lucky_strike', 'jackpot', 'gamblers_gate', 'splitter_2', 'splitter_3'];
+/** Share of its bonus that the next copy of `id` on this packet's line keeps (1, 0.5, 0.25 ...); records the copy on the packet. */
+export function stackShare(tags: Set<string>, id: string): number {
+  let n = 0;
+  while (tags.has(`stack:${id}:${n}`)) n++;
+  tags.add(`stack:${id}:${n}`);
+  return Math.pow(STACK_DECAY, n);
+}
 /** Flat+: damage added per block level (chunk 14a: +1, the size of the basic shot; it was +100). */
 export const FLAT_PLUS_PER_LEVEL = 1;
 export const flatPlusAdd = (l: number) => FLAT_PLUS_PER_LEVEL * l;

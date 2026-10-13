@@ -482,6 +482,9 @@ export class ProjectileSystem {
         } else if (phase === PHASE_BOOM_OUT || phase === PHASE_BOOM_BACK) {
           this.pool.skipId[i] = target.id; // a boomerang flies on through what it hit; each leg hits a target once
         } else if (isPiercing) {
+          // Chunk 14a: a piercing shot passes through what it hit and cannot hit it again (it used to hit the same body every
+          // frame while inside it, which made Piercing L2+ a hidden damage multiplier on big targets and wall blocks).
+          this.pool.skipId[i] = target.id;
           const damageSpent = res.hpDamage; // actual hp taken
           const drop = Math.max(damage * 0.1, damageSpent) * pierceCostMul(pierceMod!.level ?? 1);
           this.pool.damage[i] -= drop;

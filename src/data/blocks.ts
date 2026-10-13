@@ -4,7 +4,7 @@ import {
   alternatorMul, boomerangRange, capacitorMul, CAPACITOR_N, chainJumps, CHAIN_ARC_LIFE, CHAIN_FRAC, CHAIN_RANGE, corrosionCap,
   CORROSION_STEP, delaySeconds, executionerMul, EXECUTIONER_BELOW, frostBonus, frostSlow, frostTime, igniteFrac, IGNITE_TIME,
   mineDistance, MINE_WAIT, orbitTime, ORBIT_RADIUS, ORBIT_REHIT, overclockAverage, overclockGain, OVERCLOCK_CAP, OVERCLOCK_WINDOW,
-  bounceCount, flatPlusAdd, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct, fissionCooldown, residueFrac,
+  bounceCount, flatPlusAdd, stackShare, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct, fissionCooldown, residueFrac,
   RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, routerBoth, SPILL_CHAIN_DEPTH, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac, WELL_RADIUS, WELL_TIME, wellPull,
 } from '../engine/effects';
 
@@ -22,6 +22,7 @@ const splitterMul = (l: number) => 1 + 0.05 * (l - 1);
 const luckyProb = (l: number) => 0.33 + 0.05 * (l - 1);
 const jackpotProb = (l: number) => 0.04 + 0.01 * (l - 1);
 const gamblerProb = (l: number) => 0.5 + 0.05 * (l - 1);
+const percentMul = (l: number) => 1 + 0.5 * l;
 
 /**
  * Data hook for the future perk behind the Crossover block. Lines already cross freely in
@@ -54,6 +55,9 @@ function rare(rarity: Rarity) {
   return { rarity, baseCost: RARITY_PRICE[rarity], maxLevel: 5, shown: true, unlock: 'shop' as const };
 }
 const pct = (v: number) => Math.round(v * 100);
+/** A multiplier whose bonus diminishes when the same block repeats on a line (effects.ts, STACK_DECAY). */
+const stackMul = (p: Packet, id: string, mult: number) => 1 + (mult - 1) * stackShare(p.tags, id);
+const STACK_NOTE = ' Each further copy on the same line adds half the bonus of the one before.';
 
 // ---------------------------------------------------------------- Pathing
 register({
@@ -85,14 +89,14 @@ register({
 });
 register({
   id: 'splitter_2', name: 'Splitter 2', category: 'pathing', maxLevel: 5, outputs: ['L', 'R'],
-  desc: (l) => `Splits the signal into two ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}, one to the left and one to the right.`,
-  transform: (p, l) => { if (l > 1) mulDamage(p, splitterMul(l)); },
+  desc: (l) => `Splits the signal into two ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}, one to the left and one to the right.${l > 1 ? STACK_NOTE : ''}`,
+  transform: (p, l) => { if (l > 1) mulDamage(p, stackMul(p, 'splitter_2', splitterMul(l))); },
   shown: true,
 });
 register({
   id: 'splitter_3', name: 'Splitter 3', category: 'pathing', maxLevel: 5, outputs: ['L', 'F', 'R'],
-  desc: (l) => `Splits the signal into three ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}: left, straight on and right.`,
-  transform: (p, l) => { if (l > 1) mulDamage(p, splitterMul(l)); },
+  desc: (l) => `Splits the signal into three ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}: left, straight on and right.${l > 1 ? STACK_NOTE : ''}`,
+  transform: (p, l) => { if (l > 1) mulDamage(p, stackMul(p, 'splitter_3', splitterMul(l))); },
   shown: true,
 });
 register({
@@ -153,26 +157,26 @@ register({
 });
 register({
   id: 'percent_mult', name: 'Percent ×', category: 'damage', maxLevel: 10, outputs: FWD,
-  desc: (l) => `Multiplies projectile damage by ×${1 + 0.5 * l}.`,
-  transform: (p, l) => { mulDamage(p, 1 + 0.5 * l); },
+  desc: (l) => `Multiplies projectile damage by ×${percentMul(l)}.${STACK_NOTE}`,
+  transform: (p, l) => { mulDamage(p, stackMul(p, 'percent_mult', percentMul(l))); },
   shown: true,
 });
 register({
   id: 'lucky_strike', name: 'Lucky Strike', category: 'damage', maxLevel: 3, outputs: FWD,
-  desc: (l) => `${pct(luckyProb(l))}% chance to double projectile damage.`,
-  transform: (p, l) => { gateDamage(p, { prob: luckyProb(l), mult: 2, elseMult: 1 }); },
+  desc: (l) => `${pct(luckyProb(l))}% chance to double projectile damage.${STACK_NOTE}`,
+  transform: (p, l) => { gateDamage(p, { prob: luckyProb(l), mult: stackMul(p, 'lucky_strike', 2), elseMult: 1 }); },
   shown: true,
 });
 register({
   id: 'jackpot', name: 'Jackpot', category: 'damage', maxLevel: 3, outputs: FWD,
-  desc: (l) => `${pct(jackpotProb(l))}% chance to multiply projectile damage by 10.`,
-  transform: (p, l) => { gateDamage(p, { prob: jackpotProb(l), mult: 10, elseMult: 1 }); },
+  desc: (l) => `${pct(jackpotProb(l))}% chance to multiply projectile damage by 10.${STACK_NOTE}`,
+  transform: (p, l) => { gateDamage(p, { prob: jackpotProb(l), mult: stackMul(p, 'jackpot', 10), elseMult: 1 }); },
   shown: true,
 });
 register({
   id: 'gamblers_gate', name: 'Gambler’s Gate', category: 'damage', maxLevel: 3, outputs: FWD,
-  desc: (l) => `${pct(gamblerProb(l))}% chance to triple projectile damage, otherwise the projectile is lost.`,
-  transform: (p, l) => { gateDamage(p, { prob: gamblerProb(l), mult: 3, elseMult: 0 }); },
+  desc: (l) => `${pct(gamblerProb(l))}% chance to triple projectile damage, otherwise the projectile is lost.${STACK_NOTE}`,
+  transform: (p, l) => { gateDamage(p, { prob: gamblerProb(l), mult: stackMul(p, 'gamblers_gate', 3), elseMult: 0 }); },
   shown: true,
 });
 register({
