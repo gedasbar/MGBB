@@ -93,3 +93,60 @@ flagged in the report (DECISIONS lists it).
 - **Block texts**: Flat+'s text reads "+1 damage" from the same function as the engine.
 - **Hit sound pitch** (`damagePitch`, log10 of the damage) now sits at its low end for nearly every hit; it is cosmetic
   and left alone (noted, not tuned).
+
+## 2. Measurement (step 2: after the rescale, before any tuning)
+
+Script: `npm run balance-damage` (`scripts/balance-damage.ts`, benches in `scripts/lib/dmgBench.ts`; `PART=a,b,c,d`,
+`QUICK=1` for a short run). Full output of this run: `reports/balance-damage-before.md`. Everything here is measured by
+script and bot on the real engine, not by a person playing.
+
+**How it measures.** Part A benches each visible block on a reference circuit (Twin: generator -> [Flat+] -> block ->
+ejector; routing blocks on a Fan) in the real Free Fly engine against (i) one big target, (ii) a cluster of 8, (iii) a
+splitting rock. Targets hover 200 px and 450 px above a tracking ship (half the time each). Their HP is sized to the
+circuit's estimate, so overkill costs every gun the same share. Part B is a seeded hill-climb (6 restarts x 900
+mutations) per hull and level. It scores circuits by the compile estimate x the engine factors from part A (strongest
+trick in full, the next at the square root ...), then benches its best 20 on the engine. "Reference" = at most 2 copies
+of a block; "free" = up to 8 copies. Part C prices every circuit the searches met (hull + copies + upgrades), assumes 3
+runs per tier destroying 50% of the wall each, and compares the best affordable wall DPS with what a wall needs. Part D
+flies the existing Free Fly bot.
+
+### Top outliers (before tuning)
+
+| # | what | size | cause |
+|---|---|---|---|
+| 1 | Shuttle L5 free search: Percent × L5 piled on one line | 164x the reference median | Percent × multiplies (x3.5 at L5) and copies compound without limit |
+| 2 | Shuttle L5 free 2-5: the same with Capacitor | 60x | same stacking |
+| 3 | Fan L5 free 1-5: nested Splitter 3 L5 + Piercing L5 + Percent × | 10.4x | Splitter L5 (x1.2 per copy) compounds; Piercing re-hit (below) |
+| 4 | Piercing L5 on one big target | 4.4x the reference (L5/L1 = 4.4) | a piercing shot never skipped the body it just hit: it hit it again every frame, each hit costing only 1/5 |
+| 5 | Progress: owned / needed wall DPS at tier 30 / 50 / 75 | 156x / 361x / 2555x | the stacking above, bought cheaply (copies cost 1.18^n) |
+| 6 | Fan L1 free: Jackpot / Gambler's Gate repeated | 2.2x | chance gates compound like Percent × |
+| 7 | Cauterize / Overkill Spill L5 vs a splitting rock | 5.7x the reference | by design (the family never splits / dies at once): their niche, rocks only |
+| 8 | AoE - Rectangle / Circle L5 vs a cluster | 4.6x | by design (area); single target 1.0 |
+| 9 | Culling Bolt L1 single target | 1.61x (category limit 1.6) | % of max HP on top of the hit; borderline |
+| 10 | Gambler's Gate L1 single target | 1.80x (1.26 of the damage median) | x3 at 50%; inside the band |
+
+### Bottom blocks (before tuning)
+
+| block | L1 single target (x ref) | best niche | why |
+|---|---|---|---|
+| Orbit L5 | 0.00 | 0.00 | orbits 3 s, the shot's max age is 3 s: it never launches. L5 is worse than L1 (0.83) |
+| Random Router L1 | 0.50 | 0.49 | one lane per pulse: the same as a Turn, at an uncommon price; a Splitter 2 is 2x |
+| Curving Right | 0.50 | cluster 0.23 | curves away from what is ahead (a maze-wall tool; no maze in the bench) |
+| Mine | 0.52 | 0.60 | waits for targets to touch it (setup block; walls run into it) |
+| Random Curve | 0.57 | 0.60 | weaving shots miss |
+| Turn Left / Right | 0.50 | - | routing only (expected, not a damage block) |
+| Capacitor L1 | 0.88 | split 1.45 | same DPS in bigger, slower shots (its point) |
+| Cleaver L1 | 0.89 | split 1.45 | x0.9 to parents, x2 to fragments (rocks only) |
+| Delay Line | 0.97 | - | timing only (by design) |
+| Pure Converter, Armor-Piercer Tip, Corrosion | 1.00 | not benched | armor tools; the bench has no armored target (not verified here) |
+
+### Where progress breaks (before tuning)
+
+- **Tier 1**: needs 9.1 DPS to clear, the Dart + Flat+ has 2 (ratio 0.22): the Dart can pass tier 1 but not clear it.
+  The old numbers were the same (balance-wall: clear ratio 4.5x the starter).
+- **Tiers 5-10**: owned / needed 1.6-2.0 without hero levels: about right (clears in one or two runs).
+- **Tier 20 on**: far too easy for a buyer who stacks multipliers: 12x at tier 20, 156x at 30, 2555x at 75, still 406x
+  at tier 100. Hero levels at +1 a level multiply that by another 2-6x (tier 30: 546x).
+- **Free Fly bot**, best reference circuit per hull (target for a strong build in brackets): Dart L5 7.3 (5), Twin L5
+  14.7 (8), Prong L5 12.0 (12), Fan L5 38.0 (16), Shuttle L5 34.3 (20). By credits: 0 -> wave 5, 500 -> 11, 8000 -> 31.
+  Free Fly is too easy for strong builds, and the Prong is no stronger than the Twin.
