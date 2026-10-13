@@ -239,3 +239,34 @@ needs the full L5 Shuttle, hero levels and several runs, or it is only passed.
 By credits spent (best affordable circuit, hero 0): 0 -> wave 5, 150 -> 7, 500 -> 7.3, 2,000 -> 9, 8,000 -> 12,
 30,000 -> 18 (before: 5, 6.3, 11, 12, 31, 37). Fan and Shuttle land on their targets. The Dart and Twin strong builds
 are about 2.5 waves above theirs. The Prong is 3 below (section 3).
+
+## 5. Safety (step 5)
+
+- `tests/damageBalance.test.ts` (14 tests): basic shot = 1 on every hull (compile and the fired projectile), Flat+ L1 =
+  +1, small whole-number HP, hero level 10 <= 6x, the 2.5x rule on the engine for the audited circuits, the stacked
+  Percent × probe, Gambler's gate decay, L5/L1 <= 4 for every visible block, Orbit launches before expiry, a Piercing shot
+  hits a body once.
+- Mutation checks (each made the named tests fail, then was restored): `STACK_DECAY = 1` (3 tests, including the engine
+  audit: Fan L5 4,752 against a limit of 2,664); removing the Piercing `skipId` line (the Piercing test: 8 hits instead of
+  1); `FLAT_PLUS_PER_LEVEL = 100` (the Flat+ test and the engine audit).
+- Unit tests: 442 pass (34 files). e2e: every script run once. The only failures left are the known ones: `ring`
+  (seam) and `blocks9a` ("chain lightning drew 0 arcs", the timing one). `economy` passes when started with `?debug=1`.
+  Seven scripts needed new expectations for the new numbers (listed in the commit).
+- Contact sheet `reports/chunk14a/sheet_small_numbers.png` (e2e `damage14a`). Left: Free Fly wave 6, one rock with three
+  white "1" damage popups next to it, a column of shots, the HUD. Right: a tier-25 test wall of green blocks, some with
+  armor frames, one bottom-row block visibly damaged (smaller inner square); max block HP 38. No popup with a decimal
+  happened to be on screen when the frame was taken.
+
+### Not verified
+
+- Everything here is measured by script and bot, not by a human playing. The bot pilots are simple. The progress check's
+  buyer is optimistic (it always owns the best circuit any search met for its credits). "3 runs per tier, 50% each" is
+  an assumption, not a measurement.
+- The "clear DPS" a wall needs assumes every shot lands on a block and the ship stays parked at the bottom; real play
+  carves lanes and boosts.
+- The bench has no armored or shielded target, so Armor-Piercer, Pure Converter, Corrosion and Shield-Breaker's shield
+  bonus are not measured for value.
+- The engine 2.5x rule depends on the bench length (8 s and 16 s benches differ by about 10% on the Fan L5 circuit).
+- How small numbers feel on a phone (popups of 1-3 flying from every hit, decimals like 1.5) was not looked at by a person.
+- The early economy changed with the 4-row tier 1 (fewer credits a wall run); only the Free Fly path to the Twin was
+  checked (`balance-econ`: still 1 run).

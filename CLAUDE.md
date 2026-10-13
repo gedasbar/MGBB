@@ -6,7 +6,7 @@ The owner is not a programmer. They test in the browser and describe what they s
 
 ## Stack and commands
 - TypeScript (strict), Vite, PixiJS v8, Vitest, Playwright (headless Chromium, scripts in `e2e/*.cjs`).
-- Check `package.json` for exact script names. Typical: `npm run dev`, `npx tsc --noEmit`, `npx vitest run`, `node e2e/<name>.e2e.cjs`, `npm run balance-wall`, `npm run balance-econ`, `scripts/block-audit.ts`.
+- Check `package.json` for exact script names. Typical: `npm run dev`, `npx tsc --noEmit`, `npx vitest run`, `node e2e/<name>.e2e.cjs`, `npm run balance-wall`, `npm run balance-econ`, `npm run balance-damage` (7 min; `PART=a|b|c|d`, `QUICK=1`), `scripts/block-audit.ts`.
 - Never run `playwright install` (Chromium is preinstalled). npm and pip work; most other network access does not.
 - Dev URL flags: `?debug=1` (debug panel, seam line), `?stats=0|1` (stats overlay, also toggled with the backtick key), `?bg=<id>|off` (force or remove the background). Dev hook: `window.__mgbm`.
 
@@ -30,13 +30,13 @@ The owner is not a programmer. They test in the browser and describe what they s
 
 **Blocks.** Data in `src/data/blocks.ts`. Categories: Pathing (blue), Damage (salmon/orange), Modifiers (purple), Status (teal), Mitosis (amber, Free Fly rock mechanics; 41 blocks are shown in all). Each block has levels. Copy price = base x 1.18^owned, upgrade price = base x 2.0 x 2.2^(level-1). More blocks are hidden until added by a chunk.
 
-**Hulls.** `src/data/hulls.ts`. Dart (free, 1 slot, weak gun) is the starter, then Twin (2), Prong (3 slots, 2 ejectors), Fan, Shuttle. Ejector offsets from the ship centre are scaled by `FIRE_OFFSET_SCALE`.
+**Hulls.** `src/data/hulls.ts`. Dart (free, 1 slot, weak gun) is the starter, then Twin (2), Prong (3 slots, 2 ejectors), Fan, Shuttle. Every basic shot deals 1; the pulse rate is the hull stat (Dart 2/s, Twin 2.5, Prong 4, Fan 4, Shuttle 5). Ejector offsets from the ship centre are scaled by `FIRE_OFFSET_SCALE`.
 
 **Fly screens.** The ship has an INVISIBLE circular hit point (`HIT_RADIUS = 8`); the ship art is small (about 26 x 34 px) so touching any part of it feels fatal. Spawn safety: the ship waits at bottom-centre until the first pointer move, eases in over 0.25 s, then has 1.0 s invulnerability.
 - **Free Fly:** one fixed screen width, no wrap, no horizontal scroll. Rock enemies confined inside the screen. Rocks crack as they take damage and split into smaller rocks (`src/engine/mitosis.ts`). Backgrounds rotate every 3 minutes.
 - **Campaign wall tiers (1-100):** a wall of blocks approaches at a constant base speed and loops sideways like a cylinder (`LevelDef.wrap`, 21 columns, camera edge-push). The ship is one-hit: touching a live block ends the run. Flying near the top of the screen speeds the wall up to about 4x (`TOP_ZONE`, `BOOST_MAX`). Results: CLEARED (all blocks destroyed, first time = +1 Medal), PASSED (ship flies `PASS_MARGIN_CELLS` past the wall, unlocks next tier, no Medal, nothing drawn for it), CRASHED. Credits are paid for blocks destroyed in every run. Tiers unlock in strict order. Spike tiers (about 1 in 8) have 1.6x block HP and a unique background. Armor appears from tier 11, shields from tier 21. Every 10th tier is a named milestone.
 
-**Economy.** Credits (yellow) for kills; Medals (one per first full clear, plus the Free Fly wave milestones 5/10/15/20/30/40/50) are a spendable balance used by Captains. Hull stat growth 1.055^tier, rewards 1.05^tier.
+**Economy.** Credits (yellow) for kills; Medals (one per first full clear, plus the Free Fly wave milestones 5/10/15/20/30/40/50) are a spendable balance used by Captains. Rewards 1.05^tier. **Small numbers (14a, `docs/balance-damage.md`):** Flat+ +1 a level; wall block HP 2 x 1.13^(tier-1) up to tier 38, whole numbers; rock HP 5 at tier 1, Free Fly waves x1.25 HP each; damage multipliers on one line diminish (the n-th adds 0.5^n of its bonus).
 
 **Captains (13a).** `src/captains/` (data, modifiers, state; design in `docs/captains-design.md`). Four captains (Cadet free, Bulwark, Gunner, Pathfinder), one active at a time; hero level 0-10 (+0.5 base damage each, chunk 14a) and 4 option tiers of 2 options (unlock at 0/300/1500/6000 lifetime kills of that captain, 2/4/7/11 Medals); one active option per tier, free switching among owned ones. `computeRunModifiers` turns them into a `RunModifiers` struct that `World` / `WallWorld` read at run start (neutral = no change). Captain tab: `src/screens/CaptainScreen.ts`. Cheats in the debug panel: Captains group. `npm run balance-captains`.
 
