@@ -43,7 +43,7 @@ async function place(page, at, tileKey) {
   await page.mouse.move(...Object.values(await lib.gameToClient(page, ...cell(9, 6))));
   await page.waitForTimeout(1300);
   let st = await state(page);
-  check(!!st.ledger && /Damage 101/.test(st.ledger) && /Modifiers: none/.test(st.ledger), `hover over Flat+ shows the packet after it: ${JSON.stringify(st.ledger)}`);
+  check(!!st.ledger && /Damage 2\b/.test(st.ledger) && /Modifiers: none/.test(st.ledger), `hover over Flat+ shows the packet after it: ${JSON.stringify(st.ledger)}`);
   await shot(page, 'b30_ledger_hover.png');
   await page.mouse.move(...Object.values(await lib.gameToClient(page, ...cell(9, 8))));
   await page.waitForTimeout(1300);
@@ -64,7 +64,7 @@ async function place(page, at, tileKey) {
   await page.mouse.down();
   await page.waitForTimeout(800);
   st = await state(page);
-  check(!!st.ledger && /Damage 101/.test(st.ledger), `long press on (9,3) shows the ledger: ${JSON.stringify(st.ledger)}`);
+  check(!!st.ledger && /Damage 2\b/.test(st.ledger), `long press on (9,3) shows the ledger: ${JSON.stringify(st.ledger)}`);
   await page.mouse.up();
   await lib.park(page);
   await page.waitForTimeout(150);
@@ -80,7 +80,7 @@ async function place(page, at, tileKey) {
   await tap(page, ...tileCentre(0, 34)); // the Remove tile is the first tile (its section header is 26 px tall)
   st = await state(page);
   check(/Remove/.test(st.inspector.title), `tapping the Remove tile explains it: "${st.inspector.title}: ${st.inspector.body}"`);
-  check(st.statsStrip[0].startsWith('1') && /−100/.test(st.statsStrip[0]), `preview shows the delta against the current circuit: ${JSON.stringify(st.statsStrip[0])}`);
+  check(st.statsStrip[0].startsWith('1') && /−1\b/.test(st.statsStrip[0]), `preview shows the delta against the current circuit: ${JSON.stringify(st.statsStrip[0])}`);
   await shot(page, 'b32_preview_remove_delta.png');
   // Closing without changes: the X button.
   const beforeClose = await page.evaluate(() => JSON.stringify(window.__mgbm.model.grid.cells.filter(c => c.blockId)));
@@ -107,7 +107,7 @@ async function place(page, at, tileKey) {
   await openPicker(page, cell(9, 6));
   await tap(page, ...tileCentre(...TILE.flat_plus));
   st = await state(page);
-  check(st.statsStrip[0] === '101 +100' && st.statsStrip[3] === '404 +400', `preview of Flat+ shows the new numbers with deltas: ${JSON.stringify(st.statsStrip)}`);
+  check(st.statsStrip[0] === '2 +1' && st.statsStrip[3] === '10 +5', `preview of Flat+ shows the new numbers with deltas: ${JSON.stringify(st.statsStrip)}`);
   await shot(page, 'b33_preview_flat_plus_delta.png');
   await tap(page, 516, 492);
 

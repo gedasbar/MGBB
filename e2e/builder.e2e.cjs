@@ -76,8 +76,8 @@ async function placeViaPicker(page, col, row, tileKey) {
   // ------------------------------------------------------------------ 1. Default build screen
   let st = await state(page);
   check(st.view.scale === CELL && st.view.ox === OX && st.view.oy === OY, `fit view is the documented one: ${JSON.stringify(st.view)}`);
-  check(st.recipes === 1 && st.stats.damagePerShot === 101, `default circuit reaches the ejector with ${st.stats.damagePerShot} damage`);
-  check(JSON.stringify(st.statsStrip) === JSON.stringify(['101', '1', '4', '404', '0']), `stats strip reads ${JSON.stringify(st.statsStrip)}`);
+  check(st.recipes === 1 && st.stats.damagePerShot === 2, `default circuit reaches the ejector with ${st.stats.damagePerShot} damage`);
+  check(JSON.stringify(st.statsStrip) === JSON.stringify(['2', '1', '5', '10', '0']), `stats strip reads ${JSON.stringify(st.statsStrip)}`);
   check(await page.evaluate(() => !('selectedPalette' in window.__mgbm.buildScreen)), 'there is no palette on the Build screen');
   await shot(page, 'b01_default_build.png');
   await expectLine(page, ROUTE_EMPTY, 'default circuit');
@@ -185,7 +185,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   const statsBefore = JSON.stringify((await state(page)).statsStrip);
   await placeViaPicker(page, 9, 6, 'flat_plus');
   st = await state(page);
-  check(st.statsStrip[0] === '101' && st.statsStrip[3] === '404', `Flat+ on the line changes the stats: ${JSON.stringify(st.statsStrip)} (was ${statsBefore})`);
+  check(st.statsStrip[0] === '2' && st.statsStrip[3] === '10', `Flat+ on the line changes the stats: ${JSON.stringify(st.statsStrip)} (was ${statsBefore})`);
   await select(page, 9, 6);
   st = await state(page);
   check(/Orientation: auto/.test(st.inspector.title), `selected block shows "${st.inspector.title}"`);
@@ -223,7 +223,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   await tap(page, TB.rotCCW, TB.y);
   st = await state(page);
   c = await cellState(page, 9, 6);
-  check(c.manual === true && c.rotation === 0 && st.recipes === 1 && st.stats.damagePerShot === 101, `Rotate CCW -> faces up again, line passes, damage ${st.stats.damagePerShot}`);
+  check(c.manual === true && c.rotation === 0 && st.recipes === 1 && st.stats.damagePerShot === 2, `Rotate CCW -> faces up again, line passes, damage ${st.stats.damagePerShot}`);
   await shot(page, 'b12_rotated_ccw_passes_manual.png');
   await tap(page, TB.rotCW, TB.y);
   await tap(page, TB.auto, TB.y);

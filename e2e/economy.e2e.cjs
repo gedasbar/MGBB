@@ -160,13 +160,13 @@ async function aim(page, s) {
   check(/^Upgrade L2 -> L3 - 264$/.test(flat2.buttons[1].label), `next upgrade is "${flat2.buttons[1].label}"`);
   await tap(page, 120, flat2.rect.y + 42, { pause: 200 }); // select the Flat+ row to read its rule
   s = await state(page);
-  check(/\+200 damage/.test(s.inspector.body), `inspector shows the level-2 rule: "${s.inspector.body}"`);
+  check(/\+2 damage/.test(s.inspector.body), `inspector shows the level-2 rule: "${s.inspector.body}"`);
   await snap(page, 'shop_blocks.png');
 
   // ---- back to Build: picker count and stats strip
   await tap(page, ...TAB.build);
   s = await state(page);
-  check(s.statsStrip[0].startsWith('201'), `stats strip Dmg/shot rose from ${flatBefore} to ${s.statsStrip[0]} after the Flat+ upgrade`);
+  check(s.statsStrip[0].startsWith('3'), `stats strip Dmg/shot rose from ${flatBefore} to ${s.statsStrip[0]} after the Flat+ upgrade`);
   const count1 = await page.evaluate(() => window.__mgbm.model.available('splitter_2'));
   await tap(page, 174, 420);
   await tap(page, 174, 420);

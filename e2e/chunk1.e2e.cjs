@@ -208,7 +208,7 @@ async function lineAt(page, col, row, axis, ok = redish) {
   await place(9, 6, 'flat_plus');
   await place(3, 5, 'flat_plus');
   st = await state(page);
-  check(st.recipes === 1 && st.stats.damagePerShot === 101, `3: built circuit reaches the ejector with ${st.stats.damagePerShot} damage`);
+  check(st.recipes === 1 && st.stats.damagePerShot === 2, `3: built circuit reaches the ejector with ${st.stats.damagePerShot} damage`);
   check(!(await state(page)).pickerOpen && JSON.stringify((await state(page)).selected) === '{"x":2,"y":4}', '3: the off-line block is selected and the picker is closed');
   await lib.park(page);
   await page.waitForTimeout(150);

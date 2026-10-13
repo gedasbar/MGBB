@@ -45,7 +45,7 @@ const statsNow = (page) => page.evaluate(() => { const n = window.__mgbmStats.nu
   await tap(page, 516, 492);   // close the sheet
   b = await state(page);
   const placed = await page.evaluate(() => window.__mgbm.model.grid.cells.filter(c => c.blockId).map(c => c.blockId));
-  check(JSON.stringify(placed) === '["flat_plus"]' && b.statsStrip[0].startsWith('101'), `Flat+ placed in the slot: ${placed}, Dmg/shot "${b.statsStrip[0]}"`);
+  check(JSON.stringify(placed) === '["flat_plus"]' && b.statsStrip[0].startsWith('2'), `Flat+ placed in the slot: ${placed}, Dmg/shot "${b.statsStrip[0]}"`);
   await snap(page, 'build_dart.png');
 
   // ---- Start with the real pointer parked at the top edge: the ship must wait.
