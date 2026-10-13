@@ -12,18 +12,20 @@ export const delaySeconds = (l: number) => 0.1 * l;
 
 // ---- Damage
 /**
- * Diminishing returns on stacking (chunk 14a): the n-th copy of the same multiplier block on one line (n = 0 for the first)
- * adds STACK_DECAY^n of its bonus. Percent x L5 is x3.5, a second one x2.25, a third x1.63 ... (the product stays under
- * about x22 however many are stacked; it used to grow without bound: eight Percent x L5 were x22,000).
+ * Diminishing returns on stacking multipliers (chunk 14a): the n-th damage multiplier on one line (n = 0 for the first, in
+ * path order, whatever its type) adds STACK_DECAY^n of its bonus. Percent x L5 is x3.5, a second multiplier of x3.5 adds
+ * x2.25, a third x1.63 ... A line stays under about x22 at level 5 however many multipliers it holds; without this a long
+ * Fan / Shuttle line of a dozen different multipliers fired 30,000-damage shots, and eight Percent x L5 were x22,000.
  */
 export const STACK_DECAY = 0.5;
-/** Blocks whose repeats on a line diminish. */
-export const STACKING_BLOCKS = ['percent_mult', 'lucky_strike', 'jackpot', 'gamblers_gate', 'splitter_2', 'splitter_3'];
-/** Share of its bonus that the next copy of `id` on this packet's line keeps (1, 0.5, 0.25 ...); records the copy on the packet. */
-export function stackShare(tags: Set<string>, id: string): number {
+/** The multiplier blocks that share the decay (Splitter 2/3 and Capacitor only from level 2, where they carry a bonus). */
+export const STACKING_BLOCKS = ['percent_mult', 'lucky_strike', 'jackpot', 'gamblers_gate', 'overclock', 'capacitor', 'alternator', 'splitter_2', 'splitter_3'];
+const STACK_TAG = 'stack:mult:';
+/** Share of its bonus that the next multiplier on this packet's line keeps (1, 0.5, 0.25 ...); records it on the packet. */
+export function stackShare(tags: Set<string>): number {
   let n = 0;
-  while (tags.has(`stack:${id}:${n}`)) n++;
-  tags.add(`stack:${id}:${n}`);
+  while (tags.has(STACK_TAG + n)) n++;
+  tags.add(STACK_TAG + n);
   return Math.pow(STACK_DECAY, n);
 }
 /** Flat+: damage added per block level (chunk 14a: +1, the size of the basic shot; it was +100). */
@@ -37,10 +39,10 @@ export const OVERCLOCK_WINDOW = 1;
 /** Stats strip: Overclock is shown at its average over this many packets of an unbroken streak. */
 export const OVERCLOCK_AVG_PACKETS = 60;
 /** The average multiplier of an unbroken streak over OVERCLOCK_AVG_PACKETS packets (packet n has streak n). */
-export function overclockAverage(l: number): number {
-  const g = overclockGain(l);
+export function overclockAverage(l: number, share = 1): number {
+  const g = overclockGain(l) * share;
   let s = 0;
-  for (let n = 0; n < OVERCLOCK_AVG_PACKETS; n++) s += 1 + Math.min(OVERCLOCK_CAP, g * n);
+  for (let n = 0; n < OVERCLOCK_AVG_PACKETS; n++) s += 1 + Math.min(OVERCLOCK_CAP * share, g * n);
   return s / OVERCLOCK_AVG_PACKETS;
 }
 /** Capacitor: packets absorbed per emitted shot, and the bonus on the sum. */
@@ -105,7 +107,8 @@ export const CULLING_CAP = 6;
 export const RESIDUE_RADIUS = 40;
 export const RESIDUE_TIME = 2.5;
 export const RESIDUE_TICK = 0.5;
-export const residueFrac = (l: number) => 0.4 + 0.1 * (l - 1);
+/** Chunk 14a: 20% a tick at L1, +5% a level (it was 40% +10%: five ticks were 200-400% of the dead target's HP to every neighbour). */
+export const residueFrac = (l: number) => 0.2 + 0.05 * (l - 1);
 /**
  * Overkill Spill: share of the killing hit's TOTAL damage that every child of the killed rock takes at once. The brief's 30% (+10% a
  * level) scored 0.01 of a Flat+ (a hit is tens of damage against thousands of HP), so it is 300% at level 1, +50% a level (decision 169).
