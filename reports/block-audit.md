@@ -16,7 +16,7 @@
 | `portal_pair` | - | - | N: Teleporting is not expressible in the relative-direction model yet. |
 | `reflector` | - | - | N: A reflected signal would overlap itself; not supported by the line model. |
 | `armored_plating` | - | - | N: Passive block: not on the signal path and no ship stat consumes it. |
-| `flat_plus` | compiles: flat_plus adds 100 | fly: flat_plus and percent_mult change the damage of the fired projectile | **Y** |
+| `flat_plus` | compiles: flat_plus adds 1 | fly: flat_plus and percent_mult change the damage of the fired projectile | **Y** |
 | `percent_mult` | compiles: percent_mult multiplies by 1.5 in path order | fly: flat_plus and percent_mult change the damage of the fired projectile | **Y** |
 | `lucky_strike` | compiles: lucky_strike adds a 33% x2 gate without changing the deterministic damage + levels (blocks9a: every shown block has at least 3 levels) | fly: lucky_strike doubles the damage of about 33% of the shots | **Y** |
 | `jackpot` | compiles: jackpot adds a 4% x10 gate + levels (blocks9a: every shown block has at least 3 levels) | fly: jackpot multiplies the damage of about 4% of the shots by ten | **Y** |

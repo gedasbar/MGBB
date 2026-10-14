@@ -1,10 +1,10 @@
 import { aoeCircleRadius, randomCurveMaxDeg, shieldBreakMul, aoeRectSize, armorPierceMul, forkDamageFrac, CURVE_RATE_DEG, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG } from '../engine/projectiles';
-import { addDamage, BlockCategory, BlockDef, gateDamage, Modifier, mulDamage, Packet, Rarity, Rel } from '../engine/compilerTypes';
+import { addDamage, BlockCategory, BlockDef, ChanceGate, gateDamage, Modifier, mulDamage, Packet, Rarity, Rel } from '../engine/compilerTypes';
 import {
   alternatorMul, boomerangRange, capacitorMul, CAPACITOR_N, chainJumps, CHAIN_ARC_LIFE, CHAIN_FRAC, CHAIN_RANGE, corrosionCap,
   CORROSION_STEP, delaySeconds, executionerMul, EXECUTIONER_BELOW, frostBonus, frostSlow, frostTime, igniteFrac, IGNITE_TIME,
   mineDistance, MINE_WAIT, orbitTime, ORBIT_RADIUS, ORBIT_REHIT, overclockAverage, overclockGain, OVERCLOCK_CAP, OVERCLOCK_WINDOW,
-  bounceCount, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct, fissionCooldown, residueFrac,
+  bounceCount, flatPlusAdd, stackShare, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct, fissionCooldown, residueFrac,
   RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, routerBoth, SPILL_CHAIN_DEPTH, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac, WELL_RADIUS, WELL_TIME, wellPull,
 } from '../engine/effects';
 
@@ -22,6 +22,7 @@ const splitterMul = (l: number) => 1 + 0.05 * (l - 1);
 const luckyProb = (l: number) => 0.33 + 0.05 * (l - 1);
 const jackpotProb = (l: number) => 0.04 + 0.01 * (l - 1);
 const gamblerProb = (l: number) => 0.5 + 0.05 * (l - 1);
+const percentMul = (l: number) => 1 + 0.5 * l;
 
 /**
  * Data hook for the future perk behind the Crossover block. Lines already cross freely in
@@ -54,6 +55,16 @@ function rare(rarity: Rarity) {
   return { rarity, baseCost: RARITY_PRICE[rarity], maxLevel: 5, shown: true, unlock: 'shop' as const };
 }
 const pct = (v: number) => Math.round(v * 100);
+/** A multiplier whose bonus diminishes with the multipliers before it on the line (effects.ts, STACK_DECAY). */
+const stackMul = (p: Packet, mult: number) => 1 + (mult - 1) * stackShare(p.tags);
+/** A chance gate under the same decay: its average bonus (prob x mult + (1 - prob) x elseMult - 1) shrinks by the share. */
+function stackGate(p: Packet, prob: number, mult: number, elseMult: number): ChanceGate {
+  const s = stackShare(p.tags);
+  if (s === 1) return { prob, mult, elseMult };
+  const avg = prob * mult + (1 - prob) * elseMult;
+  return { prob, mult: (1 + (avg - 1) * s - (1 - prob) * elseMult) / prob, elseMult };
+}
+const STACK_NOTE = ' Multipliers on one line diminish: the second adds half its bonus, the third a quarter, and so on.';
 
 // ---------------------------------------------------------------- Pathing
 register({
@@ -85,14 +96,14 @@ register({
 });
 register({
   id: 'splitter_2', name: 'Splitter 2', category: 'pathing', maxLevel: 5, outputs: ['L', 'R'],
-  desc: (l) => `Splits the signal into two ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}, one to the left and one to the right.`,
-  transform: (p, l) => { if (l > 1) mulDamage(p, splitterMul(l)); },
+  desc: (l) => `Splits the signal into two ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}, one to the left and one to the right.${l > 1 ? STACK_NOTE : ''}`,
+  transform: (p, l) => { if (l > 1) mulDamage(p, stackMul(p, splitterMul(l))); },
   shown: true,
 });
 register({
   id: 'splitter_3', name: 'Splitter 3', category: 'pathing', maxLevel: 5, outputs: ['L', 'F', 'R'],
-  desc: (l) => `Splits the signal into three ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}: left, straight on and right.`,
-  transform: (p, l) => { if (l > 1) mulDamage(p, splitterMul(l)); },
+  desc: (l) => `Splits the signal into three ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}: left, straight on and right.${l > 1 ? STACK_NOTE : ''}`,
+  transform: (p, l) => { if (l > 1) mulDamage(p, stackMul(p, splitterMul(l))); },
   shown: true,
 });
 register({
@@ -108,13 +119,13 @@ register({
 });
 register({
   id: 'alternator', name: 'Alternator', category: 'pathing', outputs: ['L', 'R'], ...rare('rare'),
-  desc: (l) => `One in, two out (left and right). Successive packets take turns (A, B, A, B), so only one fires per pulse, and each emitted packet has ×${alternatorMul(l).toFixed(1)} damage.`,
-  transform: (p, l) => { mulDamage(p, alternatorMul(l)); p.mods.push({ type: 'alternator', level: l }); },
+  desc: (l) => `One in, two out (left and right). Successive packets take turns (A, B, A, B), so only one fires per pulse, and each emitted packet has ×${alternatorMul(l).toFixed(1)} damage.${STACK_NOTE}`,
+  transform: (p, l) => { mulDamage(p, stackMul(p, alternatorMul(l))); p.mods.push({ type: 'alternator', level: l }); },
   alternates: true,
 });
 register({
   id: 'random_router', name: 'Random Router', category: 'pathing', outputs: ['L', 'R'], ...rare('uncommon'),
-  desc: (l) => `One in, two out (left and right). Each pulse the packet takes one of the two at random, 50/50, at full damage.${l > 1 ? ` ${pct(routerBoth(l))}% of pulses it takes both.` : ''}`,
+  desc: (l) => `One in, two out (left and right). On ${pct(routerBoth(l))}% of pulses the packet takes both, otherwise one of the two at random (50/50), always at full damage.`,
   transform: (p, l) => { p.mods.push({ type: 'random_router', level: l }); },
   router: { both: routerBoth },
 });
@@ -147,50 +158,52 @@ register({
 // ---------------------------------------------------------------- Damage
 register({
   id: 'flat_plus', name: 'Flat +', category: 'damage', maxLevel: 10, outputs: FWD,
-  desc: (l) => `Adds +${100 * l} damage to each projectile.`,
-  transform: (p, l) => { addDamage(p, 100 * l); },
+  desc: (l) => `Adds +${flatPlusAdd(l)} damage to each projectile.`,
+  transform: (p, l) => { addDamage(p, flatPlusAdd(l)); },
   shown: true,
 });
 register({
   id: 'percent_mult', name: 'Percent ×', category: 'damage', maxLevel: 10, outputs: FWD,
-  desc: (l) => `Multiplies projectile damage by ×${1 + 0.5 * l}.`,
-  transform: (p, l) => { mulDamage(p, 1 + 0.5 * l); },
+  desc: (l) => `Multiplies projectile damage by ×${percentMul(l)}.${STACK_NOTE}`,
+  transform: (p, l) => { mulDamage(p, stackMul(p, percentMul(l))); },
   shown: true,
 });
 register({
   id: 'lucky_strike', name: 'Lucky Strike', category: 'damage', maxLevel: 3, outputs: FWD,
-  desc: (l) => `${pct(luckyProb(l))}% chance to double projectile damage.`,
-  transform: (p, l) => { gateDamage(p, { prob: luckyProb(l), mult: 2, elseMult: 1 }); },
+  desc: (l) => `${pct(luckyProb(l))}% chance to double projectile damage.${STACK_NOTE}`,
+  transform: (p, l) => { gateDamage(p, stackGate(p, luckyProb(l), 2, 1)); },
   shown: true,
 });
 register({
   id: 'jackpot', name: 'Jackpot', category: 'damage', maxLevel: 3, outputs: FWD,
-  desc: (l) => `${pct(jackpotProb(l))}% chance to multiply projectile damage by 10.`,
-  transform: (p, l) => { gateDamage(p, { prob: jackpotProb(l), mult: 10, elseMult: 1 }); },
+  desc: (l) => `${pct(jackpotProb(l))}% chance to multiply projectile damage by 10.${STACK_NOTE}`,
+  transform: (p, l) => { gateDamage(p, stackGate(p, jackpotProb(l), 10, 1)); },
   shown: true,
 });
 register({
   id: 'gamblers_gate', name: 'Gambler’s Gate', category: 'damage', maxLevel: 3, outputs: FWD,
-  desc: (l) => `${pct(gamblerProb(l))}% chance to triple projectile damage, otherwise the projectile is lost.`,
-  transform: (p, l) => { gateDamage(p, { prob: gamblerProb(l), mult: 3, elseMult: 0 }); },
+  desc: (l) => `${pct(gamblerProb(l))}% chance to triple projectile damage, otherwise the projectile is lost.${STACK_NOTE}`,
+  transform: (p, l) => { gateDamage(p, stackGate(p, gamblerProb(l), 3, 0)); },
   shown: true,
 });
 register({
   id: 'overclock', name: 'Overclock', category: 'damage', outputs: FWD, ...rare('uncommon'),
-  desc: (l) => `Each consecutive packet that passes on this lane adds +${Math.round(overclockGain(l) * 1000) / 10}% damage (up to +${pct(OVERCLOCK_CAP)}%). The streak resets after ${OVERCLOCK_WINDOW} s without a packet (1.5 pulses on a slow hull).`,
+  desc: (l) => `Each consecutive packet that passes on this lane adds +${Math.round(overclockGain(l) * 1000) / 10}% damage (up to +${pct(OVERCLOCK_CAP)}%). The streak resets after ${OVERCLOCK_WINDOW} s without a packet (1.5 pulses on a slow hull).${STACK_NOTE}`,
   transform: (p, l) => {
-    const avg = overclockAverage(l);
+    const share = stackShare(p.tags);
+    const avg = overclockAverage(l, share);
     p.damage *= avg;
-    p.ops.push({ t: 'oc', gain: overclockGain(l), cap: OVERCLOCK_CAP, avg });
+    p.ops.push({ t: 'oc', gain: overclockGain(l) * share, cap: OVERCLOCK_CAP * share, avg });
     p.mods.push({ type: 'overclock', level: l });
   },
 });
 register({
   id: 'capacitor', name: 'Capacitor', category: 'damage', outputs: FWD, ...rare('rare'),
-  desc: (l) => `Absorbs the next ${CAPACITOR_N} packets and emits one packet with the sum of their damage${l > 1 ? ` +${pct(capacitorMul(l) - 1)}%` : ''}: the same damage per second in one bigger, slower shot (×${Math.round(CAPACITOR_N * capacitorMul(l) * 10) / 10} every ${CAPACITOR_N}rd pulse).`,
+  desc: (l) => `Absorbs the next ${CAPACITOR_N} packets and emits one packet with the sum of their damage${l > 1 ? ` +${pct(capacitorMul(l) - 1)}%` : ''}: the same damage per second in one bigger, slower shot (×${Math.round(CAPACITOR_N * capacitorMul(l) * 10) / 10} every ${CAPACITOR_N}rd pulse).${l > 1 ? STACK_NOTE : ''}`,
   transform: (p, l) => {
-    p.damage *= CAPACITOR_N * capacitorMul(l);
-    p.ops.push({ t: 'cap', n: CAPACITOR_N, mul: capacitorMul(l) });
+    const mul = l > 1 ? stackMul(p, capacitorMul(l)) : 1;
+    p.damage *= CAPACITOR_N * mul;
+    p.ops.push({ t: 'cap', n: CAPACITOR_N, mul });
     p.mods.push({ type: 'capacitor', level: l });
   },
 });
@@ -218,10 +231,10 @@ newMod('cleaver', 'Cleaver', 'mitosis', 'uncommon', 'cleaver',
 newMod('culling_bolt', 'Culling Bolt', 'mitosis', 'rare', 'culling_bolt',
   (l) => `Adds ${pct(cullingPct(l))}% of the target's max HP to the hit, at most ${CULLING_CAP}× the shot's damage. Works on rocks and on wall blocks.`);
 newMod('residue_seed', 'Residue Seed', 'mitosis', 'rare', 'residue_seed',
-  (l) => `A kill leaves a ${RESIDUE_RADIUS} px cloud for ${RESIDUE_TIME} s: every ${RESIDUE_TICK} s it deals ${pct(residueFrac(l))}% of the killing hit to all inside, new children too. Rocks and wall blocks.`);
+  (l) => `A kill leaves a ${RESIDUE_RADIUS} px cloud for ${RESIDUE_TIME} s: every ${RESIDUE_TICK} s it deals ${pct(residueFrac(l))}% of the killing hit (counted up to the target's max HP) to all inside, new children too. Rocks and wall blocks.`);
 register({
   id: 'overkill_spill', name: 'Overkill Spill', category: 'mitosis', outputs: FWD, ...rare('uncommon'), maxLevel: 6,
-  desc: (l) => `When this shot kills a rock that splits, every child at once takes ${pct(spillFrac(l))}% of the killing hit's total damage. A child it kills splits as usual and passes the burst on once more (${SPILL_CHAIN_DEPTH} generations at most). Rocks only, no effect on wall blocks. ${ROCKS}`,
+  desc: (l) => `When this shot kills a rock that splits, every child at once takes ${pct(spillFrac(l))}% of the killing hit's total damage (counted up to the rock's max HP). A child it kills splits as usual and passes the burst on once more (${SPILL_CHAIN_DEPTH} generations at most). Rocks only, no effect on wall blocks. ${ROCKS}`,
   transform: (p, l) => { p.mods.push({ type: 'overkill_spill', level: l }); },
 });
 

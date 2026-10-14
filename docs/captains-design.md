@@ -5,6 +5,9 @@ if they ever differ, and DECISIONS.md lists every deviation from the brief.
 
 ## 1. Damage numbers (what "+1 base damage per hero level" means)
 
+> **Chunk 14a:** the numbers below are from before the small-number rescale (Flat+ was +100, HP x50). Flat+ is now +1 and
+> `HERO_LEVEL_BASE_DAMAGE` is **0.5** (level 10 = base 6). See docs/balance-damage.md, section 1c.
+
 A projectile starts at base damage **1** (`newPacket()` in `engine/compilerTypes.ts`); blocks add to or multiply it.
 
 | gun (Dart, 1 Flat+ slot, 1 shot / s)         | damage per shot | rock HP at tier 1 |
@@ -54,7 +57,7 @@ to three).
 
 ## 3. The four captains
 
-Shared rules: hero level max **10**, `+1` base damage per level. Hero-level cost (Medals) to go from level n to n+1:
+Shared rules: hero level max **10**, `+0.5` base damage per level (chunk 14a; it was `+1`). Hero-level cost (Medals) to go from level n to n+1:
 `1, 1, 2, 2, 3, 3, 4, 4, 5, 5` (30 in all). Option tier kill thresholds: **0 / 300 / 1500 / 6000** lifetime kills of that
 captain. Option costs by tier: **2 / 4 / 7 / 11** Medals (brief suggested 3 / 5 / 8 / 12, see section 6).
 

@@ -9,8 +9,12 @@ export const SPAWN_JITTER = 0.6;
 /** Spawn budget in points (a basic Rock costs 4): BUDGET_BASE + BUDGET_STEP x (wave - 1). */
 export const BUDGET_BASE = 6;
 export const BUDGET_STEP = 3;
-/** Extra HP per wave on top of the tier's growth: HP x WAVE_HP_GROWTH^(wave - 1). */
-export const WAVE_HP_GROWTH = 1.08;
+/**
+ * Extra HP per wave on top of the tier's growth: HP x WAVE_HP_GROWTH^(wave - 1). Chunk 14a: 1.25 (was 1.08). With small
+ * numbers and the hull ladder the strong builds span ~170x in DPS from the Dart to the Fan; at 1.08 the bot reached wave
+ * 30+ with a Fan or Shuttle and 12-15 with a Twin (targets about 16/20 and 8, npm run balance-damage part D).
+ */
+export const WAVE_HP_GROWTH = 1.25;
 /** Every SPECIAL_EVERY-th wave is special: Swarm on odd multiples, Mother event on even ones. */
 export const SPECIAL_EVERY = 5;
 /** Budget multiplier of a special wave. */

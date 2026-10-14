@@ -4,8 +4,8 @@ import { HULL_PRICES } from '../data/hulls';
 
 /** Seconds of survival per tier step inside one run. */
 export const TIER_SECONDS = 15;
-/** Tier-1 Mitotic Rock HP (the first rock dies in three starter shots). */
-export const TIER1_ROCK_HP = 250;
+/** Tier-1 Mitotic Rock HP: the first rock dies in three Dart + Flat+ shots (2 damage). Chunk 14a: 250 -> 5 (HP / 50). */
+export const TIER1_ROCK_HP = 5;
 /** Reward of a parent rock at tier 1 (3 in the brief; raised to 7 after balance-econ and a bot run showed ~43 credits per default-circuit run). */
 export const PARENT_REWARD = 7;
 /** The whole splitting family pays this multiple of what the parent alone would. */
@@ -40,6 +40,8 @@ export const HULL_PRICE: Record<string, number> = { ...HULL_PRICES };
 export const DEFAULT_OWNED: Record<string, number> = { turn_l: 2, turn_r: 2, flat_plus: 1 };
 
 export const tierOfTime = (seconds: number) => 1 + Math.floor(Math.max(0, seconds) / TIER_SECONDS);
+/** A director-spawned body's HP is a whole number, at least 1 (split children keep their exact share). */
+export const wholeRockHp = (v: number) => Math.max(1, Math.round(v));
 export const rockHp = (tier: number) => TIER1_ROCK_HP * Math.pow(CONFIG.ECON.TIER_HP_GROWTH, tier - 1);
 export const parentReward = (tier: number) => PARENT_REWARD * Math.pow(CONFIG.ECON.TIER_REWARD_GROWTH, tier - 1);
 

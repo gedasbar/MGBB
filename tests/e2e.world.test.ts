@@ -21,7 +21,7 @@ describe('starter loadout end-to-end', () => {
     const { recipes } = compile(buildStarterGrid());
     expect(recipes.length).toBeGreaterThan(0);
     expect(recipes[0].direction).toBe('N');
-    expect(recipes[0].packet.damage).toBe(101); // generator 1 + Flat+ L1 100
+    expect(recipes[0].packet.damage).toBe(2); // generator 1 + Flat+ L1 100
     expect(Math.ceil(ROCK_HP / recipes[0].packet.damage)).toBeGreaterThanOrEqual(2);
     expect(Math.ceil(ROCK_HP / recipes[0].packet.damage)).toBeLessThanOrEqual(3);
   });

@@ -2,8 +2,8 @@ import { Grid } from '../engine/compiler';
 import '../data/blocks';
 import { buildDartGrid, buildShuttleGrid } from './gridUtils';
 
-/** First-tier Mitotic Rock HP. Starter shot = 101 dmg → 3 hits to kill. */
-export const ROCK_HP = 250;
+/** First-tier Mitotic Rock HP (tests). Starter shot = 2 dmg → 3 hits to kill. */
+export const ROCK_HP = 5;
 export const ROCK_RADIUS = 20;
 
 /** Places a block by 1-indexed (col,row), as the hull diagram numbers cells. */

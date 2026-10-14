@@ -18,10 +18,10 @@ function memStorage(initial: Record<string, string> = {}): StorageLike & { data:
 const FLAT = { x: 8, y: 5 };
 
 describe('builder model: edits, inventory and rotation', () => {
-  it('starts with the default circuit: reaches the ejector, >= 100 damage, all blocks auto', () => {
+  it('starts with the default circuit: reaches the ejector, >= 2 damage, all blocks auto', () => {
     const m = richModel(null);
     expect(m.compiled.recipes.length).toBe(1);
-    expect(m.compiled.stats.damagePerShot).toBeGreaterThanOrEqual(100);
+    expect(m.compiled.stats.damagePerShot).toBeGreaterThanOrEqual(2);
     expect(m.grid.cells.filter(c => c.blockId).every(c => c.manual === false)).toBe(true);
     expect(m.active).toBe('A');
   });
@@ -52,7 +52,7 @@ describe('builder model: edits, inventory and rotation', () => {
   it('rotating switches to manual from the displayed orientation and blocks / unblocks the line', () => {
     const m = richModel(null);
     const dmg = () => m.compiled.stats.damagePerShot;
-    expect(dmg()).toBe(101);
+    expect(dmg()).toBe(2);
 
     m.rotate(FLAT.x, FLAT.y, 1); // CW: faces east, the signal arrives heading north
     let c = m.cellAt(FLAT.x, FLAT.y)!;
@@ -63,7 +63,7 @@ describe('builder model: edits, inventory and rotation', () => {
     m.rotate(FLAT.x, FLAT.y, -1); // CCW: back to facing north
     c = m.cellAt(FLAT.x, FLAT.y)!;
     expect(c).toMatchObject({ rotation: 0, manual: true });
-    expect(dmg()).toBe(101);
+    expect(dmg()).toBe(2);
 
     m.autoOrient(FLAT.x, FLAT.y);
     expect(m.cellAt(FLAT.x, FLAT.y)).toMatchObject({ manual: false });
@@ -148,7 +148,7 @@ describe('builder model: edits, inventory and rotation', () => {
     const m = richModel(null);
     const before = JSON.stringify(m.grid);
     const p = m.previewPlace(8, 4, 'percent_mult')!;
-    expect(p.compiled.stats.damagePerShot).toBe(101 * 1.5);
+    expect(p.compiled.stats.damagePerShot).toBe(2 * 1.5);
     expect(JSON.stringify(m.grid)).toBe(before);
     expect(m.previewPlace(5, 0, 'percent_mult')).toBeNull();
   });
@@ -257,7 +257,7 @@ describe('builder persistence', () => {
     };
     const m = richModel(throwing);
     expect(m.place(8, 4, 'percent_mult').ok).toBe(true);
-    expect(m.compiled.stats.damagePerShot).toBe(151.5);
+    expect(m.compiled.stats.damagePerShot).toBe(3);
   });
 
   it('copy / paste round-trips a layout and rejects junk with a message', () => {

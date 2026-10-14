@@ -54,8 +54,8 @@ async function reloadToBuild(page) {
 }
 
 /** Starts Free Fly at wave 10 (the cheat panel), god mode on, and flies for `seconds` at 6x with the pointer under the lowest rock. */
-async function flyWave10(page, seconds) {
-  await page.evaluate(() => { document.getElementById('dbg-wave-n').value = '10'; document.getElementById('dbg-start-wave').click(); });
+async function flyWave10(page, seconds, wave = 10) {
+  await page.evaluate((n) => { document.getElementById('dbg-wave-n').value = String(n); document.getElementById('dbg-start-wave').click(); }, wave);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await page.evaluate(() => { const g = document.getElementById('dbg-god'); if (!g.checked) g.click(); });
   await move(page, 270, 700);
@@ -152,7 +152,9 @@ async function flyWave10(page, seconds) {
   await reloadToBuild(page);
   await page.evaluate(() => { const m = window.__mgbm.model; for (const c of m.grid.cells.filter(c => c.blockId && !['turn_l', 'turn_r', 'flat_plus'].includes(c.blockId))) m.remove(c.x, c.y); window.__mgbm.buildScreen.refresh(); });
   await place(page, 8, 6, 'cauterize');
-  r = await flyWave10(page, 20);
+  // Chunk 14a: wave 4, not 10. With Free Fly waves growing 1.25x the bare Shuttle starter (2 damage, 5/s) no longer kills a
+  // wave-10 rock inside the 3 s Cauterize window; at wave 4 it does, which is what this flight checks.
+  r = await flyWave10(page, 20, 4);
   check(r.fx.cauterizeMarks > 0 && r.fx.cauterizedKills > 0, `Cauterize marked ${r.fx.cauterizeMarks} hits; ${r.fx.cauterizedKills} kills left no children`);
 
   // ---- Flight D on the Fan: Random Router (+ a Flat+ on each branch).
@@ -169,7 +171,8 @@ async function flyWave10(page, seconds) {
   cc = await circuit(page);
   check(runD.every(([id, x, y]) => cc.includes(`${id}@${x + 1},${y + 1}`)), `Fan circuit with the Random Router placed: ${cc.length} blocks`);
   r = await flyWave10(page, 14);
-  check(r.fx.routerSingle > 20 && r.fx.routerBoth === 0, `Random Router picked a single output on ${r.fx.routerSingle} pulses, both on ${r.fx.routerBoth} (level 1)`);
+  // Chunk 14a: at level 1 the router takes both outputs on 50% of pulses (it was 0%).
+  check(r.fx.routerSingle > 20 && r.fx.routerBoth > 20, `Random Router picked a single output on ${r.fx.routerSingle} pulses, both on ${r.fx.routerBoth} (level 1: about half each)`);
 
   // ---- Screenshot: a staged Free Fly frame. Real engine code; only the rocks and shots are placed.
   await reloadToBuild(page);

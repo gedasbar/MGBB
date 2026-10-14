@@ -166,18 +166,18 @@ const ROWS: Row[] = [
         gun.fire(270, 800);
         dmg.push(shot()[0].damage);
       }
-      expect(dmg[0]).toBeCloseTo(101, 4); // the first packet of a streak is unboosted
-      expect(dmg[10]).toBeCloseTo(101 * 1.2, 3); // +2% per packet
-      expect(dmg[50]).toBeCloseTo(202, 3); // capped at +100%
-      expect(dmg[59]).toBeCloseTo(202, 3);
+      expect(dmg[0]).toBeCloseTo(2, 4); // the first packet of a streak is unboosted
+      expect(dmg[10]).toBeCloseTo(2 * 1.2, 3); // +2% per packet
+      expect(dmg[50]).toBeCloseTo(4, 3); // capped at +100%
+      expect(dmg[59]).toBeCloseTo(4, 3);
       // 1 s without a packet resets the streak
       gun.update(1.2, 270, 800);
       gun.fire(270, 800);
-      expect(shot()[0].damage).toBeCloseTo(101, 4);
+      expect(shot()[0].damage).toBeCloseTo(2, 4);
       expect(gun.fx.overclockResets).toBe(1);
       expect(pool.count).toBe(0);
       // the strip shows the average of an unbroken streak, between x1 and x2
-      const avg = compile(twin(['flat_plus'], ['overclock'])).stats.damagePerShot / 101;
+      const avg = compile(twin(['flat_plus'], ['overclock'])).stats.damagePerShot / 2;
       expect(avg).toBeGreaterThan(1.4);
       expect(avg).toBeLessThan(1.7);
     },
@@ -189,14 +189,14 @@ const ROWS: Row[] = [
       const { gun, shot, c } = gunRig(twin(['flat_plus'], ['capacitor']));
       const out: number[][] = [];
       for (let p = 0; p < 6; p++) { gun.fire(270, 800); out.push(shot().map(s => s.damage)); }
-      expect(out).toEqual([[], [], [expect.closeTo(303, 3)], [], [], [expect.closeTo(303, 3)]]); // the sum of three 101s
+      expect(out).toEqual([[], [], [expect.closeTo(6, 3)], [], [], [expect.closeTo(6, 3)]]); // the sum of three 2s
       const l3 = gunRig(twin(['flat_plus'], ['capacitor', 3]));
       for (let p = 0; p < 3; p++) l3.gun.fire(270, 800);
-      expect(l3.shot()[0].damage).toBeCloseTo(303 * 1.2, 2); // +10% per level on the sum
+      expect(l3.shot()[0].damage).toBeCloseTo(6 * 1.2, 6); // +10% per level on the sum
       // same damage per second, one slower shot
       const plain = compile(twin(['flat_plus'])).stats;
       expect(c.stats.estDps).toBeCloseTo(plain.estDps, 6);
-      expect(c.stats.damagePerShot).toBeCloseTo(303, 6);
+      expect(c.stats.damagePerShot).toBeCloseTo(6, 6);
       expect(c.stats.pulsesPerSecond).toBeCloseTo(plain.pulsesPerSecond / 3, 9);
       expect(c.stats.projectilesPerPulse).toBeCloseTo(1, 9);
     },
@@ -225,7 +225,7 @@ const ROWS: Row[] = [
     },
     wall: {
       grid: () => starterWith('executioner'),
-      level: () => wallLevel(4, 2000, 0, 0),
+      level: () => wallLevel(4, 40, 0, 0),
       seconds: 25,
       count: w => fx(w).executionerHits,
     },
@@ -258,7 +258,7 @@ const ROWS: Row[] = [
       expect(rocks.map(e => taken(e))).toEqual([expect.closeTo(100, 6), expect.closeTo(70, 6), expect.closeTo(70, 6), expect.closeTo(70, 6)]);
       expect(ARC_MAX).toBeGreaterThanOrEqual(8);
     },
-    wall: { grid: () => starterWith('chain_lightning'), level: () => wallLevel(3, 300, 0, 0), seconds: 4, count: w => fx(w).chainJumps },
+    wall: { grid: () => starterWith('chain_lightning'), level: () => wallLevel(3, 6, 0, 0), seconds: 4, count: w => fx(w).chainJumps },
   },
   {
     id: 'boomerang',
@@ -320,9 +320,9 @@ const ROWS: Row[] = [
       expect(times.length).toBeLessThanOrEqual(4);
       for (let k = 1; k < times.length; k++) expect(times[k] - times[k - 1]).toBeGreaterThan(0.29);
       expect(big.hp).toBeLessThan(100000);
-      // level 3: 2.0 s
+      // level 5: 2.0 s (1 + 0.25 a level)
       const r3 = rig();
-      const j = r3.launch([mod('orbit', 3)], 270, 600, 0, -600, 100, ship);
+      const j = r3.launch([mod('orbit', 5)], 270, 600, 0, -600, 100, ship);
       r3.step(110);
       expect(r3.pool.phase[j]).not.toBe(PHASE_NORMAL);
       r3.step(15);
@@ -363,7 +363,7 @@ const ROWS: Row[] = [
     },
     wall: {
       grid: () => starterWith('mine'),
-      level: () => wallLevel(3, 400, 0, 120),
+      level: () => wallLevel(3, 8, 0, 120),
       seconds: 14,
       count: w => fx(w).mineDetonations,
     },
@@ -396,7 +396,7 @@ const ROWS: Row[] = [
       r3.step();
       expect(e3.burnDps).toBeCloseTo(50, 6);
     },
-    wall: { grid: () => starterWith('ignite'), level: () => wallLevel(3, 600, 0, 0), seconds: 4, count: w => fx(w).burnTicks },
+    wall: { grid: () => starterWith('ignite'), level: () => wallLevel(3, 12, 0, 0), seconds: 4, count: w => fx(w).burnTicks },
   },
   {
     id: 'corrosion',
@@ -424,7 +424,7 @@ const ROWS: Row[] = [
     },
     wall: {
       grid: () => starterWith('corrosion'),
-      level: () => wallLevel(3, 5000, 10, 0),
+      level: () => wallLevel(3, 100, 10, 0),
       seconds: 4,
       count: w => (w.all.some(b => b.armor0 !== undefined && b.armor < b.armor0) ? fx(w).corrosionStrips : 0),
     },
@@ -463,7 +463,7 @@ const ROWS: Row[] = [
       w.update(0.1, ptr);
       expect((b.y - by) / (a.y - ay)).toBeCloseTo(0.7, 2);
     },
-    wall: { grid: () => starterWith('frostbite'), level: () => wallLevel(3, 600, 0, 0), seconds: 4, count: w => (fx(w).frozenBonusHits > 0 ? fx(w).freezeApplied : 0) },
+    wall: { grid: () => starterWith('frostbite'), level: () => wallLevel(3, 12, 0, 0), seconds: 4, count: w => (fx(w).frozenBonusHits > 0 ? fx(w).freezeApplied : 0) },
   },
 ];
 
@@ -497,7 +497,7 @@ describe('chunk 9a blocks: behaviour in Free Fly and the shared pipeline', () =>
 describe('chunk 9a blocks: the real Wall loop with the block in the circuit', () => {
   it.each(ROWS.map(r => [r.id, r]))('%s takes effect in the Wall', (_id, rowIn) => {
     const row = rowIn as Row;
-    const level = row.wall.level ? row.wall.level() : wallLevel(3, 800, 0, 0);
+    const level = row.wall.level ? row.wall.level() : wallLevel(3, 16, 0, 0);
     const w = new WallWorld(level, { grid: row.wall.grid() });
     // Bring the wall into reach: its bottom edge 300 px above the ship's start, unless the row's wall approaches by itself.
     if (level.approachSpeed === 0) w.setWallOffset(level.rows * 54 + 300);
@@ -525,8 +525,8 @@ describe('old saves and old blocks', () => {
     for (const id of ['flat_plus', 'percent_mult', 'piercing', 'homing', 'aoe_circle', 'splitter_2', 'splitter_3']) expect(BLOCKS[id].maxLevel, id).toBeGreaterThanOrEqual(5);
     expect(describeBlock(BLOCKS.turn_l, 1)).toBe('Turns the signal 90° to the left.');
     expect(describeBlock(BLOCKS.splitter_2, 1)).toBe('Splits the signal into two full copies, one to the left and one to the right.');
-    expect(describeBlock(BLOCKS.lucky_strike, 1)).toBe('33% chance to double projectile damage.');
-    expect(describeBlock(BLOCKS.jackpot, 1)).toBe('4% chance to multiply projectile damage by 10.');
-    expect(describeBlock(BLOCKS.gamblers_gate, 1)).toBe('50% chance to triple projectile damage, otherwise the projectile is lost.');
+    expect(describeBlock(BLOCKS.lucky_strike, 1)).toContain('33% chance to double projectile damage.');
+    expect(describeBlock(BLOCKS.jackpot, 1)).toContain('4% chance to multiply projectile damage by 10.');
+    expect(describeBlock(BLOCKS.gamblers_gate, 1)).toContain('50% chance to triple projectile damage, otherwise the projectile is lost.');
   });
 });

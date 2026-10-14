@@ -198,7 +198,7 @@ describe('Culling Bolt', () => {
 });
 
 describe('Residue Seed', () => {
-  it('a kill leaves a 40 px cloud for 2.5 s that ticks 40% of the killing hit every 0.5 s, children included', () => {
+  it('a kill leaves a 40 px cloud for 2.5 s that ticks 20% of the killing hit every 0.5 s, children included', () => {
     const w = ff();
     const e = rock(w, 200, 300, 400, { maxHp: 400 });
     shootRock(w, e, 400, [{ type: 'residue_seed', level: 1 }]);
@@ -209,7 +209,7 @@ describe('Residue Seed', () => {
     expect(hp0.every(h => Math.abs(h - 220) < 1e-6)).toBe(true);
     run(w, 0.55);
     expect(w.projSys.fx.residueTicks).toBe(2); // one tick, both children inside
-    expect(kids.every((k, i) => Math.abs(hp0[i] - k.hp - 160) < 1e-6)).toBe(true); // 40% of 400
+    expect(kids.every((k, i) => Math.abs(hp0[i] - k.hp - 80) < 1e-6)).toBe(true); // 20% of 400 (chunk 14a; was 40%)
     run(w, 0.5);
     expect(w.projSys.fx.residueTicks).toBeGreaterThanOrEqual(3); // a second tick (the rocks drift on and one soon leaves the cloud)
     run(w, 2.5);                                                  // the cloud is over (2.5 s in all)
@@ -226,7 +226,7 @@ describe('Residue Seed', () => {
     ww.update(DT, null);
     expect(ww.blocks[1 * WALL_COLS + 4]).toBeNull();
     for (let k = 0; k < 35; k++) ww.update(DT, null);
-    expect(n.hp).toBeCloseTo(100 - 80, 4); // one tick of 40% of 200 on the neighbour inside the cloud
+    expect(n.hp).toBeCloseTo(100 - 20, 4); // one tick of 20% of the killing hit, counted up to the dead block's 100 max HP (chunk 14a cap)
   });
 });
 
@@ -359,27 +359,30 @@ describe('Random Router', () => {
     }
     return { seq, w };
   };
-  it('is seeded: the same seed gives the same sequence, another seed another; each pulse sends one packet left or right at 50/50 on level 1', () => {
+  it('is seeded: the same seed gives the same sequence, another seed another; level 1: half the pulses take both outputs, the rest one side at 50/50', () => {
     const a = pulses(1, 7, 2000), b = pulses(1, 7, 2000), c = pulses(1, 8, 2000);
     expect(a.seq).toEqual(b.seq);
     expect(a.seq).not.toEqual(c.seq);
-    expect(a.seq.every(s => s === '10' || s === '01')).toBe(true);
-    const left = a.seq.filter(s => s === '10').length / 2000;
-    expect(left).toBeGreaterThan(0.46);
-    expect(left).toBeLessThan(0.54);
-    expect(a.w.gun.fx.routerBoth).toBe(0);
-    expect(compile(fanWithRouter(1)).stats.projectilesPerPulse).toBeCloseTo(1, 9);
-  });
-  it('level 5: 40% of pulses take both outputs (so 1.4 projectiles per pulse), the rest split evenly', () => {
-    const a = pulses(5, 11, 4000);
-    const both = a.seq.filter(s => s === '11').length / 4000;
-    expect(both).toBeGreaterThan(0.36);
-    expect(both).toBeLessThan(0.44);
-    expect(compile(fanWithRouter(5)).stats.projectilesPerPulse).toBeCloseTo(1.4, 9);
+    expect(a.seq.every(s => s === '10' || s === '01' || s === '11')).toBe(true);
+    const both = a.seq.filter(s => s === '11').length / 2000;
+    expect(both).toBeGreaterThan(0.46);
+    expect(both).toBeLessThan(0.54);
     const one = a.seq.filter(s => s !== '11');
     const left = one.filter(s => s === '10').length / one.length;
-    expect(left).toBeGreaterThan(0.45);
-    expect(left).toBeLessThan(0.55);
+    expect(left).toBeGreaterThan(0.44);
+    expect(left).toBeLessThan(0.56);
+    expect(compile(fanWithRouter(1)).stats.projectilesPerPulse).toBeCloseTo(1.5, 9);
+  });
+  it('level 5: 90% of pulses take both outputs (so 1.9 projectiles per pulse), the rest split evenly', () => {
+    const a = pulses(5, 11, 4000);
+    const both = a.seq.filter(s => s === '11').length / 4000;
+    expect(both).toBeGreaterThan(0.88);
+    expect(both).toBeLessThan(0.92);
+    expect(compile(fanWithRouter(5)).stats.projectilesPerPulse).toBeCloseTo(1.9, 9);
+    const one = a.seq.filter(s => s !== '11');
+    const left = one.filter(s => s === '10').length / one.length;
+    expect(left).toBeGreaterThan(0.38);
+    expect(left).toBeLessThan(0.62);
   });
 });
 

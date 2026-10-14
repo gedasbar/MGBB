@@ -1,3 +1,10 @@
+/** A damage number as the player reads it (chunk 14a): whole numbers plain, anything else with one decimal (1.5, 0.3). */
+export function fmtDamage(n: number): string {
+  if (!isFinite(n)) return '0';
+  const r = Math.round(n * 10) / 10;
+  return Math.abs(r - Math.round(r)) < 1e-9 ? String(Math.round(r)) : r.toFixed(1);
+}
+
 const SUFFIXES = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi'];
 
 /** Compact big-number format for currency and prices: 950, 12.3K, 4.56M. Integers below 1000 are printed whole. */

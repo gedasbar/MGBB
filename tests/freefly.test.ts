@@ -101,7 +101,7 @@ describe('Free Fly species: movement stays inside the screen', () => {
       for (let i = 0; i < 120 * 60; i++) {
         w.hull = 1e9;
         p.x = VW / 2 + Math.sin(i / 70) * (VW / 2);
-        if (i % 90 === 0) w.spawnSpecies(sp.id, (i / 90) % 3 === 0 ? 0 : (i / 90) % 3 === 1 ? VW : VW / 2, -sp.radius, { hp: 300 });
+        if (i % 90 === 0) w.spawnSpecies(sp.id, (i / 90) % 3 === 0 ? 0 : (i / 90) % 3 === 1 ? VW : VW / 2, -sp.radius, { hp: 6 });
         w.update(DT, p);
         bodies = Math.max(bodies, w.mitosis.enemies.length);
         for (const e of w.mitosis.enemies) {
@@ -278,16 +278,16 @@ describe('Free Fly species: armor and shield work with the existing blocks', () 
 
   it('Armor-Piercer Tip doubles the damage on an Ironclad (armor halves it) and does nothing on a plain rock', () => {
     const plain = oneHit('ironclad'), ap = oneHit('ironclad', 'armor_piercer');
-    expect(plain.hp).toBeCloseTo(101 / 2, 6);
-    expect(ap.hp).toBeCloseTo(101, 6);
-    expect(oneHit('mitotic_rock', 'armor_piercer').hp).toBeCloseTo(101, 6);
+    expect(plain.hp).toBeCloseTo(2 / 2, 6);
+    expect(ap.hp).toBeCloseTo(2, 6);
+    expect(oneHit('mitotic_rock', 'armor_piercer').hp).toBeCloseTo(2, 6);
   });
 
   it("Shield-Breaker takes 3x as much off a Warden's shield (x1.5 direct, x2 against shields)", () => {
     const plain = oneHit('warden'), sb = oneHit('warden', 'shield_breaker');
     expect(plain.hp).toBe(0);
-    expect(plain.shield).toBeCloseTo(101, 6);
-    expect(sb.shield).toBeCloseTo(303, 6);
+    expect(plain.shield).toBeCloseTo(2, 6);
+    expect(sb.shield).toBeCloseTo(6, 6);
   });
 
   it('Corrosion strips 5% of an Ironclad\'s armor per hit and remembers the original', () => {
@@ -299,7 +299,7 @@ describe('Free Fly species: armor and shield work with the existing blocks', () 
 
   it('Pure Converter: its pure share ignores the Ironclad\'s armor', () => {
     const pc = oneHit('ironclad', 'pure_converter');
-    expect(pc.hp).toBeCloseTo(101 * 0.85 / 2 + 101 * 0.15, 6);
+    expect(pc.hp).toBeCloseTo(2 * 0.85 / 2 + 2 * 0.15, 6);
     expect(pc.hp).toBeGreaterThan(oneHit('ironclad').hp);
   });
 

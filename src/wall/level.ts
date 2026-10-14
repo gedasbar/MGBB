@@ -1,6 +1,6 @@
 import { Mulberry32 } from '../rng';
 import {
-  BLOCK_HP_BASE, BLOCK_HP_GROWTH, DEFAULT_APPROACH_SPEED, REWARD_BASE, REWARD_GROWTH, TEST_ARMOR, TEST_SHIELD_OF_HP, WALL_COLS,
+  BLOCK_HP_BASE, BLOCK_HP_GROWTH, BLOCK_HP_GROWTH_END, DEFAULT_APPROACH_SPEED, WALL_ROWS_FIRST, WALL_ROWS_LAST, REWARD_BASE, REWARD_GROWTH, TEST_ARMOR, TEST_SHIELD_OF_HP, WALL_COLS,
 } from './constants';
 
 /** One block of a wall. `armor` uses the engine's armor formula (0 = none); `shield` is a pool absorbed before HP. */
@@ -26,9 +26,11 @@ export interface LevelDef {
   milestone?: boolean;
 }
 
-/** Placeholder size curve: 8 rows at tier 1 growing linearly to 41 rows at tier 100. */
-export const rowsForTier = (tier: number) => Math.round(8 + ((tier - 1) * (41 - 8)) / 99);
-export const blockHp = (tier: number) => BLOCK_HP_BASE * Math.pow(BLOCK_HP_GROWTH, tier - 1);
+/** Size curve: WALL_ROWS_FIRST rows at tier 1 growing linearly to WALL_ROWS_LAST rows at tier 100. */
+export const rowsForTier = (tier: number) => Math.round(WALL_ROWS_FIRST + ((tier - 1) * (WALL_ROWS_LAST - WALL_ROWS_FIRST)) / 99);
+/** HP are whole numbers, at least 1 (chunk 14a). */
+export const wholeHp = (v: number) => Math.max(1, Math.round(v));
+export const blockHp = (tier: number) => wholeHp(BLOCK_HP_BASE * Math.pow(BLOCK_HP_GROWTH, Math.min(tier, BLOCK_HP_GROWTH_END) - 1));
 export const rewardPerBlock = (tier: number) => REWARD_BASE * Math.pow(REWARD_GROWTH, tier - 1);
 
 export const cellIndex = (level: { cols: number }, col: number, row: number) => row * level.cols + col;
@@ -58,7 +60,7 @@ export function makeTestWall(o: TestWallOpts): LevelDef {
   for (let i = 0; i < WALL_COLS * o.rows; i++) {
     const armored = rand.next() < (o.armorFraction ?? 0);
     const shielded = rand.next() < (o.shieldFraction ?? 0);
-    cells.push({ hp, armor: armored ? TEST_ARMOR : 0, shield: shielded ? hp * TEST_SHIELD_OF_HP : 0 });
+    cells.push({ hp, armor: armored ? TEST_ARMOR : 0, shield: shielded ? wholeHp(hp * TEST_SHIELD_OF_HP) : 0 });
   }
   const gaps = Math.min(o.gaps ?? 0, cells.length - 1);
   for (let g = 0; g < gaps; g++) {

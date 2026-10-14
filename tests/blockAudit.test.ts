@@ -7,6 +7,8 @@ import { World } from '../src/game/world';
 import { buildFanGrid } from '../src/game/gridUtils';
 import { buildStarterGrid, place } from '../src/game/starter';
 import { rng } from '../src/rng';
+import { CONFIG } from '../src/config';
+import { fireRateMul } from '../src/data/hulls';
 
 import { richModel } from './helpers';
 
@@ -77,9 +79,9 @@ describe('block audit: the picker only offers blocks that compile and change Fly
       const d = BLOCKS[id].desc;
       return typeof d === 'function' ? d(lv) : d;
     };
-    expect(text('flat_plus')).toContain('+100');
+    expect(text('flat_plus')).toContain("+1 damage");
     expect(text('percent_mult')).toContain('×1.5');
-    expect(text('lucky_strike')).toBe('33% chance to double projectile damage.');
+    expect(text('lucky_strike')).toContain('33% chance to double projectile damage.');
     expect(text('jackpot')).toContain('4%');
     expect(text('jackpot')).toContain('10');
     expect(text('gamblers_gate')).toContain('50%');
@@ -107,17 +109,17 @@ describe('block audit: compiles correctly', () => {
     const g = withBlock('splitter_3');
     expect(segDirsFrom(g, SLOT.col, SLOT.row)).toEqual(['W', 'N', 'E']);
     expect(compile(g).recipes.length).toBe(1);
-    expect(compile(g).recipes[0].packet.damage).toBe(101); // the forward copy keeps full damage
+    expect(compile(g).recipes[0].packet.damage).toBe(2); // the forward copy keeps full damage
   });
-  it('compiles: flat_plus adds 100', () => {
-    expect(compile(withBlock('flat_plus')).recipes[0].packet.damage).toBe(201);
+  it('compiles: flat_plus adds 1', () => {
+    expect(compile(withBlock('flat_plus')).recipes[0].packet.damage).toBe(3);
   });
   it('compiles: percent_mult multiplies by 1.5 in path order', () => {
-    expect(compile(withBlock('percent_mult')).recipes[0].packet.damage).toBe(101 * 1.5);
+    expect(compile(withBlock('percent_mult')).recipes[0].packet.damage).toBe(2 * 1.5);
   });
   it('compiles: lucky_strike adds a 33% x2 gate without changing the deterministic damage', () => {
     const p = compile(withBlock('lucky_strike')).recipes[0].packet;
-    expect(p.damage).toBe(101);
+    expect(p.damage).toBe(2);
     expect(p.gates).toEqual([{ prob: 0.33, mult: 2, elseMult: 1 }]);
   });
   it('compiles: jackpot adds a 4% x10 gate', () => {
@@ -164,11 +166,11 @@ describe('block audit: changes what the ship fires in Fly', () => {
   it('fly: flat_plus and percent_mult change the damage of the fired projectile', () => {
     const base = newWorld(buildStarterGrid());
     const [b] = fireOnce(base);
-    expect(base.pool.damage[b]).toBe(101);
+    expect(base.pool.damage[b]).toBe(2);
     const f = newWorld(withBlock('flat_plus'));
-    expect(f.pool.damage[fireOnce(f)[0]]).toBe(201);
+    expect(f.pool.damage[fireOnce(f)[0]]).toBe(3);
     const m = newWorld(withBlock('percent_mult'));
-    expect(m.pool.damage[fireOnce(m)[0]]).toBeCloseTo(151.5, 3);
+    expect(m.pool.damage[fireOnce(m)[0]]).toBeCloseTo(3, 6);
   });
 
   const roll = (id: string, n = 3000) => {
@@ -183,16 +185,16 @@ describe('block audit: changes what the ship fires in Fly', () => {
 
   it('fly: lucky_strike doubles the damage of about 33% of the shots', () => {
     const d = roll('lucky_strike');
-    const doubled = d.filter(x => x === 202).length / d.length;
-    expect(d.every(x => x === 101 || x === 202)).toBe(true);
+    const doubled = d.filter(x => x === 4).length / d.length;
+    expect(d.every(x => x === 2 || x === 4)).toBe(true);
     expect(doubled).toBeGreaterThan(0.29);
     expect(doubled).toBeLessThan(0.37);
   });
 
   it('fly: jackpot multiplies the damage of about 4% of the shots by ten', () => {
     const d = roll('jackpot', 6000);
-    const big = d.filter(x => x === 1010).length / d.length;
-    expect(d.every(x => x === 101 || x === 1010)).toBe(true);
+    const big = d.filter(x => x === 20).length / d.length;
+    expect(d.every(x => x === 2 || x === 20)).toBe(true);
     expect(big).toBeGreaterThan(0.025);
     expect(big).toBeLessThan(0.055);
   });
@@ -200,7 +202,7 @@ describe('block audit: changes what the ship fires in Fly', () => {
   it('fly: gamblers_gate loses about half the projectiles and triples the rest', () => {
     const d = roll('gamblers_gate');
     const lost = d.filter(x => x === 0).length / d.length;
-    expect(d.every(x => x === 0 || x === 303)).toBe(true);
+    expect(d.every(x => x === 0 || x === 6)).toBe(true);
     expect(lost).toBeGreaterThan(0.45);
     expect(lost).toBeLessThan(0.55);
   });
@@ -215,12 +217,12 @@ describe('block audit: changes what the ship fires in Fly', () => {
   });
 
   it('fly: piercing lets the projectile survive a hit (baseline: it is destroyed)', () => {
-    // The shot spends the damage it dealt, so it only carries on past a weak enemy (40 HP vs 101 damage).
+    // The shot spends the damage it dealt, so it only carries on past a weak enemy (40 HP vs 2 damage).
     const wb = newWorld(buildStarterGrid());
-    const base = hitOnce(wb, { hp: 40 });
+    const base = hitOnce(wb, { hp: 0.8 });
     expect(wb.pool.active[base.i]).toBe(0);
     const w = newWorld(withBlock('piercing'));
-    const r = hitOnce(w, { hp: 40 });
+    const r = hitOnce(w, { hp: 0.8 });
     expect(w.pool.active[r.i]).toBe(1);
     expect(w.pool.damage[r.i]).toBeLessThan(r.startDamage);
   });
@@ -288,7 +290,7 @@ describe('the stats strip equals what the ship fires', () => {
       expect(idx.length).toBe(stats.projectilesPerPulse);
       const dmg = idx.map(i => w.pool.damage[i]);
       expect(dmg.reduce((a, b) => a + b, 0) / dmg.length).toBeCloseTo(stats.damagePerShot, 6);
-      expect(stats.pulsesPerSecond).toBe(4);
+      expect(stats.pulsesPerSecond).toBe(CONFIG.PULSE.BASE_RATE * fireRateMul(g.hullId)); // the hull's pulse rate (chunk 14a)
     });
   }
 

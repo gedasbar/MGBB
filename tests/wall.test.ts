@@ -40,9 +40,12 @@ function shoot(w: WallWorld, x: number, y: number, damage: number, mods: any[] =
 }
 
 describe('Wall data model', () => {
-  it('block HP is 100 at tier 1 (a 101 shot kills it) and grows 5.5% per tier; reward formula', () => {
-    expect(blockHp(1)).toBe(100);
-    expect(blockHp(11)).toBeCloseTo(100 * Math.pow(1.055, 10), 6);
+  it('block HP is 2 at tier 1 (a Dart + Flat+ shot of 2 kills it), grows 13% per tier until tier 38 and is a whole number; reward formula', () => {
+    expect(blockHp(1)).toBe(2);
+    expect(blockHp(11)).toBe(Math.round(2 * Math.pow(1.13, 10)));
+    expect(blockHp(38)).toBe(Math.round(2 * Math.pow(1.13, 37)));
+    expect(blockHp(100)).toBe(blockHp(38));
+    for (let t = 1; t <= 100; t++) expect(Number.isInteger(blockHp(t))).toBe(true);
     expect(rewardPerBlock(1)).toBeCloseTo(0.4, 9);
     expect(rewardPerBlock(21)).toBeCloseTo(0.4 * Math.pow(1.05, 20), 9);
   });

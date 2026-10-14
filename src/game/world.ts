@@ -7,7 +7,7 @@ import { compile, EjectorRecipe, Grid } from '../engine/compiler';
 import { Gun, PROJECTILE_SPEED, PX_PER_CELL, spawnOffsetsFor } from './fire';
 import { PointerState } from '../input';
 import { buildStarterGrid, ROCK_RADIUS } from './starter';
-import { leakDamage, rockHp, rockReward, tierOfTime } from '../econ/economy';
+import { leakDamage, rockHp, rockReward, tierOfTime, wholeRockHp } from '../econ/economy';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 import { fireRateMul } from '../data/hulls';
 import { SPECIES, speciesOf } from '../data/species';
@@ -262,7 +262,7 @@ export class World {
   }
 
   /** Spawns a rock; x is clamped so it is born inside the screen width. */
-  spawnRock(x: number, y: number, hp: number = rockHp(this.tier)) {
+  spawnRock(x: number, y: number, hp: number = wholeRockHp(rockHp(this.tier))) {
     return this.spawnSpecies('mitotic_rock', x, y, { hp, radius: ROCK_RADIUS });
   }
 
@@ -274,7 +274,7 @@ export class World {
     const sp = speciesOf(defId);
     const r = o.radius ?? sp.radius;
     const W = CONFIG.VIEW.W;
-    const e = this.mitosis.spawn(defId, o.generation ?? 1, o.hp ?? rockHp(this.tier) * sp.hpMul, Math.max(r, Math.min(W - r, x)), y, r);
+    const e = this.mitosis.spawn(defId, o.generation ?? 1, o.hp ?? wholeRockHp(rockHp(this.tier) * sp.hpMul), Math.max(r, Math.min(W - r, x)), y, r);
     if (e) { e.tier = this.tier; this.initMotion(e); }
     return e;
   }
@@ -374,7 +374,7 @@ export class World {
       }
       const hpMul = waveHpMul(this.director.wave);
       for (const s of this.due) {
-        this.spawnSpecies(s.defId, s.x, -s.radius, { hp: rockHp(this.tier) * s.hpMul * hpMul, radius: s.radius, generation: s.generation });
+        this.spawnSpecies(s.defId, s.x, -s.radius, { hp: wholeRockHp(rockHp(this.tier) * s.hpMul * hpMul), radius: s.radius, generation: s.generation });
       }
       this.due.length = 0;
     }

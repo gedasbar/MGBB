@@ -137,8 +137,8 @@ describe('persistence', () => {
 describe('earning', () => {
   it('the tier rises every 15 s and rock HP and rewards follow the tier growth', () => {
     expect([0, 14.9, 15, 30, 59.9, 60].map(tierOfTime)).toEqual([1, 1, 2, 3, 4, 5]);
-    expect(rockHp(1)).toBe(250);
-    expect(rockHp(5)).toBeCloseTo(250 * Math.pow(CONFIG.ECON.TIER_HP_GROWTH, 4), 6);
+    expect(rockHp(1)).toBe(5);
+    expect(rockHp(5)).toBeCloseTo(5 * Math.pow(CONFIG.ECON.TIER_HP_GROWTH, 4), 6);
     expect(parentReward(1)).toBe(7);
     expect(parentReward(3)).toBeCloseTo(7 * 1.05 * 1.05, 9);
   });
@@ -236,16 +236,16 @@ describe('inventory and levels in the builder', () => {
   it('the saved level of a block reaches the compiler, the stats strip and the inspector text', () => {
     const m = richModel();
     const base = m.compiled.stats.damagePerShot;
-    expect(base).toBe(101);
+    expect(base).toBe(2);
     m.store.buyUpgrade('flat_plus'); // rich progress has 0 credits: nothing happens
     expect(m.store.data.levels.flat_plus).toBe(1);
     m.store.data.credits = 1e6;
     expect(m.store.buyUpgrade('flat_plus').ok).toBe(true);
     m.refreshLevels();
-    expect(m.compiled.stats.damagePerShot).toBe(201);
+    expect(m.compiled.stats.damagePerShot).toBe(3);
     const cell = m.grid.cells.find(c => c.blockId === 'flat_plus')!;
     expect(cell.level).toBe(2);
-    expect(describeBlock(BLOCKS.flat_plus, cell.level)).toBe('Adds +200 damage to each projectile.');
+    expect(describeBlock(BLOCKS.flat_plus, cell.level)).toBe('Adds +2 damage to each projectile.');
     expect(m.gridForFlight().cells.find(c => c.blockId === 'flat_plus')!.level).toBe(2);
     // a block placed later also takes the saved level
     m.store.data.levels.percent_mult = 3;

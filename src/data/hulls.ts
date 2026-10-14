@@ -25,15 +25,19 @@ export const HULL_PRICES: Record<HullId, number> = {
 };
 
 /**
- * Firing stat of the starter: its pulse rate as a share of CONFIG.PULSE.BASE_RATE (4 per second). With one Flat+ in its slot
- * the Dart does 101 damage per shot, so 0.25 x 4 x 101 = 101 DPS against the Shuttle starter's 404 (25%). The brief's first
- * target was 35%, which put tier 1's carve ratio at 0.39; 0.25 puts it at 0.54, inside its 0.5 to 0.8 goal (G4, one
- * adjustment). Every other hull fires at the full rate.
+ * Pulse rate of each hull as a share of CONFIG.PULSE.BASE_RATE (4 per second). Chunk 14a: every hull's basic shot deals 1,
+ * so the pulse rate is the hull's main stat and climbs the ladder: Dart 2/s, Twin 2.5/s, Prong 4/s, Fan 4/s, Shuttle 5/s.
+ * (Before: Dart 1/s, every other hull 4/s; the Prong was then no stronger than the Twin, and the Dart with a Flat+ could
+ * not clear tier 1.) Fan and Prong share the rate: the Fan's three ejectors and 72 cells are its step up.
  */
-export const DART_FIRE_RATE_MUL = 0.25;
+export const DART_FIRE_RATE_MUL = 0.5;
+export const TWIN_FIRE_RATE_MUL = 0.625;
+export const PRONG_FIRE_RATE_MUL = 1;
+export const FAN_FIRE_RATE_MUL = 1;
+export const SHUTTLE_FIRE_RATE_MUL = 1.25;
 
 export const HULL_FIRE_RATE_MUL: Record<HullId, number> = {
-  dart: DART_FIRE_RATE_MUL, twin: 1, prong: 1, fan: 1, shuttle: 1,
+  dart: DART_FIRE_RATE_MUL, twin: TWIN_FIRE_RATE_MUL, prong: PRONG_FIRE_RATE_MUL, fan: FAN_FIRE_RATE_MUL, shuttle: SHUTTLE_FIRE_RATE_MUL,
 };
 
 /** Pulse-rate multiplier of a hull (1 for an unknown id or no id: tests and the debug starter circuit). */

@@ -482,6 +482,9 @@ export class ProjectileSystem {
         } else if (phase === PHASE_BOOM_OUT || phase === PHASE_BOOM_BACK) {
           this.pool.skipId[i] = target.id; // a boomerang flies on through what it hit; each leg hits a target once
         } else if (isPiercing) {
+          // Chunk 14a: a piercing shot passes through what it hit and cannot hit it again (it used to hit the same body every
+          // frame while inside it, which made Piercing L2+ a hidden damage multiplier on big targets and wall blocks).
+          this.pool.skipId[i] = target.id;
           const damageSpent = res.hpDamage; // actual hp taken
           const drop = Math.max(damage * 0.1, damageSpent) * pierceCostMul(pierceMod!.level ?? 1);
           this.pool.damage[i] -= drop;
@@ -633,6 +636,9 @@ export class ProjectileSystem {
    */
   private afterHit(t: EnemyEntity, killed: boolean, d: number, mi: EffectLevels, kind: number) {
     const rock = t.generation !== undefined;
+    // Chunk 14a cap: what a kill passes on (Spill burst, Residue cloud) counts the killing hit only up to the target's max HP.
+    // Without it a rare huge shot (stacked Alternators, Capacitor) killing a small target seeded a cloud worth many targets.
+    const worth = Math.min(d, t.maxHp);
     if (rock) {
       if (mi.cauterize) {
         t.cauterizedTimer = Math.max(t.cauterizedTimer ?? 0, cauterizeTime(mi.cauterize));
@@ -640,13 +646,13 @@ export class ProjectileSystem {
         this.fx.cauterizeMarks++;
       }
       if (killed) {
-        if (mi.spill) { t.spillBurst = Math.max(t.spillBurst ?? 0, d * spillFrac(mi.spill)); this.fx.spillMarks++; }
+        if (mi.spill) { t.spillBurst = Math.max(t.spillBurst ?? 0, worth * spillFrac(mi.spill)); this.fx.spillMarks++; }
       } else if (mi.fission) {
         t.fissionLevel = Math.max(t.fissionLevel ?? 0, mi.fission);
         this.fx.fissionMarks++;
       }
     }
-    if (killed && mi.residue && kind !== HIT_CLOUD && kind !== HIT_BURN) this.addCloud(t.x, t.y, d * residueFrac(mi.residue));
+    if (killed && mi.residue && kind !== HIT_CLOUD && kind !== HIT_BURN) this.addCloud(t.x, t.y, worth * residueFrac(mi.residue));
   }
 
   /** Counts a hit on `t` for Static Charge; true when it is the STATIC_HITS-th inside STATIC_WINDOW (the count is reset then). */
