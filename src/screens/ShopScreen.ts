@@ -249,7 +249,7 @@ export class ShopScreen implements Screen {
         const name = makeText(def.name, 17, locked ? THEME.disabled : THEME.text, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: 170 });
         name.position.set(rect.x + 82, rect.y + 12);
         const rarity = def.rarity && def.rarity !== 'common' ? `${def.rarity[0].toUpperCase()}${def.rarity.slice(1)} · ` : '';
-        const info = makeText(locked ? `${rarity}Locked: ${buttons[0].lock}` : `${rarity}Owned ${p.owned[key] ?? 0} · Lv ${p.levels[key] ?? 1}/${maxLevelOf(key)}`, 13, THEME.textDim, { fontWeight: 'bold' });
+        const info = makeText(locked ? `${rarity}Locked` : `${rarity}Owned ${p.owned[key] ?? 0} · Lv ${p.levels[key] ?? 1}/${maxLevelOf(key)}`, 13, THEME.textDim, { fontWeight: 'bold' });
         info.position.set(rect.x + 82, rect.y + ROW_H - 28);
         const strip = new Graphics().rect(rect.x, rect.y, 4, rect.h).fill(CATEGORY_COLOR[def.category]);
         this.listC.addChild(strip, name, info);
