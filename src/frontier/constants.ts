@@ -47,5 +47,5 @@ export const ZOOM_MIN = 5;
 export const ZOOM_MAX = 110;
 export const FAR_ZOOM = 16;
 export const MEDAL_DOT_ZOOM = 8;
-/** Wheel zoom: factor per 100 units of wheel delta. */
-export const WHEEL_ZOOM_STEP = 1.15;
+/** Wheel zoom: factor exp(-deltaY * WHEEL_ZOOM_RATE), the Build screen's rate. */
+export const WHEEL_ZOOM_RATE = 0.0015;

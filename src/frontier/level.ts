@@ -40,12 +40,15 @@ export function effectiveTier(x: number, y: number, seed: number): number {
   return Math.max(1, Math.round(MAP_BASE_TIER + r * MAP_TIER_PER_RING + (hash01(x, y, seed, S_TIER) * 2 - 1) * MAP_TIER_NOISE));
 }
 
+/** Spike square: the same roll squareLevel makes (cheap, for drawing many squares). */
+export const isSpikeSquare = (x: number, y: number, seed: number) => ring(x, y) > 0 && hash01(x, y, seed, S_SPIKE) < MAP_SPIKE_CHANCE;
+
 /** Parameters of the square's wall. Every lever has its own seeded roll, so squares differ in more than HP. */
 export function squareLevel(x: number, y: number, seed: number): SquareParams {
   const r = ring(x, y);
   const u = (salt: number) => hash01(x, y, seed, salt);
   const tier = effectiveTier(x, y, seed);
-  const spike = r > 0 && u(S_SPIKE) < MAP_SPIKE_CHANCE;
+  const spike = isSpikeSquare(x, y, seed);
   const baseHp = blockHp(MAP_BASE_TIER) * Math.pow(MAP_HP_GROWTH, r) * (1 + (u(S_HP) * 2 - 1) * MAP_HP_NOISE);
   const rows = Math.max(MAP_ROWS_MIN, Math.min(MAP_ROWS_MAX, Math.round(rowsForTier(tier) * range(MAP_ROWS_MUL, u(S_ROWS)))));
   return {

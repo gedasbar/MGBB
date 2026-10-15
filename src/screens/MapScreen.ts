@@ -11,8 +11,10 @@ import { getBuilderModel } from '../builder/session';
 import { inRect, LAYOUT, Rect, VIEW_H, VIEW_W } from '../builder/layout';
 import { makeTabButtons } from '../builder/tabs';
 import { makeText, Toast, UIButton } from '../builder/ui';
-import { getProgressStore, isCleared, isPassed, isUnlocked, nextTier } from '../econ/progress';
-import { CreditsBadge, textButton } from '../ui/hud';
+import { getProgressStore, isCleared, isFrontierUnlocked, isPassed, isUnlocked, nextTier } from '../econ/progress';
+import { CreditsBadge, textButton, TextButton } from '../ui/hud';
+import { FrontierScreen } from './FrontierScreen';
+import { FRONTIER_NAME, MAP_UNLOCK_TIER } from '../frontier/constants';
 import { fmtTime } from './RunSummaryScreen';
 import { THEME } from '../ui/theme';
 import { generateLevel, MAX_TIER } from '../wall/generator';
@@ -54,6 +56,7 @@ export class MapScreen implements Screen {
   private sheet = new Container();
   private buttons: UIButton[] = [];
   private startButton: UIButton;
+  private frontierButton: TextButton;
   private gestures: GestureTracker | null = null;
   private medalsText = makeText('', 22, THEME.text, { fontWeight: 'bold' });
   private title = makeText('', 20, THEME.text, { fontWeight: 'bold' });
@@ -81,6 +84,11 @@ export class MapScreen implements Screen {
 
     const back = textButton('mapBack', { x: 6, y: 6, w: 46, h: 40 }, '<', () => this.sm.switchTo(new BuildScreen(this.sm)), 24);
     this.buttons.push(back);
+    // Chunk 15a: the Frontier grid map opens here once tier MAP_UNLOCK_TIER is passed (greyed until then).
+    const open = isFrontierUnlocked(p);
+    this.frontierButton = textButton('mapFrontier', { x: 196, y: 6, w: 150, h: 40 }, open ? FRONTIER_NAME : `${FRONTIER_NAME}\nPass tier ${MAP_UNLOCK_TIER}`, () => this.openFrontier(), open ? 18 : 13);
+    this.frontierButton.setEnabled(open);
+    this.buttons.push(this.frontierButton);
 
     const sheetBg = new Graphics().rect(0, SHEET_Y, VIEW_W, SHEET_H).fill(THEME.panel).rect(0, SHEET_Y, VIEW_W, 1).fill(THEME.border);
     this.title.position.set(14, SHEET_Y + 10);
@@ -93,7 +101,7 @@ export class MapScreen implements Screen {
 
     const tabs = makeTabButtons('tabMap', (id) => this.tapTab(id));
     this.buttons.push(...tabs);
-    this.container.addChild(bg, this.listC, this.mask, bar, this.medalsText, this.credits.container, back.container, this.sheet);
+    this.container.addChild(bg, this.listC, this.mask, bar, this.medalsText, this.credits.container, back.container, this.frontierButton.container, this.sheet);
     for (const t of tabs) this.container.addChild(t.container);
     this.toast.container.y = -80; // the toast's usual spot is behind the bottom sheet here
     this.container.addChild(this.toast.container);
@@ -203,6 +211,7 @@ export class MapScreen implements Screen {
     if (b) {
       if (b.enabled) { b.flash(); b.spec.onTap(); }
       else if (b === this.startButton) this.toast.show(`Pass tier ${this.selected - 1} first`);
+      else if (b === this.frontierButton) this.toast.show(`The ${FRONTIER_NAME} opens after you pass tier ${MAP_UNLOCK_TIER}`);
       return;
     }
     if (!this.inGrid(x, y)) return;
@@ -234,6 +243,11 @@ export class MapScreen implements Screen {
     this.sm.switchTo(new WallScreen(this.sm, generateLevel(this.selected), model.gridForFlight()));
   }
 
+  openFrontier() {
+    if (!isFrontierUnlocked(this.store.data)) return;
+    this.sm.switchTo(new FrontierScreen(this.sm));
+  }
+
   update(dt: number) {
     this.toast.update(dt * 1000);
   }
@@ -256,6 +270,8 @@ export class MapScreen implements Screen {
       }),
       tileScreenRect: (tier: number) => this.tileScreenRect(tier),
       scrollTo: (y: number) => { this.scrollY = y; this.applyScroll(); this.rebuild(); },
+      frontierButton: () => ({ rect: this.frontierButton.rect, enabled: this.frontierButton.enabled }),
+      openFrontier: () => this.openFrontier(),
       progress: this.store,
     };
   }
