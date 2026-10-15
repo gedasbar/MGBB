@@ -1,4 +1,6 @@
 import { MAX_TIER } from '../wall/generator';
+import { applySquareRun, defaultFrontier, FrontierSave, sanitizeFrontier, SquareRunOutcome } from '../frontier/state';
+import { MAP_UNLOCK_TIER } from '../frontier/constants';
 import { CaptainsState, defaultCaptains, sanitizeCaptains, addCaptainKills, buyOption, activateOption, claimFlyMilestone, rollMedals, selectCaptain, unlockCaptain, upgradeHero, CaptainResult, MedalAward } from '../captains/state';
 import { modifiersFor, RunModifiers } from '../captains/modifiers';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
@@ -10,12 +12,12 @@ import {
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance. The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 6;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 7;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 6;
+  version: 7;
   credits: number;
   owned: Record<string, number>;
   levels: Record<string, number>;
@@ -40,6 +42,8 @@ export interface Progress {
   /** Captains (chunk 13a): owned, selected, levels, kills, options, claimed Free Fly milestones. */
   captains: CaptainsState;
   highestCleared: number;
+  /** Frontier grid map (chunk 15a): world seed and the passed / cleared squares, sparse. */
+  frontier: FrontierSave;
 }
 
 export interface StorageLike {
@@ -53,8 +57,9 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 6, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    version: 7, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
+    frontier: defaultFrontier(),
   };
 }
 
@@ -106,6 +111,8 @@ export function sanitizeProgress(raw: unknown): Progress {
   const v6 = typeof r.version === 'number' && r.version >= 6;
   out.medals = v6 ? int(r.medals, 0, MEDALS_CEILING, 0) : Math.min(out.clearedTiers.length, int(r.medals, 0, MAX_TIER, out.clearedTiers.length));
   out.captains = sanitizeCaptains(r.captains);
+  // v1-v6 saves have no frontier: it starts empty (only the free origin).
+  out.frontier = sanitizeFrontier(r.frontier);
   out.highestCleared = out.clearedTiers.length ? out.clearedTiers[out.clearedTiers.length - 1] : 0;
   for (const id of Object.keys(d.owned)) {
     out.owned[id] = int(r.owned?.[id], 0, 1e6, d.owned[id]);
@@ -147,6 +154,36 @@ export function nextTier(p: Progress): number {
   let t = 1;
   while (t <= MAX_TIER && isPassed(p, t)) t++;
   return Math.min(t, MAX_TIER);
+}
+
+/** The Frontier opens once campaign tier MAP_UNLOCK_TIER is passed. */
+export const isFrontierUnlocked = (p: Progress) => isPassed(p, MAP_UNLOCK_TIER);
+
+export interface SquareRunResult {
+  x: number;
+  y: number;
+  destroyed: number;
+  total: number;
+  credits: number;
+  kills: number;
+  passed?: boolean;
+  medalDouble?: number;
+  rand?: () => number;
+}
+
+/**
+ * Books one Frontier square run (win or lose): credits and kills exactly like a campaign run, then the square's state
+ * (pass / clear) and its Medal on the first clear of a medal square. A run on a square that cannot be played books the
+ * credits only (it never happens through the UI).
+ */
+export function applyFrontierRun(p: Progress, run: SquareRunResult): SquareRunOutcome {
+  p.credits += Math.floor(run.credits);
+  p.totalKills += run.kills;
+  p.runs++;
+  const cleared = run.destroyed >= run.total;
+  const r = applySquareRun(p.frontier, run.x, run.y, { cleared, passed: cleared || !!run.passed, medalDouble: run.medalDouble, rand: run.rand });
+  p.medals += r.medals;
+  return r;
 }
 
 export interface WallRunResult {
@@ -323,11 +360,14 @@ export class ProgressStore {
    * tier's best result and awards the first-clear Medal. Best tier and best time belong to Free Fly and are not touched.
    * Call exactly once per level (WallWorld.bank guards this).
    */
-  recordWallRun(run: { credits: number; kills: number; tier?: number; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; rand?: () => number }): { medal: boolean; medals: number; medalDoubled: boolean } {
+  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; rand?: () => number }): { medal: boolean; medals: number; medalDoubled: boolean } {
     let medal = false;
     let medals = 0;
     let medalDoubled = false;
-    if (run.tier !== undefined && run.destroyed !== undefined && run.total !== undefined) {
+    if (run.square && run.destroyed !== undefined && run.total !== undefined) {
+      const r = applyFrontierRun(this.data, { ...run.square, destroyed: run.destroyed, total: run.total, credits: run.credits, kills: run.kills, passed: run.passed, medalDouble: run.medalDouble, rand: run.rand });
+      medal = r.medals > 0; medals = r.medals; medalDoubled = r.medalDoubled;
+    } else if (run.tier !== undefined && run.destroyed !== undefined && run.total !== undefined) {
       const r = applyWallRun(this.data, { tier: run.tier, destroyed: run.destroyed, total: run.total, time: run.time ?? 0, credits: run.credits, kills: run.kills, passed: run.passed, medalDouble: run.medalDouble, rand: run.rand });
       medal = r.medal; medals = r.medals; medalDoubled = r.medalDoubled;
     } else {

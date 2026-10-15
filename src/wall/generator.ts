@@ -87,7 +87,10 @@ export const armorFraction = (tier: number) => (tier < ARMOR_START ? 0 : lerp(AR
 export const shieldFraction = (tier: number) => (tier < SHIELD_START ? 0 : lerp(SHIELD_FRAC[0], SHIELD_FRAC[1], (tier - SHIELD_START) / (MAX_TIER - SHIELD_START)));
 
 /** Number of blocks in the tier's wall: a solid wall of the tier's rows minus a few gaps, whatever the shape. */
-export const blocksForTier = (tier: number) => WALL_COLS * rowsForTier(tier) - 6;
+export const blocksForTier = (tier: number) => blocksForRows(rowsForTier(tier));
+/** Blocks of a wall of `rows` rows: the solid wall minus WALL_GAPS. */
+export const WALL_GAPS = 6;
+export const blocksForRows = (rows: number) => WALL_COLS * rows - WALL_GAPS;
 
 /** Blocks ordered so that the first `n` of them are the ones a mode picks (front = nearest the player). */
 function pickCluster(blocks: { r: number; c: number }[], h: number, mode: Mode, n: number, rand: Mulberry32): Set<number> {
@@ -102,18 +105,67 @@ function pickCluster(blocks: { r: number; c: number }[], h: number, mode: Mode, 
 
 const cache = new Map<number, LevelDef>();
 
+/** Number of wall templates (the Frontier picks one per square). */
+export const TEMPLATE_COUNT = TEMPLATES.length;
+
+/**
+ * Everything the wall builder needs. The campaign makes one from the tier number (`campaignSpec`); the Frontier
+ * (chunk 15a) makes one from a square's parameters. Same builder, same rules: a spec only chooses the levers.
+ */
+export interface WallSpec {
+  /** Whole tier: armor value, shield size, rewards and background band follow it as in the campaign. */
+  tier: number;
+  /** Seed of the shape and the armor / shield picks. */
+  seed: number;
+  /** Index into the eight templates; ignored when `milestoneTier` is set. */
+  template: number;
+  /** A campaign milestone's hand-made wall (10, 20, ... 100). */
+  milestoneTier?: number;
+  rows: number;
+  /** Blocks wanted (the shape grows until it holds this many). */
+  target: number;
+  /** HP of every block, spike multiplier included. */
+  hp: number;
+  armorFrac: number;
+  shieldFrac: number;
+  approachSpeed: number;
+  spike: boolean;
+  /** Campaign tier: its results count toward the campaign progress. */
+  campaign?: boolean;
+}
+
+/** The campaign tier's spec: exactly the numbers generateLevel always used. */
+export function campaignSpec(t: number): WallSpec {
+  const ms = isMilestone(t) ? MILESTONES[t] : undefined;
+  const spike = isSpike(t);
+  return {
+    tier: t, seed: t * 1000003 + 12345, template: templateIndex[t], ...(ms ? { milestoneTier: t } : {}),
+    rows: rowsForTier(t), target: blocksForTier(t),
+    hp: wholeHp(blockHp(t) * (spike ? SPIKE_HP_MUL : 1)),
+    armorFrac: ms?.armorFrac ?? armorFraction(t), shieldFrac: ms?.shieldFrac ?? shieldFraction(t),
+    approachSpeed: approachSpeedFor(t), spike, campaign: true,
+  };
+}
+
 /** The wall of a campaign tier (1..100). Pure function of the tier number: no Math.random. */
 export function generateLevel(tier: number): LevelDef {
   const t = Math.max(1, Math.min(MAX_TIER, Math.floor(tier)));
   const hit = cache.get(t);
   if (hit) return hit;
+  const level = buildWall(campaignSpec(t));
+  cache.set(t, level);
+  return level;
+}
 
-  const ms = isMilestone(t) ? MILESTONES[t] : undefined;
-  const tpl = ms ?? TEMPLATES[templateIndex[t]];
-  const spike = isSpike(t);
-  const rows = rowsForTier(t);
-  const target = blocksForTier(t);
-  const seed = t * 1000003 + 12345;
+/** Builds the wall a spec describes. Pure: the same spec always gives the same wall. */
+export function buildWall(spec: WallSpec): LevelDef {
+  const t = spec.tier;
+  const ms = spec.milestoneTier !== undefined ? MILESTONES[spec.milestoneTier] : undefined;
+  const tpl = ms ?? TEMPLATES[((spec.template % TEMPLATES.length) + TEMPLATES.length) % TEMPLATES.length];
+  const spike = spec.spike;
+  const rows = spec.rows;
+  const target = spec.target;
+  const seed = spec.seed;
 
   // Grow the shape upward until it holds enough blocks, then trim the surplus from the far (top) end.
   let h = rows;
@@ -165,25 +217,23 @@ export function generateLevel(tier: number): LevelDef {
   const armorMode = ms?.armor ?? modes[Math.floor(rand.next() * modes.length)];
   const shieldModes: Mode[] = ['back', 'core', 'sides'];
   const shieldMode = ms?.shield ?? shieldModes[Math.floor(rand.next() * shieldModes.length)];
-  const nArmor = Math.round(blocks.length * (ms?.armorFrac ?? armorFraction(t)));
-  const nShield = Math.round(blocks.length * (ms?.shieldFrac ?? shieldFraction(t)));
+  const nArmor = Math.round(blocks.length * spec.armorFrac);
+  const nShield = Math.round(blocks.length * spec.shieldFrac);
   const armored = pickCluster(blocks, h, armorMode, nArmor, rand);
   const shielded = pickCluster(blocks, h, shieldMode, nShield, rand);
 
-  const hp = wholeHp(blockHp(t) * (spike ? SPIKE_HP_MUL : 1));
+  const hp = spec.hp;
   const cells: (BlockDef | null)[] = new Array(mask.length).fill(null);
   blocks.forEach((b, i) => {
     cells[b.idx] = { hp, armor: armored.has(i) ? armorValue(t) : 0, shield: shielded.has(i) ? wholeHp(hp * shieldShare(t)) : 0 };
   });
 
-  const level: LevelDef = {
-    tier: t, cols: WALL_COLS, rows: h, wrap: true, cells, approachSpeed: approachSpeedFor(t),
+  return {
+    tier: t, cols: WALL_COLS, rows: h, wrap: true, cells, approachSpeed: spec.approachSpeed,
     name: ms ? ms.name : tpl.name,
     hint: ms ? ms.hint : tpl.hint + (nArmor > 0 ? ' Some blocks are armored.' : '') + (nShield > 0 ? ' Some have shields.' : ''),
-    campaign: true,
+    ...(spec.campaign ? { campaign: true } : {}),
     ...(spike ? { spike: true } : {}),
     ...(ms ? { milestone: true } : {}),
   };
-  cache.set(t, level);
-  return level;
 }

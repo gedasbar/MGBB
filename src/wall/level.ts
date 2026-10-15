@@ -24,6 +24,8 @@ export interface LevelDef {
   spike?: boolean;
   /** Hand-defined milestone tier (10, 20, ... 100). */
   milestone?: boolean;
+  /** A Frontier square (chunk 15a): results count toward that square of the grid map. */
+  frontier?: { x: number; y: number };
 }
 
 /** Size curve: WALL_ROWS_FIRST rows at tier 1 growing linearly to WALL_ROWS_LAST rows at tier 100. */

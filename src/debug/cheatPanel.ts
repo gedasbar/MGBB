@@ -2,7 +2,8 @@ import { getProgressStore } from '../econ/progress';
 import { getBuilderModel } from '../builder/session';
 import { SPECIES } from '../data/species';
 import { debugHooks } from './hooks';
-import { addCaptainKillsCheat, setHeroLevel, unlockAllCaptains, addCredits, addMedals, ownAllBlocks, ownAllHulls, resetCampaign, resetEverything, unlockAllTiers } from './cheats';
+import { addCaptainKillsCheat, setHeroLevel, unlockAllCaptains, addCredits, addMedals, ownAllBlocks, ownAllHulls, resetCampaign, resetEverything, unlockAllTiers, unlockFrontier, clearFrontierSquare, clearFrontierRing } from './cheats';
+import { frontierJump } from '../frontier/session';
 
 /**
  * The Cheats section of the ?debug=1 panel. Dev builds only: the panel imports this module behind `import.meta.env.DEV`,
@@ -102,6 +103,17 @@ export function addCheats(parent: HTMLElement) {
     debugHooks.startTier(Math.min(100, int(tierN, 1)));
     say(`tier ${int(tierN, 1)} started`);
   });
+
+  // ---- Frontier (chunk 15a)
+  const fr = group('dbg-g-frontier', 'Frontier');
+  button(fr, 'dbg-fr-unlock', 'Unlock the Frontier', () => { unlockFrontier(store()); say('Frontier open (tiers 1-25 passed, no medals)'); });
+  const fx = number(fr, 'dbg-fr-x', 'x', '0');
+  const fy = number(fr, 'dbg-fr-y', 'y', '0');
+  const num = (el: HTMLInputElement) => Math.round(Number(el.value)) || 0;
+  button(fr, 'dbg-fr-clear', 'Clear square x,y', () => say(clearFrontierSquare(store(), num(fx), num(fy)) ? `cleared ${num(fx)},${num(fy)}` : 'hole or origin: nothing to clear'));
+  button(fr, 'dbg-fr-jump', 'Jump camera to x,y', () => { frontierJump(num(fx), num(fy)); say(`camera at ${num(fx)},${num(fy)}`); });
+  const fr_r = number(fr, 'dbg-fr-r', 'ring', '3');
+  button(fr, 'dbg-fr-ring', 'Clear rings 0..r', () => say(`${clearFrontierRing(store(), int(fr_r))} squares cleared`));
 
   // ---- Captains (chunk 13a)
   const cap = group('dbg-g-cap', 'Captains');

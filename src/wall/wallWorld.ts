@@ -45,7 +45,7 @@ export function scrollSpeed(base: number, shipY: number, zoneMul = 1): number {
 
 /** What the world needs from the progress store at the end of a level. */
 export interface WallBank {
-  recordWallRun(run: { credits: number; kills: number; tier?: number; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number }): { medal: boolean; medals?: number; medalDoubled?: boolean } | void;
+  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number }): { medal: boolean; medals?: number; medalDoubled?: boolean } | void;
 }
 
 /** Ship position the pointer asks for, in world px (x) and screen px (y). */
@@ -344,9 +344,11 @@ export class WallWorld {
     if (this.banked) return false;
     this.banked = true;
     const campaign = this.level.campaign;
+    const square = this.level.frontier;
     const res = store.recordWallRun({
       credits: this.credits, kills: this.destroyed,
       ...(campaign ? { tier: this.level.tier, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed', medalDouble: this.mods.medalDouble } : {}),
+      ...(square ? { square: { x: square.x, y: square.y }, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed', medalDouble: this.mods.medalDouble } : {}),
     });
     this.medalEarned = !!(res && res.medal);
     this.medalsEarned = (res && res.medals) || 0;

@@ -12,6 +12,8 @@ import { CELL, VIEW_H, VIEW_W } from '../wall/constants';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 import { BuildScreen } from './BuildScreen';
 import { MapScreen } from './MapScreen';
+import { FrontierScreen } from './FrontierScreen';
+import { FRONTIER_NAME } from '../frontier/constants';
 import { LevelDef } from '../wall/level';
 import { WallWorld } from '../wall/wallWorld';
 import { PointerGate } from '../engine/control';
@@ -256,7 +258,8 @@ export class WallScreen implements Screen {
     const hudDy = this.sm.stats.hudOffset;
     if (this.hudBox.y !== hudDy) this.hudBox.y = hudDy;
     this.creditsText.text = `Credits +${fmtBig(w.credits)}`;
-    this.tierText.text = `Tier ${w.tier}`;
+    const sq = this.levelDef.frontier;
+    this.tierText.text = sq ? `${FRONTIER_NAME} (${fmtBig(sq.x)}, ${fmtBig(sq.y)}) · Tier ${w.tier}` : `Tier ${w.tier}`;
     this.spikeText.position.set(20 + this.tierText.width + 10, 56);
     this.blocksText.text = `Destroyed ${Math.floor(w.percentDestroyed)}%`;
     const h = (VIEW_H - 40) * w.progress;
@@ -477,6 +480,9 @@ export class WallScreen implements Screen {
       const next = { id: 'summaryNext', label: 'Next tier', onTap: () => sm.switchTo(new WallScreen(sm, generateLevel(level.tier + 1), grid)) };
       const map = { id: 'summaryMap', label: 'Map', onTap: () => sm.switchTo(new MapScreen(sm)) };
       buttons = [won && level.tier < MAX_TIER ? next : retry, map, build];
+    } else if (level.frontier) {
+      // Chunk 15a: back to the Frontier (the camera and selection are where they were), or play the square again.
+      buttons = [{ id: 'summaryFrontier', label: FRONTIER_NAME, onTap: () => sm.switchTo(new FrontierScreen(sm)) }, retry, build];
     } else {
       buttons = [build, retry]; // a debug test wall: as before
     }
