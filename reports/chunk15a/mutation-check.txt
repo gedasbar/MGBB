@@ -1,0 +1,21 @@
+Chunk 15a mutation check: each mutation applied to the source, tests/frontier.test.ts run, source restored (script: python, see DECISIONS).
+MUTATION 1 lattice may hold holes: CAUGHT (2 failing)
+   × Frontier world > start area has no holes; the lattice is never a hole; holes exist at about the planned density 11ms
+   × Frontier world > connectivity: BFS from the origin over open squares reaches every open square within ring 60 58ms
+MUTATION 2 no flood fill (unreachable pockets stay open): CAUGHT (1 failing)
+   × Frontier world > connectivity: BFS from the origin over open squares reaches every open square within ring 60 58ms
+MUTATION 3 passing does not unlock neighbours: CAUGHT (2 failing)
+   × Frontier progress > passing a square opens its neighbours too, without filling it 16ms
+   × Frontier progress > a medal square pays one Medal on the first clear only; passing keeps the marker 2ms
+MUTATION 4 medal pays on every clear: CAUGHT (1 failing)
+   × Frontier progress > a medal square pays one Medal on the first clear only; passing keeps the marker 17ms
+MUTATION 5 holes can be available: CAUGHT (1 failing)
+   × Frontier progress > holes never become available, even with every neighbour cleared 31ms
+MUTATION 6 levers vary only HP: CAUGHT (1 failing)
+   × Frontier square levels > varies other levers too, not only HP: rows, armor, shields, speed, template, spikes 10ms
+MUTATION 7 campaign spec drifts (shield share from tier+1): CAUGHT (2 failing)
+   × Campaign tiers are unchanged by the Frontier > tier 25 20ms
+   × Campaign tiers are unchanged by the Frontier > tier 50 7ms
+MUTATION 8 old saves keep a garbage frontier (no sanitiser): NOT CAUGHT at first (0 failing) -> added "a save with a broken frontier loads with the bad parts dropped"; re-run: CAUGHT (1 failing)
+   × Frontier save (v7) and the wall run hook > a save with a broken frontier loads with the bad parts dropped
+

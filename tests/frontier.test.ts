@@ -303,6 +303,12 @@ describe('Frontier save (v7) and the wall run hook', () => {
     expect(back.frontier.seed).toBe(FRONTIER_SEED);
   });
 
+  it('a save with a broken frontier loads with the bad parts dropped', () => {
+    const p = loadProgress(JSON.stringify({ version: 7, frontier: { seed: 'x', sq: { '1,0': 2, 'nope': 2, '0,1': 9 } } }));
+    expect(p.frontier).toEqual({ seed: FRONTIER_SEED, sq: { '1,0': 2 } });
+    expect(loadProgress(JSON.stringify({ version: 7, frontier: 42 })).frontier).toEqual(defaultFrontier());
+  });
+
   it('unlocks after campaign tier 25 is passed', () => {
     const p = defaultProgress();
     expect(isFrontierUnlocked(p)).toBe(false);
