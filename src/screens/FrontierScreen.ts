@@ -18,7 +18,7 @@ import { fmtBig } from '../ui/format';
 import { CATEGORY_COLOR, THEME } from '../ui/theme';
 import type { StatsInfo } from '../ui/stats';
 import {
-  FAR_ZOOM, FRONTIER_NAME, MAP_UNLOCK_TIER, MEDAL_DOT_ZOOM, WHEEL_ZOOM_RATE, ZOOM_MAX, ZOOM_MIN,
+  FAR_ZOOM, FRONTIER_NAME, MAP_UNLOCK_TIER, MEDAL_DOT_ZOOM, TILE_STYLE, TileStyle, WHEEL_ZOOM_RATE, ZOOM_MAX, ZOOM_MIN,
 } from '../frontier/constants';
 import { effectiveTier, frontierLevel, isSpikeSquare, squareLevel } from '../frontier/level';
 import { frontierSession, frontierJump } from '../frontier/session';
@@ -36,11 +36,15 @@ export const FRONTIER_MAP: Rect = { x: 0, y: TOP, w: VIEW_W, h: PANEL_Y - TOP };
 const MCX = FRONTIER_MAP.x + FRONTIER_MAP.w / 2;
 const MCY = FRONTIER_MAP.y + FRONTIER_MAP.h / 2;
 
-const FRAME = 0x55555a;
-const FRAME_LOCKED = 0x343437;
+/**
+ * Neutral greys (chunk 15a-fix): colour only where it means something (cleared fill, lavender pass outline, yellow medal,
+ * red spike). Locked is just above the background (#1c1c1e) with a barely visible inner square; available is a clearly
+ * lighter plate with the dark inner square.
+ */
+const LOCKED_PLATE = 0x2b2b2e;
+const LOCKED_INNER = 0x232326;
+const AVAIL_PLATE = 0x5e5e64;
 const INNER = 0x26262a;
-const INNER_LOCKED = 0x1c1c1e;
-const FAR_LOCKED = 0x313134;
 /** Lavender outline of a passed square. */
 const PASSED = 0xb9a6f0;
 /** Cleared colour by effective-tier band of 20 tiers: the five block category colours. */
@@ -80,6 +84,8 @@ export class FrontierScreen implements Screen {
   private gestures: GestureTracker | null = null;
   private dirty = true;
   private lastViews = 0;
+  /** TILE_STYLE, switchable by the dev hook for the comparison sheet. */
+  tileStyle: TileStyle = TILE_STYLE;
   /** Explored box (stored squares and the origin, plus one): squares outside it are locked or holes, no lookups needed. */
   private box = { x0: -1, y0: -1, x1: 1, y1: 1 };
   private unsub: (() => void) | null = null;
@@ -242,31 +248,34 @@ export class FrontierScreen implements Screen {
         if (sx + size < 0 || sx > VIEW_W) continue;
         const v = this.view(vi++);
         drawn++;
-        const band = bandColor(effectiveTier(x, y, seed));
         const medal = showMedal && st !== 'cleared' && world.hasMedal(x, y);
-        if (far) {
-          const tint = st === 'cleared' ? band : st === 'passed' ? PASSED : st === 'available' ? shade(band, 0.55) : FAR_LOCKED;
-          place(v.frame, sx, sy, size, tint);
-          v.mid.visible = false; v.inner.visible = false; v.spike.visible = false;
+        const locked = st === 'locked';
+        // Only a cleared square is coloured: the tier roll is skipped for every other square.
+        const band = st === 'cleared' ? bandColor(effectiveTier(x, y, seed)) : 0;
+        const plateTint = st === 'cleared' ? band : locked ? LOCKED_PLATE : AVAIL_PLATE;
+        // The outer sprite: the plate itself, or the lavender outline (passed) / darker edge (cleared, plate style) around it.
+        const edge = st === 'passed' ? PASSED : st === 'cleared' && !far && this.tileStyle === 'plate' ? shade(band, 0.7) : -1;
+        v.spike.visible = false;
+        if (edge < 0) {
+          place(v.frame, sx, sy, size, plateTint);
+          v.mid.visible = false;
           used++;
         } else {
-          const locked = st === 'locked';
-          const frameTint = st === 'cleared' ? shade(band, 0.7) : st === 'passed' ? PASSED : locked ? FRAME_LOCKED : FRAME;
-          place(v.frame, sx, sy, size, frameTint);
-          const m1 = Math.max(2, Math.round(size * 0.12));
-          place(v.mid, sx + m1, sy + m1, size - 2 * m1, st === 'cleared' ? band : shade(band, locked ? 0.18 : 0.55));
+          const w = far ? Math.max(1, Math.round(size * 0.2)) : Math.max(2, Math.round(size * 0.08));
+          place(v.frame, sx, sy, size, edge);
+          place(v.mid, sx + w, sy + w, size - 2 * w, plateTint);
           used += 2;
-          if (st === 'cleared') v.inner.visible = false;
-          else {
-            const m2 = Math.round(size * 0.27);
-            place(v.inner, sx + m2, sy + m2, size - 2 * m2, locked ? INNER_LOCKED : INNER);
-            used++;
-          }
-          if (isSpikeSquare(x, y, seed)) {
-            place(v.spike, sx + m1, sy + m1, size * 0.3, THEME.bad);
-            v.spike.alpha = locked ? 0.5 : 1;
-            used++;
-          } else v.spike.visible = false;
+        }
+        if (!far && this.tileStyle === 'plate' && st !== 'cleared') {
+          const m2 = Math.round(size * 0.27);
+          place(v.inner, sx + m2, sy + m2, size - 2 * m2, locked ? LOCKED_INNER : INNER);
+          used++;
+        } else v.inner.visible = false;
+        if (!far && isSpikeSquare(x, y, seed)) {
+          const m1 = Math.max(2, Math.round(size * 0.08));
+          place(v.spike, sx + m1, sy + m1, size * 0.3, THEME.bad);
+          v.spike.alpha = locked ? 0.5 : 1;
+          used++;
         }
         if (medal) {
           const ms = Math.max(2, Math.round(size * (far ? 0.5 : 0.24)));
@@ -436,6 +445,7 @@ export class FrontierScreen implements Screen {
       pan: (dx: number, dy: number) => this.pan(dx, dy),
       zoomAt: (f: number, x: number, y: number) => this.zoomAt(f, x, y),
       play: () => this.play(),
+      setTileStyle: (t: TileStyle) => { this.tileStyle = t; this.dirty = true; },
       unlock: () => unlockFrontier(store),
       clearSquare: (x: number, y: number) => clearFrontierSquare(store, x, y),
       clearRing: (r: number) => clearFrontierRing(store, r),
