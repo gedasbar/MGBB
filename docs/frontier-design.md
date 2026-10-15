@@ -122,7 +122,7 @@ The white selection outline is drawn outside the square, so it shows on a lavend
   disabled and `buyCopy` refuses it too. No save shape change, so **no version bump** (the grandfather rule needs no
   migration step: it reads the owned counts; it is unit-tested on an old save).
 - Toast "Unlocked: <block>": the store compares the unlocked set before and after every commit and queues what is new
-  (so it fires once, whatever caused it: a run, a cheat); the Frontier screen and the run summary show the queue.
+  (so it fires once, whatever caused it: a run, a cheat); the Frontier screen shows the queue (where a run returns to).
 - Map: thin dim square outlines at the inner edge of each threshold ring (drawn only when in view), an "Unlocks" button
   that opens a panel listing the 16 entries (direction, ring, block, reached or not) and the furthest ring per
   direction; a square on a threshold ring names its unlock in the panel.
