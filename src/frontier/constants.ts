@@ -41,6 +41,13 @@ export const MAP_ROWS_MAX = 60;
 /** Chance a square is a spike square (1.6x HP, Ember background, as campaign spikes). */
 export const MAP_SPIKE_CHANCE = 1 / 8;
 
+/**
+ * Square look (chunk 15a-fix): 'plate' = an outer plate with a dark inner square (the block-plate shape, greys only);
+ * 'flat' = plain flat squares in the same state colours, no inner square.
+ */
+export type TileStyle = 'plate' | 'flat';
+export const TILE_STYLE: TileStyle = 'plate';
+
 /** Screen: zoom in px per square. Below FAR_ZOOM a square is one flat sprite; the medal dot shows from MEDAL_DOT_ZOOM. */
 export const ZOOM_DEFAULT = 44;
 export const ZOOM_MIN = 5;

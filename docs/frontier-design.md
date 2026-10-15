@@ -55,6 +55,7 @@ its spec exactly as before (snapshot test of tiers 1, 10, 25, 50, 100 against ha
 
 ## 6. Screen (`src/screens/FrontierScreen.ts`)
 - Entry: a "Frontier" button in the campaign Map's top bar, greyed with "Pass tier 25" until unlocked.
+- (15a-fix: locked / available / passed plates are neutral greys now, colour only on cleared squares; DECISIONS 230.)
 - Same dark grey background. A square is a small block plate. Locked: darker plate. Available: plate with the band colour
   (darkened) as the middle square. Passed: available + lavender outline. Cleared: the whole plate filled with the band
   colour. Band colour (my call): the five block category colours by effective-tier band of 20 tiers (1-20 pathing blue,
