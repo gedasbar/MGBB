@@ -79,6 +79,8 @@ async function fly(page, seconds, onTick) {
   // ---- Shop: buy a copy of each block we will use (credits come from the debug button; the buys are real taps).
   await page.click('#dbg-credits');
   await page.click('#dbg-credits');
+  // Chunk 15b gates these blocks behind Frontier directions: reach them all first (dev cheat).
+  await page.evaluate(() => document.getElementById('dbg-fr-reach-all').click());
   await tap(page, ...TAB.shop);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.shopScreen);
   const rowsKeys = await page.evaluate(() => window.__mgbm.state().rows.map(r => r.key));
