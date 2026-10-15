@@ -21,6 +21,7 @@ import { drawPlate } from '../ui/blockArt';
 import { fmtBig } from '../ui/format';
 import { CreditsBadge } from '../ui/hud';
 import { THEME } from '../ui/theme';
+import { blockLockReason } from '../econ/progress';
 
 type Section = 'blocks' | 'hulls';
 
@@ -31,7 +32,7 @@ const ROW_GAP = 6;
 const ROW_X = 8;
 const ROW_W = VIEW_W - 16;
 
-interface ShopButton { kind: 'buy' | 'upgrade' | 'hull'; id: string; rect: Rect; enabled: boolean; label: string; }
+interface ShopButton { kind: 'buy' | 'upgrade' | 'hull'; id: string; rect: Rect; enabled: boolean; label: string; /** Why it cannot be pressed (a directional unlock not reached). */ lock?: string }
 interface ShopRow { key: string; rect: Rect; buttons: ShopButton[]; }
 
 /** The Shop tab: buy copies and upgrade levels of blocks, and buy hulls. Rows are drawn in a masked, scrollable list. */
@@ -149,7 +150,7 @@ export class ShopScreen implements Screen {
         rows: this.rows.map(r => ({
           key: r.key,
           rect: this.screenRect(r.rect),
-          buttons: r.buttons.map(b => ({ kind: b.kind, label: b.label, enabled: b.enabled, rect: this.screenRect(b.rect) })),
+          buttons: r.buttons.map(b => ({ kind: b.kind, label: b.label, enabled: b.enabled, lock: b.lock ?? null, rect: this.screenRect(b.rect) })),
         })),
       }),
     };
@@ -194,6 +195,14 @@ export class ShopScreen implements Screen {
     const max = maxLevelOf(id);
     const upPrice = level < max ? upgradePrice(id, level) : 0;
     const bx = ROW_X + ROW_W - 258;
+    // Chunk 15b: a block gated by a Frontier direction is greyed with its requirement until reached (or owned).
+    const lock = blockLockReason(p, id, this.store.frontierReach);
+    if (lock) {
+      return [
+        { kind: 'buy', id, rect: { x: bx, y: y + 8, w: 250, h: 32 }, enabled: false, label: lock, lock },
+        { kind: 'upgrade', id, rect: { x: bx, y: y + 44, w: 250, h: 32 }, enabled: false, label: 'Locked', lock },
+      ];
+    }
     return [
       { kind: 'buy', id, rect: { x: bx, y: y + 8, w: 250, h: 32 }, enabled: p.credits >= buyPrice, label: `Buy x1 - ${fmtBig(buyPrice)}` },
       {
@@ -231,14 +240,16 @@ export class ShopScreen implements Screen {
       this.listC.addChild(g);
       if (this.section === 'blocks') {
         const def = BLOCKS[key];
+        const locked = !!buttons[0]?.lock;
         const plate = new Graphics();
         plate.position.set(rect.x + 42, rect.y + ROW_H / 2);
         drawPlate(plate, key, 56, 0);
+        if (locked) plate.alpha = 0.35;
         this.listC.addChild(plate);
-        const name = makeText(def.name, 17, THEME.text, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: 170 });
+        const name = makeText(def.name, 17, locked ? THEME.disabled : THEME.text, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: 170 });
         name.position.set(rect.x + 82, rect.y + 12);
         const rarity = def.rarity && def.rarity !== 'common' ? `${def.rarity[0].toUpperCase()}${def.rarity.slice(1)} · ` : '';
-        const info = makeText(`${rarity}Owned ${p.owned[key] ?? 0} · Lv ${p.levels[key] ?? 1}/${maxLevelOf(key)}`, 13, THEME.textDim, { fontWeight: 'bold' });
+        const info = makeText(locked ? `${rarity}Locked: ${buttons[0].lock}` : `${rarity}Owned ${p.owned[key] ?? 0} · Lv ${p.levels[key] ?? 1}/${maxLevelOf(key)}`, 13, THEME.textDim, { fontWeight: 'bold' });
         info.position.set(rect.x + 82, rect.y + ROW_H - 28);
         const strip = new Graphics().rect(rect.x, rect.y, 4, rect.h).fill(CATEGORY_COLOR[def.category]);
         this.listC.addChild(strip, name, info);
@@ -318,6 +329,7 @@ export class ShopScreen implements Screen {
   }
 
   private pressInner(b: ShopButton) {
+    if (!b.enabled && b.lock) { this.toast.show(`Locked: ${b.lock} on the Frontier`); return; }
     if (!b.enabled) {
       this.toast.show(b.kind !== 'hull' && b.label === 'MAX' ? 'Already at max level' : 'Not enough credits');
       return;
