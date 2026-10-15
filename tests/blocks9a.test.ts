@@ -525,8 +525,8 @@ describe('old saves and old blocks', () => {
     for (const id of ['flat_plus', 'percent_mult', 'piercing', 'homing', 'aoe_circle', 'splitter_2', 'splitter_3']) expect(BLOCKS[id].maxLevel, id).toBeGreaterThanOrEqual(5);
     expect(describeBlock(BLOCKS.turn_l, 1)).toBe('Turns the signal 90° to the left.');
     expect(describeBlock(BLOCKS.splitter_2, 1)).toBe('Splits the signal into two full copies, one to the left and one to the right.');
-    expect(describeBlock(BLOCKS.lucky_strike, 1)).toContain('33% chance to double projectile damage.');
-    expect(describeBlock(BLOCKS.jackpot, 1)).toContain('4% chance to multiply projectile damage by 10.');
-    expect(describeBlock(BLOCKS.gamblers_gate, 1)).toContain('50% chance to triple projectile damage, otherwise the projectile is lost.');
+    expect(describeBlock(BLOCKS.lucky_strike, 1)).toBe('33% chance to double projectile damage.');
+    expect(describeBlock(BLOCKS.jackpot, 1)).toBe('4% chance to multiply projectile damage by 10.');
+    expect(describeBlock(BLOCKS.gamblers_gate, 1)).toBe('50% chance to triple projectile damage, otherwise the projectile is lost.');
   });
 });
