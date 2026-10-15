@@ -40,23 +40,34 @@ async function montage(page, shots, captions, file) {
 const screenName = (page) => page.evaluate(() => window.__mgbm && window.__mgbm.screen);
 const waitScreen = (page, name, timeout = 8000) => page.waitForFunction((n) => window.__mgbm && window.__mgbm.screen === n, name, { timeout });
 
-/** Frames per second while the camera pans every frame for ~2 s at a zoom (rAF-driven, the real render loop). */
+/**
+ * Frame rate at a zoom: idle (nothing changes) and while the camera pans every frame (~2 s, rAF-driven, the real render
+ * loop), plus the CPU time of the Frontier's own per-frame work (redraw + panel) without rendering.
+ */
 async function panFps(page, zoom) {
   return page.evaluate(async (zoom) => {
     const m = window.__mgbm;
     m.jump(0, 0, zoom);
     await new Promise(r => setTimeout(r, 400));
-    const gaps = [];
-    let frames = 0;
+    const measure = async (pan) => {
+      const gaps = [];
+      let frames = 0;
+      const t0 = performance.now();
+      let last = t0;
+      await new Promise(res => {
+        const step = (t) => { frames++; gaps.push(t - last); last = t; if (pan) m.pan(6, 2); if (t - t0 < 2000) requestAnimationFrame(step); else res(); };
+        requestAnimationFrame(step);
+      });
+      gaps.sort((a, b) => a - b);
+      return { fps: Math.round((frames / (performance.now() - t0)) * 1000), p95: Math.round(gaps[Math.floor(gaps.length * 0.95)]) };
+    };
+    const idle = await measure(false);
+    const pan = await measure(true);
+    const scr = window.__mgbmSm.currentScreen;
     const t0 = performance.now();
-    let last = t0;
-    await new Promise(res => {
-      const step = (t) => { frames++; gaps.push(t - last); last = t; m.pan(6, 2); if (t - t0 < 2000) requestAnimationFrame(step); else res(); };
-      requestAnimationFrame(step);
-    });
-    const el = performance.now() - t0;
-    gaps.sort((a, b) => a - b);
-    return { fps: Math.round((frames / el) * 1000), p95: Math.round(gaps[Math.floor(gaps.length * 0.95)]), drawn: m.state().drawnSquares, sprites: m.state().spritesUsed };
+    for (let i = 0; i < 30; i++) { scr.pan(6, 2); scr.update(1 / 60); }
+    const cpuMs = (performance.now() - t0) / 30;
+    return { idleFps: idle.fps, panFps: pan.fps, panP95: pan.p95, cpuMs: Math.round(cpuMs * 100) / 100, drawn: m.state().drawnSquares, sprites: m.state().spritesUsed };
   }, zoom);
 }
 
@@ -85,15 +96,18 @@ async function panFps(page, zoom) {
   await waitScreen(page, 'frontier');
   check(true, 'tapping it opens the Frontier screen');
 
-  // ---- States: clear rings 0..2 (cheat), mark one medal square of ring 3 passed.
+  // ---- States: clear rings 0..2 (cheat), then make the medal square nearest to the cleared area available (clear one
+  // open neighbour of it with the cheat) and mark it passed.
   const setup = await page.evaluate(() => {
     const m = window.__mgbm;
     m.clearRing(2);
     let pm = null;
-    for (let r = 3; r <= 6 && !pm; r++) {
+    for (let r = 3; r <= 12 && !pm; r++) {
       for (let y = -r; y <= r && !pm; y++) for (let x = -r; x <= r && !pm; x++) {
         if (Math.max(Math.abs(x), Math.abs(y)) !== r || !m.hasMedal(x, y)) continue;
-        if (m.stateAt(x, y) === 'available') pm = { x, y };
+        if (m.stateAt(x, y) === 'available') { pm = { x, y }; break; }
+        const n = [[0, -1], [1, 0], [0, 1], [-1, 0]].map(([dx, dy]) => ({ x: x + dx, y: y + dy })).find(q => m.stateAt(q.x, q.y) !== 'hole');
+        if (n && Math.max(Math.abs(n.x), Math.abs(n.y)) < r) { m.clearSquare(n.x, n.y); pm = { x, y }; }
       }
     }
     if (pm) { m.progress.data.frontier.sq[pm.x + ',' + pm.y] = 1; m.progress.commit(); }
@@ -147,7 +161,12 @@ async function panFps(page, zoom) {
   const fps = {};
   for (const zz of [5, 44, 110]) fps[zz] = await panFps(page, zz);
   fs.writeFileSync(path.join(OUT, 'pan-fps.json'), JSON.stringify(fps, null, 2));
-  for (const zz of [5, 44, 110]) check(fps[zz].fps >= 30, `panning at zoom ${zz}: ${fps[zz].fps} fps (p95 frame ${fps[zz].p95} ms, ${fps[zz].drawn} squares, ${fps[zz].sprites} sprites)`);
+  // Headless Chromium renders in software and runs well under 60 fps even idle on the Build screen, so the checks compare
+  // panning with idle on the same screen and bound the Frontier's own CPU time per frame (16.7 ms is a 60 fps frame).
+  for (const zz of [5, 44, 110]) {
+    const f = fps[zz];
+    check(f.panFps >= 0.6 * f.idleFps && f.cpuMs < 10, `zoom ${zz}: panning ${f.panFps} fps vs idle ${f.idleFps} (p95 frame ${f.panP95} ms), Frontier CPU ${f.cpuMs} ms/frame, ${f.drawn} squares, ${f.sprites} sprites`);
+  }
 
   // Far and near screenshots.
   await page.evaluate(() => window.__mgbm.jump(0, 0, 5));

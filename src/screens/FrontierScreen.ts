@@ -242,8 +242,9 @@ export class FrontierScreen implements Screen {
         if (sx + size < 0 || sx > VIEW_W) continue;
         const v = this.view(vi++);
         drawn++;
-        const band = bandColor(effectiveTier(x, y, seed));
         const medal = showMedal && st !== 'cleared' && world.hasMedal(x, y);
+        // Far locked squares are one flat grey: skip the tier roll for them (most of a far view).
+        const band = far && st === 'locked' ? 0 : bandColor(effectiveTier(x, y, seed));
         if (far) {
           const tint = st === 'cleared' ? band : st === 'passed' ? PASSED : st === 'available' ? shade(band, 0.55) : FAR_LOCKED;
           place(v.frame, sx, sy, size, tint);

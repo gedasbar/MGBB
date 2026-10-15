@@ -1,0 +1,26 @@
+{
+  "5": {
+    "idleFps": 19,
+    "panFps": 14,
+    "panP95": 100,
+    "cpuMs": 5.9,
+    "drawn": 11946,
+    "sprites": 11946
+  },
+  "44": {
+    "idleFps": 25,
+    "panFps": 23,
+    "panP95": 50,
+    "cpuMs": 0.36,
+    "drawn": 180,
+    "sprites": 575
+  },
+  "110": {
+    "idleFps": 27,
+    "panFps": 23,
+    "panP95": 50,
+    "cpuMs": 0.09,
+    "drawn": 35,
+    "sprites": 108
+  }
+}
