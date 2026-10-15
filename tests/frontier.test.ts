@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createHash } from 'crypto';
 import { generateLevel } from '../src/wall/generator';
-import { countBlocks } from '../src/wall/level';
-import { BLOCK_K, FRONTIER_SEED, MAP_BASE_TIER, MEDAL_BASE, MEDAL_MIN, START_SAFE_RING } from '../src/frontier/constants';
+import { countBlocks, rewardPerBlock } from '../src/wall/level';
+import { WallWorld } from '../src/wall/wallWorld';
+import { buildStarterGrid } from '../src/game/starter';
+import { defaultProgress, isFrontierUnlocked, loadProgress, ProgressStore, PROGRESS_VERSION, serializeProgress } from '../src/econ/progress';
+import { BLOCK_K, FRONTIER_SEED, MAP_BASE_TIER, MAP_UNLOCK_TIER, MEDAL_BASE, MEDAL_MIN, START_SAFE_RING } from '../src/frontier/constants';
 import { FrontierWorld, isLattice, medalChance, NEIGHBOURS, parseKey, ring, sector, sqKey } from '../src/frontier/world';
 import { frontierLevel, squareLevel } from '../src/frontier/level';
 import {
@@ -146,9 +148,9 @@ describe('Frontier square levels', () => {
   it('varies other levers too, not only HP: rows, armor, shields, speed, template, spikes', () => {
     const ps = [];
     for (let x = 0; x < 200; x++) ps.push(squareLevel(x, 20, SEED)); // one ring band (20..199) is enough to see spread
-    const ring20 = [];
+    const ring20: ReturnType<typeof squareLevel>[] = [];
     for (let x = -20; x <= 20; x++) ring20.push(squareLevel(x, -20, SEED));
-    const spread = (f: (p: (typeof ring20)[number]) => number) => {
+    const spread = (f: (p: ReturnType<typeof squareLevel>) => number) => {
       const v = ring20.map(f);
       return Math.max(...v) / Math.min(...v);
     };
@@ -168,13 +170,21 @@ describe('Frontier square levels', () => {
 });
 
 describe('Campaign tiers are unchanged by the Frontier', () => {
-  // Hashes of JSON.stringify(generateLevel(t)) taken on main before chunk 15a touched the generator.
-  const SNAP: Record<number, string> = {
-    1: '621ba931c3c5901e', 10: '0f087a7d35945ce9', 25: '5e2c2cb03dc0d9c2', 50: '466570efcb35fab1', 100: 'f4116fa64beac24a',
+  // Two FNV-style 32-bit hashes and the length of JSON.stringify(generateLevel(t)), taken with main's generator before
+  // chunk 15a touched it.
+  const fnv = (s: string) => {
+    let h = 0x811c9dc5;
+    let g = 0x01000193 ^ 0x5bd1e995;
+    for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h = Math.imul(h ^ c, 0x01000193) >>> 0; g = Math.imul(g ^ c, 0x5bd1e995) >>> 0; }
+    return h.toString(16).padStart(8, '0') + g.toString(16).padStart(8, '0');
+  };
+  const SNAP: Record<number, [string, number]> = {
+    1: ['76e35c05da9d477e', 2618], 10: ['25429cf3fcdd20fe', 4558], 25: ['0d28f9a0b9f6baef', 9816], 50: ['e9a040401b93c773', 18776], 100: ['120e08645e947e29', 28877],
   };
   for (const t of [1, 10, 25, 50, 100]) {
     it(`tier ${t}`, () => {
-      expect(createHash('sha256').update(JSON.stringify(generateLevel(t))).digest('hex').slice(0, 16)).toBe(SNAP[t]);
+      const j = JSON.stringify(generateLevel(t));
+      expect([fnv(j), j.length]).toEqual(SNAP[t]);
     });
   }
 });
@@ -275,5 +285,49 @@ describe('Frontier progress', () => {
     expect(f.sq).toEqual({ '1,0': 2, '0,1': 1 });
     expect(sanitizeFrontier(null)).toEqual(defaultFrontier());
     expect(sanitizeFrontier({ seed: 'no', sq: 5 })).toEqual(defaultFrontier());
+  });
+});
+
+describe('Frontier save (v7) and the wall run hook', () => {
+  it('a v6 save loads with an empty Frontier; a v7 save round-trips the squares', () => {
+    const v6 = { version: 6, credits: 40, clearedTiers: [1, 2, 3], passedTiers: [1, 2, 3], medals: 5 };
+    const p = loadProgress(JSON.stringify(v6));
+    expect(PROGRESS_VERSION).toBe(7);
+    expect(p.version).toBe(7);
+    expect(p.frontier).toEqual(defaultFrontier());
+    expect(p.medals).toBe(5);
+    p.frontier.sq['1,0'] = 2;
+    p.frontier.sq['0,-1'] = 1;
+    const back = loadProgress(serializeProgress(p));
+    expect(back.frontier.sq).toEqual({ '1,0': 2, '0,-1': 1 });
+    expect(back.frontier.seed).toBe(FRONTIER_SEED);
+  });
+
+  it('unlocks after campaign tier 25 is passed', () => {
+    const p = defaultProgress();
+    expect(isFrontierUnlocked(p)).toBe(false);
+    p.passedTiers = Array.from({ length: MAP_UNLOCK_TIER - 1 }, (_, i) => i + 1);
+    expect(isFrontierUnlocked(p)).toBe(false);
+    p.passedTiers.push(MAP_UNLOCK_TIER);
+    expect(isFrontierUnlocked(p)).toBe(true);
+  });
+
+  it('a real WallWorld run on a square books credits like the campaign and clears the square', () => {
+    const store = new ProgressStore(null, defaultProgress());
+    const params = squareLevel(1, 0, SEED);
+    const level = frontierLevel(params);
+    const w = new WallWorld(level, { grid: buildStarterGrid() });
+    w.destroyAll();
+    const expected = Math.floor(countBlocks(level) * rewardPerBlock(params.tier));
+    w.bank(store);
+    expect(store.data.credits).toBe(expected);
+    expect(store.data.frontier.sq['1,0']).toBe(2);
+    expect(squareState(store.data.frontier, 2, 0)).toBe('available');
+    expect(store.data.clearedTiers).toEqual([]); // the campaign is untouched
+    // A crash on another square books the credits of the blocks it destroyed and nothing else.
+    const w2 = new WallWorld(frontierLevel(squareLevel(0, 1, SEED)), { grid: buildStarterGrid() });
+    w2.bank(store);
+    expect(store.data.frontier.sq['0,1']).toBeUndefined();
+    expect(store.data.runs).toBe(2);
   });
 });
