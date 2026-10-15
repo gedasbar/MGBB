@@ -47,6 +47,8 @@ export const MAP_SPIKE_CHANCE = 1 / 8;
  */
 export type TileStyle = 'plate' | 'flat';
 export const TILE_STYLE: TileStyle = 'plate';
+/** The one progress colour of the Frontier (chunk 15b): passed = outline, cleared = fill, the panel's state text. */
+export const PROGRESS_COLOR = 0xb9a6f0;
 
 /** Screen: zoom in px per square. Below FAR_ZOOM a square is one flat sprite; the medal dot shows from MEDAL_DOT_ZOOM. */
 export const ZOOM_DEFAULT = 44;
@@ -56,3 +58,23 @@ export const FAR_ZOOM = 16;
 export const MEDAL_DOT_ZOOM = 8;
 /** Wheel zoom: factor exp(-deltaY * WHEEL_ZOOM_RATE), the Build screen's rate. */
 export const WHEEL_ZOOM_RATE = 0.0015;
+
+/** Free Fly squares (chunk 15b): share of squares (seeded per square; never the origin or its four neighbours). */
+export const FREEFLY_SHARE = 0.2;
+/** Length of a Free Fly square's encounter; surviving half of it passes the square, all of it clears it. */
+export const FREEFLY_SQUARE_SECONDS = 60;
+export const FREEFLY_PASS_SHARE = 0.5;
+/** Wave equivalent of an effective tier: round(FF_WAVE_AT_BASE + (tier - MAP_BASE_TIER) x FF_WAVES_PER_TIER), 1..FF_WAVE_CAP. */
+export const FF_WAVE_AT_BASE = 6;
+export const FF_WAVES_PER_TIER = 0.25;
+export const FF_WAVE_CAP = 30;
+/** Starting group: this share of the wave's point budget, spawned over the first FF_START_SPREAD seconds. */
+export const FF_START_SHARE = 0.4;
+export const FF_START_SPREAD = 3;
+/** Trickle: the normal wave's point rate (budget / SPAWN_WINDOW) x a seeded factor, ramping linearly to x FF_RAMP_END at the end. */
+export const FF_RAMP_END = 1.6;
+/** Seeded per-square ranges [min, max]: trickle rate, starting group, species weights, Ironclad / Warden weights (armor / shield share). */
+export const FF_TRICKLE_MUL: [number, number] = [0.8, 1.25];
+export const FF_START_MUL: [number, number] = [0.7, 1.4];
+export const FF_SPECIES_MUL: [number, number] = [0.6, 1.6];
+export const FF_ARMOR_SHIELD_MUL: [number, number] = [0.2, 2.5];

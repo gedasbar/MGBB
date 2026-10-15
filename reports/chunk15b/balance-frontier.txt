@@ -1,0 +1,10 @@
+Frontier Free Fly squares, 60 s encounters, FreeFlyBot, 3 plan seeds per cell (neutral weights / rates, no spike).
+Effective tier -> wave equivalent: 25 -> 6 (ring ~0), 35 -> 9 (ring ~33), 45 -> 11 (ring ~67), 60 -> 15 (ring ~117), 85 -> 21 (ring ~200)
+
+build                                       tier 25                   tier 35                   tier 45                   tier 60                   tier 85                   
+Dart: Flat+ L1 (starter)                     51 s PPC k5               41 s PPP k0               41 s PPP k0               32 s PPF k0               29 s FFP k0              
+Twin: Percent x L3, Flat+ L3                 60 s CCC k58              42 s PPP k15              41 s PPP k4               32 s PPF k0               29 s FFP k0              
+Prong: Splitter 3 L3, Flat+ L3, Turn L       60 s CCC k71              41 s PPP k12              41 s PPP k2               32 s PPF k0               29 s FFP k0              
+Fan: Flat+ L3, Splitter 3 L3, Turn R / L     60 s CCC k120             43 s PPP k36              43 s PPP k18              31 s PPF k0               29 s FFP k0              
+
+Cell: mean seconds survived, outcome per seed (C cleared, P passed, F failed), mean kills.

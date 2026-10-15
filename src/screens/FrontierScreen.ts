@@ -7,6 +7,7 @@ import { ShopScreen } from './ShopScreen';
 import { CaptainScreen } from './CaptainScreen';
 import { MapScreen } from './MapScreen';
 import { WallScreen } from './WallScreen';
+import { FlyScreen } from './FlyScreen';
 import { GestureTracker } from '../builder/gestures';
 import { getBuilderModel } from '../builder/session';
 import { inRect, LAYOUT, Rect, VIEW_W } from '../builder/layout';
@@ -15,12 +16,15 @@ import { makeText, Toast, UIButton } from '../builder/ui';
 import { getProgressStore, isFrontierUnlocked } from '../econ/progress';
 import { CreditsBadge, textButton, TextButton } from '../ui/hud';
 import { fmtBig } from '../ui/format';
-import { CATEGORY_COLOR, THEME } from '../ui/theme';
+import { THEME } from '../ui/theme';
 import type { StatsInfo } from '../ui/stats';
 import {
-  FAR_ZOOM, FRONTIER_NAME, MAP_UNLOCK_TIER, MEDAL_DOT_ZOOM, TILE_STYLE, TileStyle, WHEEL_ZOOM_RATE, ZOOM_MAX, ZOOM_MIN,
+  FAR_ZOOM, FREEFLY_SQUARE_SECONDS, FRONTIER_NAME, MAP_UNLOCK_TIER, MEDAL_DOT_ZOOM, PROGRESS_COLOR, TILE_STYLE, TileStyle,
+  WHEEL_ZOOM_RATE, ZOOM_MAX, ZOOM_MIN,
 } from '../frontier/constants';
-import { effectiveTier, frontierLevel, isSpikeSquare, squareLevel } from '../frontier/level';
+import { frontierLevel, isSpikeSquare, squareKind, squareLevel } from '../frontier/level';
+import { tileLook } from '../frontier/look';
+import { blockName, UNLOCK_RINGS, UNLOCK_SECTORS, UNLOCKS, unlockOnSquare } from '../frontier/unlocks';
 import { frontierSession, frontierJump } from '../frontier/session';
 import {
   canPlay, frontierCounts, frontierSquare, medalShown, nearestMedalSquare, SquareState, squareState,
@@ -36,25 +40,12 @@ export const FRONTIER_MAP: Rect = { x: 0, y: TOP, w: VIEW_W, h: PANEL_Y - TOP };
 const MCX = FRONTIER_MAP.x + FRONTIER_MAP.w / 2;
 const MCY = FRONTIER_MAP.y + FRONTIER_MAP.h / 2;
 
-/**
- * Neutral greys (chunk 15a-fix): colour only where it means something (cleared fill, lavender pass outline, yellow medal,
- * red spike). Locked is just above the background (#1c1c1e) with a barely visible inner square; available is a clearly
- * lighter plate with the dark inner square.
- */
-const LOCKED_PLATE = 0x2b2b2e;
-const LOCKED_INNER = 0x232326;
-const AVAIL_PLATE = 0x5e5e64;
-const INNER = 0x26262a;
-/** Lavender outline of a passed square. */
-const PASSED = 0xb9a6f0;
-/** Cleared colour by effective-tier band of 20 tiers: the five block category colours. */
-const BAND_COLORS = [CATEGORY_COLOR.pathing, CATEGORY_COLOR.status, CATEGORY_COLOR.modifier, CATEGORY_COLOR.damage, CATEGORY_COLOR.mitosis];
-const BAND_TIERS = 20;
-export const bandColor = (tier: number) => BAND_COLORS[Math.max(0, Math.min(BAND_COLORS.length - 1, Math.floor((tier - 1) / BAND_TIERS)))];
-const shade = (c: number, k: number) => (Math.round(((c >> 16) & 255) * k) << 16) | (Math.round(((c >> 8) & 255) * k) << 8) | Math.round((c & 255) * k);
-
 const STATE_LABEL: Record<SquareState, string> = { hole: 'Empty space', locked: 'Locked', available: 'Available', passed: 'Passed', cleared: 'Cleared' };
-const STATE_COLOR: Record<SquareState, number> = { hole: THEME.textDim, locked: THEME.textDim, available: THEME.text, passed: PASSED, cleared: THEME.good };
+/** Panel state text: progress states in the one progress colour (chunk 15b: no green). */
+const STATE_COLOR: Record<SquareState, number> = { hole: THEME.textDim, locked: THEME.textDim, available: THEME.text, passed: PROGRESS_COLOR, cleared: PROGRESS_COLOR };
+/** Threshold rings: thin, dim. */
+const RING_LINE = 0x8a8a90;
+const RING_ALPHA = 0.35;
 
 interface SquareView { frame: Sprite; mid: Sprite; inner: Sprite; medal: Sprite; spike: Sprite }
 
@@ -79,6 +70,11 @@ export class FrontierScreen implements Screen {
   private selG = new Graphics();
   private views: SquareView[] = [];
   private triTex: Texture;
+  private dotTex: Texture;
+  private ringG = new Graphics();
+  /** The Unlocks panel (a modal over the map). */
+  private unlocksC = new Container();
+  unlocksOpen = false;
   private buttons: UIButton[] = [];
   private playButton: TextButton;
   private gestures: GestureTracker | null = null;
@@ -112,6 +108,8 @@ export class FrontierScreen implements Screen {
       .rect(LAYOUT.tabs.x, LAYOUT.tabs.y, LAYOUT.tabs.w, 1).fill(THEME.border);
     // The spike mark is a corner triangle (as on the campaign map): one shared texture, tinted.
     this.triTex = sm.app.renderer.generateTexture(new Graphics().poly([0, 0, 32, 0, 0, 32]).fill(0xffffff));
+    // Free Fly squares carry a round inner dot instead of the square one.
+    this.dotTex = sm.app.renderer.generateTexture(new Graphics().circle(32, 32, 32).fill(0xffffff));
 
     this.title.anchor.set(0, 0.5);
     this.title.position.set(64, 27);
@@ -119,14 +117,16 @@ export class FrontierScreen implements Screen {
     this.medalsText.position.set(64 + this.title.width + 16, 28);
 
     const back = textButton('frontierBack', { x: 6, y: 6, w: 46, h: 40 }, '<', () => this.sm.switchTo(new MapScreen(this.sm)), 24);
-    const bw = Math.floor((VIEW_W - 4 * 10) / 3);
+    const bw = Math.floor((VIEW_W - 5 * 8) / 4);
     const by = PANEL_Y + 10;
-    const recenter = textButton('frontierRecenter', { x: 10, y: by, w: bw, h: 44 }, 'Recenter', () => this.goTo(0, 0), 17);
-    const medal = textButton('frontierMedal', { x: 20 + bw, y: by, w: bw, h: 44 }, 'Nearest medal', () => this.goMedal(), 17);
-    const edge = textButton('frontierEdge', { x: 30 + 2 * bw, y: by, w: bw, h: 44 }, FRONTIER_NAME, () => this.goEdge(), 17);
+    const bx = (i: number) => 8 + i * (bw + 8);
+    const recenter = textButton('frontierRecenter', { x: bx(0), y: by, w: bw, h: 44 }, 'Recenter', () => this.goTo(0, 0), 15);
+    const medal = textButton('frontierMedal', { x: bx(1), y: by, w: bw, h: 44 }, 'Nearest medal', () => this.goMedal(), 15);
+    const edge = textButton('frontierEdge', { x: bx(2), y: by, w: bw, h: 44 }, FRONTIER_NAME, () => this.goEdge(), 15);
+    const unlocks = textButton('frontierUnlocks', { x: bx(3), y: by, w: bw, h: 44 }, 'Unlocks', () => this.openUnlocks(), 15);
     this.playButton = textButton('frontierPlay', { x: VIEW_W - 14 - 150, y: TABS_Y - 12 - 56, w: 150, h: 56 }, 'PLAY', () => this.play(), 24);
     const tabs = makeTabButtons('tabMap', (id) => this.tapTab(id));
-    this.buttons.push(back, recenter, medal, edge, this.playButton, ...tabs);
+    this.buttons.push(back, recenter, medal, edge, unlocks, this.playButton, ...tabs);
 
     const lx = 14;
     this.line1.position.set(lx, PANEL_Y + 64);
@@ -136,9 +136,11 @@ export class FrontierScreen implements Screen {
     this.spikeText.position.set(lx, PANEL_Y + 146);
     this.countText.position.set(lx, PANEL_Y + 172);
 
-    this.container.addChild(bg, this.tiles, this.selG, chrome, this.title, this.medalsText, this.credits.container,
+    this.container.addChild(bg, this.tiles, this.ringG, this.selG, chrome, this.title, this.medalsText, this.credits.container,
       this.line1, this.line2, this.stateText, this.medalText, this.spikeText, this.countText);
     for (const b of this.buttons) this.container.addChild(b.container);
+    this.unlocksC.visible = false;
+    this.container.addChild(this.unlocksC);
     this.toast.container.y = -150; // above the panel
     this.container.addChild(this.toast.container);
 
@@ -250,25 +252,24 @@ export class FrontierScreen implements Screen {
         drawn++;
         const medal = showMedal && st !== 'cleared' && world.hasMedal(x, y);
         const locked = st === 'locked';
-        // Only a cleared square is coloured: the tier roll is skipped for every other square.
-        const band = st === 'cleared' ? bandColor(effectiveTier(x, y, seed)) : 0;
-        const plateTint = st === 'cleared' ? band : locked ? LOCKED_PLATE : AVAIL_PLATE;
-        // The outer sprite: the plate itself, or the lavender outline (passed) / darker edge (cleared, plate style) around it.
-        const edge = st === 'passed' ? PASSED : st === 'cleared' && !far && this.tileStyle === 'plate' ? shade(band, 0.7) : -1;
+        const kind = squareKind(x, y, seed);
+        const look = tileLook(st, kind, this.tileStyle, far);
+        // The outer sprite: the plate itself, or the lavender outline (passed) around the plate.
         v.spike.visible = false;
-        if (edge < 0) {
-          place(v.frame, sx, sy, size, plateTint);
+        if (look.edge === null) {
+          place(v.frame, sx, sy, size, look.plate);
           v.mid.visible = false;
           used++;
         } else {
           const w = far ? Math.max(1, Math.round(size * 0.2)) : Math.max(2, Math.round(size * 0.08));
-          place(v.frame, sx, sy, size, edge);
-          place(v.mid, sx + w, sy + w, size - 2 * w, plateTint);
+          place(v.frame, sx, sy, size, look.edge);
+          place(v.mid, sx + w, sy + w, size - 2 * w, look.plate);
           used += 2;
         }
-        if (!far && this.tileStyle === 'plate' && st !== 'cleared') {
-          const m2 = Math.round(size * 0.27);
-          place(v.inner, sx + m2, sy + m2, size - 2 * m2, locked ? LOCKED_INNER : INNER);
+        if (look.inner) {
+          const m2 = Math.round(size * (look.inner.shape === 'dot' ? 0.36 : 0.27));
+          v.inner.texture = look.inner.shape === 'square' ? Texture.WHITE : this.dotTex;
+          place(v.inner, sx + m2, sy + m2, size - 2 * m2, look.inner.color);
           used++;
         } else v.inner.visible = false;
         if (!far && isSpikeSquare(x, y, seed)) {
@@ -293,6 +294,7 @@ export class FrontierScreen implements Screen {
     this.lastViews = vi;
     this.drawnSquares = drawn;
     this.spritesUsed = used;
+    this.drawRings(size);
     // Selection outline.
     this.selG.clear();
     const sel = this.squareScreen(s.sel.x, s.sel.y);
@@ -300,6 +302,32 @@ export class FrontierScreen implements Screen {
       const r = size / 2 + Math.max(2, z * 0.06);
       this.selG.rect(sel.x - r, sel.y - r, 2 * r, 2 * r).stroke({ color: THEME.select, width: far ? 2 : 3 });
     }
+  }
+
+  /** Threshold rings: a thin dim square at the inner edge of each unlock ring, only when one of its sides is in view. */
+  private drawRings(size: number) {
+    const s = frontierSession;
+    const g = this.ringG.clear();
+    const m = FRONTIER_MAP;
+    const half = size / 2 + (s.zoom - size) / 2; // half a square, gap included
+    let any = false;
+    for (const R of UNLOCK_RINGS) {
+      const a = this.squareScreen(-R, -R);
+      const b = this.squareScreen(R, R);
+      const x0 = a.x - half, y0 = a.y - half, x1 = b.x + half, y1 = b.y + half;
+      // Inner edge of ring R = outer edge of ring R-1: move in by one square.
+      const k = s.zoom;
+      const X0 = x0 + k, Y0 = y0 + k, X1 = x1 - k, Y1 = y1 - k;
+      const inX = (x: number) => x >= m.x && x <= m.x + m.w;
+      const inY = (y: number) => y >= m.y && y <= m.y + m.h;
+      const spanX = X1 >= m.x && X0 <= m.x + m.w;
+      const spanY = Y1 >= m.y && Y0 <= m.y + m.h;
+      const visible = (spanX && (inY(Y0) || inY(Y1))) || (spanY && (inX(X0) || inX(X1)));
+      if (!visible) continue;
+      g.rect(X0, Y0, X1 - X0, Y1 - Y0);
+      any = true;
+    }
+    if (any) g.stroke({ color: RING_LINE, width: 1.5, alpha: RING_ALPHA });
   }
 
   private view(i: number): SquareView {
@@ -321,7 +349,8 @@ export class FrontierScreen implements Screen {
     const counts = frontierCounts(this.f);
     this.medalsText.text = `Medals ${fmtBig(p.medals)}`;
     this.countText.text = `${fmtBig(counts.cleared)} cleared · ${fmtBig(counts.passed - counts.cleared)} passed`;
-    this.line1.text = `(${fmtBig(x)}, ${fmtBig(y)})`;
+    const kind = st === 'hole' ? null : squareKind(x, y, this.f.seed);
+    this.line1.text = `(${fmtBig(x)}, ${fmtBig(y)})` + (kind === 'freefly' ? `  ·  Free Fly, survive ${FREEFLY_SQUARE_SECONDS} s` : kind === 'wall' ? '  ·  Wall' : '');
     if (st === 'hole') {
       this.line2.text = `Ring ${fmtBig(ring(x, y))}  ·  ${SECTOR_NAME[sector(x, y)]}`;
       this.stateText.text = STATE_LABEL.hole;
@@ -333,8 +362,15 @@ export class FrontierScreen implements Screen {
       this.stateText.text = STATE_LABEL[st];
       this.medalText.text = medalShown(this.f, x, y) ? '·  Medal on first clear' : '';
       this.medalText.x = this.stateText.x + this.stateText.width + 10;
-      this.spikeText.text = lv.spike ? 'SPIKE: every block has 1.6x HP' : '';
+      this.spikeText.text = lv.spike ? (kind === 'freefly' ? 'SPIKE: every enemy has 1.6x HP' : 'SPIKE: every block has 1.6x HP') : '';
     }
+    // A square on a threshold ring names its unlock (in place of the counts line).
+    const u = unlockOnSquare(x, y);
+    if (u) {
+      const got = this.store.frontierReach[u.sector] >= u.ring;
+      this.countText.text = `Ring ${u.ring} ${SECTOR_NAME[u.sector]} unlocks ${blockName(u.blockId)}${got ? ' (reached)' : ''}`;
+      this.countText.style.fill = PROGRESS_COLOR;
+    } else this.countText.style.fill = THEME.textDim;
     this.stateText.style.fill = STATE_COLOR[st];
     const ok = canPlay(this.f, x, y);
     this.playButton.setEnabled(ok);
@@ -368,6 +404,7 @@ export class FrontierScreen implements Screen {
   }
 
   tap(x: number, y: number) {
+    if (this.unlocksOpen) { this.closeUnlocks(); return; } // any tap closes the Unlocks panel
     const b = this.buttons.find(bb => bb.hit(x, y));
     if (b) {
       if (b.enabled) { b.flash(); b.spec.onTap(); }
@@ -398,11 +435,62 @@ export class FrontierScreen implements Screen {
     if (!canPlay(this.f, x, y)) return;
     const model = getBuilderModel();
     if (model.compiled.recipes.length === 0) { this.toast.show("Your circuit doesn't reach an ejector"); return; }
-    this.sm.switchTo(new WallScreen(this.sm, frontierLevel(squareLevel(x, y, this.f.seed)), model.gridForFlight()));
+    const lv = squareLevel(x, y, this.f.seed);
+    if (lv.fly) this.sm.switchTo(new FlyScreen(this.sm, model.gridForFlight(), { frontier: { x, y, params: lv.fly, spike: lv.spike, squareTier: lv.tier } }));
+    else this.sm.switchTo(new WallScreen(this.sm, frontierLevel(lv), model.gridForFlight()));
+  }
+
+  // ------------------------------------------------------------------ unlocks panel
+  /** Lists the 16 directional unlocks (direction, ring, block, reached) and the furthest ring in each direction. */
+  openUnlocks() {
+    for (const ch of this.unlocksC.removeChildren()) ch.destroy({ children: true });
+    const m = FRONTIER_MAP;
+    const reach = this.store.frontierReach;
+    const g = new Graphics().rect(m.x, m.y, m.w, m.h).fill({ color: THEME.bg, alpha: 0.96 }).rect(m.x + 10, m.y + 10, m.w - 20, m.h - 20).stroke({ color: THEME.border, width: 1.5 });
+    this.unlocksC.addChild(g);
+    const title = makeText('Unlocks', 22, THEME.text, { fontWeight: 'bold' });
+    title.position.set(m.x + 24, m.y + 20);
+    const sub = makeText('Go far in a direction to unlock blocks there (placeholders for later legendary blocks). Tap to close.', 13, THEME.textDim, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: m.w - 48 });
+    sub.position.set(m.x + 24, m.y + 52);
+    this.unlocksC.addChild(title, sub);
+    let y = m.y + 92;
+    for (const sec of UNLOCK_SECTORS) {
+      const h = makeText(`${SECTOR_NAME[sec]}  ·  furthest ring ${fmtBig(reach[sec])}`, 16, THEME.text, { fontWeight: 'bold' });
+      h.position.set(m.x + 24, y);
+      this.unlocksC.addChild(h);
+      y += 26;
+      for (const u of UNLOCKS.filter(e => e.sector === sec)) {
+        const got = reach[sec] >= u.ring;
+        const row = makeText(`Ring ${u.ring}`, 15, got ? PROGRESS_COLOR : THEME.textDim, { fontWeight: 'bold' });
+        row.position.set(m.x + 40, y);
+        const name = makeText(blockName(u.blockId), 15, got ? THEME.text : THEME.textDim, { fontWeight: 'bold' });
+        name.position.set(m.x + 140, y);
+        const st = makeText(got ? 'Unlocked' : 'Locked', 15, got ? PROGRESS_COLOR : THEME.textDim, { fontWeight: 'bold' });
+        st.anchor.set(1, 0);
+        st.position.set(m.x + m.w - 30, y);
+        this.unlocksC.addChild(row, name, st);
+        y += 24;
+      }
+      y += 10;
+    }
+    this.unlocksC.visible = true;
+    this.unlocksOpen = true;
+  }
+
+  closeUnlocks() {
+    this.unlocksC.visible = false;
+    this.unlocksOpen = false;
+  }
+
+  /** Lines of the open Unlocks panel (e2e hook). */
+  private unlocksText(): string[] {
+    return this.unlocksC.children.filter((c: any) => typeof c.text === 'string').map((c: any) => c.text);
   }
 
   update(dt: number) {
     this.toast.update(dt * 1000);
+    const notices = this.store.takeUnlockNotices();
+    if (notices.length) this.toast.show(notices.join('\n'), 3500);
     if (this.dirty) {
       this.dirty = false;
       this.redraw();
@@ -422,6 +510,7 @@ export class FrontierScreen implements Screen {
     if (frontierSession.onChange) frontierSession.onChange = null;
     this.container.destroy({ children: true });
     this.triTex.destroy(true);
+    this.dotTex.destroy(true);
   }
 
   private installDevHook() {
@@ -433,7 +522,8 @@ export class FrontierScreen implements Screen {
       state: () => ({
         camera: { cx: frontierSession.cx, cy: frontierSession.cy, zoom: frontierSession.zoom },
         selected: { ...frontierSession.sel },
-        panel: { line1: this.line1.text, line2: this.line2.text, state: this.stateText.text, medal: this.medalText.text, spike: this.spikeText.text, play: this.playButton.enabled },
+        panel: { line1: this.line1.text, line2: this.line2.text, state: this.stateText.text, medal: this.medalText.text, spike: this.spikeText.text, note: this.countText.text, play: this.playButton.enabled },
+        unlocksOpen: this.unlocksOpen,
         drawnSquares: this.drawnSquares, spritesUsed: this.spritesUsed, pool: this.views.length * 5,
         medals: store.data.medals, credits: store.data.credits, sq: { ...store.data.frontier.sq }, toast: this.toast.message,
       }),
@@ -446,6 +536,12 @@ export class FrontierScreen implements Screen {
       zoomAt: (f: number, x: number, y: number) => this.zoomAt(f, x, y),
       play: () => this.play(),
       setTileStyle: (t: TileStyle) => { this.tileStyle = t; this.dirty = true; },
+      kindAt: (x: number, y: number) => squareKind(x, y, this.f.seed),
+      spikeAt: (x: number, y: number) => isSpikeSquare(x, y, this.f.seed),
+      openUnlocks: () => this.openUnlocks(),
+      closeUnlocks: () => this.closeUnlocks(),
+      unlocksText: () => this.unlocksText(),
+      reach: () => ({ ...store.frontierReach }),
       unlock: () => unlockFrontier(store),
       clearSquare: (x: number, y: number) => clearFrontierSquare(store, x, y),
       clearRing: (r: number) => clearFrontierRing(store, r),

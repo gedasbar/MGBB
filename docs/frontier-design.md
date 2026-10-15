@@ -76,3 +76,53 @@ its spec exactly as before (snapshot test of tiers 1, 10, 25, 50, 100 against ha
 - Returning to the Frontier goes through the run summary (one tap), not straight back.
 - Far zoom stops at 5 px per square (about 110 x 150 squares on screen): one sprite per square keeps the code to one
   drawing path; lower zooms would need a texture.
+
+# Chunk 15b – look, Free Fly squares, directional unlocks
+
+## 8. Look (step 2)
+The neutral-grey plates of 15a-fix are already on main (merged with 15a), so this step only changes what is still
+coloured: **one progress colour, lavender** (`PROGRESS_COLOR` in `src/frontier/constants.ts`). Passed = lavender
+outline on the available plate; cleared = solid lavender fill, no inner square (the effective-tier band colours are
+removed). The panel's green "Cleared" text becomes lavender. Medal (yellow), spike (salmon / THEME.bad corner), white
+selection outline and empty holes stay. The tints per state and style come from one pure function
+(`src/frontier/look.ts`) so they can be unit-tested; `TILE_STYLE = 'plate' | 'flat'` already exists (default plate).
+The white selection outline is drawn outside the square, so it shows on a lavender fill.
+
+## 9. Free Fly squares (step 3)
+- `kind = 'wall' | 'freefly'` from a seeded hash per square (`FREEFLY_SHARE = 0.2`), never on the origin or its four
+  neighbours. Derived, never stored.
+- Look: Free Fly squares have a round inner dot instead of the square one (plate style, locked and available; a smaller
+  dot in flat style). Panel line says "Free Fly". Medal and spike markers work the same.
+- Engine: `World` gets an optional `encounter` (a pure plan from `planEncounter`), used by `FlyScreen` in a Frontier
+  mode. Without it every code path is the old one (the encounter director replaces the wave director only when given;
+  HP multiplies by the spike factor, 1 otherwise). A test pins waves 1-30 of normal Free Fly (director plans and a real
+  World stepped 10 s into each wave) to hashes taken on main before the change.
+- Encounter plan: a starting group (a share of the wave's budget, spread over the first 3 s), then a trickle whose
+  point rate starts at the normal wave's rate (budget / 30 s) times a seeded factor and ramps up linearly to x1.6 at the
+  end; species drawn by the normal weights x seeded multipliers (Ironclad = armored and Warden = shielded get the widest
+  range, which is how the armor / shield share varies); the director's ALIVE_HOLD still applies.
+- Difficulty: `waveEquivalent(tier) = clamp(round(6 + (tier - 25) x 0.25), 1, 30)`; HP = rockHp(the tier normal Free Fly
+  has at the start of that wave) x species x waveHpMul(wave) x 1.6 on spike squares (and the Ember background).
+  Rewards per kill as in Free Fly (same formula, that tier).
+- Rules: `FREEFLY_SQUARE_SECONDS = 60`. Survive the full time = CLEARED (the run ends there), die (or quit) after at
+  least half = PASSED, earlier = FAILED (nothing changes). Credits per kill every run. Medal on the first clear of a
+  medal square. Free Fly records (best wave / time) and milestones are not touched by encounters.
+- HUD: a countdown bar at the top with a mark at half time, "Survive 0:42" text; summary title "Encounter cleared /
+  passed / failed" with Survived, Kills, Result rows and Frontier / Retry / Build buttons.
+- Bot report: the existing FreeFlyBot flies encounters at several effective tiers with Dart / Twin / Prong / Fan builds
+  (a script, `npm run balance-frontier`), results in the report and DECISIONS. No tuning.
+
+## 10. Directional unlocks (step 4)
+- `reach(sector)` = highest ring of a passed / cleared square in that sector, **derived from the saved squares** (no
+  new save field; cached on the store and recomputed on commit).
+- `src/frontier/unlocks.ts`: 4 sectors x rings [10, 25, 50, 100] (`UNLOCK_RINGS`), one gated block each (16). The
+  gated set is the 21 blocks of chunks 9a and 11a minus five left free (one per category, the cheaper ones).
+- A block is unlocked when it is not gated, or the player owns a copy (grandfather: no existing save loses anything),
+  or its sector's reach is >= its ring. Shop: a locked gated block shows greyed "Reach ring 25 West", the buy button is
+  disabled and `buyCopy` refuses it too. No save shape change, so **no version bump** (the grandfather rule needs no
+  migration step: it reads the owned counts; it is unit-tested on an old save).
+- Toast "Unlocked: <block>": the store compares the unlocked set before and after every commit and queues what is new
+  (so it fires once, whatever caused it: a run, a cheat); the Frontier screen shows the queue (where a run returns to).
+- Map: thin dim square outlines at the inner edge of each threshold ring (drawn only when in view), an "Unlocks" button
+  that opens a panel listing the 16 entries (direction, ring, block, reached or not) and the furthest ring per
+  direction; a square on a threshold ring names its unlock in the panel.

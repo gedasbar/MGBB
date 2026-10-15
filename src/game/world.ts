@@ -18,6 +18,8 @@ import { fissionCooldown, SPILL_CHAIN_DEPTH, WELL_RADIUS } from '../engine/effec
 import { PROJECTILE_MAX_AGE } from '../wall/constants';
 import { FREEFLY_REWARD_MUL, freeFlyRewardTier, waveBonus, waveHpMul, WAVE_TIME } from '../data/waves';
 import { PlannedSpawn, WaveDirector } from './waves';
+import { ALIVE_HOLD } from '../data/waves';
+import { EncounterDirector } from '../frontier/encounter';
 import { SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC } from '../wall/constants';
 import type { MitosisEnemy } from '../engine/mitosis';
 import { neutralModifiers, RunModifiers } from '../captains/modifiers';
@@ -93,8 +95,15 @@ export class World {
   private swayDir = new Map<number, number>();
   private pulseTimer = 0;
   /** Waves (chunk 10a): the seeded director, the spawns due this frame, and the credits paid as wave bonuses. */
-  director: WaveDirector;
+  director: WaveDirector | EncounterDirector;
   readonly seed: number;
+  /**
+   * Frontier encounter (chunk 15b): a fixed plan, a fixed tier, an extra HP multiplier (spike) and a duration. When it is
+   * absent (normal Free Fly) nothing below changes: the wave director, the time-based tier and HP x 1.
+   */
+  readonly encounter: { plan: PlannedSpawn[]; wave: number; tier: number; hpMul: number; duration: number } | null;
+  /** Encounter only: the ship survived the whole duration (the run ends then, gameOver is set too). */
+  survived = false;
   private due: PlannedSpawn[] = [];
   bonusCredits = 0;
   /** Waves that started during the last update() calls (the screen shows a banner); consumers clear it. */
@@ -117,13 +126,14 @@ export class World {
   /** Dev cheat: the run starts at this wave (run time and tier follow it); 1 = normal. */
   private startWave: number;
 
-  constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean; seed?: number; startWave?: number; modifiers?: RunModifiers } = {}) {
+  constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean; seed?: number; startWave?: number; modifiers?: RunModifiers; encounter?: World['encounter'] } = {}) {
     this.mods = opts.modifiers ?? neutralModifiers();
+    this.encounter = opts.encounter ?? null;
     this.maxHull = BASE_HULL * this.mods.hullMul;
     this.hull = this.maxHull;
     this.secondChancesLeft = this.mods.secondChances;
     this.seed = opts.seed ?? 1;
-    this.director = new WaveDirector(this.seed);
+    this.director = this.makeDirector();
     this.startWave = Math.max(1, Math.floor(opts.startWave ?? 1));
     this.applyStartWave();
     const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage });
@@ -151,8 +161,12 @@ export class World {
     };
   }
 
-  /** Tier of the run: starts at 1 and rises by one every 15 seconds of survival. */
-  get tier(): number { return tierOfTime(this.time); }
+  /** Tier of the run: starts at 1 and rises by one every 15 seconds of survival (an encounter's tier is fixed). */
+  get tier(): number { return this.encounter ? this.encounter.tier : tierOfTime(this.time); }
+
+  private makeDirector(): WaveDirector | EncounterDirector {
+    return this.encounter ? new EncounterDirector(this.encounter.wave, this.encounter.plan, ALIVE_HOLD) : new WaveDirector(this.seed);
+  }
 
   private applyStartWave() {
     this.time = (this.startWave - 1) * WAVE_TIME;
@@ -233,8 +247,9 @@ export class World {
     this.maxTier = 1;
     this.leaks = 0;
     this.killEvents.length = 0;
-    this.director = new WaveDirector(this.seed);
+    this.director = this.makeDirector();
     this.applyStartWave();
+    this.survived = false;
     this.bonusCredits = 0;
     this.waveEvents.length = 0;
     this.hull = this.maxHull;
@@ -319,6 +334,8 @@ export class World {
   update(dt: number, pointer: PointerState) {
     if (this.gameOver) return;
     this.time += dt;
+    // An encounter ends when its time is up: the ship survived it.
+    if (this.encounter && this.time >= this.encounter.duration) { this.time = this.encounter.duration; this.survived = true; this.gameOver = true; return; }
     if (this.tier > this.maxTier) this.maxTier = this.tier;
     if (this.invuln > 0) this.invuln -= dt;
     const VW = CONFIG.VIEW.W;
@@ -372,7 +389,7 @@ export class World {
         this.creditsExact += bonus;
         this.waveEvents.push({ wave: started, bonus });
       }
-      const hpMul = waveHpMul(this.director.wave);
+      const hpMul = waveHpMul(this.director.wave) * (this.encounter ? this.encounter.hpMul : 1);
       for (const s of this.due) {
         this.spawnSpecies(s.defId, s.x, -s.radius, { hp: wholeRockHp(rockHp(this.tier) * s.hpMul * hpMul), radius: s.radius, generation: s.generation });
       }

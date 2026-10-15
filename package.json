@@ -17,7 +17,8 @@
     "balance-wall": "vite-node scripts/balance-wall.ts",
     "balance-blocks": "vite-node scripts/balance-blocks11a.ts",
     "balance-captains": "vite-node scripts/balance-captains.ts",
-    "balance-damage": "vite-node scripts/balance-damage.ts"
+    "balance-damage": "vite-node scripts/balance-damage.ts",
+    "balance-frontier": "vite-node scripts/balance-frontier.ts"
   },
   "devDependencies": {
     "@vitest/ui": "^2.1.2",
