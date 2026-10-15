@@ -11,23 +11,6 @@ export const alternatorMul = (l: number) => 2 + 0.1 * (l - 1);
 export const delaySeconds = (l: number) => 0.1 * l;
 
 // ---- Damage
-/**
- * Diminishing returns on stacking multipliers (chunk 14a): the n-th damage multiplier on one line (n = 0 for the first, in
- * path order, whatever its type) adds STACK_DECAY^n of its bonus. Percent x L5 is x3.5, a second multiplier of x3.5 adds
- * x2.25, a third x1.63 ... A line stays under about x22 at level 5 however many multipliers it holds; without this a long
- * Fan / Shuttle line of a dozen different multipliers fired 30,000-damage shots, and eight Percent x L5 were x22,000.
- */
-export const STACK_DECAY = 0.5;
-/** The multiplier blocks that share the decay (Splitter 2/3 and Capacitor only from level 2, where they carry a bonus). */
-export const STACKING_BLOCKS = ['percent_mult', 'lucky_strike', 'jackpot', 'gamblers_gate', 'overclock', 'capacitor', 'alternator', 'splitter_2', 'splitter_3'];
-const STACK_TAG = 'stack:mult:';
-/** Share of its bonus that the next multiplier on this packet's line keeps (1, 0.5, 0.25 ...); records it on the packet. */
-export function stackShare(tags: Set<string>): number {
-  let n = 0;
-  while (tags.has(STACK_TAG + n)) n++;
-  tags.add(STACK_TAG + n);
-  return Math.pow(STACK_DECAY, n);
-}
 /** Flat+: damage added per block level (chunk 14a: +1, the size of the basic shot; it was +100). */
 export const FLAT_PLUS_PER_LEVEL = 1;
 export const flatPlusAdd = (l: number) => FLAT_PLUS_PER_LEVEL * l;
@@ -39,10 +22,10 @@ export const OVERCLOCK_WINDOW = 1;
 /** Stats strip: Overclock is shown at its average over this many packets of an unbroken streak. */
 export const OVERCLOCK_AVG_PACKETS = 60;
 /** The average multiplier of an unbroken streak over OVERCLOCK_AVG_PACKETS packets (packet n has streak n). */
-export function overclockAverage(l: number, share = 1): number {
-  const g = overclockGain(l) * share;
+export function overclockAverage(l: number): number {
+  const g = overclockGain(l);
   let s = 0;
-  for (let n = 0; n < OVERCLOCK_AVG_PACKETS; n++) s += 1 + Math.min(OVERCLOCK_CAP * share, g * n);
+  for (let n = 0; n < OVERCLOCK_AVG_PACKETS; n++) s += 1 + Math.min(OVERCLOCK_CAP, g * n);
   return s / OVERCLOCK_AVG_PACKETS;
 }
 /** Capacitor: packets absorbed per emitted shot, and the bonus on the sum. */

@@ -1,14 +1,12 @@
 // Chunk 14a: invariants of the small-number damage balance (docs/balance-damage.md).
 import { describe, it, expect } from 'vitest';
-import AUDITED from '../reports/balance-damage-circuits.json';
-import { benchAll } from '../scripts/lib/dmgBench';
 import { compile, Grid } from '../src/engine/compiler';
 import { BLOCKS, pickerBlocks } from '../src/data/blocks';
 import { HULL_ORDER } from '../src/data/hulls';
 import { HULL_BUILDERS } from '../src/game/gridUtils';
 import { buildStarterGrid, place } from '../src/game/starter';
 import { World } from '../src/game/world';
-import { flatPlusAdd, orbitTime, STACK_DECAY } from '../src/engine/effects';
+import { flatPlusAdd, orbitTime } from '../src/engine/effects';
 import { PROJECTILE_MAX_AGE } from '../src/wall/constants';
 import { HERO_LEVEL_BASE_DAMAGE, HERO_MAX_LEVEL } from '../src/captains/data';
 import { blockHp } from '../src/wall/level';
@@ -23,13 +21,7 @@ function bare(hull: string): Grid {
   for (const c of g.cells) if (c.blockId === 'flat_plus') c.blockId = null;
   return g;
 }
-const fromCells = (hull: string, cells: [number, string, number][]) => {
-  const g = HULL_BUILDERS[hull]();
-  for (const [i, id, l] of cells) Object.assign(g.cells[i], { blockId: id, level: l, rotation: 0, manual: false });
-  return g;
-};
 const est = (g: Grid) => compile(g).stats.estDps;
-const median = (xs: number[]) => { const v = [...xs].sort((a, b) => a - b); return v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2; };
 
 describe('small numbers: the basic shot and Flat+', () => {
   it.each(HULL_ORDER.map(h => [h]))('%s: every shot of the bare hull deals exactly 1', (hull) => {
@@ -65,41 +57,6 @@ describe('small numbers: the basic shot and Flat+', () => {
   });
   it('a hero at the max level multiplies the bare shot by at most 6', () => {
     expect(1 + HERO_MAX_LEVEL * HERO_LEVEL_BASE_DAMAGE).toBeLessThanOrEqual(6);
-  });
-});
-
-describe('no circuit beats 2.5x its hull median (diminishing returns on stacking)', () => {
-  // The real rule (docs/balance-damage.md, step 3), on the engine: the circuits npm run balance-damage audited (per hull and
-  // level, the top 5 with at most 2 copies of a block and the top 5 with up to 8) are benched again with the current data, and
-  // the best 8-copy circuit may not beat 2.5x the median of the 2-copy ones. The Dart is left out: with one free cell a
-  // "circuit" is a single block, and Flat+ L5 beats blocks that add no damage of their own by 2.6x (DECISIONS 195).
-  it('the audited circuits of npm run balance-damage: the best 8-copy circuit stays within 2.5x the 2-copy median (engine bench)', () => {
-    const data = AUDITED as unknown as { hull: string; level: number; ref: [number, string, number][][]; free: [number, string, number][][] }[];
-    expect(data.length).toBe(HULL_ORDER.length * 2);
-    for (const r of data) {
-      if (r.hull === 'dart') continue;
-      const ref = r.ref.map(c => benchAll(fromCells(r.hull, c)).mixed);
-      const free = benchAll(fromCells(r.hull, r.free[0])).mixed;
-      expect(free, `${r.hull} L${r.level}`).toBeLessThanOrEqual(2.5 * median(ref));
-    }
-  }, 120_000);
-  // Bounded, not flat: the product of x3.5, x2.25, x1.63, ... converges to about x22 however many are stacked (it was 3.5^n).
-  it('a line full of Percent x L5 (eight copies) is under 3x two copies; each further copy adds half the bonus of the one before', () => {
-    const fan = (n: number) => {
-      const g = HULL_BUILDERS.fan();
-      for (let k = 0; k < n; k++) place(g, 5, 9 - k, 'percent_mult', 5);
-      return g;
-    };
-    expect(STACK_DECAY).toBe(0.5);
-    expect(compile(fan(1)).recipes[0].packet.damage).toBeCloseTo(3.5, 9);
-    expect(compile(fan(2)).recipes[0].packet.damage).toBeCloseTo(3.5 * 2.25, 9);
-    expect(est(fan(8)) / est(fan(2))).toBeLessThan(3);
-    expect(est(fan(8)) / est(fan(0))).toBeLessThan(25);
-  });
-  it('repeated chance gates diminish too (Gambler\'s Gate x3 at 50%, then x2.5: its average bonus halves)', () => {
-    const g = HULL_BUILDERS.twin();
-    place(g, 1, 2, 'gamblers_gate'); place(g, 1, 3, 'gamblers_gate');
-    expect(compile(g).recipes[0].packet.gates.map(x => x.mult)).toEqual([3, 2.5]);
   });
 });
 

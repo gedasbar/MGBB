@@ -81,7 +81,7 @@ describe('block audit: the picker only offers blocks that compile and change Fly
     };
     expect(text('flat_plus')).toContain("+1 damage");
     expect(text('percent_mult')).toContain('×1.5');
-    expect(text('lucky_strike')).toContain('33% chance to double projectile damage.');
+    expect(text('lucky_strike')).toBe('33% chance to double projectile damage.');
     expect(text('jackpot')).toContain('4%');
     expect(text('jackpot')).toContain('10');
     expect(text('gamblers_gate')).toContain('50%');
