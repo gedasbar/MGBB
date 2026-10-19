@@ -19,7 +19,7 @@ const REMOVE_TILE = tileCentre(0, 34); // first tile on an occupied cell (its se
 const redish = (p) => p[0] > 190 && p[1] < 130 && p[2] < 130;
 const redishDimmed = (p) => p[0] > 140 && p[1] < 100 && p[2] < 100 && p[0] > 2 * p[1];
 
-const blocks = (page) => page.evaluate(() => window.__mgbm.model.grid.cells.filter(c => c.blockId).map(c => `${c.x + 1},${c.y + 1}:${c.blockId}:${c.rotation}:${c.manual}`));
+const blocks = (page) => page.evaluate(() => window.__mgbm.model.grid.cells.filter(c => c.blockId).map(c => `${c.x + 1},${c.y + 1}:${c.blockId}:${c.rotation}`));
 const picker = (page) => page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; return { open: p.isOpen, selected: p.selected, armed: p.armed, scroll: p.scrollY }; });
 const undoDepth = (page) => page.evaluate(() => { const m = window.__mgbm.model; const s = m.slots[m.active]; return s.undo.length; });
 const opens = (page) => page.evaluate(() => window.__opens);
@@ -247,15 +247,15 @@ async function lineAt(page, col, row, axis, ok = redish) {
   const onB = await border(9, 6), offB = await border(3, 5);
   check(onB > 80 && offB < onB * 0.9, `3: the off-path Flat+ is dimmed (border red channel ${offB}) against the on-path one (${onB})`);
   st = await state(page);
-  check(/No signal reaches this block\./.test(st.inspector.body) && /Orientation: auto/.test(st.inspector.title), `3: inspector keeps its text: "${st.inspector.title}" / "${st.inspector.body}"`);
+  check(/No signal reaches this block\./.test(st.inspector.body) && !/rientation/.test(st.inspector.title), `3: inspector keeps its text: "${st.inspector.title}" / "${st.inspector.body}"`);
 
   // A hand-rotated block that stops the line keeps its warning triangle (and no padlock).
   await tap(page, ...cell(9, 6));
   await tap(page, TB.rotCW, TB.y);
   st = await state(page);
-  check(st.recipes === 0 && /manual \(facing right\)/.test(st.inspector.title), `3: rotating Flat+ right stops the line; inspector "${st.inspector.title}"`);
+  check(st.recipes === 0, `3: rotating Flat+ right stops the line; inspector "${st.inspector.title}"`);
   const warn = await lib.pixelsAtClient(page, await Promise.all([[0, 0], [-4, 3], [4, 3], [0, -3]].map(([dx, dy]) => lib.gameToClient(page, OX + 8.5 * CELL + dx, OY + 5 * CELL + 48 - 6 + dy))));
-  check(warn.some(p => p[0] > 200 && p[1] > 130 && p[1] < 190 && p[2] < 90), `3: the warning triangle is still on the stopping block's edge: ${JSON.stringify(warn[0])}`);
+  check(!warn.some(p => p[0] > 200 && p[1] > 130 && p[1] < 190 && p[2] < 90), `3: no warning triangle on the stopping block's edge (chunk 16a): ${JSON.stringify(warn[0])}`);
   const lock2 = await lib.countInRegion(page, OX + 8 * CELL + 39, OY + 5 * CELL + 10, 4, lib.PADLOCK_PRED);
   check(lock2 === 0, `3: the rotated block has no padlock (${lock2} pixels)`);
   await shot(page, 'c1_07_rotated_blocker_warning_only.png');

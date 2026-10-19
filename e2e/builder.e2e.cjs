@@ -46,8 +46,8 @@ async function expectNoLine(page, cells, label) {
   check(bad.length === 0, `${label}: no red where there should be no line${bad.length ? ' - UNEXPECTED at ' + bad.join(' ') : ''}`);
 }
 
-const gridBlocks = (page) => page.evaluate(() => window.__mgbm.model.grid.cells.filter(c => c.blockId).map(c => ({ col: c.x + 1, row: c.y + 1, id: c.blockId, rotation: c.rotation, manual: c.manual })));
-const cellState = (page, col, row) => page.evaluate(([c, r]) => { const m = window.__mgbm.model; const k = m.grid.cells[(r - 1) * m.grid.w + (c - 1)]; return { id: k.blockId, rotation: k.rotation, manual: k.manual }; }, [col, row]);
+const gridBlocks = (page) => page.evaluate(() => window.__mgbm.model.grid.cells.filter(c => c.blockId).map(c => ({ col: c.x + 1, row: c.y + 1, id: c.blockId, rotation: c.rotation })));
+const cellState = (page, col, row) => page.evaluate(([c, r]) => { const m = window.__mgbm.model; const k = m.grid.cells[(r - 1) * m.grid.w + (c - 1)]; return { id: k.blockId, rotation: k.rotation }; }, [col, row]);
 
 const ROUTE_EMPTY = [[6, 10, 'V'], [7, 9, 'H'], [8, 9, 'H'], [9, 8, 'V'], [9, 7, 'V'], [9, 5, 'V'], [9, 4, 'V'], [9, 3, 'V']];
 
@@ -77,7 +77,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   let st = await state(page);
   check(st.view.scale === CELL && st.view.ox === OX && st.view.oy === OY, `fit view is the documented one: ${JSON.stringify(st.view)}`);
   check(st.recipes === 1 && st.stats.damagePerShot === 2, `default circuit reaches the ejector with ${st.stats.damagePerShot} damage`);
-  check(JSON.stringify(st.statsStrip) === JSON.stringify(['2', '1', '5', '10', '0']), `stats strip reads ${JSON.stringify(st.statsStrip)}`);
+  check(JSON.stringify(st.statsStrip) === JSON.stringify(['2', '1', '5', '10']), `stats strip reads ${JSON.stringify(st.statsStrip)}`);
   check(await page.evaluate(() => !('selectedPalette' in window.__mgbm.buildScreen)), 'there is no palette on the Build screen');
   await shot(page, 'b01_default_build.png');
   await expectLine(page, ROUTE_EMPTY, 'default circuit');
@@ -167,7 +167,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   await tap(page, ...tileCentre(...TILE.turn_r));
   st = await state(page);
   check(!st.pickerOpen, 'tapping the selected tile again closes the sheet');
-  check(JSON.stringify(await gridBlocks(page)) === JSON.stringify([{ col: 6, row: 9, id: 'turn_r', rotation: 0, manual: false }]), 'Turn Right placed at (6,9) in auto mode');
+  check(JSON.stringify(await gridBlocks(page)) === JSON.stringify([{ col: 6, row: 9, id: 'turn_r', rotation: 0 }]), 'Turn Right placed at (6,9) facing up (the way the signal reaches it)');
   check(st.view.scale === CELL && st.view.ox === OX && st.view.oy === OY, 'view is restored after the sheet closes');
   await shot(page, 'b07_turn_right_placed.png');
   await expectLine(page, [[6, 10, 'V'], [7, 9, 'H'], [8, 9, 'H'], [9, 9, 'H']], 'Turn Right placed: line goes up col 6 then east along row 9');
@@ -188,7 +188,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   check(st.statsStrip[0] === '2' && st.statsStrip[3] === '10', `Flat+ on the line changes the stats: ${JSON.stringify(st.statsStrip)} (was ${statsBefore})`);
   await select(page, 9, 6);
   st = await state(page);
-  check(/Orientation: auto/.test(st.inspector.title), `selected block shows "${st.inspector.title}"`);
+  check(st.inspector.title === 'Flat +' && !/rientation/.test(st.inspector.title + st.inspector.body), `selected block shows only its name and description: "${st.inspector.title}"`);
   await shot(page, 'b09_flat_plus_on_line_selected.png');
   const badge = await lib.countInRegion(page, OX + 8 * CELL + 39, OY + 5 * CELL + 9, 4, lib.AUTO_BADGE_PRED);
   check(badge === 0, `no green "auto" badge at the block's corner: ${badge} badge pixels`);
@@ -209,31 +209,31 @@ async function placeViaPicker(page, col, row, tileKey) {
   await tap(page, TB.rotCW, TB.y);
   st = await state(page);
   let c = await cellState(page, 9, 6);
-  check(c.manual === true && c.rotation === 90, `Rotate CW -> manual, rotation ${c.rotation}`);
+  check(c.rotation === 90, `Rotate CW -> rotation ${c.rotation}`);
   check(st.recipes === 0 && st.stats.damagePerShot === 0, 'rotated Flat+ blocks the line: no recipe');
-  check(/manual \(facing right\)/.test(st.inspector.title), `inspector: "${st.inspector.title}"`);
+  check(st.inspector.title === 'Flat +', `inspector shows no orientation text: "${st.inspector.title}"`);
   await shot(page, 'b11_rotated_cw_blocked.png');
   const lock = await lib.countInRegion(page, OX + 8 * CELL + 39, OY + 5 * CELL + 10, 4, lib.PADLOCK_PRED);
   check(lock === 0, `no padlock at the block's corner: ${lock} padlock pixels`);
   const warnPx = await lib.pixelsAtClient(page, await Promise.all([[0, 0], [-4, 3], [4, 3], [0, -3]].map(([dx, dy]) => lib.gameToClient(page, OX + 8.5 * CELL + dx, OY + 5 * CELL + 48 - 6 + dy))));
-  check(warnPx.some(p => p[0] > 200 && p[1] > 130 && p[1] < 190 && p[2] < 90), `warning triangle on the block's edge: ${JSON.stringify(warnPx[0])}`);
+  check(!warnPx.some(p => p[0] > 200 && p[1] > 130 && p[1] < 190 && p[2] < 90), `no warning triangle on the block's edge (chunk 16a): ${JSON.stringify(warnPx[0])}`);
   await expectLine(page, [[9, 8, 'V'], [9, 7, 'V']], 'line still reaches the rotated block');
   await expectNoLine(page, [[9, 5, 'V'], [9, 4, 'V'], [9, 3, 'V']], 'line stops at the rotated block');
 
   await tap(page, TB.rotCCW, TB.y);
   st = await state(page);
   c = await cellState(page, 9, 6);
-  check(c.manual === true && c.rotation === 0 && st.recipes === 1 && st.stats.damagePerShot === 2, `Rotate CCW -> faces up again, line passes, damage ${st.stats.damagePerShot}`);
+  check(c.rotation === 0 && st.recipes === 1 && st.stats.damagePerShot === 2, `Rotate CCW -> faces up again, line passes, damage ${st.stats.damagePerShot}`);
   await shot(page, 'b12_rotated_ccw_passes_manual.png');
   await tap(page, TB.rotCW, TB.y);
   await tap(page, TB.auto, TB.y);
   st = await state(page);
   c = await cellState(page, 9, 6);
-  check(c.manual === false && st.recipes === 1 && /Orientation: auto/.test(st.inspector.title), 'Auto-orient returns the block to auto mode and the line passes');
+  check(c.rotation === 0 && st.recipes === 1, 'Auto-orient turns the block to face the line again and the line passes');
   await shot(page, 'b13_auto_orient_restored.png');
   for (let i = 0; i < 4; i++) await tap(page, TB.rotCW, TB.y);
   c = await cellState(page, 9, 6);
-  check(c.manual === true && c.rotation === 0, 'four Rotate CW presses return to the starting orientation');
+  check(c.rotation === 0, 'four Rotate CW presses return to the starting orientation');
   await tap(page, TB.auto, TB.y);
 
   // ------------------------------------------------------------------ 7. Undo / redo
@@ -268,14 +268,14 @@ async function placeViaPicker(page, col, row, tileKey) {
   await page.reload();
   await page.waitForFunction(() => !!window.__mgbm);
   await page.waitForTimeout(400);
-  check((await snapshot()) === beforeReload, 'circuit (blocks, rotations, manual flags) persists across a reload');
+  check((await snapshot()) === beforeReload, 'circuit (blocks and rotations) persists across a reload');
   await select(page, 9, 6);
   await tap(page, TB.rotCW, TB.y);
   const rotated = await snapshot();
   await page.reload();
   await page.waitForFunction(() => !!window.__mgbm);
   await page.waitForTimeout(400);
-  check((await snapshot()) === rotated && (await cellState(page, 9, 6)).manual === true, 'a manual rotation persists across a reload');
+  check((await snapshot()) === rotated && (await cellState(page, 9, 6)).rotation === 90, 'a rotation persists across a reload');
   await select(page, 9, 6);
   await tap(page, TB.auto, TB.y);
 
