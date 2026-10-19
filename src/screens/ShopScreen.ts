@@ -11,13 +11,13 @@ import { inRect, LAYOUT, Rect, VIEW_H, VIEW_W } from '../builder/layout';
 import { makeTabButtons } from '../builder/tabs';
 import { sfx } from '../audio';
 import { Inspector, makeText, Toast, UIButton } from '../builder/ui';
-import { CATEGORY_COLOR } from '../builder/draw';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
 import { describeBlock } from '../engine/compilerTypes';
 import { copyPrice, HULL_PRICE, maxLevelOf, upgradePrice } from '../econ/economy';
 import { HULL_INFO } from '../game/gridUtils';
 import { shipThumbnail } from '../ui/shipArt';
-import { drawPlate } from '../ui/blockArt';
+import { TilePalette, PaletteSource, SheetButtonId } from '../builder/tilePalette';
+import { idsForTab, sheetContent, SheetContent } from '../builder/paletteLogic';
 import { fmtBig } from '../ui/format';
 import { CreditsBadge } from '../ui/hud';
 import { THEME } from '../ui/theme';
@@ -31,6 +31,9 @@ const ROW_H = 84;
 const ROW_GAP = 6;
 const ROW_X = 8;
 const ROW_W = VIEW_W - 16;
+
+/** The Shop's tile palette sits where the old block rows were. */
+const PALETTE_AREA: Rect = { x: 0, y: LIST_TOP, w: VIEW_W, h: LIST_BOTTOM - LIST_TOP };
 
 interface ShopButton { kind: 'buy' | 'upgrade' | 'hull'; id: string; rect: Rect; enabled: boolean; label: string; /** Why it cannot be pressed (a directional unlock not reached). */ lock?: string }
 interface ShopRow { key: string; rect: Rect; buttons: ShopButton[]; }
@@ -51,6 +54,8 @@ export class ShopScreen implements Screen {
   private gestures: GestureTracker | null = null;
   private unsubscribe: (() => void) | null = null;
 
+  /** Chunk 16b-fix: the Blocks section is the shared tile palette (4 per row, tabs, info sheet); only Hulls keep rows. */
+  readonly palette = new TilePalette({ area: PALETTE_AREA, buttons: ['upgrade', 'buy'], tapAgain: 'close', panel: false });
   section: Section = 'blocks';
   selected: string | null = null;
   scrollY = 0;
@@ -71,7 +76,7 @@ export class ShopScreen implements Screen {
 
     this.mask.rect(0, LIST_TOP, VIEW_W, LIST_BOTTOM - LIST_TOP).fill(0xffffff);
     this.listC.mask = this.mask;
-    this.container.addChild(bg, this.listC, this.mask, bar, this.inspector.container, title, this.credits.container);
+    this.container.addChild(bg, this.listC, this.palette.container, this.mask, bar, this.inspector.container, title, this.credits.container);
 
     this.sectionButtons = {
       blocks: this.sectionButton('sectionBlocks', 'Blocks', 0, 'blocks'),
@@ -147,31 +152,81 @@ export class ShopScreen implements Screen {
         scrollY: this.scrollY,
         toast: this.toast.message,
         inspector: { title: this.inspector.titleText, body: this.inspector.bodyText },
-        rows: this.rows.map(r => ({
-          key: r.key,
-          rect: this.screenRect(r.rect),
-          buttons: r.buttons.map(b => ({ kind: b.kind, label: b.label, enabled: b.enabled, lock: b.lock ?? null, rect: this.screenRect(b.rect) })),
-        })),
+        rows: this.rowsView(),
+        tab: this.palette.tab,
+        sheetOpen: this.palette.sheetOpen,
       }),
     };
   }
 
   // ------------------------------------------------------------------ list
   private inList(x: number, y: number) {
-    return y >= LIST_TOP && y < LIST_BOTTOM && x >= 0 && x < VIEW_W;
+    return this.section === 'blocks' ? this.palette.inList(x, y) : y >= LIST_TOP && y < LIST_BOTTOM && x >= 0 && x < VIEW_W;
   }
 
   private screenRect(r: Rect): Rect {
     return { x: r.x, y: LIST_TOP + r.y - this.scrollY, w: r.w, h: r.h };
   }
 
+  /**
+   * Test view of the list: one entry per block (Blocks section) with its tile rect when the current tab shows it and, for the
+   * selected block, the sheet's Buy / Upgrade buttons; or one entry per hull.
+   */
+  private rowsView() {
+    if (this.section === 'hulls') {
+      return this.rows.map(r => ({
+        key: r.key,
+        rect: this.screenRect(r.rect),
+        buttons: r.buttons.map(b => ({ kind: b.kind, label: b.label, enabled: b.enabled, lock: b.lock ?? null, rect: this.screenRect(b.rect) })),
+      }));
+    }
+    return this.blockKeys().map(key => {
+      const open = this.palette.sheetOpen && this.palette.selected === key;
+      const c = open ? this.blockContent(key) : null;
+      const rect = this.palette.tileScreenRect(key);
+      const mk = (kind: 'buy' | 'upgrade', btn: { label: string; enabled: boolean } | null) =>
+        btn && c ? [{ kind, label: btn.label, enabled: btn.enabled, lock: null, rect: this.palette.sheetButtonRect(kind) }] : [];
+      const locked = c?.lockText ? [{ kind: 'buy', label: c.lockText, enabled: false, lock: c.lockText, rect: this.palette.sheetButtonRect('buy') }] : [];
+      return { key, rect, buttons: c ? [...mk('buy', c.buy), ...mk('upgrade', c.upgrade), ...locked] : [] };
+    });
+  }
+
+  private blockKeys(): string[] {
+    // A block whose unlock is 'map' is not sold here (a later node map hands it out); today every block is 'shop'.
+    return pickerBlocks().filter(b => b.unlock !== 'map').map(b => b.id);
+  }
+
+  private blockContent(id: string): SheetContent {
+    const p = this.store.data;
+    const level = p.levels[id] ?? 1;
+    const owned = p.owned[id] ?? 0;
+    return sheetContent({
+      id, name: BLOCKS[id].name, desc: describeBlock(BLOCKS[id], level), owned, available: owned, level, maxLevel: maxLevelOf(id),
+      credits: p.credits, copyPrice: copyPrice(id, owned), upgradePrice: upgradePrice(id, level),
+      lock: blockLockReason(p, id, this.store.frontierReach),
+    });
+  }
+
+  private paletteSource(): PaletteSource {
+    const keys = new Set(this.blockKeys());
+    return {
+      ids: (tab) => idsForTab(tab, pickerBlocks()).filter(id => keys.has(id)),
+      badge: (id) => this.store.data.owned[id] ?? 0,
+      lock: (id) => blockLockReason(this.store.data, id, this.store.frontierReach),
+      current: () => false,
+      content: (id) => this.blockContent(id),
+    };
+  }
+
   private applyScroll() {
+    if (this.section === 'blocks') return;
     const max = Math.max(0, this.contentH - (LIST_BOTTOM - LIST_TOP));
     this.scrollY = Math.max(0, Math.min(max, this.scrollY));
     this.listC.position.set(0, LIST_TOP - this.scrollY);
   }
 
   scrollBy(dy: number) {
+    if (this.section === 'blocks') { this.palette.scrollBy(dy); this.scrollY = this.palette.scrollY; return; }
     this.scrollY += dy;
     this.applyScroll();
   }
@@ -185,31 +240,46 @@ export class ShopScreen implements Screen {
     this.inspector.set(s === 'blocks' ? 'Block shop' : 'Hull shop', s === 'blocks'
       ? 'Tap a block to read its rule. Buy more copies to build with, or upgrade its level to strengthen it.'
       : 'Tap a hull to read about it. A bought hull appears in the hull picker on the Build screen.');
+    if (s === 'blocks') {
+      this.palette.attach(this.paletteSource(), {
+        onSelect: (id) => this.showBlock(id),
+        onButton: (id, kind) => this.pressBlock(id, kind),
+        onClose: () => {},
+        onMessage: (m) => this.toast.show(m),
+      });
+    } else this.palette.hide();
     this.rebuild();
   }
 
-  private blockButtons(id: string, y: number): ShopButton[] {
-    const p = this.store.data;
-    const buyPrice = copyPrice(id, p.owned[id] ?? 0);
-    const level = p.levels[id] ?? 1;
-    const max = maxLevelOf(id);
-    const upPrice = level < max ? upgradePrice(id, level) : 0;
-    const bx = ROW_X + ROW_W - 258;
-    // Chunk 15b: a block gated by a Frontier direction is greyed with its requirement until reached (or owned).
-    const lock = blockLockReason(p, id, this.store.frontierReach);
-    if (lock) {
-      return [
-        { kind: 'buy', id, rect: { x: bx, y: y + 8, w: 250, h: 32 }, enabled: false, label: lock, lock },
-        { kind: 'upgrade', id, rect: { x: bx, y: y + 44, w: 250, h: 32 }, enabled: false, label: 'Locked', lock },
-      ];
-    }
-    return [
-      { kind: 'buy', id, rect: { x: bx, y: y + 8, w: 250, h: 32 }, enabled: p.credits >= buyPrice, label: `Buy x1 - ${fmtBig(buyPrice)}` },
-      {
-        kind: 'upgrade', id, rect: { x: bx, y: y + 44, w: 250, h: 32 }, enabled: level < max && p.credits >= upPrice,
-        label: level < max ? `Upgrade L${level} -> L${level + 1} - ${fmtBig(upPrice)}` : 'MAX',
-      },
-    ];
+  private showBlock(id: string) {
+    this.selected = id;
+    const level = this.store.data.levels[id] ?? 1;
+    this.inspector.set(`${BLOCKS[id].name} · Lv ${level}`, describeBlock(BLOCKS[id], level));
+  }
+
+  private pressBlock(id: string, kind: SheetButtonId) {
+    if (kind === 'place') return;
+    const c = this.blockContent(id);
+    const btn = kind === 'buy' ? c.buy : c.upgrade;
+    const before = this.store.data.credits;
+    try {
+      if (c.lockText) { this.toast.show(`Locked: ${c.lockText} on the Frontier`); return; }
+      if (!btn?.enabled) {
+        this.toast.show(kind === 'upgrade' && (this.store.data.levels[id] ?? 1) >= maxLevelOf(id) ? 'Already at max level' : 'Not enough credits');
+        return;
+      }
+      if (kind === 'buy') {
+        const r = this.store.buyCopy(id);
+        this.toast.show(r.ok ? `Bought ${BLOCKS[id].name} for ${fmtBig(r.price)}` : r.error, 1600);
+      } else {
+        const r = this.store.buyUpgrade(id);
+        if (r.ok) {
+          this.model.refreshLevels();
+          this.toast.show(`${BLOCKS[id].name} is now level ${this.store.data.levels[id]}`, 1600);
+          this.showBlock(id);
+        } else this.toast.show(r.error);
+      }
+    } finally { sfx.play(this.store.data.credits < before ? 'purchase' : 'denied'); }
   }
 
   private hullButton(id: string, y: number): ShopButton {
@@ -226,43 +296,26 @@ export class ShopScreen implements Screen {
   private rebuild() {
     for (const ch of this.listC.removeChildren()) ch.destroy({ children: true });
     this.rows = [];
+    if (this.section === 'blocks') { this.palette.refresh(); this.contentH = 0; return; }
     const p = this.store.data;
-    // A block whose unlock is 'map' is not sold here (a later node map hands it out); today every block is 'shop'.
-    const keys = this.section === 'blocks' ? pickerBlocks().filter(b => b.unlock !== 'map').map(b => b.id) : HULL_INFO.map(h => h.id);
+    const keys = HULL_INFO.map(h => h.id);
     keys.forEach((key, i) => {
       const y = ROW_GAP + i * (ROW_H + ROW_GAP);
       const rect: Rect = { x: ROW_X, y, w: ROW_W, h: ROW_H };
-      const buttons = this.section === 'blocks' ? this.blockButtons(key, y) : [this.hullButton(key, y)];
+      const buttons = [this.hullButton(key, y)];
       this.rows.push({ key, rect, buttons });
       const sel = this.selected === key;
       const g = new Graphics();
       g.rect(rect.x, rect.y, rect.w, rect.h).fill(THEME.panel).stroke({ color: sel ? THEME.select : THEME.border, width: sel ? THEME.selectWidth : 1.5 });
       this.listC.addChild(g);
-      if (this.section === 'blocks') {
-        const def = BLOCKS[key];
-        const locked = !!buttons[0]?.lock;
-        const plate = new Graphics();
-        plate.position.set(rect.x + 42, rect.y + ROW_H / 2);
-        drawPlate(plate, key, 56, 0);
-        if (locked) plate.alpha = 0.35;
-        this.listC.addChild(plate);
-        const name = makeText(def.name, 17, locked ? THEME.disabled : THEME.text, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: 170 });
-        name.position.set(rect.x + 82, rect.y + 12);
-        const rarity = def.rarity && def.rarity !== 'common' ? `${def.rarity[0].toUpperCase()}${def.rarity.slice(1)} · ` : '';
-        const info = makeText(locked ? `${rarity}Locked` : `${rarity}Owned ${p.owned[key] ?? 0} · Lv ${p.levels[key] ?? 1}/${maxLevelOf(key)}`, 13, THEME.textDim, { fontWeight: 'bold' });
-        info.position.set(rect.x + 82, rect.y + ROW_H - 28);
-        const strip = new Graphics().rect(rect.x, rect.y, 4, rect.h).fill(CATEGORY_COLOR[def.category]);
-        this.listC.addChild(strip, name, info);
-      } else {
-        const info = HULL_INFO.find(h => h.id === key)!;
-        this.drawHullMini(key, rect.x + 10, rect.y + 9);
-        const owned = p.ownedHulls.includes(key);
-        const name = makeText(info.name, 17, THEME.text, { fontWeight: 'bold' });
-        name.position.set(rect.x + 88, rect.y + 12);
-        const desc = makeText(owned ? 'Owned' : `Price ${fmtBig(HULL_PRICE[key] ?? 0)}`, 13, owned ? THEME.good : THEME.currency, { fontWeight: 'bold' });
-        desc.position.set(rect.x + 88, rect.y + ROW_H - 28);
-        this.listC.addChild(name, desc);
-      }
+      const info = HULL_INFO.find(h => h.id === key)!;
+      this.drawHullMini(key, rect.x + 10, rect.y + 9);
+      const owned = p.ownedHulls.includes(key);
+      const name = makeText(info.name, 17, THEME.text, { fontWeight: 'bold' });
+      name.position.set(rect.x + 88, rect.y + 12);
+      const desc = makeText(owned ? 'Owned' : `Price ${fmtBig(HULL_PRICE[key] ?? 0)}`, 13, owned ? THEME.good : THEME.currency, { fontWeight: 'bold' });
+      desc.position.set(rect.x + 88, rect.y + ROW_H - 28);
+      this.listC.addChild(name, desc);
       for (const b of buttons) this.drawButton(b);
     });
     this.contentH = ROW_GAP + keys.length * (ROW_H + ROW_GAP);
@@ -291,6 +344,10 @@ export class ShopScreen implements Screen {
     for (const b of [...this.tabs, this.sectionButtons.blocks, this.sectionButtons.hulls]) {
       if (b.hit(x, y)) { b.flash(); b.spec.onTap(); return; }
     }
+    if (this.section === 'blocks') {
+      if (this.palette.tap(x, y)) this.selected = this.palette.selected;
+      return;
+    }
     if (!this.inList(x, y)) return;
     const cy = y - LIST_TOP + this.scrollY;
     for (const row of this.rows) {
@@ -311,15 +368,10 @@ export class ShopScreen implements Screen {
   }
 
   select(key: string) {
+    if (this.section === 'blocks') { this.palette.select(key); this.showBlock(key); return; }
     this.selected = key;
-    if (this.section === 'blocks') {
-      const def = BLOCKS[key];
-      const level = this.store.data.levels[key] ?? 1;
-      this.inspector.set(`${def.name} · Lv ${level}`, describeBlock(def, level));
-    } else {
-      const h = HULL_INFO.find(hh => hh.id === key)!;
-      this.inspector.set(h.name, h.desc);
-    }
+    const h = HULL_INFO.find(hh => hh.id === key)!;
+    this.inspector.set(h.name, h.desc);
     this.rebuild();
   }
 
@@ -329,26 +381,9 @@ export class ShopScreen implements Screen {
   }
 
   private pressInner(b: ShopButton) {
-    if (!b.enabled && b.lock) { this.toast.show(`Locked: ${b.lock} on the Frontier`); return; }
-    if (!b.enabled) {
-      this.toast.show(b.kind !== 'hull' && b.label === 'MAX' ? 'Already at max level' : 'Not enough credits');
-      return;
-    }
-    if (b.kind === 'buy') {
-      const r = this.store.buyCopy(b.id);
-      if (r.ok) this.toast.show(`Bought ${BLOCKS[b.id].name} for ${fmtBig(r.price)}`, 1600);
-      else this.toast.show(r.error);
-    } else if (b.kind === 'upgrade') {
-      const r = this.store.buyUpgrade(b.id);
-      if (r.ok) {
-        this.model.refreshLevels();
-        this.toast.show(`${BLOCKS[b.id].name} is now level ${this.store.data.levels[b.id]}`, 1600);
-        if (this.selected === b.id) this.select(b.id);
-      } else this.toast.show(r.error);
-    } else {
-      const r = this.store.buyHull(b.id);
-      if (r.ok) this.toast.show(`Bought the ${HULL_INFO.find(h => h.id === b.id)?.name ?? b.id} hull`, 1600);
-      else this.toast.show(r.error);
-    }
+    if (!b.enabled) { this.toast.show('Not enough credits'); return; }
+    const r = this.store.buyHull(b.id);
+    if (r.ok) this.toast.show(`Bought the ${HULL_INFO.find(h => h.id === b.id)?.name ?? b.id} hull`, 1600);
+    else this.toast.show(r.error);
   }
 }
