@@ -16,6 +16,9 @@ Branch `chunk-16b` (own worktree `../MGBM-16b`). Design: `docs/palette-design.md
 ## Contact sheet `reports/chunk16b/shop16b_contact.png` (opened and looked at)
 Seven panels (360 x 740 phone window unless noted): 1 Shop default, All tab: tab row (All white, Pathing blue, Damage red, Modifiers purple, Status teal, Mitosis amber), four tiles per row of plate art with number badges top right, some dim tiles with 0 and a yellow padlock top left; 2 Damage tab: eight damage tiles, the Damage chip filled red; 3 Flat + selected: white outline, an info sheet at the bottom (name, "Level 1/10", one-line rule, "Owned 20", two buttons "Upgrade L1→L2 / 120" and "Buy +1 / 1.64K") and an empty gap between the two tile rows and the sheet; 4 Delay Line (0 owned): badge 0, sheet says Owned 0 with Buy; 5 Random Router (locked): padlock tile, sheet shows "Locked: Reach ring 10 North" and no buttons (a leftover "Locked: ... on the Frontier" toast from the test's forced press sits over the sheet text); 6 the same Shop in a 1600 x 900 window (canvas letterboxed, tiles bigger, still 4 columns); 7 builder: the new tab row, tiles, an info sheet for Turn Left with a single full-width "Place" button.
 
+## After merging origin/main (chunk 16a landed meanwhile)
+Merge was clean except DECISIONS.md (16a took 243-257; mine renumbered to 258-265). Unit: 528 pass. e2e re-run after the merge: `builder-extra`, `polish16a`, `blocks9a`, `blocks11a`, `frontier15b`, `shop16b`, `wall`, `economy` (?debug=1) pass. `builder` (1 fail: "warning counted in the strip: undefined"), `chunk1` (2 fails: expects the old `:false` manual flag), `campaign` (4 fails) fail identically on a clean `origin/main` checkout (third worktree), so they are not from this chunk.
+
 ## Deviations
 Builder keeps its two-tap place (the 16b text said a tap on the same tile closes; here it closes only in the Shop). Columns fixed at 4 (decision 260). Builder tile badge = free to place, Shop badge = owned. Builder lost the sheet's title/hint line and category headers.
 
@@ -24,4 +27,4 @@ Builder keeps its two-tap place (the 16b text said a tap on the same tile closes
 - 100+ blocks: tested with 41; smoothness on a real device unmeasured (tiles hidden off-screen, objects reused).
 - Text legibility of the 12-13 px sheet text at 360 px width beyond the screenshots (the contact sheet is scaled to 55 %).
 - Frontier lock shown for one block (Random Router); the others use the same code path.
-- Merge with chunk 16a (it touches `model.ts` / `compiler.ts` / builder screen); `origin/main` itself had nothing new at merge time.
+- Anything outside the scripts listed above (the 16a orientation work is merged but its e2e were only run where listed).
