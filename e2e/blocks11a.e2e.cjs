@@ -81,6 +81,8 @@ async function flyWave10(page, seconds, wave = 10) {
 
   // ---- Shop: the 9 new blocks, bought with real taps (credits from the debug button).
   for (let k = 0; k < 3; k++) await page.click('#dbg-credits');
+  // Chunk 15b gates these blocks behind Frontier directions: reach them all first (dev cheat).
+  await page.evaluate(() => document.getElementById('dbg-fr-reach-all').click());
   await tap(page, ...TAB.shop);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.shopScreen);
   const keys = await page.evaluate(() => window.__mgbm.state().rows.map(r => r.key));

@@ -25,8 +25,10 @@ const ROWS4_H = 56;
 
 /** The wall-level variant of the summary: replaces the Free Fly rows and the "Fly again" button with "Retry". */
 export interface WallSummary {
-  /** How the level ended: all blocks destroyed, flown past the end, or crashed into a block. */
-  result: 'cleared' | 'passed' | 'crashed';
+  /** How the level ended: all blocks destroyed, flown past the end, or crashed into a block (failed: a Frontier encounter). */
+  result: 'cleared' | 'passed' | 'crashed' | 'failed';
+  /** A Frontier Free Fly encounter (chunk 15b): survived time out of `duration`, and the kills. */
+  encounter?: { duration: number; kills: number };
   destroyed: number;
   total: number;
   /** Two or three buttons, left to right. */
@@ -60,7 +62,10 @@ export class RunSummaryScreen implements Screen {
     const bg = new Graphics().rect(0, 0, CONFIG.VIEW.W, CONFIG.VIEW.H).fill(THEME.bg);
     this.container.addChild(bg);
 
-    const title = makeText(wall ? (wall.result === 'cleared' ? 'Tier cleared' : wall.result === 'passed' ? 'Tier passed' : 'Crashed') : 'Run Summary', 32, THEME.text, { fontWeight: 'bold' });
+    const enc = wall?.encounter;
+    const titleText = enc ? `Encounter ${wall!.result === 'cleared' ? 'cleared' : wall!.result === 'passed' ? 'passed' : 'failed'}`
+      : wall ? (wall.result === 'cleared' ? 'Tier cleared' : wall.result === 'passed' ? 'Tier passed' : 'Crashed') : 'Run Summary';
+    const title = makeText(titleText, 32, THEME.text, { fontWeight: 'bold' });
     title.anchor.set(0.5);
     title.position.set(VIEW_W / 2, 70);
     const credits = makeText(`+${fmtBig(result.credits)}`, 80, THEME.currency, { fontWeight: 'bold' });
@@ -71,7 +76,11 @@ export class RunSummaryScreen implements Screen {
     creditsLabel.position.set(VIEW_W / 2, 250);
     this.container.addChild(title, credits, creditsLabel);
 
-    this.rows = wall ? [
+    this.rows = enc ? [
+      { label: 'Survived', value: `${fmtTime(result.time)} / ${fmtTime(enc.duration)}`, best: false },
+      { label: 'Kills', value: String(enc.kills), best: false },
+      { label: 'Result', value: wall!.result === 'cleared' ? 'CLEARED' : wall!.result === 'passed' ? 'PASSED' : 'FAILED', best: false },
+    ] : wall ? [
       { label: 'Destroyed', value: `${Math.floor(wall.total ? (wall.destroyed / wall.total) * 100 : 100)}% (${wall.destroyed} / ${wall.total})`, best: false },
       { label: 'Time', value: fmtTime(result.time), best: false },
       { label: 'Result', value: wall.result === 'crashed' ? 'Not passed' : wall.result === 'passed' ? 'Passed' : 'Cleared', best: false },

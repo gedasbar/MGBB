@@ -24,6 +24,10 @@ import { drawFieldFx } from '../ui/fieldFx';
 import { sfx } from '../audio';
 import { bankFlyRun } from '../game/runEnd';
 import { SfxFeed } from '../audio/feed';
+import { EncounterParams, encounterOutcome, EncounterOutcome, planEncounter } from '../frontier/encounter';
+import { FREEFLY_PASS_SHARE, FRONTIER_NAME, PROGRESS_COLOR } from '../frontier/constants';
+import { FrontierScreen } from './FrontierScreen';
+import { BuildScreen } from './BuildScreen';
 import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_WAIT, PHASE_MINE_TRAVEL, PHASE_ORBIT } from '../engine/projectiles';
 
 /** Status tints of a rock: burning is a redder orange, frozen a pale blue. */
@@ -118,18 +122,29 @@ export class FlyScreen implements Screen {
     restart: () => {
       if (this.finished) return;
       this.finished = true;
-      bankFlyRun(this.world, getProgressStore(), this.banker);
+      if (this.opts.frontier) this.bankEncounter(); else bankFlyRun(this.world, getProgressStore(), this.banker);
       this.screenManager.switchTo(new FlyScreen(this.screenManager, this.grid, this.opts));
     },
     quit: () => { if (!this.finished) this.finish(); },
   };
 
-  constructor(private screenManager: ScreenManager, private grid: Grid, private opts: { startWave?: number } = {}) {
+  /** Frontier encounter (chunk 15b): the countdown bar with its half-way mark, and the run's outcome once it ends. */
+  private timeBarBg = new Graphics();
+  private timeBarFg = new Graphics();
+  outcome: EncounterOutcome | null = null;
+
+  constructor(private screenManager: ScreenManager, private grid: Grid, private opts: { startWave?: number; frontier?: { x: number; y: number; params: EncounterParams; spike: boolean; squareTier: number } } = {}) {
     // A new seed per run: the waves are deterministic for a seed (World.seed, shown by the debug hook).
     const store = getProgressStore();
     this.mods = store.runModifiers();
     this.banker = new KillBanker(store, store.data.captains.selected);
-    this.world = new World({ grid, safeStart: true, seed: (Math.random() * 0x7fffffff) | 0, startWave: opts.startWave, modifiers: this.mods });
+    const fr = opts.frontier;
+    // A Frontier encounter plays a fixed plan (its own seed); normal Free Fly is exactly as before.
+    const encounter = fr ? { plan: planEncounter(fr.params), wave: fr.params.wave, tier: fr.params.tier, hpMul: fr.params.hpMul, duration: fr.params.duration } : undefined;
+    this.world = new World({
+      grid, safeStart: true, seed: fr ? fr.params.seed : (Math.random() * 0x7fffffff) | 0, startWave: fr ? undefined : opts.startWave, modifiers: this.mods,
+      ...(encounter ? { encounter } : {}),
+    });
     debugHooks.world = this.world;
     
     this.fragPools.set('mitotic_rock', this.fragments);
@@ -143,13 +158,21 @@ export class FlyScreen implements Screen {
     this.container.addChild(this.ship.container, this.fxLayer, this.uiLayer);
     this.fxLayer.addChild(this.fieldG, this.arcG);
     if (this.bgForced !== 'off') {
-      this.bg = new BackgroundView(this.screenManager.app.renderer, this.bgForced ?? freeFlyThemeAt(0));
+      this.bg = new BackgroundView(this.screenManager.app.renderer, this.bgForced ?? (fr?.spike ? 'ember' : freeFlyThemeAt(0)));
       this.container.addChildAt(this.bg.container, 0);
     }
 
     this.hullBarBg.position.set(20, 20);
     this.hullBarFg.position.set(20, 20);
     this.uiLayer.addChild(this.hullBarBg, this.hullBarFg);
+    if (fr) {
+      // Countdown: the bar empties as time runs out; the tick marks the half-way point (survive past it = PASSED).
+      const W = CONFIG.VIEW.W - 40;
+      this.timeBarBg.rect(0, 0, W, 6).fill(THEME.border).rect(W * (1 - FREEFLY_PASS_SHARE) - 1, -4, 2, 14).fill(THEME.text);
+      this.timeBarBg.position.set(20, 4);
+      this.timeBarFg.position.set(20, 4);
+      this.uiLayer.addChild(this.timeBarBg, this.timeBarFg);
+    }
 
     for (let i = 0; i < this.world.pool.max; i++) {
       const s = new Sprite(Texture.WHITE);
@@ -213,7 +236,9 @@ export class FlyScreen implements Screen {
           effects: { ...this.world.projSys.fx, ...this.world.gun.fx, ...this.world.fx },
           captain: { id: this.banker.captainId, mods: this.mods, medalsRun: this.medalsRun, killsHanded: this.banker.added, maxHull: this.world.maxHull, secondChancesLeft: this.world.secondChancesLeft, medalBanner: this.medalBanner.visible ? this.medalTitle.text : null },
           arcs: Array.from(this.world.projSys.arcT).filter(t => t > 0).length,
+          encounter: this.world.encounter ? { duration: this.world.encounter.duration, wave: this.world.encounter.wave, tier: this.world.encounter.tier, survived: this.world.survived, outcome: this.outcome, timeBar: this.timeBarFg.width } : null,
         }),
+        screen: 'fly',
         clientToGame: (cx: number, cy: number) => clientToGame(cx, cy, this.screenManager.app.canvas.getBoundingClientRect()),
         setTimeScale: (n: number) => { debugHooks.timeScale = n; },
         world: this.world,
@@ -267,7 +292,7 @@ export class FlyScreen implements Screen {
     this.world.update(dt, pointer);
     const fx = this.world.projSys.fx;
     this.sfxFeed.frame({ shots: this.world.gun.shots, chainJumps: fx.chainJumps, wellsMade: fx.wellsMade, bounces: fx.bounces + fx.edgeBounces });
-    if (this.world.gameOver && !this.crashSounded) { this.crashSounded = true; sfx.play('crash'); }
+    if (this.world.gameOver && !this.crashSounded) { this.crashSounded = true; sfx.play(this.world.survived ? 'medal' : 'crash'); }
     if (this.bg) {
       // Constant slow scroll (no horizontal motion: Free Fly is one fixed screen).
       this.bg.update(frameTime, BG_SCROLL);
@@ -302,8 +327,14 @@ export class FlyScreen implements Screen {
     }
     this.world.killEvents.length = 0;
     this.creditsText.text = `Credits +${fmtBig(this.world.credits)}`;
-    this.tierText.text = `Tier ${this.world.tier}`;
-    this.waveText.text = `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
+    const sqr = this.opts.frontier;
+    this.tierText.text = sqr ? `Tier ${sqr.squareTier} (wave ${sqr.params.wave} enemies)` : `Tier ${this.world.tier}`;
+    const enc = this.world.encounter;
+    if (enc) {
+      const left = Math.max(0, enc.duration - this.world.time);
+      this.waveText.text = `${FRONTIER_NAME} encounter  survive ${fmtTime(Math.ceil(left))}`;
+      this.timeBarFg.clear().rect(0, 0, (CONFIG.VIEW.W - 40) * (left / enc.duration), 6).fill(this.world.time >= enc.duration * FREEFLY_PASS_SHARE ? PROGRESS_COLOR : THEME.currency);
+    } else this.waveText.text = `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
     this.killsText.text = `Kills ${this.world.kills}`;
     for (const ev of this.world.waveEvents) {
       sfx.play('wave');
@@ -430,8 +461,22 @@ export class FlyScreen implements Screen {
     }
   }
 
+  /**
+   * Frontier encounter: books the square (cleared / passed / failed by the time survived; a quit counts like a death at
+   * that time), credits and kills. Free Fly records are not touched. Returns the Medals paid.
+   */
+  private bankEncounter(): { medals: number; doubled: boolean } {
+    const fr = this.opts.frontier!;
+    const w = this.world;
+    this.outcome = encounterOutcome(w.time, fr.params.duration, w.survived);
+    const r = getProgressStore().recordFrontierFly({ x: fr.x, y: fr.y, credits: w.credits, kills: w.kills, outcome: this.outcome, medalDouble: this.mods.medalDouble });
+    this.banker.flush(w.kills);
+    return { medals: r.medals, doubled: r.medalDoubled };
+  }
+
   /** The run is over: bank it exactly once and show the summary. */
   private finish() {
+    if (this.opts.frontier) { this.finishEncounter(); return; }
     this.finished = true;
     const store = getProgressStore();
     const { result, marks } = bankFlyRun(this.world, store, this.banker);
@@ -441,6 +486,31 @@ export class FlyScreen implements Screen {
       medals: this.medalsRun, doubled: this.medalsDoubled,
     };
     this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks, undefined, captain));
+  }
+
+  private finishEncounter() {
+    this.finished = true;
+    const store = getProgressStore();
+    const paid = this.bankEncounter();
+    const w = this.world;
+    const sm = this.screenManager;
+    const grid = this.grid;
+    const opts = this.opts;
+    const id = this.banker.captainId;
+    const captain: CaptainSummary = {
+      name: CAPTAIN_BY_ID[id]?.name ?? id, killsAdded: this.banker.added, killsTotal: store.data.captains.heroes[id]?.kills ?? 0,
+      medals: paid.medals, doubled: paid.doubled,
+    };
+    const result = { credits: w.credits, kills: w.kills, time: w.time, tier: w.tier };
+    sm.switchTo(new RunSummaryScreen(sm, result, { newBestTier: false, newBestTime: false }, {
+      result: this.outcome!, destroyed: 0, total: 0, medal: paid.medals > 0,
+      encounter: { duration: opts.frontier!.params.duration, kills: w.kills },
+      buttons: [
+        { id: 'summaryFrontier', label: FRONTIER_NAME, onTap: () => sm.switchTo(new FrontierScreen(sm)) },
+        { id: 'summaryRetry', label: 'Retry', onTap: () => sm.switchTo(new FlyScreen(sm, grid, opts)) },
+        { id: 'summaryBuild', label: 'Build', onTap: () => sm.switchTo(new BuildScreen(sm)) },
+      ],
+    }, captain));
   }
 
   destroy() {

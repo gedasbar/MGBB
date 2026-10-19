@@ -1,0 +1,20 @@
+Chunk 15b mutation check: each mutation applied to the source, tests/frontier15b.test.ts + tests/frontier.test.ts run, source restored.
+MUTATION 1 passed threshold off by one (strictly more than half): CAUGHT (1 failing)
+   × Free Fly squares: encounter > outcome: half the time = passed, the full time = cleared, earlier = failed 9ms
+MUTATION 2 unlock sector mixed up (any direction counts): CAUGHT (1 failing)
+   × Directional unlocks > shop gating: a gated block is refused until reached; ungated and free blocks are not gated 7ms
+MUTATION 3 grandfathering removed: CAUGHT (1 failing)
+   × Directional unlocks > grandfather rule: an old save that owns a gated block keeps it unlocked (no save change) 8ms
+MUTATION 4 unlock notice fires on every commit past the threshold: CAUGHT (1 failing)
+   × Directional unlocks > an unlock fires exactly once at its threshold, each sector on its own 12ms
+MUTATION 5 encounter tier grows with time: CAUGHT (1 failing)
+   × Free Fly squares: encounter > World plays an encounter: fixed tier, spike HP x1.6, ends survived at the duration 66ms
+MUTATION 6 normal Free Fly HP touched: CAUGHT (1 failing)
+   × Normal Free Fly is unchanged (waves 1-30) > enemy stats of a real World 10 s into each wave 1421ms
+MUTATION 7 Free Fly squares allowed next to the origin: NOT CAUGHT at first (with the one world seed none of the four neighbours rolls Free Fly) -> the test now checks 400 seeds; re-run: CAUGHT (1 failing)
+   × Free Fly squares: kind > is deterministic, about FREEFLY_SHARE, never the origin or its four neighbours
+
+MUTATION 8 cleared keeps the grey plate (no lavender fill): CAUGHT (1 failing)
+   × Look: one progress colour > passed = lavender outline, cleared = lavender fill without inner mark, everything else grey 14ms
+MUTATION 9 failed encounter still marks the square passed: CAUGHT (1 failing)
+   × Free Fly squares: encounter > booking: passed and cleared unlock neighbours, failed changes nothing, the Medal is paid once 18ms

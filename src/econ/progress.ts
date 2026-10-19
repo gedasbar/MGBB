@@ -1,6 +1,8 @@
 import { MAX_TIER } from '../wall/generator';
 import { applySquareRun, defaultFrontier, FrontierSave, sanitizeFrontier, SquareRunOutcome } from '../frontier/state';
 import { MAP_UNLOCK_TIER } from '../frontier/constants';
+import { EncounterOutcome } from '../frontier/encounter';
+import { blockName, gateOf, isBlockUnlocked, newlyReached, Reach, reachBySector, requirementText } from '../frontier/unlocks';
 import { CaptainsState, defaultCaptains, sanitizeCaptains, addCaptainKills, buyOption, activateOption, claimFlyMilestone, rollMedals, selectCaptain, unlockCaptain, upgradeHero, CaptainResult, MedalAward } from '../captains/state';
 import { modifiersFor, RunModifiers } from '../captains/modifiers';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
@@ -177,13 +179,30 @@ export interface SquareRunResult {
  * credits only (it never happens through the UI).
  */
 export function applyFrontierRun(p: Progress, run: SquareRunResult): SquareRunOutcome {
+  const cleared = run.destroyed >= run.total;
+  return applyFrontierOutcome(p, { ...run, cleared, passed: cleared || !!run.passed });
+}
+
+/**
+ * Books any Frontier run by its outcome (a wall run above, or a Free Fly encounter): credits and kills as usual, then the
+ * square's state and the first-clear Medal. Free Fly records (best wave / time) are not touched.
+ */
+export function applyFrontierOutcome(p: Progress, run: { x: number; y: number; credits: number; kills: number; cleared: boolean; passed: boolean; medalDouble?: number; rand?: () => number }): SquareRunOutcome {
   p.credits += Math.floor(run.credits);
   p.totalKills += run.kills;
   p.runs++;
-  const cleared = run.destroyed >= run.total;
-  const r = applySquareRun(p.frontier, run.x, run.y, { cleared, passed: cleared || !!run.passed, medalDouble: run.medalDouble, rand: run.rand });
+  const r = applySquareRun(p.frontier, run.x, run.y, { cleared: run.cleared, passed: run.passed, medalDouble: run.medalDouble, rand: run.rand });
   p.medals += r.medals;
   return r;
+}
+
+/** The encounter outcome as a square result: cleared fills, passed and cleared both unlock, failed changes nothing. */
+export const outcomeFlags = (o: EncounterOutcome) => ({ cleared: o === 'cleared', passed: o !== 'failed' });
+
+/** A shop block that is gated by a directional unlock the player has not reached (and owns no copy of). */
+export function blockLockReason(p: Progress, id: string, reach: Reach = reachBySector(p.frontier)): string | null {
+  if (isBlockUnlocked(id, p.owned[id] ?? 0, reach)) return null;
+  return requirementText(gateOf(id)!);
 }
 
 export interface WallRunResult {
@@ -248,6 +267,8 @@ export type BuyResult = { ok: true; price: number } | { ok: false; error: string
 
 export function buyCopy(p: Progress, id: string): BuyResult {
   if (!(id in p.owned)) return { ok: false, error: 'Not for sale' };
+  const lock = blockLockReason(p, id);
+  if (lock) return { ok: false, error: lock };
   const price = copyPrice(id, p.owned[id]);
   if (p.credits < price) return { ok: false, error: 'Not enough credits' };
   p.credits -= price;
@@ -257,6 +278,8 @@ export function buyCopy(p: Progress, id: string): BuyResult {
 
 export function buyUpgrade(p: Progress, id: string): BuyResult {
   if (!(id in p.levels)) return { ok: false, error: 'Not for sale' };
+  const lock = blockLockReason(p, id);
+  if (lock) return { ok: false, error: lock };
   const level = p.levels[id];
   if (level >= maxLevelOf(id)) return { ok: false, error: 'Already at max level' };
   const price = upgradePrice(id, level);
@@ -283,11 +306,22 @@ export class ProgressStore {
   data: Progress;
   private listeners = new Set<() => void>();
 
+  /** Frontier reach per sector as of the last commit (directional unlocks), and the unlocks it produced not yet shown. */
+  private reach: Reach;
+  unlockNotices: string[] = [];
+
   constructor(private storage: StorageLike | null = null, initial?: Progress) {
     let raw: string | null = null;
     try { raw = storage?.getItem(PROGRESS_KEY) ?? null; } catch { /* storage unavailable */ }
     this.data = initial ?? loadProgress(raw);
+    this.reach = reachBySector(this.data.frontier);
   }
+
+  /** Reach per sector (cached; recomputed on every commit). */
+  get frontierReach(): Reach { return this.reach; }
+
+  /** "Unlocked: <block>" messages produced since the last call (each threshold once). */
+  takeUnlockNotices(): string[] { const n = this.unlockNotices; this.unlockNotices = []; return n; }
 
   onChange(fn: () => void): () => void {
     this.listeners.add(fn);
@@ -295,6 +329,9 @@ export class ProgressStore {
   }
 
   commit() {
+    const after = reachBySector(this.data.frontier);
+    for (const u of newlyReached(this.reach, after)) this.unlockNotices.push(`Unlocked: ${blockName(u.blockId)}`);
+    this.reach = after;
     try { this.storage?.setItem(PROGRESS_KEY, serializeProgress(this.data)); } catch { /* quota or private mode */ }
     for (const l of this.listeners) l();
   }
@@ -308,6 +345,13 @@ export class ProgressStore {
   reset() {
     this.data = defaultProgress();
     this.commit();
+  }
+
+  /** Books a Frontier Free Fly encounter (chunk 15b). Returns the square outcome (Medal paid on a first clear). */
+  recordFrontierFly(run: { x: number; y: number; credits: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number }): SquareRunOutcome {
+    const r = applyFrontierOutcome(this.data, { ...run, ...outcomeFlags(run.outcome) });
+    this.commit();
+    return r;
   }
 
   buyCopy(id: string): BuyResult { const r = buyCopy(this.data, id); if (r.ok) this.commit(); return r; }
