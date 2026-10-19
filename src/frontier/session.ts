@@ -14,6 +14,11 @@ export const frontierSession = {
   onChange: null as null | (() => void),
 };
 
+/** A tap on a square: a hole (empty space) cannot be selected and clears the selection instead (chunk 16a). */
+export function selectionAfterTap(isHole: boolean, x: number, y: number): { x: number; y: number } | null {
+  return isHole ? null : { x, y };
+}
+
 /** Dev: moves the camera (and the selection) to a square. */
 export function frontierJump(x: number, y: number, zoom?: number) {
   frontierSession.cx = x;

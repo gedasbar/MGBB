@@ -25,7 +25,7 @@ import {
 import { frontierLevel, isSpikeSquare, squareKind, squareLevel } from '../frontier/level';
 import { tileLook } from '../frontier/look';
 import { blockName, UNLOCK_RINGS, UNLOCK_SECTORS, UNLOCKS, unlockOnSquare } from '../frontier/unlocks';
-import { frontierSession, frontierJump } from '../frontier/session';
+import { frontierSession, frontierJump, selectionAfterTap } from '../frontier/session';
 import {
   canPlay, frontierCounts, frontierSquare, medalShown, nearestMedalSquare, SquareState, squareState,
 } from '../frontier/state';
@@ -440,7 +440,7 @@ export class FrontierScreen implements Screen {
 
   /** Selects a square; a hole (empty space) cannot be selected, it clears the selection instead. */
   select(x: number, y: number) {
-    frontierSession.sel = this.stateAt(x, y) === 'hole' ? null : { x, y };
+    frontierSession.sel = selectionAfterTap(this.stateAt(x, y) === 'hole', x, y);
     this.dirty = true;
     this.updatePanel();
   }
