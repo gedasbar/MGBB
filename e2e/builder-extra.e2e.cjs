@@ -18,8 +18,9 @@ const fanCell = (col, row) => [6 + (col - 0.5) * FAN_CELL, FAN_OY + (row - 0.5) 
 const TB = { clearAll: 486, y: 880 };
 const SHIP = [28, 28];
 const FLY = [468, 789];
-const tileCentre = (col, contentY) => [8 + col * 133 + 62.5, 514 + contentY + 52];
-const TILE = { turn_l: [0, 34], turn_r: [1, 34], splitter_3: [3, 34], flat_plus: [0, 284], piercing: [0, 534] };
+// Tile layout: see builder.e2e.cjs (tab row 66 px, list from y 536, 125 x 113 tiles, 'All' tab).
+const tileCentre = (col, row) => [8 + col * 133 + 62.5, 536 + 8 + row * 121 + 56.5];
+const TILE = { turn_l: [0, 0], turn_r: [1, 0], splitter_3: [3, 0], flat_plus: [3, 1] };
 
 const redish = (p) => p[0] > 190 && p[1] < 130 && p[2] < 130;
 
@@ -77,7 +78,7 @@ async function place(page, at, tileKey) {
   const pk = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; return { open: p.isOpen, first: p.tiles[0].id, selected: p.selected }; });
   check(pk.open && pk.first === '__remove' && pk.selected === 'flat_plus', `occupied cell: Remove tile first, current block highlighted (${JSON.stringify(pk)})`);
   await shot(page, 'b31_picker_occupied_cell.png');
-  await tap(page, ...tileCentre(0, 34)); // the Remove tile is the first tile (its section header is 26 px tall)
+  await tap(page, ...tileCentre(0, 0)); // the Remove tile is the first tile
   st = await state(page);
   check(/Remove/.test(st.inspector.title), `tapping the Remove tile explains it: "${st.inspector.title}: ${st.inspector.body}"`);
   check(st.statsStrip[0].startsWith('1') && /−1\b/.test(st.statsStrip[0]), `preview shows the delta against the current circuit: ${JSON.stringify(st.statsStrip[0])}`);
@@ -97,8 +98,8 @@ async function place(page, at, tileKey) {
 
   // Remove through the picker returns the block to the inventory.
   await openPicker(page, cell(9, 6));
-  await tap(page, ...tileCentre(0, 34));
-  await tap(page, ...tileCentre(0, 34));
+  await tap(page, ...tileCentre(0, 0));
+  await tap(page, ...tileCentre(0, 0));
   st = await state(page);
   const inv = await page.evaluate(() => ({ placed: window.__mgbm.model.placedCount('flat_plus'), avail: window.__mgbm.model.available('flat_plus'), owned: window.__mgbm.model.owned.flat_plus }));
   check(!st.pickerOpen && st.stats.damagePerShot === 1 && inv.placed === 0 && inv.avail === inv.owned, `Remove tile removes the block and returns it: ${JSON.stringify(inv)}`);

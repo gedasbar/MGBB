@@ -156,13 +156,14 @@ const readSquares = async (page, sqs, dx = 0, dy = 0) => {
   check(rowOf('cleaver').buttons[0].label === 'Reach ring 25 North' && !rowOf('cleaver').buttons[0].enabled, `shop: Cleaver greyed "${rowOf('cleaver').buttons[0].label}"`);
   check(/^Buy/.test(rowOf('overclock').buttons[0].label), 'shop: Overclock (left free) is for sale');
   const before = (await state(page)).credits;
-  await page.evaluate((y) => window.__mgbm.shopScreen.scrollBy(y), rowOf('cleaver').rect.y - 300);
+  // Chunk 16b-fix: the Shop is a tile grid; a locked block shows its requirement in the info sheet and has no buy button.
+  await page.evaluate(() => window.__mgbm.shopScreen.palette.reveal('cleaver'));
   await page.waitForTimeout(150);
-  const cleaver = (await state(page)).rows.find(r => r.key === 'cleaver');
-  const b = cleaver.buttons[0].rect;
-  await tap(page, b.x + 20, b.y + b.h / 2); // its left end: the ?debug=1 panel covers the right side of the screen
+  const tile = await page.evaluate(() => window.__mgbm.shopScreen.palette.tileScreenRect('cleaver'));
+  await tap(page, tile.x + tile.w / 2, tile.y + tile.h / 2);
+  const gate = await page.evaluate(() => { const p = window.__mgbm.shopScreen.palette; return { c: p.sheetContentNow, buy: p.sheetButtonVisible('buy'), up: p.sheetButtonVisible('upgrade') }; });
   const afterTap = await state(page);
-  check(afterTap.toast.includes('Reach ring 25 North') && afterTap.credits === before, `tapping it explains and buys nothing: "${afterTap.toast}"`);
+  check(gate.c && gate.c.lockText === 'Reach ring 25 North' && !gate.buy && !gate.up && afterTap.credits === before, `tapping it shows "${gate.c && gate.c.lockText}", offers no buy / upgrade and buys nothing`);
   shots.push(await canvasShot(page)); caps.push('shop: gated blocks');
 
   // ---- Play a Free Fly square to a result (time x6, a real ship that only drifts a little), then back.

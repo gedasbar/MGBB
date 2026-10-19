@@ -11,11 +11,10 @@ const TB = { clearCell: 54, rotCCW: 162, auto: 270, rotCW: 378, clearAll: 486, y
 const CORNER = { fit: [28, 144], undo: [76, 144], redo: [124, 144], ab: [512, 144], paste: [464, 144], copy: [416, 144] };
 const FLY = [468, 789];
 const STATS_STRIP = [270, 837];
-// Picker sheet (y 470..960): header 44 px, list from y 514; 4 columns of 125 px tiles with 8 px gaps; each category has a
-// 26 px header above its tile rows (tiles 104 px tall, rows 112 px apart): pathing tiles start 34 px into the list,
-// damage tiles 172 px, modifier tiles 422 px.
-const tileCentre = (col, contentY, scroll = 0) => [8 + col * 133 + 62.5, 514 + contentY + 52 - scroll];
-const TILE = { turn_l: [0, 34], turn_r: [1, 34], splitter_2: [2, 34], splitter_3: [3, 34], flat_plus: [0, 284], percent_mult: [1, 284] };
+// Palette (chunk 16b): the sheet is y 470..960: a 66 px tab row, then the tile list from y 536 (tab 'All'); 4 columns of 125 x 113 px tiles
+// with 8 px gaps, rows 121 px apart, blocks in data order: pathing first (turn_l turn_r splitter_2 splitter_3 on row 0), flat_plus at column 3 row 1.
+const tileCentre = (col, row, scroll = 0) => [8 + col * 133 + 62.5, 536 + 8 + row * 121 + 56.5 - scroll];
+const TILE = { turn_l: [0, 0], turn_r: [1, 0], splitter_2: [2, 0], splitter_3: [3, 0], flat_plus: [3, 1], percent_mult: [0, 2] };
 
 const redish = (p) => p[0] > 190 && p[1] < 130 && p[2] < 130;
 // The picker dims the grid by 28%, which pulls the red channel down to about 184.
@@ -139,7 +138,9 @@ async function placeViaPicker(page, col, row, tileKey) {
   const tr0 = await page.evaluate(() => window.__mgbm.buildScreen.picker.tileScreenRect('turn_r'));
   const [tx, ty] = tileCentre(...TILE.turn_r);
   check(tr0.x < tx && tx < tr0.x + tr0.w && tr0.y < ty && ty < tr0.y + tr0.h, 'independently computed Turn Right tile position hits the real tile');
-  await drag(page, 270, 880, 270, 480);
+  // The list is 424 px high now and the tiles are 113 px: two drags bring row 6 (pure_converter) into view.
+  await drag(page, 270, 900, 270, 560);
+  await drag(page, 270, 900, 270, 560);
   const tiles2 = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; const r = p.tileScreenRect('pure_converter'); return { scroll: p.scrollY, vis: r.y >= p.listRect.y && r.y + r.h <= p.listRect.y + p.listRect.h }; });
   check(tiles2.scroll > 100 && tiles2.vis, `dragging the list scrolls it (scrollY ${Math.round(tiles2.scroll)}) and reveals pure_converter`);
   await shot(page, 'b05_picker_scrolled.png');
