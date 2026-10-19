@@ -11,10 +11,10 @@ const CELL = 48, OX = 6, OY = 204;
 const cell = (col, row) => [OX + (col - 0.5) * CELL, OY + (row - 0.5) * CELL];
 const TB = { rotCW: 378, clearAll: 486, y: 880 };
 const CLOSE_X = [516, 492];
-// Picker tiles (see builder.e2e.cjs): 4 columns of 125 px with 8 px gaps, list starts at y 514, pathing tiles 34 px in.
-const tileCentre = (col, contentY) => [8 + col * 133 + 62.5, 514 + contentY + 52];
-const TILE = { turn_l: [0, 34], turn_r: [1, 34], splitter_2: [2, 34], flat_plus: [0, 284], percent_mult: [1, 284] };
-const REMOVE_TILE = tileCentre(0, 34); // first tile on an occupied cell (its section header is 26 px tall)
+// Picker tiles (see builder.e2e.cjs for the layout): tileCentre(column, row) on the 'All' tab.
+const tileCentre = (col, row) => [8 + col * 133 + 62.5, 536 + 8 + row * 121 + 56.5];
+const TILE = { turn_l: [0, 0], turn_r: [1, 0], splitter_2: [2, 0], flat_plus: [3, 1], percent_mult: [0, 2] };
+const REMOVE_TILE = tileCentre(0, 0); // first tile on an occupied cell
 
 const redish = (p) => p[0] > 190 && p[1] < 130 && p[2] < 130;
 const redishDimmed = (p) => p[0] > 140 && p[1] < 100 && p[2] < 100 && p[0] > 2 * p[1];
@@ -177,7 +177,7 @@ async function lineAt(page, col, row, axis, ok = redish) {
   await tap(page, ...cell(6, 9));
   check((await state(page)).pickerOpen, '2: picker open again for the scroll test');
   const nb = JSON.stringify(await blocks(page));
-  await drag(page, ...tileCentre(1, 34 + 138 + 112), tileCentre(1, 34 + 138 + 112)[0], 560);
+  await drag(page, ...tileCentre(1, 2), tileCentre(1, 2)[0], 560);
   let pk = await picker(page);
   check(pk.open && pk.scroll > 40 && pk.armed === null && JSON.stringify(await blocks(page)) === nb, `2: dragging the list from a tile scrolls it (scrollY ${pk.scroll.toFixed(0)}) and selects/places nothing (armed=${pk.armed})`);
   await shot(page, 'c1_05_list_scrolled.png');

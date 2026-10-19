@@ -169,8 +169,8 @@ export class ShopScreen implements Screen {
   }
 
   /**
-   * Test view of the list: one entry per block (Blocks section) with its tile rect when the current tab shows it and, for the
-   * selected block, the sheet's Buy / Upgrade buttons; or one entry per hull.
+   * Test view of the list: one entry per block (Blocks section) with its tile rect when the current tab shows it and its Buy /
+   * Upgrade state (the button rects only for the selected block, whose sheet is open); or one entry per hull.
    */
   private rowsView() {
     if (this.section === 'hulls') {
@@ -181,13 +181,14 @@ export class ShopScreen implements Screen {
       }));
     }
     return this.blockKeys().map(key => {
+      const c = this.blockContent(key);
       const open = this.palette.sheetOpen && this.palette.selected === key;
-      const c = open ? this.blockContent(key) : null;
-      const rect = this.palette.tileScreenRect(key);
-      const mk = (kind: 'buy' | 'upgrade', btn: { label: string; enabled: boolean } | null) =>
-        btn && c ? [{ kind, label: btn.label, enabled: btn.enabled, lock: null, rect: this.palette.sheetButtonRect(kind) }] : [];
-      const locked = c?.lockText ? [{ kind: 'buy', label: c.lockText, enabled: false, lock: c.lockText, rect: this.palette.sheetButtonRect('buy') }] : [];
-      return { key, rect, buttons: c ? [...mk('buy', c.buy), ...mk('upgrade', c.upgrade), ...locked] : [] };
+      // The sheet's buttons only exist (and have a rect) for the selected tile; the others report label and state with rect null.
+      const rectOf = (k: 'buy' | 'upgrade') => (open ? this.palette.sheetButtonRect(k) : null);
+      const buttons = c.lockText
+        ? [{ kind: 'buy', label: c.lockText, enabled: false, lock: c.lockText, rect: rectOf('buy') }, { kind: 'upgrade', label: 'Locked', enabled: false, lock: c.lockText, rect: rectOf('upgrade') }]
+        : [{ kind: 'buy', label: c.buy!.label, enabled: c.buy!.enabled, lock: null, rect: rectOf('buy') }, { kind: 'upgrade', label: c.upgrade!.label, enabled: c.upgrade!.enabled, lock: null, rect: rectOf('upgrade') }];
+      return { key, rect: this.palette.tileScreenRect(key), buttons };
     });
   }
 

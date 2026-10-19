@@ -26,12 +26,13 @@ const move = async (page, gx, gy) => { const p = await gameToClient(page, gx, gy
 
 /** Shop: scroll the row for `id` to the top of the list and press its Buy button with a real tap. */
 async function buy(page, id) {
-  const idx = await page.evaluate((id) => window.__mgbm.state().rows.findIndex(r => r.key === id), id);
-  if (idx < 0) throw new Error(`no shop row for ${id}`);
-  await page.evaluate((y) => { const s = window.__mgbm.shopScreen; s.scrollBy(y - s.scrollY); }, idx * 90);
+  // Chunk 16b-fix: the Shop is a tile grid. Select the tile (All tab), then press Buy in its info sheet.
+  await page.evaluate((id) => { const p = window.__mgbm.shopScreen.palette; if (p.tab !== 'all') p.setTab('all'); p.reveal(id); }, id);
+  const tile = await page.evaluate((id) => window.__mgbm.shopScreen.palette.tileScreenRect(id), id);
+  if (!tile) throw new Error(`no shop tile for ${id}`);
+  await tap(page, ...centre(tile));
   const st = await state(page);
-  const row = st.rows.find(r => r.key === id);
-  const btn = row.buttons.find(b => b.kind === 'buy');
+  const btn = st.rows.find(r => r.key === id).buttons.find(b => b.kind === 'buy');
   await tap(page, ...centre(btn.rect));
 }
 
@@ -43,7 +44,9 @@ async function place(page, x, y, id) {
   await page.evaluate((id) => window.__mgbm.buildScreen.picker.reveal(id), id);
   const r = await page.evaluate((id) => window.__mgbm.buildScreen.picker.tileScreenRect(id), id);
   await tap(page, ...centre(r));
-  await tap(page, ...centre(r));
+  // The first tap opens the info sheet, which can scroll the list: read the tile position again.
+  const r2 = await page.evaluate((id) => window.__mgbm.buildScreen.picker.tileScreenRect(id), id);
+  await tap(page, ...centre(r2));
 }
 
 const circuit = (page) => page.evaluate(() => window.__mgbm.model.grid.cells.filter(c => c.blockId).map(c => `${c.blockId}@${c.x + 1},${c.y + 1}`));
