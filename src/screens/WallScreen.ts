@@ -8,7 +8,7 @@ import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { TOUCH_OFFSET_Y } from '../game/world';
 import { clampShipX, ringScreenX, WallCamera } from '../wall/camera';
-import { CELL, VIEW_H, VIEW_W } from '../wall/constants';
+import { CELL, RESULT_DELAY_CLEARED, RESULT_DELAY_CRASHED, RESULT_DELAY_PASSED, VIEW_H, VIEW_W } from '../wall/constants';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 import { BuildScreen } from './BuildScreen';
 import { MapScreen } from './MapScreen';
@@ -29,9 +29,6 @@ import { sfx } from '../audio';
 import { SfxFeed } from '../audio/feed';
 import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_TRAVEL, PHASE_MINE_WAIT, PHASE_ORBIT } from '../engine/projectiles';
 
-/** Seconds between the level ending and the summary appearing (a crash restarts faster). */
-const END_DELAY = 0.6;
-const CRASH_DELAY = 0.3;
 const POPUPS = 40;
 const POPUP_LIFE = 0.6;
 /** Seconds the SECOND CHANCE hint blinks. */
@@ -274,7 +271,7 @@ export class WallScreen implements Screen {
     // Camera first (edge push), then the ship follows the pointer in screen space: world x = screen x + camera x.
     // Spawn safety: nothing follows the pointer (ship and camera alike) until the first move or press after the run started.
     if (!w.controlStarted && this.gate.observe(p, p.seen)) w.beginControl();
-    const pushing = w.controlStarted && p.seen && (p.type !== 'touch' || p.active);
+    const pushing = w.state === 'playing' && w.controlStarted && p.seen && (p.type !== 'touch' || p.active);
     // The pointer may sit outside the canvas (tracked at window level); the ship's screen x is clamped so it is fully visible.
     const shipSx = clampShipX(p.x);
     this.camera.update(dt, pushing ? shipSx : null);
@@ -290,7 +287,7 @@ export class WallScreen implements Screen {
     for (const h of w.hits) this.sfxFeed.hit({ id: h.blockId, damage: h.damage, kind: h.kind, armor: h.armor, shield: h.shield, maxShield: h.maxShield }, false);
     if (w.state !== 'playing' && !this.endSounded) { this.endSounded = true; sfx.play(w.state === 'crashed' ? 'crash' : 'cleared'); }
     // The background scrolls with the real wall speed (top-edge boost included); on a ring also sideways with the camera.
-    if (this.bg) this.bg.update(frameTime, w.scroll, w.ring ? this.camera.x : 0);
+    if (this.bg) this.bg.update(frameTime, w.state === 'playing' ? w.scroll : 0, w.ring ? this.camera.x : 0);
 
     // Credit popups: a small yellow +N each time the running total crosses a whole credit.
     for (const k of w.killEvents) {
@@ -330,7 +327,8 @@ export class WallScreen implements Screen {
 
     if (w.state !== 'playing' && !this.finished) {
       this.endTimer += frameTime;
-      if (this.endTimer >= (w.state === 'crashed' ? CRASH_DELAY : END_DELAY)) this.finish();
+      const delay = w.state === 'crashed' ? RESULT_DELAY_CRASHED : w.state === 'cleared' ? RESULT_DELAY_CLEARED : RESULT_DELAY_PASSED;
+      if (this.endTimer >= delay) this.finish();
     }
   }
 

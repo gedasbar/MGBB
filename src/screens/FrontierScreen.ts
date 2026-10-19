@@ -29,7 +29,7 @@ import { frontierSession, frontierJump } from '../frontier/session';
 import {
   canPlay, frontierCounts, frontierSquare, medalShown, nearestMedalSquare, SquareState, squareState,
 } from '../frontier/state';
-import { getWorld, parseKey, ring, sector, SECTOR_NAME } from '../frontier/world';
+import { getWorld, parseKey, sector, SECTOR_NAME } from '../frontier/world';
 import { clearFrontierRing, clearFrontierSquare, unlockFrontier } from '../debug/cheats';
 
 const TOP = 52;
@@ -40,6 +40,8 @@ export const FRONTIER_MAP: Rect = { x: 0, y: TOP, w: VIEW_W, h: PANEL_Y - TOP };
 const MCX = FRONTIER_MAP.x + FRONTIER_MAP.w / 2;
 const MCY = FRONTIER_MAP.y + FRONTIER_MAP.h / 2;
 
+/** Panel text while nothing is selected. */
+const NO_SELECTION_HINT = 'Select a square';
 const STATE_LABEL: Record<SquareState, string> = { hole: 'Empty space', locked: 'Locked', available: 'Available', passed: 'Passed', cleared: 'Cleared' };
 /** Panel state text: progress states in the one progress colour (chunk 15b: no green). */
 const STATE_COLOR: Record<SquareState, number> = { hole: THEME.textDim, locked: THEME.textDim, available: THEME.text, passed: PROGRESS_COLOR, cleared: PROGRESS_COLOR };
@@ -145,7 +147,13 @@ export class FrontierScreen implements Screen {
     this.container.addChild(this.toast.container);
 
     this.unsub = this.store.onChange(() => { this.refreshBox(); this.dirty = true; });
-    frontierSession.onChange = () => { this.clampZoom(); this.dirty = true; };
+    frontierSession.onChange = () => {
+      this.clampZoom();
+      const sel = frontierSession.sel;
+      if (sel && this.stateAt(sel.x, sel.y) === 'hole') frontierSession.sel = null; // a dev jump onto a hole selects nothing
+      this.dirty = true;
+      this.updatePanel();
+    };
     this.refreshBox();
     this.installDevHook();
   }
@@ -297,8 +305,8 @@ export class FrontierScreen implements Screen {
     this.drawRings(size);
     // Selection outline.
     this.selG.clear();
-    const sel = this.squareScreen(s.sel.x, s.sel.y);
-    if (inRect(FRONTIER_MAP, sel.x, sel.y)) {
+    const sel = s.sel ? this.squareScreen(s.sel.x, s.sel.y) : null;
+    if (sel && inRect(FRONTIER_MAP, sel.x, sel.y)) {
       const r = size / 2 + Math.max(2, z * 0.06);
       this.selG.rect(sel.x - r, sel.y - r, 2 * r, 2 * r).stroke({ color: THEME.select, width: far ? 2 : 3 });
     }
@@ -342,21 +350,18 @@ export class FrontierScreen implements Screen {
 
   // ------------------------------------------------------------------ panel
   private updatePanel() {
-    const { x, y } = frontierSession.sel;
+    const sel = frontierSession.sel;
+    if (!sel) { this.showNoSelection(); return; }
+    const { x, y } = sel;
     const st = this.stateAt(x, y);
     const p = this.store.data;
     this.credits.set(p.credits);
     const counts = frontierCounts(this.f);
     this.medalsText.text = `Medals ${fmtBig(p.medals)}`;
     this.countText.text = `${fmtBig(counts.cleared)} cleared · ${fmtBig(counts.passed - counts.cleared)} passed`;
-    const kind = st === 'hole' ? null : squareKind(x, y, this.f.seed);
+    const kind = squareKind(x, y, this.f.seed);
     this.line1.text = `(${fmtBig(x)}, ${fmtBig(y)})` + (kind === 'freefly' ? `  ·  Free Fly, survive ${FREEFLY_SQUARE_SECONDS} s` : kind === 'wall' ? '  ·  Wall' : '');
-    if (st === 'hole') {
-      this.line2.text = `Ring ${fmtBig(ring(x, y))}  ·  ${SECTOR_NAME[sector(x, y)]}`;
-      this.stateText.text = STATE_LABEL.hole;
-      this.medalText.text = '';
-      this.spikeText.text = '';
-    } else {
+    {
       const lv = squareLevel(x, y, this.f.seed);
       this.line2.text = `Ring ${fmtBig(lv.ring)}  ·  ${SECTOR_NAME[sector(x, y)]}  ·  Tier ${fmtBig(lv.tier)}`;
       this.stateText.text = STATE_LABEL[st];
@@ -377,11 +382,28 @@ export class FrontierScreen implements Screen {
     this.playButton.setText(st === 'passed' || st === 'cleared' ? 'REPLAY' : 'PLAY');
   }
 
+  /** Nothing selected (a tap on empty space): a neutral hint, no Play, no unlock line. */
+  private showNoSelection() {
+    const p = this.store.data;
+    this.credits.set(p.credits);
+    const counts = frontierCounts(this.f);
+    this.medalsText.text = `Medals ${fmtBig(p.medals)}`;
+    this.countText.text = `${fmtBig(counts.cleared)} cleared � ${fmtBig(counts.passed - counts.cleared)} passed`;
+    this.countText.style.fill = THEME.textDim;
+    this.line1.text = NO_SELECTION_HINT;
+    this.line2.text = '';
+    this.stateText.text = '';
+    this.medalText.text = '';
+    this.spikeText.text = '';
+    this.playButton.setEnabled(false);
+    this.playButton.setText('PLAY');
+  }
+
   /** Why the selected square cannot be played (empty when it can). */
   private playBlocked(): string {
-    const { x, y } = frontierSession.sel;
-    const st = this.stateAt(x, y);
-    if (st === 'hole') return 'Empty space: nothing to play here';
+    const sel = frontierSession.sel;
+    if (!sel) return NO_SELECTION_HINT;
+    const st = this.stateAt(sel.x, sel.y);
     if (st === 'locked') return 'Locked: pass or clear a square next to it first';
     return '';
   }
@@ -416,8 +438,9 @@ export class FrontierScreen implements Screen {
     this.select(sq.x, sq.y);
   }
 
+  /** Selects a square; a hole (empty space) cannot be selected, it clears the selection instead. */
   select(x: number, y: number) {
-    frontierSession.sel = { x, y };
+    frontierSession.sel = this.stateAt(x, y) === 'hole' ? null : { x, y };
     this.dirty = true;
     this.updatePanel();
   }
@@ -431,7 +454,9 @@ export class FrontierScreen implements Screen {
   }
 
   play() {
-    const { x, y } = frontierSession.sel;
+    const sel = frontierSession.sel;
+    if (!sel) return;
+    const { x, y } = sel;
     if (!canPlay(this.f, x, y)) return;
     const model = getBuilderModel();
     if (model.compiled.recipes.length === 0) { this.toast.show("Your circuit doesn't reach an ejector"); return; }
@@ -521,7 +546,7 @@ export class FrontierScreen implements Screen {
       unlocked: () => isFrontierUnlocked(store.data),
       state: () => ({
         camera: { cx: frontierSession.cx, cy: frontierSession.cy, zoom: frontierSession.zoom },
-        selected: { ...frontierSession.sel },
+        selected: frontierSession.sel ? { ...frontierSession.sel } : null,
         panel: { line1: this.line1.text, line2: this.line2.text, state: this.stateText.text, medal: this.medalText.text, spike: this.spikeText.text, note: this.countText.text, play: this.playButton.enabled },
         unlocksOpen: this.unlocksOpen,
         drawnSquares: this.drawnSquares, spritesUsed: this.spritesUsed, pool: this.views.length * 5,

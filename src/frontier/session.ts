@@ -8,7 +8,8 @@ export const frontierSession = {
   cx: 0,
   cy: 0,
   zoom: ZOOM_DEFAULT,
-  sel: { x: 0, y: 0 },
+  /** The selected square, or null (nothing: the panel shows a hint; a tap on empty space clears it, chunk 16a). */
+  sel: { x: 0, y: 0 } as { x: number; y: number } | null,
   /** Set by the open Frontier screen: called after a dev jump so it redraws at once. */
   onChange: null as null | (() => void),
 };

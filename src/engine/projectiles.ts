@@ -678,6 +678,13 @@ export class ProjectileSystem {
     this.fx.wellsMade++;
   }
 
+  /** A level ended: drops every shot in flight, cloud, attractor and arc, so the frozen last frame shows nothing still moving. */
+  dropAll() {
+    for (let i = 0; i < this.pool.max; i++) this.pool.free(i);
+    this.arcT.fill(0);
+    this.clearFieldFx();
+  }
+
   /** Drops every cloud and attractor (a restarted run). */
   clearFieldFx() {
     this.cloudT.fill(0);

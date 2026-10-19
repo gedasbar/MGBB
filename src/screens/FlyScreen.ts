@@ -28,6 +28,7 @@ import { EncounterParams, encounterOutcome, EncounterOutcome, planEncounter } fr
 import { FREEFLY_PASS_SHARE, FRONTIER_NAME, PROGRESS_COLOR } from '../frontier/constants';
 import { FrontierScreen } from './FrontierScreen';
 import { BuildScreen } from './BuildScreen';
+import { RESULT_DELAY_CLEARED, RESULT_DELAY_FAILED } from '../wall/constants';
 import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_WAIT, PHASE_MINE_TRAVEL, PHASE_ORBIT } from '../engine/projectiles';
 
 /** Status tints of a rock: burning is a redder orange, frozen a pale blue. */
@@ -41,8 +42,6 @@ const FLASH_TIME = 0.08;
 /** Free Fly background scroll in px/s (before each layer's parallax). */
 const BG_SCROLL = 60;
 const DMG_NUMBER_LIFE = 0.6;
-/** Seconds between the hull reaching 0 and the Run Summary appearing. */
-const END_DELAY = 0.7;
 /** The "WAVE N" banner: seconds on screen, the fade at its end, and where it sits. */
 const BANNER_TIME = 1.5;
 const BANNER_FADE = 0.3;
@@ -457,7 +456,7 @@ export class FlyScreen implements Screen {
     }
     if (this.world.gameOver && !this.finished) {
       this.endTimer += frameTime;
-      if (this.endTimer >= END_DELAY) this.finish();
+      if (this.endTimer >= (this.world.survived ? RESULT_DELAY_CLEARED : RESULT_DELAY_FAILED)) this.finish();
     }
   }
 

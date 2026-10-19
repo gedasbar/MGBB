@@ -335,7 +335,7 @@ export class World {
     if (this.gameOver) return;
     this.time += dt;
     // An encounter ends when its time is up: the ship survived it.
-    if (this.encounter && this.time >= this.encounter.duration) { this.time = this.encounter.duration; this.survived = true; this.gameOver = true; return; }
+    if (this.encounter && this.time >= this.encounter.duration) { this.time = this.encounter.duration; this.survived = true; this.gameOver = true; this.projSys.dropAll(); return; }
     if (this.tier > this.maxTier) this.maxTier = this.tier;
     if (this.invuln > 0) this.invuln -= dt;
     const VW = CONFIG.VIEW.W;
