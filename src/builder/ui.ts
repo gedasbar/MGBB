@@ -1,6 +1,6 @@
 import { Container, Graphics, Text, TextStyleOptions } from 'pixi.js';
 import { CompileStats } from '../engine/compiler';
-import { COLORS, drawWarn } from './draw';
+import { COLORS } from './draw';
 import { THEME } from '../ui/theme';
 import { inRect, LAYOUT, Rect, VIEW_W } from './layout';
 import { sfx } from '../audio';
@@ -158,28 +158,29 @@ function fmtDelta(n: number): string {
 
 export interface StatsDeltaLike { damagePerShot: number; projectilesPerPulse: number; pulsesPerSecond: number; estDps: number }
 
-/** Thin strip: Dmg/shot · Proj/pulse · Pulses/s · Est. DPS · warnings. */
+/** Thin strip: Dmg/shot · Proj/pulse · Pulses/s · Est. DPS (chunk 16a: the warnings cell is gone; the warnings stay in the compiler for tests and the debug panel). */
+/** Width of one cell of the stats strip: the four values share the screen width. */
+const STAT_COL_W = VIEW_W / 4;
+
 export class StatsStrip {
   readonly container = new Container();
   private bg = new Graphics();
   private cols: { label: Text; value: Text; delta: Text }[] = [];
-  private warnG = new Graphics();
   readonly rect: Rect = { ...LAYOUT.stats };
 
   constructor() {
     this.container.addChild(this.bg);
-    const names = ['Dmg/shot', 'Proj/pulse', 'Pulses/s', 'Est. DPS', 'Warnings'];
+    const names = ['Dmg/shot', 'Proj/pulse', 'Pulses/s', 'Est. DPS'];
     names.forEach((n, i) => {
       const label = makeText(n, 11, THEME.textDim);
       const value = makeText('0', 15, THEME.text, { fontWeight: 'bold' });
       const delta = makeText('', 12, THEME.good, { fontWeight: 'bold' });
-      label.position.set(8 + i * 108, 2);
-      value.position.set(8 + i * 108, 14);
+      label.position.set(8 + i * STAT_COL_W, 2);
+      value.position.set(8 + i * STAT_COL_W, 14);
       delta.position.set(0, 17);
       this.cols.push({ label, value, delta });
       this.container.addChild(label, value, delta);
     });
-    this.container.addChild(this.warnG);
     this.moveTo(LAYOUT.stats.y);
   }
 
@@ -188,8 +189,8 @@ export class StatsStrip {
     const r = LAYOUT.stats;
     this.bg.clear().rect(r.x, y, r.w, r.h).fill(THEME.panel).rect(r.x, y, r.w, 1).fill(THEME.border);
     this.cols.forEach((c, i) => {
-      c.label.position.set(8 + i * 108, y + 2);
-      c.value.position.set(8 + i * 108, y + 14);
+      c.label.position.set(8 + i * STAT_COL_W, y + 2);
+      c.value.position.set(8 + i * STAT_COL_W, y + 14);
     });
     this.container.position.set(0, 0);
     this.lastY = y;
@@ -205,23 +206,12 @@ export class StatsStrip {
     const vals = [stats.damagePerShot, stats.projectilesPerPulse, stats.pulsesPerSecond, stats.estDps];
     const d = delta ? [delta.damagePerShot, delta.projectilesPerPulse, delta.pulsesPerSecond, delta.estDps] : [0, 0, 0, 0];
     this.cols.forEach((c, i) => {
-      if (i < 4) {
-        c.value.text = fmt(vals[i]);
-        const dt = delta ? fmtDelta(d[i]) : '';
-        c.delta.text = dt;
-        c.delta.style.fill = d[i] < 0 ? THEME.bad : THEME.good;
-        c.delta.position.set(c.value.x + c.value.width + 5, this.lastY + 16);
-      }
+      c.value.text = fmt(vals[i]);
+      const dt = delta ? fmtDelta(d[i]) : '';
+      c.delta.text = dt;
+      c.delta.style.fill = d[i] < 0 ? THEME.bad : THEME.good;
+      c.delta.position.set(c.value.x + c.value.width + 5, this.lastY + 16);
     });
-    const n = stats.warnings.length;
-    const w = this.cols[4];
-    w.value.text = String(n);
-    w.value.style.fill = n > 0 ? THEME.warn : THEME.text;
-    w.value.position.set(8 + 4 * 108 + 24, this.lastY + 14);
-    w.delta.text = '';
-    this.warnG.clear();
-    drawWarn(this.warnG, 8 + 4 * 108 + 10, this.lastY + 23, n > 0 ? 18 : 15);
-    this.warnG.alpha = n > 0 ? 1 : 0.4;
   }
 
   /** Text of one column, for tests and debugging. */

@@ -3,7 +3,7 @@ import { CellInfo, CompiledShip, Grid, GridCell } from '../engine/compiler';
 import { Dir } from '../engine/compilerTypes';
 import { BLOCKS } from '../data/blocks';
 import {
-  COLORS, drawWarn,
+  COLORS,
 } from './draw';
 import { THEME } from '../ui/theme';
 import { drawPlate } from '../ui/blockArt';
@@ -101,7 +101,7 @@ export class GridRenderer {
     this.capsG.clear();
     drawCaps(this.capsG, compiled.segments);
     this.drawBlocks(grid, compiled, opts);
-    this.drawOverlay(grid, compiled, opts);
+    this.drawOverlay(opts);
   }
 
   /** Animated dashes; called every frame. */
@@ -158,22 +158,9 @@ export class GridRenderer {
     }
   }
 
-  private drawOverlay(grid: Grid, compiled: CompiledShip, opts: RenderOpts) {
+  private drawOverlay(opts: RenderOpts) {
     const g = this.overlayG;
     g.clear();
-    for (const c of grid.cells) {
-      if (c.type !== 'empty' || !c.blockId) continue;
-      const info = compiled.cellInfo[c.y * grid.w + c.x];
-      const x = c.x * S;
-      const y = c.y * S;
-      if (info.warning) drawWarn(g, x + S / 2, y + S - 8, 20);
-    }
-    for (let i = 0; i < compiled.cellInfo.length; i++) {
-      const c = grid.cells[i];
-      if (c.type === 'ejector' && compiled.cellInfo[i].warning) {
-        drawWarn(g, c.x * S + S / 2, c.y * S + S - 8, 20);
-      }
-    }
     if (opts.ghost) {
       g.rect(opts.ghost.x * S + 3, opts.ghost.y * S + 3, S - 6, S - 6).stroke({ color: THEME.select, width: THEME.selectWidth });
     }

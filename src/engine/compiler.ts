@@ -2,7 +2,7 @@ import { CONFIG } from '../config';
 import { BLOCKS } from '../data/blocks';
 import { fireRateMul } from '../data/hulls';
 import {
-  clonePacket, Dir, DIRS, GENERATOR_BASE_DAMAGE, dirToRotation, emitRate, evalDamage, newPacket, Packet, Rel, relToDir, Rotation, rotationToDir,
+  clonePacket, Dir, DIRS, GENERATOR_BASE_DAMAGE, emitRate, evalDamage, newPacket, Packet, Rel, relToDir, Rotation, rotationToDir,
 } from './compilerTypes';
 
 export interface GridCell {
@@ -12,10 +12,8 @@ export interface GridCell {
   /** Player-placed block; always null on fixed (non-empty) cells. */
   blockId: string | null;
   level: number;
-  /** Stored orientation. Only meaningful for the signal when `manual` is true. */
+  /** Stored orientation: a block is entered from the side it faces away from (0 = facing up, entered from below); any other side is a dead end. */
   rotation: Rotation;
-  /** true = the player rotated it by hand and it keeps its own orientation. */
-  manual: boolean;
   /** Fixed facing of generators and ejectors. */
   facing?: Dir;
 }
@@ -78,7 +76,6 @@ export interface CellInfo {
   inDirs: Dir[];
   outDirs: Dir[];
   effectiveRotation: Rotation;
-  orientationMode: 'auto' | 'manual';
   warning?: string;
 }
 
@@ -138,7 +135,7 @@ export function compile(grid: Grid, opts: CompileOptions = {}): CompiledShip {
   const baseDamage = GENERATOR_BASE_DAMAGE + (opts.baseDamage ?? 0);
   const { w, h, cells } = grid;
   const cellInfo: CellInfo[] = cells.map(c => ({
-    onPath: false, inDirs: [], outDirs: [], effectiveRotation: c.rotation, orientationMode: c.manual ? 'manual' : 'auto',
+    onPath: false, inDirs: [], outDirs: [], effectiveRotation: c.rotation,
   }));
   const segments: Segment[] = [];
   const recipes: EjectorRecipe[] = [];
@@ -235,7 +232,7 @@ export function compile(grid: Grid, opts: CompileOptions = {}): CompiledShip {
         }
 
         // A block.
-        if (cell.manual && dir !== rotationToDir(cell.rotation)) {
+        if (dir !== rotationToDir(cell.rotation)) {
           info.warning = 'Entered from the wrong side';
           stop('dead-end', 'wrong side', `Signal enters ${def.name} at ${cellLabel(nx, ny)} from the wrong side.`);
           break;
@@ -256,7 +253,7 @@ export function compile(grid: Grid, opts: CompileOptions = {}): CompiledShip {
 
         if (!info.onPath) {
           info.onPath = true;
-          info.effectiveRotation = cell.manual ? cell.rotation : dirToRotation(dir);
+          info.effectiveRotation = cell.rotation;
         }
         info.inDirs.push(dir);
 

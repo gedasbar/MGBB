@@ -1,5 +1,6 @@
 import { compile, CompiledShip, CompileStats, Grid } from '../engine/compiler';
 import { normalizeRotation } from '../engine/compilerTypes';
+import { orientCell, orientationFor } from '../engine/orient';
 import { BLOCKS } from '../data/blocks';
 import { cloneGrid, HULL_BUILDERS } from '../game/gridUtils';
 import { ProgressStore } from '../econ/progress';
@@ -101,7 +102,7 @@ export class BuilderModel {
         const n = (used.get(c.blockId) ?? 0) + 1;
         used.set(c.blockId, n);
         if (n > (this.owned[c.blockId] ?? 0)) {
-          c.blockId = null; c.level = 1; c.rotation = 0; c.manual = false;
+          c.blockId = null; c.level = 1; c.rotation = 0;
           removed++;
         }
       }
@@ -216,7 +217,11 @@ export class BuilderModel {
     return this.grid.cells[y * this.grid.w + x];
   }
 
-  /** Places (or swaps in) a block in auto mode. Replacing returns the old block to the inventory. */
+  /**
+   * Places (or swaps in) a block. It works out its direction ONCE, here, from the circuit as it is now (it faces the way the
+   * signal reaches the cell; with no signal there it faces up) and keeps it: no other block is touched. Replacing returns the
+   * old block to the inventory.
+   */
   place(x: number, y: number, blockId: string): EditResult {
     const c = this.cellAt(x, y);
     const def = BLOCKS[blockId];
@@ -228,7 +233,7 @@ export class BuilderModel {
     c.blockId = blockId;
     c.level = this.levelOf(blockId);
     c.rotation = 0;
-    c.manual = false;
+    orientCell(this.grid, x, y);
     this.commit();
     return { ok: true };
   }
@@ -240,34 +245,28 @@ export class BuilderModel {
     c.blockId = null;
     c.level = 1;
     c.rotation = 0;
-    c.manual = false;
     this.commit();
     return { ok: true };
   }
 
-  /**
-   * Rotates by 90° (+1 clockwise, -1 counter-clockwise) from the orientation currently displayed
-   * and switches the block to manual mode.
-   */
+  /** Rotates by 90 degrees (+1 clockwise, -1 counter-clockwise) from the stored orientation. */
   rotate(x: number, y: number, steps: 1 | -1): EditResult {
     const c = this.cellAt(x, y);
     if (!c || c.type !== 'empty' || !c.blockId) return { ok: false, error: 'Select a block to rotate' };
-    const shown = this.compiled.cellInfo[y * this.grid.w + x].effectiveRotation;
     this.pushUndo();
-    c.rotation = normalizeRotation(shown + 90 * steps);
-    c.manual = true;
+    c.rotation = normalizeRotation(c.rotation + 90 * steps);
     this.commit();
     return { ok: true };
   }
 
-  /** Back to auto mode: the block follows the line again. */
+  /** One-time action on one block: it turns to face the way the signal reaches it now. Nothing else changes; with no signal there it stays as it is. */
   autoOrient(x: number, y: number): EditResult {
     const c = this.cellAt(x, y);
     if (!c || c.type !== 'empty' || !c.blockId) return { ok: false, error: 'Select a block first' };
-    if (!c.manual) return { ok: true };
+    const want = orientationFor(this.grid, x, y, c.rotation);
+    if (want === c.rotation) return { ok: true };
     this.pushUndo();
-    c.manual = false;
-    c.rotation = 0;
+    c.rotation = want;
     this.commit();
     return { ok: true };
   }
@@ -276,7 +275,7 @@ export class BuilderModel {
     if (!this.grid.cells.some(c => c.blockId)) return { ok: false, error: 'Nothing to clear' };
     this.pushUndo();
     for (const c of this.grid.cells) {
-      if (c.type === 'empty') { c.blockId = null; c.level = 1; c.rotation = 0; c.manual = false; }
+      if (c.type === 'empty') { c.blockId = null; c.level = 1; c.rotation = 0; }
     }
     this.commit();
     return { ok: true };
@@ -337,7 +336,7 @@ export class BuilderModel {
     c.blockId = blockId;
     c.level = blockId ? this.levelOf(blockId) : 1;
     c.rotation = 0;
-    c.manual = false;
+    if (blockId) orientCell(g, x, y);
     return { grid: g, compiled: compile(g, this.compileOpts()) };
   }
 

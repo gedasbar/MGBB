@@ -1,19 +1,12 @@
 import { Graphics } from 'pixi.js';
 import { Segment } from '../engine/compiler';
 import { Dir } from '../engine/compilerTypes';
-import { arrowHead, COLORS, drawWarn, drawX } from './draw';
+import { arrowHead, COLORS, drawX } from './draw';
 import { BASE_CELL as S, EJECTOR_BASE_DIST, EMITTER_TIP_DIST } from './layout';
 
 export const DIR_VEC: Record<Dir, { x: number; y: number }> = {
   N: { x: 0, y: -1 }, E: { x: 1, y: 0 }, S: { x: 0, y: 1 }, W: { x: -1, y: 0 },
 };
-
-/** Reasons that get a warning triangle instead of a plain dead-end cross. */
-const WARN_REASONS = new Set(['wrong side', 'ejector wrong side', 'lines overlap', 'feedback loop']);
-
-export function isWarnSegment(s: Segment): boolean {
-  return s.kind === 'overlap' || s.kind === 'loop-cut' || (s.reason !== undefined && WARN_REASONS.has(s.reason));
-}
 
 /** Content-space centre of a cell. */
 export function centre(x: number, y: number): { x: number; y: number } {
@@ -105,12 +98,8 @@ export function drawCaps(g: Graphics, segments: Segment[]) {
   for (const s of segments) {
     if (s.kind === 'live') continue;
     const { b } = segmentEnds(s);
-    if (isWarnSegment(s)) {
-      drawWarn(g, b.x, b.y, 20);
-    } else {
-      g.circle(b.x, b.y, 8).fill({ color: 0x000000, alpha: 0.7 });
-      drawX(g, b.x, b.y, 5, COLORS.red, 3);
-    }
+    g.circle(b.x, b.y, 8).fill({ color: 0x000000, alpha: 0.7 });
+    drawX(g, b.x, b.y, 5, COLORS.red, 3);
   }
 }
 

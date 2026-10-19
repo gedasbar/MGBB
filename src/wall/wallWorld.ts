@@ -10,6 +10,7 @@ import {
   BOOST_MAX, CELL, PASS_MARGIN_CELLS, PROJECTILE_MAX_AGE, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_H,
 } from './constants';
 import { LevelDef, rewardPerBlock } from './level';
+import { wallResult } from './result';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 import { fireRateMul } from '../data/hulls';
 import { wrapDx, wrapX } from '../engine/wrap';
@@ -463,8 +464,9 @@ export class WallWorld {
     this.projSys.processField(this.field, this.level.tier);
     this.projSys.updateClouds(dt, this.field, this.level.tier); // Residue Seed ticks (a block killed by one is destroyed in the hit callback)
 
-    // --- End of level. Destroyed blocks never kill; a cleared wall beats a crash and a pass.
-    if (this.alive === 0) this.end('cleared');
+    // --- End of level. Destroyed blocks never kill; a cleared wall beats a crash and a pass (wallResult), a crash beats a pass.
+    const result = wallResult({ alive: this.alive, shipY: this.shipY, finishY: this.finishY });
+    if (result === 'cleared') this.end('cleared');
     else if (this.invuln <= 0 && !this.god && this.shipHitsBlock()) {
       if (this.secondChancesLeft > 0) {
         // Second Chance: the blocks touched are destroyed (they pay and count), the run goes on, one second untouchable.
@@ -476,12 +478,13 @@ export class WallWorld {
         this.invuln = SECOND_CHANCE_INVULN;
         if (this.alive === 0) this.end('cleared');
       } else this.state = 'crashed';
-    } else if (this.shipY < this.finishY) this.end('passed');
+    } else if (result === 'passed') this.end('passed');
   }
 
   /** Ends the level as cleared or passed; a captain's pass bonus (a share of the credits earned so far) is paid once, here. A crash pays nothing extra. */
   private end(s: 'cleared' | 'passed') {
-    this.state = s;
+    this.state = s; // from here update() does nothing: the ship, the wall and the shots are frozen and the ship cannot crash
+    this.projSys.dropAll();
     if (this.mods.passCredits > 0) {
       const bonus = this.mods.passCredits * this.creditsExact;
       this.creditsExact += bonus;

@@ -21,8 +21,19 @@ export const BOOST_MAX = 4;
 
 /** The ship's hit point (a crash happens when it touches a live block). */
 export const SHIP_HIT_R = HIT_RADIUS;
-/** The ship passes a wall once it is this many cells beyond the last row. Nothing is drawn for it (it was 1.5 and a drawn line). */
-export const PASS_MARGIN_CELLS = 8;
+/**
+ * The ship passes a wall once it is this many cells beyond the last row. Nothing is drawn for it (it was 1.5 and a drawn line;
+ * 8 until chunk 16a, which at the boosted scroll speed was seconds of flying through empty space after the wall was done).
+ */
+export const PASS_MARGIN_CELLS = 1;
+/**
+ * Chunk 16a: seconds between a level ending and its result screen. A clear or a pass freezes the world and the ship at once and
+ * waits this long (the last hit / the finish is seen, nothing keeps moving); a crash or a Free Fly death keep the pauses they had.
+ */
+export const RESULT_DELAY_CLEARED = 0.4;
+export const RESULT_DELAY_PASSED = 0.4;
+export const RESULT_DELAY_CRASHED = 0.3;
+export const RESULT_DELAY_FAILED = 0.7;
 /** Where the ship starts, and the nearest the first block row may start to it. */
 export const SHIP_START_Y = 0.8 * VIEW_H;
 export const MIN_START_GAP_CELLS = 6;

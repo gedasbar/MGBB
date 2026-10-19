@@ -258,10 +258,10 @@ describe('Crash, pass, clear', () => {
     expect(c.state).toBe('cleared');
   });
 
-  it('the (invisible) pass line is PASS_MARGIN_CELLS = 8 cells beyond the last row', () => {
+  it('the (invisible) pass line is PASS_MARGIN_CELLS = 1 cell beyond the last row', () => {
     const w = world(level(4));
     w.setWallOffset(500);
-    expect(PASS_MARGIN_CELLS).toBe(8);
+    expect(PASS_MARGIN_CELLS).toBe(1);
     expect(w.finishY).toBeCloseTo(500 - 4 * CELL - PASS_MARGIN_CELLS * CELL, 9);
     expect(w.progress).toBeGreaterThanOrEqual(0);
     expect(w.progress).toBeLessThan(1);

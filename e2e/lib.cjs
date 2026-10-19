@@ -206,6 +206,8 @@ async function openGame(browser, { viewport = { width: 540, height: 960 }, clear
   }
   await page.goto(URL);
   await page.waitForFunction(() => !!window.__mgbm);
+  // The debug cheat panel is a lazy import: with ?debug=1 wait (up to 8 s) until it is there, so a cold dev server does not break scripts that click its buttons.
+  if (/[?&]debug=1/.test(URL)) await page.waitForFunction(() => !!document.getElementById('dbg-fr-unlock'), null, { timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(400);
   return { page, context };
 }

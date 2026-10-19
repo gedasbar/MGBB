@@ -7,7 +7,7 @@ import { clientToGame } from '../input';
 import { BLOCKS, MOD_LABEL } from '../data/blocks';
 import { HULL_INFO } from '../game/gridUtils';
 import { shipThumbnail } from '../ui/shipArt';
-import { describeBlock, rotationToDir } from '../engine/compilerTypes';
+import { describeBlock } from '../engine/compilerTypes';
 import { CompiledShip, Grid } from '../engine/compiler';
 import { BuilderModel, statsDelta } from '../builder/model';
 import { getBuilderModel } from '../builder/session';
@@ -39,11 +39,10 @@ function cellCenterOf(v: View, cx: number, cy: number) {
   return { x: v.ox + (cx + 0.5) * v.scale, y: v.oy + (cy + 0.5) * v.scale };
 }
 
-const FACING_WORD: Record<string, string> = { N: 'up', E: 'right', S: 'down', W: 'left' };
 const HELP_TEXT =
   'Tap a cell to select and inspect it; tap it again to open the block picker. Tap a tile to preview it, tap it again to place it.\n\n' +
   'The red line is automatic: it leaves the generator and runs straight until a block changes it, ending at an ejector. ' +
-  'Blocks on the line follow it (auto). Rotating a block locks its facing; Auto-orient makes it follow the line again.\n\n' +
+  'A block you place turns to face the line that reaches it, once, and keeps that facing. Rotate turns the selected block; Auto-orient turns just that block to face the line again.\n\n' +
   'Drag to pan, pinch or use the wheel to zoom, and use the corner-arrows button to fit the hull.';
 
 /**
@@ -328,17 +327,9 @@ export class BuildScreen implements Screen {
     }
     const def = BLOCKS[cell.blockId];
     const info = this.model.compiled.cellInfo[sel.y * this.model.grid.w + sel.x];
-    const facing = FACING_WORD[rotationToDir(info.effectiveRotation)];
-    const mode = info.orientationMode === 'auto' ? 'Orientation: auto' : `Orientation: manual (facing ${facing})`;
     let body = describeBlock(def, cell.level);
-    let color: number = THEME.text;
-    if (info.warning) {
-      body = `Warning: ${info.warning.toLowerCase()}. ${body}`;
-      color = THEME.warn;
-    } else if (!info.onPath) {
-      body += ' No signal reaches this block.';
-    }
-    this.inspector.set(`${def.name} · ${mode}`, body, color);
+    if (!info.onPath) body += ' No signal reaches this block.';
+    this.inspector.set(def.name, body);
   }
 
   private installDevHook() {
@@ -521,7 +512,6 @@ export class BuildScreen implements Screen {
       `Proj/pulse: projectiles the ship fires each pulse, one per ejector the line reaches.\n` +
       `Pulses/s: how many pulses the generator fires each second (${s.pulsesPerSecond}).\n` +
       `Est. DPS: expected damage per second, counting chance blocks at their average.`,
-      s.warnings,
     );
   }
 

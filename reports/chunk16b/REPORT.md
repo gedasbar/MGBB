@@ -1,6 +1,6 @@
 # Chunk 16b / 16b-fix: block tile palette (Shop) shared with the builder
 
-Branch `chunk-16b` (own worktree `../MGBM-16b`). Design: `docs/palette-design.md`. Decisions 243-250.
+Branch `chunk-16b` (own worktree `../MGBM-16b`). Design: `docs/palette-design.md`. Decisions 258-265.
 
 ## What was done
 - **Where blocks are listed (before):** the Shop's Blocks section (cramped cards with name, "Owned n · Lv", Buy + Upgrade) and the builder's bottom-sheet picker (125 px tiles with names, `×n`, category headers; placing only). Nothing else. The first 16b try rewrote only the builder picker; that was the wrong screen and is superseded.
@@ -17,7 +17,7 @@ Branch `chunk-16b` (own worktree `../MGBM-16b`). Design: `docs/palette-design.md
 Seven panels (360 x 740 phone window unless noted): 1 Shop default, All tab: tab row (All white, Pathing blue, Damage red, Modifiers purple, Status teal, Mitosis amber), four tiles per row of plate art with number badges top right, some dim tiles with 0 and a yellow padlock top left; 2 Damage tab: eight damage tiles, the Damage chip filled red; 3 Flat + selected: white outline, an info sheet at the bottom (name, "Level 1/10", one-line rule, "Owned 20", two buttons "Upgrade L1→L2 / 120" and "Buy +1 / 1.64K") and an empty gap between the two tile rows and the sheet; 4 Delay Line (0 owned): badge 0, sheet says Owned 0 with Buy; 5 Random Router (locked): padlock tile, sheet shows "Locked: Reach ring 10 North" and no buttons (a leftover "Locked: ... on the Frontier" toast from the test's forced press sits over the sheet text); 6 the same Shop in a 1600 x 900 window (canvas letterboxed, tiles bigger, still 4 columns); 7 builder: the new tab row, tiles, an info sheet for Turn Left with a single full-width "Place" button.
 
 ## Deviations
-Builder keeps its two-tap place (the 16b text said a tap on the same tile closes; here it closes only in the Shop). Columns fixed at 4 (decision 245). Builder tile badge = free to place, Shop badge = owned. Builder lost the sheet's title/hint line and category headers.
+Builder keeps its two-tap place (the 16b text said a tap on the same tile closes; here it closes only in the Shop). Columns fixed at 4 (decision 260). Builder tile badge = free to place, Shop badge = owned. Builder lost the sheet's title/hint line and category headers.
 
 ## Not verified
 - Touch feel on a real phone (tap accuracy, drag-vs-tap on tiles, scroll momentum): only mouse events in headless Chromium.
