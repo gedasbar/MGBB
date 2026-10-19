@@ -52,7 +52,7 @@ describe('ring walls', () => {
   });
 
   it('a projectile wraps instead of leaving or bouncing', () => {
-    const w = wall(3, () => false);
+    const w = wall(3, (r, c) => r === 0 && c === 10); // one far block: a wall with none is already cleared (and drops its shots)
     const i = shoot(w, W - 2, 500, 10, [], 600, 0);
     w.update(1 / 60, null);
     expect(w.pool.active[i]).toBe(1);

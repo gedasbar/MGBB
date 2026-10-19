@@ -13,7 +13,7 @@ export function parseLayout(rows: string[]): Grid {
     if (rows[y].length !== w) throw new Error(`Layout row ${y + 1} has the wrong length`);
     for (let x = 0; x < w; x++) {
       const ch = rows[y][x];
-      const base: GridCell = { x, y, type: 'void', blockId: null, level: 1, rotation: 0, manual: false };
+      const base: GridCell = { x, y, type: 'void', blockId: null, level: 1, rotation: 0 };
       if (ch === '_') base.type = 'empty';
       else if (ch === 'G') { base.type = 'generator'; base.facing = 'N'; }
       else if (ch === 'E') { base.type = 'ejector'; base.facing = 'N'; }

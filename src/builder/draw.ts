@@ -47,14 +47,6 @@ export function arrowHead(g: Graphics, x: number, y: number, angle: number, len:
   g.poly([x, y, bx - sa * halfW, by + ca * halfW, bx + sa * halfW, by - ca * halfW]).fill(color);
 }
 
-/** Warning triangle with an exclamation mark, centred on (cx,cy). */
-export function drawWarn(g: Graphics, cx: number, cy: number, s: number) {
-  const h = s * 0.5;
-  g.poly([cx, cy - h, cx + h * 1.1, cy + h * 0.8, cx - h * 1.1, cy + h * 0.8]).fill(COLORS.warn).stroke({ color: 0x000000, width: Math.max(1, s * 0.08) });
-  g.moveTo(cx, cy - h * 0.3).lineTo(cx, cy + h * 0.25).stroke({ color: 0x000000, width: Math.max(1.5, s * 0.14), cap: 'round' });
-  g.circle(cx, cy + h * 0.55, Math.max(1, s * 0.07)).fill(0x000000);
-}
-
 function circularArrow(g: Graphics, r: number, color: number, width: number, clockwise: boolean) {
   // Clockwise sweep of about 225 degrees; the counter-clockwise arrow is its mirror image.
   const start = -Math.PI * 0.8;

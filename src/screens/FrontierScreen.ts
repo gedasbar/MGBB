@@ -388,7 +388,7 @@ export class FrontierScreen implements Screen {
     this.credits.set(p.credits);
     const counts = frontierCounts(this.f);
     this.medalsText.text = `Medals ${fmtBig(p.medals)}`;
-    this.countText.text = `${fmtBig(counts.cleared)} cleared · ${fmtBig(counts.passed - counts.cleared)} passed`;
+    this.countText.text = `${fmtBig(counts.cleared)} cleared Â· ${fmtBig(counts.passed - counts.cleared)} passed`;
     this.countText.style.fill = THEME.textDim;
     this.line1.text = NO_SELECTION_HINT;
     this.line2.text = '';

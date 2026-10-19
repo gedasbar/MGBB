@@ -11,6 +11,7 @@
 //    priced; the best one the credits of the tiers before buy).
 // D) Free Fly: waves the existing bot reaches with the best affordable circuit at several credit levels, and per hull.
 import { compile, Grid } from '../src/engine/compiler';
+import { orientAll } from '../src/engine/orient';
 import { evalDamage, emitRate } from '../src/engine/compilerTypes';
 import { BLOCKS, pickerBlocks } from '../src/data/blocks';
 import { HULL_BUILDERS, cloneGrid } from '../src/game/gridUtils';
@@ -176,7 +177,8 @@ const snapshot = (g: Grid): [number, string, number][] =>
   g.cells.map((c, i) => [i, c.blockId, c.level] as [number, string | null, number]).filter((x): x is [number, string, number] => !!x[1] && g.cells[x[0]].type === 'empty');
 export const gridFrom = (hull: string, cells: [number, string, number][]): Grid => {
   const g = HULL_BUILDERS[hull]();
-  for (const [i, id, l] of cells) Object.assign(g.cells[i], { blockId: id, level: l, rotation: 0, manual: false });
+  for (const [i, id, l] of cells) Object.assign(g.cells[i], { blockId: id, level: l, rotation: 0 });
+  orientAll(g); // every block faces the way the signal reaches it (chunk 16a: orientation is stored)
   return g;
 };
 
@@ -237,7 +239,8 @@ function search(hull: string, level: number, cap: number, seed: number, restarts
         if (count(id) >= cap && cell.blockId !== id) continue;
         cell.blockId = id; cell.level = lvl(id, level);
       }
-      cell.rotation = 0; cell.manual = false;
+      cell.rotation = 0;
+      orientAll(g);
       const sc = scoreGrid(g, 0, w);
       if (sc >= cur) {
         cur = sc;

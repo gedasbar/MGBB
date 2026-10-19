@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { compile, Grid, GridCell, Segment } from '../src/engine/compiler';
+import { compile as compileStored, CompileOptions, Grid, GridCell, Segment } from '../src/engine/compiler';
+import { entryDirection, orientCell, orientLegacyAuto } from '../src/engine/orient';
 import { Dir, Rotation } from '../src/engine/compilerTypes';
 import { buildFanGrid, buildShuttleGrid, parseLayout } from '../src/game/gridUtils';
 import { buildStarterGrid } from '../src/game/starter';
@@ -9,12 +10,25 @@ import '../src/data/blocks';
 const idx = (g: Grid, col: number, row: number) => (row - 1) * g.w + (col - 1);
 const ref = (col: number, row: number) => ({ x: col - 1, y: row - 1 });
 
-function put(g: Grid, col: number, row: number, blockId: string, opts: { level?: number; rotation?: Rotation; manual?: boolean } = {}) {
-  const c = g.cells[idx(g, col, row)];
+/**
+ * Chunk 16a: the compiler only reads stored rotations. A block put WITHOUT a rotation here is oriented against the finished
+ * circuit just before compiling (orientLegacyAuto, the same walk an old save gets once on load); one put WITH a rotation keeps it.
+ */
+const toOrient = new WeakMap<Grid, Set<number>>();
+function put(g: Grid, col: number, row: number, blockId: string, opts: { level?: number; rotation?: Rotation } = {}) {
+  const i = idx(g, col, row);
+  const c = g.cells[i];
   c.blockId = blockId;
   c.level = opts.level ?? 1;
   c.rotation = opts.rotation ?? 0;
-  c.manual = opts.manual ?? false;
+  const set = toOrient.get(g) ?? new Set<number>();
+  toOrient.set(g, set);
+  if (opts.rotation === undefined) set.add(i); else set.delete(i);
+}
+function compile(g: Grid, o?: CompileOptions) {
+  const set = toOrient.get(g);
+  if (set && set.size > 0) orientLegacyAuto(g, [...set]);
+  return compileStored(g, o);
 }
 
 function fixed(g: Grid, col: number, row: number, type: 'generator' | 'ejector', facing: Dir) {
@@ -76,59 +90,59 @@ describe('compiler: the automatic red line', () => {
     // Every manual rotation of a Turn Left: only the north-facing one is entered, and it still turns left.
     for (const rotation of [0, 90, 180, 270] as Rotation[]) {
       const m = routedShuttle();
-      put(m, 6, 9, 'turn_l', { rotation, manual: true });
+      put(m, 6, 9, 'turn_l', { rotation });
       expect(compile(m).recipes.length).toBe(0);
     }
     const right = routedShuttle();
-    put(right, 6, 9, 'turn_r', { rotation: 0, manual: true });
+    put(right, 6, 9, 'turn_r', { rotation: 0 });
     expect(compile(right).recipes.length).toBe(1);
   });
 
-  it('auto orientation: a Flat+ follows the direction the signal enters it', () => {
+  it('orientation at placement: a Flat+ placed on the line faces the way the signal enters it', () => {
     const g = routedShuttle();
     put(g, 6, 10, 'flat_plus'); // vertical part before the first turn
     put(g, 7, 9, 'flat_plus'); // horizontal part
     put(g, 9, 6, 'flat_plus'); // vertical part after the second turn
     const res = compile(g);
     const info = (c: number, r: number) => res.cellInfo[idx(g, c, r)];
-    expect(info(6, 10)).toMatchObject({ onPath: true, inDirs: ['N'], effectiveRotation: 0, orientationMode: 'auto' });
-    expect(info(7, 9)).toMatchObject({ onPath: true, inDirs: ['E'], effectiveRotation: 90, orientationMode: 'auto' });
-    expect(info(9, 6)).toMatchObject({ onPath: true, inDirs: ['N'], effectiveRotation: 0, orientationMode: 'auto' });
+    expect(info(6, 10)).toMatchObject({ onPath: true, inDirs: ['N'], effectiveRotation: 0 });
+    expect(info(7, 9)).toMatchObject({ onPath: true, inDirs: ['E'], effectiveRotation: 90 });
+    expect(info(9, 6)).toMatchObject({ onPath: true, inDirs: ['N'], effectiveRotation: 0 });
     expect(res.recipes[0].packet.damage).toBe(4);
   });
 
-  it('auto orientation ignores the stored rotation; an off-path block keeps its stored rotation', () => {
+  it('the compiler uses the stored rotation as it is: a block facing away from the line blocks it, an off-path block keeps its rotation', () => {
     const g = routedShuttle();
-    put(g, 9, 6, 'flat_plus', { rotation: 180 }); // stored rotation, but still auto
+    put(g, 9, 6, 'flat_plus', { rotation: 180 });
     put(g, 4, 4, 'flat_plus', { rotation: 270 }); // not on the line
     const res = compile(g);
-    expect(res.recipes[0].packet.damage).toBe(2);
-    expect(res.cellInfo[idx(g, 9, 6)].effectiveRotation).toBe(0);
+    expect(res.recipes.length).toBe(0);
+    expect(res.cellInfo[idx(g, 9, 6)].effectiveRotation).toBe(180);
     expect(res.cellInfo[idx(g, 4, 4)]).toMatchObject({ onPath: false, effectiveRotation: 270 });
-    expect(res.stats.wastedBlocks).toBe(1);
   });
 
-  it('manual rotation: wrong side blocks the signal, the right side lets it through, auto restores it', () => {
+  it('stored rotation: wrong side blocks the signal, the right side lets it through, Auto-orient (orientCell) restores it', () => {
     const east = routedShuttle();
-    put(east, 9, 6, 'flat_plus', { rotation: 90, manual: true });
+    put(east, 9, 6, 'flat_plus', { rotation: 90 });
     const blocked = compile(east);
     expect(blocked.recipes.length).toBe(0);
     expect(blocked.segments.some(s => s.kind === 'dead-end' && s.reason === 'wrong side')).toBe(true);
     expect(blocked.cellInfo[idx(east, 9, 6)].warning).toMatch(/wrong side/i);
-    expect(blocked.cellInfo[idx(east, 9, 6)].orientationMode).toBe('manual');
     expect(blocked.warnings.some(w => /wrong side/i.test(w))).toBe(true);
 
     const north = routedShuttle();
-    put(north, 9, 6, 'flat_plus', { rotation: 0, manual: true });
+    put(north, 9, 6, 'flat_plus', { rotation: 0 });
     const pass = compile(north);
     expect(pass.recipes.length).toBe(1);
     expect(pass.recipes[0].packet.damage).toBe(2);
-    expect(pass.cellInfo[idx(north, 9, 6)]).toMatchObject({ effectiveRotation: 0, orientationMode: 'manual' });
+    expect(pass.cellInfo[idx(north, 9, 6)]).toMatchObject({ effectiveRotation: 0 });
 
-    east.cells[idx(east, 9, 6)].manual = false; // Auto-orient
+    toOrient.get(east)!.delete(idx(east, 9, 6));
+    expect(entryDirection(east, 8, 5)).toBe('N');
+    orientCell(east, 8, 5); // Auto-orient
     const restored = compile(east);
     expect(restored.recipes.length).toBe(1);
-    expect(restored.cellInfo[idx(east, 9, 6)].orientationMode).toBe('auto');
+    expect(restored.cellInfo[idx(east, 9, 6)].effectiveRotation).toBe(0);
   });
 
   it('Splitter 3 on a clear column makes three branches walked in the order L, F, R', () => {
@@ -170,7 +184,7 @@ describe('compiler: the automatic red line', () => {
     expect(res.cellInfo[idx(g, 6, 6)].inDirs.sort()).toEqual(['E', 'N']);
   });
 
-  it('two lines crossing on a shared Flat+ cell each receive the damage independently', () => {
+  it('two lines crossing on a shared Flat+ cell: the one entering from the side the block faces passes, the other dead-ends (wrong side)', () => {
     const g = open();
     fixed(g, 6, 10, 'generator', 'N');
     fixed(g, 2, 6, 'generator', 'E');
@@ -178,10 +192,13 @@ describe('compiler: the automatic red line', () => {
     fixed(g, 10, 6, 'ejector', 'E');
     put(g, 6, 6, 'flat_plus');
     const res = compile(g);
-    expect(res.recipes.length).toBe(2);
-    expect(res.recipes.map(r => r.packet.damage)).toEqual([2, 2]);
-    // The displayed orientation follows the first signal in traversal order (the upper generator, travelling east).
-    expect(res.cellInfo[idx(g, 6, 6)]).toMatchObject({ effectiveRotation: 90, orientationMode: 'auto' });
+    // Placement oriented the block against the first signal in traversal order (the upper generator, travelling east) and it keeps that.
+    expect(res.cellInfo[idx(g, 6, 6)]).toMatchObject({ effectiveRotation: 90 });
+    expect(res.recipes.map(r => [r.direction, r.packet.damage])).toEqual([['E', 2]]);
+    expect(res.segments.some(s => s.kind === 'dead-end' && s.reason === 'wrong side')).toBe(true);
+    // Rotating nothing else: with the block facing north the OTHER line passes instead.
+    put(g, 6, 6, 'flat_plus', { rotation: 0 });
+    expect(compile(g).recipes.map(r => [r.direction, r.packet.damage])).toEqual([['N', 2]]);
   });
 
   it('two lines on the same axis through one cell: the later one is cut and flagged "lines overlap"', () => {
@@ -195,7 +212,7 @@ describe('compiler: the automatic red line', () => {
     expect(res.segments.map(seg)).toContain('live:2,6->9,6');
   });
 
-  it('a feedback loop is cut and flagged, never infinite', () => {
+  it('a loop of turns is never infinite: with stored orientations the returning signal meets a wrong side (or a loop-cut)', () => {
     const g = open();
     fixed(g, 2, 6, 'generator', 'E');
     put(g, 3, 6, 'splitter_3'); // A: entered heading E, later heading N
@@ -203,8 +220,7 @@ describe('compiler: the automatic red line', () => {
     put(g, 4, 7, 'turn_r'); // C: S -> W
     put(g, 3, 7, 'turn_r'); // D: W -> N, back into A
     const res = compile(g);
-    expect(res.segments.some(s => s.kind === 'loop-cut')).toBe(true);
-    expect(res.warnings.some(w => w.includes('Feedback loop'))).toBe(true);
+    expect(res.segments.some(s => s.kind === 'loop-cut' || (s.kind === 'dead-end' && s.reason === 'wrong side'))).toBe(true);
     expect(res.segments.length).toBeLessThan(40);
   });
 
@@ -256,6 +272,7 @@ describe('compiler: the automatic red line', () => {
   it('is deterministic and pure', () => {
     const g = routedShuttle();
     put(g, 9, 6, 'flat_plus');
+    compile(g); // the helper orients the blocks once; compiling itself changes nothing
     const before = JSON.stringify(g);
     const a = compile(g);
     const b = compile(g);

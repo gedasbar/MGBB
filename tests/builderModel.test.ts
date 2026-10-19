@@ -18,11 +18,11 @@ function memStorage(initial: Record<string, string> = {}): StorageLike & { data:
 const FLAT = { x: 8, y: 5 };
 
 describe('builder model: edits, inventory and rotation', () => {
-  it('starts with the default circuit: reaches the ejector, >= 2 damage, all blocks auto', () => {
+  it('starts with the default circuit: reaches the ejector, >= 2 damage, every block facing the way its signal arrives', () => {
     const m = richModel(null);
     expect(m.compiled.recipes.length).toBe(1);
     expect(m.compiled.stats.damagePerShot).toBeGreaterThanOrEqual(2);
-    expect(m.grid.cells.filter(c => c.blockId).every(c => c.manual === false)).toBe(true);
+    expect(m.grid.cells.filter(c => c.blockId).map(c => `${c.x},${c.y}:${c.rotation}`)).toEqual(['8,5:0', '5,8:0', '8,8:90']);
     expect(m.active).toBe('A');
   });
 
@@ -49,25 +49,27 @@ describe('builder model: edits, inventory and rotation', () => {
     expect(m.place(7, 4, 'jackpot').ok).toBe(false);
   });
 
-  it('rotating switches to manual from the displayed orientation and blocks / unblocks the line', () => {
+  it('rotating turns the stored orientation and blocks / unblocks the line; Auto-orient turns it back', () => {
     const m = richModel(null);
     const dmg = () => m.compiled.stats.damagePerShot;
     expect(dmg()).toBe(2);
 
     m.rotate(FLAT.x, FLAT.y, 1); // CW: faces east, the signal arrives heading north
     let c = m.cellAt(FLAT.x, FLAT.y)!;
-    expect(c).toMatchObject({ rotation: 90, manual: true });
+    expect(c).toMatchObject({ rotation: 90 });
     expect(m.compiled.recipes.length).toBe(0);
     expect(m.compiled.cellInfo[FLAT.y * m.grid.w + FLAT.x].warning).toMatch(/wrong side/i);
 
     m.rotate(FLAT.x, FLAT.y, -1); // CCW: back to facing north
     c = m.cellAt(FLAT.x, FLAT.y)!;
-    expect(c).toMatchObject({ rotation: 0, manual: true });
+    expect(c).toMatchObject({ rotation: 0 });
     expect(dmg()).toBe(2);
 
-    m.autoOrient(FLAT.x, FLAT.y);
-    expect(m.cellAt(FLAT.x, FLAT.y)).toMatchObject({ manual: false });
-    expect(m.compiled.cellInfo[FLAT.y * m.grid.w + FLAT.x].orientationMode).toBe('auto');
+    m.rotate(FLAT.x, FLAT.y, 1);
+    expect(m.compiled.recipes.length).toBe(0);
+    m.autoOrient(FLAT.x, FLAT.y); // one-time: faces the signal again
+    expect(m.cellAt(FLAT.x, FLAT.y)).toMatchObject({ rotation: 0 });
+    expect(dmg()).toBe(2);
   });
 
   it('four clockwise rotations return to the start; off-line blocks can be pre-oriented', () => {
@@ -76,17 +78,16 @@ describe('builder model: edits, inventory and rotation', () => {
     const seen: number[] = [];
     for (let i = 0; i < 4; i++) { m.rotate(3, 3, 1); seen.push(m.cellAt(3, 3)!.rotation); }
     expect(seen).toEqual([90, 180, 270, 0]);
-    expect(m.cellAt(3, 3)!.manual).toBe(true);
     m.rotate(3, 3, -1);
     expect(m.cellAt(3, 3)!.rotation).toBe(270);
   });
 
-  it('rotation starts from the displayed (auto) orientation, not the stored one', () => {
+  it('a block placed on the horizontal part of the route faces east; rotating starts from that stored facing', () => {
     const m = richModel(null);
-    m.place(6, 8, 'flat_plus'); // horizontal part of the route: auto shows it facing east
-    expect(m.compiled.cellInfo[8 * m.grid.w + 6].effectiveRotation).toBe(90);
+    m.place(6, 8, 'flat_plus');
+    expect(m.cellAt(6, 8)).toMatchObject({ rotation: 90 });
     m.rotate(6, 8, 1);
-    expect(m.cellAt(6, 8)).toMatchObject({ rotation: 180, manual: true });
+    expect(m.cellAt(6, 8)).toMatchObject({ rotation: 180 });
   });
 
   it('clear all empties the circuit and is a no-op error when already empty', () => {
@@ -106,7 +107,7 @@ describe('builder model: edits, inventory and rotation', () => {
     m.autoOrient(8, 4); states.push(sig());
     m.remove(8, 4); states.push(sig());
     m.clearAll(); states.push(sig());
-    const clip = JSON.stringify({ mgbm: 'layout', v: 2, hull: 'shuttle', blocks: DEFAULT_SHUTTLE_A });
+    const clip = JSON.stringify({ mgbm: 'layout', v: 3, hull: 'shuttle', blocks: DEFAULT_SHUTTLE_A });
     expect(m.pasteLayout(clip).ok).toBe(true);
     states.push(sig());
     for (let i = states.length - 1; i > 0; i--) { expect(sig()).toBe(states[i]); expect(m.undo()).toBe(true); }
@@ -155,7 +156,7 @@ describe('builder model: edits, inventory and rotation', () => {
 });
 
 describe('builder persistence', () => {
-  it('round-trips both circuits, rotation, manual flag and the active slot', () => {
+  it('round-trips both circuits, rotations and the active slot', () => {
     const storage = memStorage();
     const a = richModel(storage);
     a.rotate(FLAT.x, FLAT.y, 1);
@@ -166,14 +167,14 @@ describe('builder persistence', () => {
 
     const b = richModel(storage);
     expect(b.active).toBe('B');
-    expect(b.cellAt(5, 8)).toMatchObject({ blockId: 'turn_l', manual: false });
+    expect(b.cellAt(5, 8)).toMatchObject({ blockId: 'turn_l', rotation: 0 });
     b.switchSlot('A');
-    expect(b.cellAt(FLAT.x, FLAT.y)).toMatchObject({ blockId: 'flat_plus', rotation: 90, manual: true });
-    expect(b.cellAt(3, 3)).toMatchObject({ blockId: 'percent_mult', rotation: 270, manual: true });
+    expect(b.cellAt(FLAT.x, FLAT.y)).toMatchObject({ blockId: 'flat_plus', rotation: 90 });
+    expect(b.cellAt(3, 3)).toMatchObject({ blockId: 'percent_mult', rotation: 270 });
     expect(b.compiled.recipes.length).toBe(0); // the manually rotated Flat+ still blocks the line
   });
 
-  it('migrates the old format: drops Straight and fixed cells, resets rotations to auto', () => {
+  it('migrates the oldest format: drops Straight and fixed cells; the blocks are oriented once against the circuit', () => {
     const oldCells = [
       { x: 5, y: 7, blockId: 'generator', level: 1, rotation: 0, type: 'generator', facing: 'N' },
       { x: 5, y: 6, blockId: 'straight', level: 1, rotation: 0, type: 'empty' },
@@ -185,7 +186,7 @@ describe('builder persistence', () => {
     const m = richModel(storage);
     const blocks = m.grid.cells.filter(c => c.blockId);
     expect(blocks.map(c => c.blockId).sort()).toEqual(['flat_plus', 'turn_r']);
-    expect(blocks.every(c => c.rotation === 0 && c.manual === false)).toBe(true);
+    expect(blocks.every(c => [0, 90, 180, 270].includes(c.rotation))).toBe(true);
     expect(m.grid.cells.some(c => c.blockId === 'straight')).toBe(false);
     expect(storage.data[STORAGE_KEY]).toBeDefined(); // written in the new format
     expect(storage.data[LEGACY_KEY]).toBeUndefined();
@@ -215,18 +216,18 @@ describe('builder persistence', () => {
 
   it('drops Straight and bad entries from a current-format save without crashing', () => {
     const bad = {
-      version: 2,
+      version: 3,
       hulls: {
         shuttle: {
           active: 'Z',
           slots: {
             A: [
-              { x: 5, y: 8, blockId: 'straight', level: 1, rotation: 0, manual: false },
-              { x: 5, y: 8, blockId: 'turn_r', level: 99, rotation: 45, manual: true },
-              { x: 5, y: 8, blockId: 'jackpot', level: 1, rotation: 0, manual: false }, // duplicate cell
+              { x: 5, y: 8, blockId: 'straight', level: 1, rotation: 0 },
+              { x: 5, y: 8, blockId: 'turn_r', level: 99, rotation: 45 },
+              { x: 5, y: 8, blockId: 'jackpot', level: 1, rotation: 0 }, // duplicate cell
               { x: -1, y: 3, blockId: 'turn_r' },
               { x: 'a', y: 3, blockId: 'turn_r' },
-              { x: 5, y: 0, blockId: 'turn_r', level: 1, rotation: 0, manual: false }, // void cell (6,1)
+              { x: 5, y: 0, blockId: 'turn_r', level: 1, rotation: 0 }, // void cell (6,1)
               null, 7, 'x',
             ],
             B: 'nonsense',
@@ -238,7 +239,7 @@ describe('builder persistence', () => {
     expect(m.active).toBe('A');
     const blocks = m.grid.cells.filter(c => c.blockId);
     expect(blocks.length).toBe(1);
-    expect(blocks[0]).toMatchObject({ blockId: 'turn_r', level: 1, rotation: 0, manual: false });
+    expect(blocks[0]).toMatchObject({ blockId: 'turn_r', level: 1, rotation: 0 });
   });
 
   it('corrupt or foreign JSON falls back to the default circuit', () => {
@@ -266,9 +267,9 @@ describe('builder persistence', () => {
     const clip = m.copyLayout();
     m.clearAll();
     expect(m.pasteLayout(clip).ok).toBe(true);
-    expect(m.cellAt(FLAT.x, FLAT.y)).toMatchObject({ blockId: 'flat_plus', rotation: 90, manual: true });
+    expect(m.cellAt(FLAT.x, FLAT.y)).toMatchObject({ blockId: 'flat_plus', rotation: 90 });
 
-    for (const junk of ['', 'not json', '{}', '{"mgbm":"layout","v":1}', '{"mgbm":"layout","v":2,"hull":"fan","blocks":[]}']) {
+    for (const junk of ['', 'not json', '{}', '{"mgbm":"layout","v":1}', '{"mgbm":"layout","v":3,"hull":"fan","blocks":[]}']) {
       const r = m.pasteLayout(junk);
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.error.length).toBeGreaterThan(5);

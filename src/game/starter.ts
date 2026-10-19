@@ -1,24 +1,25 @@
 import { Grid } from '../engine/compiler';
 import '../data/blocks';
+import { orientCell } from '../engine/orient';
 import { buildDartGrid, buildShuttleGrid } from './gridUtils';
 
 /** First-tier Mitotic Rock HP (tests). Starter shot = 2 dmg → 3 hits to kill. */
 export const ROCK_HP = 5;
 export const ROCK_RADIUS = 20;
 
-/** Places a block by 1-indexed (col,row), as the hull diagram numbers cells. */
+/** Places a block by 1-indexed (col,row), as the hull diagram numbers cells. It faces the way the signal reaches the cell NOW, so place blocks in path order. */
 export function place(grid: Grid, col: number, row: number, blockId: string, level = 1) {
   const c = grid.cells[(row - 1) * grid.w + (col - 1)];
   c.blockId = blockId;
   c.level = level;
   c.rotation = 0;
-  c.manual = false;
+  orientCell(grid, col - 1, row - 1);
 }
 
 /**
  * Default circuit of the Shuttle: the signal leaves the generator at (6,11), turns right at (6,9),
  * turns left at (9,9) (column 10 is void, so a second turn is needed to reach the ejector), runs up
- * column 9 through Flat+ at (9,6) and into the ejector at (9,2). Every block is in auto mode.
+ * column 9 through Flat+ at (9,6) and into the ejector at (9,2). Every block faces the way the signal reaches it.
  */
 export function buildStarterGrid(): Grid {
   const g = buildShuttleGrid();
