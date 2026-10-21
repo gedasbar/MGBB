@@ -18,9 +18,9 @@ const fanCell = (col, row) => [6 + (col - 0.5) * FAN_CELL, FAN_OY + (row - 0.5) 
 const TB = { clearAll: 486, y: 880 };
 const SHIP = [28, 28];
 const FLY = [468, 789];
-// Tile layout: see builder.e2e.cjs (tab row 66 px, list from y 536, 125 x 113 tiles, 'All' tab).
-const tileCentre = (col, row) => [8 + col * 133 + 62.5, 536 + 8 + row * 121 + 56.5];
-const TILE = { turn_l: [0, 0], turn_r: [1, 0], splitter_3: [3, 0], flat_plus: [3, 1] };
+// Tile layout: see builder.e2e.cjs (no tabs, list from y 470, 5 columns of 98 x 88 tiles).
+const tileCentre = (col, row) => [8 + col * 106 + 49, 470 + 8 + row * 96 + 44];
+const TILE = { turn_l: [0, 0], turn_r: [1, 0], splitter_3: [3, 0], flat_plus: [2, 1] };
 
 const redish = (p) => p[0] > 190 && p[1] < 130 && p[2] < 130;
 
@@ -83,11 +83,11 @@ async function place(page, at, tileKey) {
   check(/Remove/.test(st.inspector.title), `tapping the Remove tile explains it: "${st.inspector.title}: ${st.inspector.body}"`);
   check(st.statsStrip[0].startsWith('1') && /−1\b/.test(st.statsStrip[0]), `preview shows the delta against the current circuit: ${JSON.stringify(st.statsStrip[0])}`);
   await shot(page, 'b32_preview_remove_delta.png');
-  // Closing without changes: the X button.
+  // Closing without changes: a tap on the dimmed area (the X button is gone).
   const beforeClose = await page.evaluate(() => JSON.stringify(window.__mgbm.model.grid.cells.filter(c => c.blockId)));
-  await tap(page, 516, 492);
+  await tap(page, 270, 250);
   st = await state(page);
-  check(!st.pickerOpen && (await page.evaluate(() => JSON.stringify(window.__mgbm.model.grid.cells.filter(c => c.blockId)))) === beforeClose, 'the X button closes the sheet without changes');
+  check(!st.pickerOpen && (await page.evaluate(() => JSON.stringify(window.__mgbm.model.grid.cells.filter(c => c.blockId)))) === beforeClose, 'tapping the dimmed area closes the sheet without changes');
   check(st.view.scale === CELL && st.view.ox === OX && st.view.oy === OY, 'closing restores the view');
   // Closing without changes: tap on the dimmed area.
   await openPicker(page, cell(3, 5));
@@ -110,7 +110,7 @@ async function place(page, at, tileKey) {
   st = await state(page);
   check(st.statsStrip[0] === '2 +1' && st.statsStrip[3] === '10 +5', `preview of Flat+ shows the new numbers with deltas: ${JSON.stringify(st.statsStrip)}`);
   await shot(page, 'b33_preview_flat_plus_delta.png');
-  await tap(page, 516, 492);
+  await tap(page, 270, 250);
 
   // ------------------------------------------------------------------ hull picker + multi-stream flight on the Fan hull
   await tap(page, ...SHIP);
