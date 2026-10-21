@@ -4,6 +4,7 @@ import { COLORS } from './draw';
 import { THEME } from '../ui/theme';
 import { inRect, LAYOUT, Rect, VIEW_W } from './layout';
 import { sfx } from '../audio';
+import { fmtStat } from '../ui/format';
 
 export function makeText(text: string, size: number, color: number = COLORS.text, opts: Partial<TextStyleOptions> = {}): Text {
   return new Text({ text, style: { fontFamily: 'Arial, Helvetica, sans-serif', fontSize: size, fill: color, ...opts } });
@@ -91,6 +92,8 @@ export class Toast {
   private text = makeText('', 16, THEME.text, { align: 'center', wordWrap: true, wordWrapWidth: 440, fontWeight: 'bold' });
   private left = 0;
   private total = 1;
+  /** Vertical centre of the message; the builder lifts it above the palette while that is open. */
+  y = LAYOUT.stats.y - 54;
 
   constructor() {
     this.container.addChild(this.bg, this.text);
@@ -103,7 +106,7 @@ export class Toast {
     const w = Math.min(480, this.text.width + 36);
     const h = this.text.height + 22;
     const cx = VIEW_W / 2;
-    const cy = LAYOUT.stats.y - 54;
+    const cy = this.y;
     this.bg.clear().rect(cx - w / 2, cy - h / 2, w, h).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
     this.text.position.set(cx, cy);
     this.container.visible = true;
@@ -146,10 +149,8 @@ export class Inspector {
   get bodyText(): string { return this.body.text; }
 }
 
-function fmt(n: number): string {
-  if (Math.abs(n - Math.round(n)) < 0.005) return String(Math.round(n));
-  return n.toFixed(1);
-}
+/** Stats strip numbers (16e): K / M / B from 1000 up. */
+const fmt = fmtStat;
 
 function fmtDelta(n: number): string {
   if (Math.abs(n) < 0.005) return '';

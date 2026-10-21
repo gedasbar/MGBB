@@ -1,94 +1,95 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { CanvasTextMetrics, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { BLOCKS } from '../data/blocks';
-import { CATEGORY_COLOR, drawX } from './draw';
-import { drawPlate } from '../ui/blockArt';
+import { drawX } from './draw';
+import { drawTileIcon } from '../ui/blockArt';
 import { inRect, Rect } from './layout';
 import { makeText } from './ui';
 import { THEME } from '../ui/theme';
 import {
-  badgeText, chipLayout, clampScroll, hitTile, INFO_SHEET_H, layoutTiles, loadTab, maxScrollOf, paletteGeometry,
-  PALETTE_TABS, PaletteTab, REMOVE_TILE, saveTab, scrollToReveal, SheetButtonId, SheetContent, sheetButtonRects,
-  TAB_LABEL, TileBox, visibleTiles,
+  clampScroll, COL_GAP, fitText, hitTile, layoutTiles, listRect, maxScrollOf, NAME_GAP, REMOVE_TILE, scrollToReveal, SheetButtonId,
+  SheetContent, sheetGeometry, SheetGeometry, SheetMode, SHEET_BODY_Y, SHEET_LINE_H, SHEET_PAD, SHEET_TITLE_Y, tileLook, TileBox, tileMetrics,
+  visibleTiles,
 } from './paletteLogic';
 
 export { REMOVE_TILE };
 export type { SheetButtonId };
 
-/** What a palette shows: the builder and the Shop each supply their own (ids per tab, counts, locks, sheet text). */
+/** What a palette shows: the builder and the Shop each supply their own (ids, counts, locks, sheet text). */
 export interface PaletteSource {
-  /** Every tile of a tab in order, special tiles (Remove) included. */
-  ids(tab: PaletteTab): string[];
-  /** The number on the tile, or null for no badge. */
-  badge(id: string): number | null;
+  /** Every tile in order, special tiles (Remove) included. */
+  ids(): string[];
+  /** The number on the tile, or null for none. */
+  count(id: string): number | null;
+  /** The player owns at least one copy (unowned tiles are dimmed). */
+  owned(id: string): boolean;
   /** Requirement text when the block is gated, else null. */
   lock(id: string): string | null;
-  /** The tile is the block already on the selected cell (builder only). */
-  current(id: string): boolean;
   content(id: string): SheetContent;
 }
 
 export interface PaletteOptions {
-  /** The whole region: tab row, list and the info sheet at the bottom. */
+  /** The whole region: the tile list and, at its bottom, the info sheet. */
   area: Rect;
-  /** Buttons of the info sheet, left to right. */
+  /** Buttons of the info sheet, left to right (builder: Place; Shop: Upgrade, Buy). */
   buttons: SheetButtonId[];
   /** What a second tap on the selected tile does: close the sheet (Shop) or press its place button (builder). */
   tapAgain: 'close' | 'place';
-  /** The builder's bottom sheet draws its own panel and an X; the Shop sits on its own background. */
+  /** The builder's bottom sheet draws its own panel; the Shop sits on its own background. */
   panel: boolean;
 }
 
 export interface PaletteEvents {
-  /** A tile that was not selected has been tapped: the caller shows what it needs (preview, inspector text). */
+  /** A tile that was not selected has been tapped: the caller shows what it needs (a preview on the circuit). */
   onSelect(id: string): void;
   onButton(id: string, button: SheetButtonId): void;
-  onClose(): void;
   onMessage(msg: string): void;
 }
 
 type Tile = TileBox;
 
+const NAME_SIZE = 16;
+const COUNT_SIZE = 18;
+const FRAME_GAP = 3;
+const FRAME_W = 3;
+const BORDER_W = 2;
+const ALL_BUTTONS: SheetButtonId[] = ['place', 'upgrade', 'buy'];
+const GREY = 0xa0a0a6;
+
 /** One reusable tile: created the first time a block is shown, then only moved, hidden and restyled. */
 interface TileView {
   c: Container;
-  bg: Graphics;
-  plate: Graphics;
-  badge: Text;
-  badgeBg: Graphics;
+  /** Everything that dims together (plate, name, count, padlock). */
+  body: Container;
+  name: Text;
+  count: Text;
   lock: Graphics;
-  /** What the face was last drawn for; the face is redrawn only when this changes. */
+  frame: Graphics;
+  /** What the look was last drawn for; it is redrawn only when this changes. */
   key: string;
+  /** Count text currently shown, for tests. */
+  countText: string | null;
 }
 
 interface SheetButtonView { c: Container; bg: Graphics; label: Text; rect: Rect }
 
-function safeStorage(): Storage | null {
-  try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; }
+function nameOf(id: string): string {
+  return id === REMOVE_TILE ? 'Remove' : BLOCKS[id].name;
 }
 
-/** The last tab used, shared by the builder and the Shop (a player thinks of "the Damage tab", not of one screen's). */
-let rememberedTab: PaletteTab | null = null;
-
-const BADGE_W = 34;
-const BADGE_H = 22;
-const ALL_BUTTONS: SheetButtonId[] = ['place', 'upgrade', 'buy'];
-
 /**
- * The block palette shared by the Shop and the builder: tab chips, a scrolling grid of plate tiles with count badges, and an
- * info sheet for the selected tile. Chunk 16b-fix: one component, two sources.
+ * The block palette shared by the Shop and the builder (chunk 16e): one scrolling list of plain tiles (icon on a plate, the name
+ * under it, a small count in the corner) and a compact info sheet for the selected tile. No tabs.
  */
 export class TilePalette {
   readonly container = new Container();
-  readonly geo;
-  /** The whole region (tabs, list, info sheet). */
+  readonly metrics = tileMetrics();
+  /** The whole region (list and sheet). */
   readonly sheet: Rect;
-  readonly closeRect: Rect;
   /** The tile list; its height shrinks while the info sheet is open. */
   readonly listRect: Rect;
   scrollY = 0;
   selected: string | null = null;
   tiles: Tile[] = [];
-  tab: PaletteTab;
   sheetOpen = false;
   protected source: PaletteSource | null = null;
   protected events: PaletteEvents | null = null;
@@ -97,62 +98,44 @@ export class TilePalette {
   private bg = new Graphics();
   private maskG = new Graphics();
   private views = new Map<string, TileView>();
-  private chipRects: Record<PaletteTab, Rect>;
-  private chipG = new Graphics();
-  private chipLabels: Record<string, Text> = {};
+  private nameStyle = new TextStyle({ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: NAME_SIZE, fill: THEME.tileText });
+  private infoStyle = new TextStyle({ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 13, fontWeight: 'bold' });
   private infoC = new Container();
   private infoBg = new Graphics();
   private infoTitle = makeText('', 18, THEME.text, { fontWeight: 'bold' });
   private infoLevel = makeText('', 13, THEME.textDim, { fontWeight: 'bold' });
-  private infoBody = makeText('', 12, THEME.text, { wordWrap: true, wordWrapWidth: 520, lineHeight: 15 });
-  private infoOwned = makeText('', 13, THEME.textDim, { fontWeight: 'bold' });
+  private infoBody = makeText('', 14, THEME.text, { wordWrap: true, wordWrapWidth: 400, lineHeight: SHEET_LINE_H });
+  private infoStatus = makeText('', 13, THEME.textDim, { fontWeight: 'bold' });
   private infoButtons: Record<SheetButtonId, SheetButtonView>;
   private content: SheetContent | null = null;
   private buttonIds: SheetButtonId[];
+  private mode: SheetMode;
+  private geo: SheetGeometry;
+  /** Height of the sheet as currently laid out (0 while closed). */
+  private sheetH = 0;
 
   constructor(protected opts: PaletteOptions) {
-    const g = this.geo = paletteGeometry(opts.area);
     this.buttonIds = opts.buttons;
+    this.mode = opts.buttons.length > 1 ? 'full' : 'compact';
     this.sheet = { ...opts.area };
-    this.listRect = { ...g.listClosed };
-    const strip = chipLayout(opts.area.w, opts.area.y, PALETTE_TABS.length, opts.panel ? undefined : 0);
-    this.closeRect = strip.close;
-    this.chipRects = Object.fromEntries(PALETTE_TABS.map((t, i) => [t, strip.chips[i]])) as Record<PaletteTab, Rect>;
-    this.tab = rememberedTab ?? loadTab(safeStorage());
-    rememberedTab = this.tab;
+    this.listRect = { ...opts.area };
+    this.geo = sheetGeometry(opts.area.w, this.mode, 1, this.buttonIds);
 
-    const s = this.sheet;
     if (opts.panel) {
-      this.bg.rect(s.x, s.y, s.w, s.h + 20).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
-      this.bg.rect(s.x, s.y + g.chipRow.h - 1, s.w, 1).fill(THEME.border);
-      drawX(this.bg, this.closeRect.x + this.closeRect.w / 2, this.closeRect.y + this.closeRect.h / 2, 9, THEME.buttonIcon, 3);
+      this.bg.rect(opts.area.x, opts.area.y, opts.area.w, opts.area.h + 20).fill(THEME.panel).rect(opts.area.x, opts.area.y, opts.area.w, BORDER_W).fill(THEME.border);
     }
-    this.container.addChild(this.bg, this.chipG);
-    for (const t of PALETTE_TABS) {
-      const r = this.chipRects[t];
-      const label = makeText(TAB_LABEL[t], 12, THEME.text, { fontWeight: 'bold' });
-      label.anchor.set(0.5);
-      label.position.set(r.x + r.w / 2, r.y + r.h / 2);
-      this.chipLabels[t] = label;
-      this.container.addChild(label);
-    }
+    this.container.addChild(this.bg);
     this.listC.mask = this.maskG;
     this.container.addChild(this.maskG, this.listC);
 
     this.infoButtons = { place: this.makeSheetButton(), buy: this.makeSheetButton(), upgrade: this.makeSheetButton() };
-    this.infoTitle.position.set(14, 8);
+    this.infoTitle.position.set(SHEET_PAD, SHEET_TITLE_Y);
     this.infoLevel.anchor.set(1, 0);
-    this.infoLevel.position.set(s.w - 14, 11);
-    this.infoBody.position.set(14, 36);
-    this.infoOwned.position.set(14, INFO_SHEET_H - 8 - 66 - 6 - 18);
-    this.infoC.addChild(this.infoBg, this.infoTitle, this.infoLevel, this.infoBody, this.infoOwned);
+    this.infoBody.position.set(SHEET_PAD, SHEET_BODY_Y);
+    this.infoC.addChild(this.infoBg, this.infoTitle, this.infoLevel, this.infoBody, this.infoStatus);
     for (const b of Object.values(this.infoButtons)) this.infoC.addChild(b.c);
-    this.infoC.position.set(g.sheet.x, g.sheet.y);
     this.infoC.visible = false;
     this.container.addChild(this.infoC);
-
-    this.drawChips();
-    this.layoutSheetButtons();
   }
 
   /** Connects the palette to its data and shows it. The selection and the sheet are reset. */
@@ -170,44 +153,54 @@ export class TilePalette {
 
   get maxScrollValue(): number { return maxScrollOf(this.contentH, this.listRect.h); }
 
-  /** The badge text a tile currently shows (null when it has none or was never drawn), for tests. */
-  badgeOf(id: string): string | null {
-    const v = this.views.get(id);
-    return v && v.badge.visible ? v.badge.text : null;
+  /** The count a tile currently shows (null when it has none or was never drawn), for tests. */
+  countOf(id: string): string | null {
+    return this.views.get(id)?.countText ?? null;
   }
 
-  chipRect(tab: PaletteTab): Rect { return this.chipRects[tab]; }
+  /** The alpha a tile is drawn with (1 normal, lower when dimmed), for tests; null when it was never drawn. */
+  alphaOf(id: string): number | null {
+    return this.views.get(id)?.body.alpha ?? null;
+  }
 
-  sheetButtonRect(id: SheetButtonId): Rect { return this.infoButtons[id].rect; }
+  /** Whether a tile shows its padlock, for tests. */
+  padlockOf(id: string): boolean {
+    return !!this.views.get(id)?.lock.visible;
+  }
+
+  /** The name text of a tile as drawn (after the ellipsis), for tests. */
+  nameOfTile(id: string): string | null {
+    return this.views.get(id)?.name.text ?? null;
+  }
+
+  sheetButtonRect(id: SheetButtonId): Rect {
+    return { ...this.infoButtons[id].rect };
+  }
 
   /** Whether a sheet button is on screen (a locked block has no buy / upgrade). */
   sheetButtonVisible(id: SheetButtonId): boolean { return this.sheetOpen && this.infoButtons[id].c.visible; }
 
   get sheetContentNow(): SheetContent | null { return this.sheetOpen ? this.content : null; }
 
+  /** The sheet's rect on screen while it is open, else null. */
+  get sheetRect(): Rect | null {
+    return this.sheetOpen && this.sheetH > 0 ? { x: this.sheet.x, y: this.sheet.y + this.sheet.h - this.sheetH, w: this.sheet.w, h: this.sheetH } : null;
+  }
+
   hide() {
     this.container.visible = false;
     this.selected = null;
     this.sheetOpen = false;
+    this.sheetH = 0;
     this.infoC.visible = false;
   }
 
   contains(x: number, y: number): boolean {
-    return this.isOpen && (inRect(this.sheet, x, y) || (this.sheetOpen && inRect(this.geo.sheet, x, y)));
+    return this.isOpen && inRect(this.sheet, x, y);
   }
 
   inList(x: number, y: number): boolean {
     return this.isOpen && inRect(this.listRect, x, y);
-  }
-
-  // ------------------------------------------------------------------ tabs
-  setTab(tab: PaletteTab) {
-    this.tab = tab;
-    rememberedTab = tab;
-    saveTab(safeStorage(), tab);
-    this.sheetOpen = false;
-    this.scrollY = 0;
-    this.build();
   }
 
   closeSheet() {
@@ -217,39 +210,53 @@ export class TilePalette {
   }
 
   // ------------------------------------------------------------------ building
-  /** Re-lays-out the list for the current tab, sheet state and counts. Display objects are reused. */
+  /** Re-lays-out the list for the current sheet state and counts. Display objects are reused. */
   build() {
     if (!this.source) return;
-    const lr = this.sheetOpen ? this.geo.listOpen : this.geo.listClosed;
-    Object.assign(this.listRect, lr);
+    this.updateSheet();
+    Object.assign(this.listRect, listRect(this.sheet, this.sheetH));
+    const lr = this.listRect;
     this.maskG.clear().rect(lr.x, lr.y, lr.w, lr.h).fill(0xffffff);
-    const laid = layoutTiles(this.source.ids(this.tab), this.geo.metrics);
+    const laid = layoutTiles(this.source.ids(), this.metrics);
     this.tiles = laid.tiles;
     this.contentH = laid.contentH;
     this.scrollY = clampScroll(this.scrollY, this.contentH, this.listRect.h);
     const shown = new Set(this.tiles.map(t => t.id));
     for (const [id, v] of this.views) if (!shown.has(id)) v.c.visible = false;
     for (const t of this.tiles) this.styleTile(t, this.viewOf(t.id));
-    this.drawChips();
-    this.updateSheet();
     this.applyScroll();
   }
 
   private viewOf(id: string): TileView {
     let v = this.views.get(id);
     if (v) return v;
+    const m = this.metrics;
+    const px = (m.w - m.plate) / 2;
     const c = new Container();
-    const bg = new Graphics();
+    const body = new Container();
     const plate = new Graphics();
-    const badgeBg = new Graphics();
-    const badge = makeText('0', 13, THEME.text, { fontWeight: 'bold' });
-    badge.anchor.set(0.5);
+    plate.position.set(px, 0);
+    if (id === REMOVE_TILE) {
+      plate.rect(0, 0, m.plate, m.plate).fill(THEME.tilePlate);
+      drawX(plate, m.plate / 2, m.plate / 2, 15, THEME.bad, 6);
+    } else drawTileIcon(plate, id, m.plate);
+    const name = makeText(fitText(nameOf(id), m.w + COL_GAP - 6, (s) => CanvasTextMetrics.measureText(s, this.nameStyle).width), NAME_SIZE, THEME.tileText);
+    name.anchor.set(0.5, 0);
+    name.position.set(m.w / 2, m.plate + NAME_GAP);
+    const count = makeText('', COUNT_SIZE, GREY);
+    count.anchor.set(1, 0);
+    count.position.set(px + m.plate - 6, 4);
     const lock = new Graphics();
-    if (id === REMOVE_TILE) drawX(plate, 0, 0, 14, THEME.bad, 5);
-    else drawPlate(plate, id, this.geo.metrics.w - 4, 0);
-    c.addChild(bg, plate, badgeBg, badge, lock);
+    lock.position.set(px + 7, 7);
+    lock.rect(3, 0, 10, 10).fill(GREY).rect(6, 3, 4, 7).cut().rect(0, 9, 16, 12).fill(GREY);
+    body.addChild(plate, name, count, lock);
+    const frame = new Graphics();
+    frame.position.set(px, 0);
+    const o = FRAME_GAP + FRAME_W;
+    frame.rect(-o, -o, m.plate + 2 * o, m.plate + 2 * o).fill(THEME.select).rect(-FRAME_GAP, -FRAME_GAP, m.plate + 2 * FRAME_GAP, m.plate + 2 * FRAME_GAP).cut();
+    c.addChild(body, frame);
     this.listC.addChild(c);
-    v = { c, bg, plate, badge, badgeBg, lock, key: '' };
+    v = { c, body, name, count, lock, frame, key: '', countText: null };
     this.views.set(id, v);
     return v;
   }
@@ -257,96 +264,71 @@ export class TilePalette {
   private styleTile(t: Tile, v: TileView) {
     const src = this.source!;
     const isRemove = t.id === REMOVE_TILE;
-    const count = src.badge(t.id);
-    const lock = isRemove ? null : src.lock(t.id);
-    const usable = count === null || count > 0;
+    const lockText = isRemove ? null : src.lock(t.id);
+    const look = tileLook({ count: isRemove ? null : src.count(t.id), owned: isRemove || src.owned(t.id), locked: !!lockText });
     const sel = this.selected === t.id;
-    const cur = src.current(t.id);
-    const text = count === null ? '' : badgeText(count);
-    const key = `${t.w}x${t.h}|${sel ? 1 : 0}|${cur ? 1 : 0}|${usable ? 1 : 0}|${lock ? 1 : 0}|${text}`;
+    const key = `${sel ? 1 : 0}|${look.alpha}|${look.count?.text ?? '-'}|${look.count?.faint ? 1 : 0}|${look.padlock ? 1 : 0}`;
     v.c.position.set(t.x, t.y);
     v.c.visible = true;
     if (v.key === key) return;
     v.key = key;
-    const color = isRemove ? THEME.bad : CATEGORY_COLOR[BLOCKS[t.id].category];
-    const a = usable ? 1 : 0.4;
-    v.bg.clear()
-      .rect(0, 0, t.w, t.h).fill({ color: THEME.buttonFill, alpha: usable ? 1 : 0.55 })
-      .rect(0, 0, t.w, t.h).stroke({ color: sel ? THEME.select : cur ? THEME.warn : color, width: sel ? 3 : 2, alpha: sel || cur ? 1 : a });
-    v.plate.position.set(t.w / 2, t.h / 2);
-    v.plate.alpha = a;
-    v.badgeBg.clear();
-    v.badge.visible = count !== null;
-    if (count !== null) {
-      v.badge.text = text;
-      v.badge.style.fill = usable ? THEME.text : THEME.bad;
-      const bw = Math.max(BADGE_W, v.badge.width + 12);
-      v.badgeBg.rect(t.w - bw - 4, 4, bw, BADGE_H).fill({ color: THEME.hullDark, alpha: 0.85 });
-      v.badge.position.set(t.w - 4 - bw / 2, 4 + BADGE_H / 2);
+    v.body.alpha = look.alpha;
+    v.frame.visible = sel;
+    v.count.visible = !!look.count;
+    v.countText = look.count?.text ?? null;
+    if (look.count) {
+      v.count.text = look.count.text;
+      v.count.alpha = look.count.faint ? 0.45 : 1;
     }
-    v.lock.clear();
-    if (lock) {
-      // A padlock: a dark plate behind a light body with an arched shackle.
-      v.lock.rect(4, 4, 26, 26).fill({ color: THEME.hullDark, alpha: 0.85 });
-      v.lock.rect(10, 16, 14, 10).fill(THEME.warn);
-      v.lock.moveTo(13, 16).lineTo(13, 12).arc(17, 12, 4, Math.PI, 0).lineTo(21, 16).stroke({ color: THEME.warn, width: 2.5 });
-    }
-  }
-
-  private drawChips() {
-    const g = this.chipG.clear();
-    for (const t of PALETTE_TABS) {
-      const r = this.chipRects[t];
-      const col = t === 'all' ? THEME.buttonLine : CATEGORY_COLOR[t];
-      const on = t === this.tab;
-      g.rect(r.x, r.y + 4, r.w, r.h - 8).fill(on ? col : THEME.buttonFill);
-      g.rect(r.x, r.y + 4, r.w, r.h - 8).stroke({ color: col, width: on ? 3 : 1.5 });
-      this.chipLabels[t].style.fill = on ? THEME.pressedIcon : col;
-    }
+    v.lock.visible = look.padlock;
   }
 
   // ------------------------------------------------------------------ info sheet
   private makeSheetButton(): SheetButtonView {
     const c = new Container();
     const bg = new Graphics();
-    const label = makeText('', 13, THEME.text, { fontWeight: 'bold', align: 'center', lineHeight: 17 });
+    const label = makeText('', 14, THEME.text, { fontWeight: 'bold', align: 'center', lineHeight: 18 });
     label.anchor.set(0.5);
     c.addChild(bg, label);
-    return { c, bg, label, rect: { x: 0, y: 0, w: 0, h: 0 } };
+    return { c, bg, label, rect: { x: -999, y: -999, w: 0, h: 0 } };
   }
 
-  private layoutSheetButtons() {
-    const r = sheetButtonRects(this.geo.sheet, this.buttonIds);
-    for (const id of ALL_BUTTONS) {
-      const v = this.infoButtons[id];
-      const b = r[id];
-      v.rect = b ?? { x: -999, y: -999, w: 0, h: 0 };
-      if (!b) continue;
-      v.c.position.set(b.x - this.geo.sheet.x, b.y - this.geo.sheet.y);
-      v.label.position.set(b.w / 2, b.h / 2);
-    }
-    this.infoBg.clear().rect(0, 0, this.geo.sheet.w, INFO_SHEET_H).fill(THEME.panel).rect(0, 0, this.geo.sheet.w, 2).fill(THEME.border);
-  }
-
+  /** Fills the sheet for the selected tile and sizes it to its text; sets `sheetH` (0 when there is no sheet). */
   private updateSheet() {
     this.infoC.visible = this.sheetOpen && !!this.selected;
-    if (!this.infoC.visible) { this.content = null; return; }
+    if (!this.infoC.visible) { this.content = null; this.sheetH = 0; return; }
     const c = this.source!.content(this.selected!);
     this.content = c;
+    const probe = sheetGeometry(this.sheet.w, this.mode, 1, this.buttonIds);
+    this.infoBody.style.wordWrapWidth = probe.textW;
     this.infoTitle.text = c.title;
     this.infoLevel.text = c.levelLine;
     this.infoBody.text = c.body;
-    this.infoOwned.text = c.lockText ? `Locked: ${c.lockText}` : c.ownedLine;
-    this.infoOwned.style.fill = c.lockText ? THEME.warn : THEME.textDim;
-    const specs: Record<SheetButtonId, { label: string; enabled: boolean } | null> = { place: c.place, buy: c.buy, upgrade: c.upgrade };
+    const lines = Math.max(1, Math.round(this.infoBody.height / SHEET_LINE_H));
+    this.geo = sheetGeometry(this.sheet.w, this.mode, lines, this.buttonIds);
+    this.sheetH = this.geo.h;
+    this.infoStatus.text = fitText(c.ownedLine, this.geo.textW, (s) => CanvasTextMetrics.measureText(s, this.infoStyle).width);
+    this.infoStatus.style.fill = c.warn ? THEME.warn : THEME.textDim;
+    this.infoStatus.position.set(SHEET_PAD, this.geo.statusY);
+    this.infoLevel.position.set(SHEET_PAD + this.geo.textW, SHEET_TITLE_Y + 3);
+    const top = this.sheet.y + this.sheet.h - this.sheetH;
+    this.infoC.position.set(this.sheet.x, top);
+    this.infoBg.clear().rect(0, 0, this.sheet.w, this.sheetH + 20).fill(THEME.panel).rect(0, 0, this.sheet.w, BORDER_W).fill(THEME.border);
+
+    const specs: Record<SheetButtonId, SheetContent['place'] | null> = { place: c.place, buy: c.buy, upgrade: c.upgrade };
     for (const id of ALL_BUTTONS) {
       const v = this.infoButtons[id];
       const spec = this.buttonIds.includes(id) ? specs[id] : null;
-      v.c.visible = !!spec;
-      if (!spec) continue;
+      const r = this.geo.buttons[id];
+      v.c.visible = !!spec && !!r;
+      if (!spec || !r) { v.rect = { x: -999, y: -999, w: 0, h: 0 }; continue; }
+      v.rect = { x: this.sheet.x + r.x, y: top + r.y, w: r.w, h: r.h };
+      v.c.position.set(r.x, r.y);
+      v.label.position.set(Math.round(r.w / 2), Math.round(r.h / 2));
       v.label.text = spec.label;
       v.label.style.fill = spec.enabled ? THEME.text : THEME.disabled;
-      v.bg.clear().rect(1, 1, v.rect.w - 2, v.rect.h - 2).fill(THEME.buttonFill).stroke({ color: spec.enabled ? THEME.buttonLine : THEME.disabled, width: 1.5 });
+      v.bg.clear().rect(0, 0, r.w, r.h).fill(spec.enabled ? THEME.buttonLine : THEME.disabled)
+        .rect(BORDER_W, BORDER_W, r.w - 2 * BORDER_W, r.h - 2 * BORDER_W).fill(THEME.buttonFill);
     }
   }
 
@@ -358,7 +340,7 @@ export class TilePalette {
   // ------------------------------------------------------------------ scrolling
   private applyScroll() {
     this.scrollY = clampScroll(this.scrollY, this.contentH, this.listRect.h);
-    this.listC.position.set(0, this.listRect.y - this.scrollY);
+    this.listC.position.set(0, this.listRect.y - Math.round(this.scrollY));
     const inView = new Set(visibleTiles(this.tiles, this.scrollY, this.listRect.h).map(t => t.id));
     for (const t of this.tiles) this.views.get(t.id)!.c.visible = inView.has(t.id);
   }
@@ -404,14 +386,12 @@ export class TilePalette {
   /**
    * A tap in the palette. Returns true when the tap was inside it (consumed).
    * A tile tap selects it and opens the info sheet; a second tap on it closes the sheet (Shop) or presses Place (builder).
+   * A tap in a gap between tiles does nothing.
    */
   tap(x: number, y: number): boolean {
     if (!this.contains(x, y)) return false;
-    if (this.opts.panel && inRect(this.closeRect, x, y)) { this.events!.onClose(); return true; }
-    for (const t of PALETTE_TABS) {
-      if (inRect(this.chipRects[t], x, y)) { if (t !== this.tab) this.setTab(t); else this.closeSheet(); return true; }
-    }
-    if (this.sheetOpen && inRect(this.geo.sheet, x, y)) { this.tapSheet(x, y); return true; }
+    const sr = this.sheetRect;
+    if (sr && inRect(sr, x, y)) { this.tapSheet(x, y); return true; }
     const t = this.tileAt(x, y);
     if (!t) return true;
     if (this.sheetOpen && this.selected === t.id) {
@@ -434,7 +414,7 @@ export class TilePalette {
     const id = this.selected;
     const c = this.content;
     if (!id || !c) return;
-    if (button === 'place' && !c.place.enabled) { this.events!.onMessage(`No ${c.title} left`); return; }
+    if (button === 'place' && !c.place.enabled) { this.events!.onMessage(c.place.hint ?? `No ${c.title} left`); return; }
     this.events!.onButton(id, button);
   }
 }

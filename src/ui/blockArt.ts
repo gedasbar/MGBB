@@ -471,3 +471,21 @@ export function drawPlate(g: Graphics, id: string, cell: number, rotationDeg = 0
     mark(g, tri, rad);
   }
 }
+
+/** Icon half-size as a share of the plate side, and the glyph stroke in game px (3 px = 2 CSS px on a 360 px phone). */
+export const TILE_ICON_SCALE = 0.27;
+export const TILE_ICON_STROKE = 3;
+
+/**
+ * The block's icon on a plain plate for the palette tiles (16e): one flat square with the glyph in the category colour. No nested
+ * squares, no entry bar, no exit triangles. Drawn from (0,0) to (size,size); `g` should sit on a whole pixel.
+ */
+export function drawTileIcon(g: Graphics, id: string, size: number, plateColor: number = THEME.tilePlate) {
+  const def = BLOCKS[id];
+  const cat = def ? CATEGORY_COLOR[def.category] ?? 0xb0b0b0 : 0xb0b0b0;
+  g.rect(0, 0, size, size).fill(plateColor);
+  const ic = new Graphics();
+  glyphFor(id).draw(new Pen(ic, size * TILE_ICON_SCALE, 0, TILE_ICON_STROKE, cat));
+  ic.position.set(Math.round(size / 2), Math.round(size / 2));
+  g.addChild(ic);
+}

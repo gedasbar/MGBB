@@ -39,6 +39,10 @@ export const THEME = {
   reactorMid: 0x8c8c92,
   plateOuter: 0x55555a,
   plateFace: 0x26262a,
+  /** Flat plate of a palette tile (16e). */
+  tilePlate: 0x38383c,
+  /** Quiet grey of tile names and counts (16e). */
+  tileText: 0x8c8c92,
   mark: 0xd4d4d8,
   markEdge: 0x161618,
 } as const;

@@ -13,8 +13,8 @@ export const LAYOUT = {
   stats: { x: 0, y: 820, w: VIEW_W, h: 34 } as Rect,
   toolbar: { x: 0, y: 854, w: VIEW_W, h: 50 } as Rect,
   tabs: { x: 0, y: 904, w: VIEW_W, h: 56 } as Rect,
-  /** Bottom sheet of the picker. */
-  sheet: { x: 0, y: 470, w: VIEW_W, h: VIEW_H - 470 } as Rect,
+  /** Bottom sheet of the picker (16e: three tile rows tall, so the circuit keeps most of the screen). */
+  sheet: { x: 0, y: VIEW_H - 384, w: VIEW_W, h: 384 } as Rect,
 };
 
 /** Smallest tap target we allow, in game px. */

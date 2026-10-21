@@ -1,61 +1,64 @@
 import { describe, expect, it } from 'vitest';
 import { pickerBlocks } from '../src/data/blocks';
 import {
-  badgeText, CHIP_H, chipLayout, clampScroll, cssPx, hitTile, idsForTab, INFO_SHEET_H, layoutTiles, loadTab, MIN_TOUCH_CSS,
-  PALETTE_COLS, PALETTE_TABS, paletteGeometry, removeSheetContent, saveTab, scrollToReveal, sheetButtonRects, sheetContent, SheetInput,
-  TAB_STORAGE_KEY, tileMetrics, visibleTiles,
+  ALPHA_DIM, ALPHA_NORMAL, ALPHA_USED, badgeText, CATEGORY_ORDER, clampScroll, COL_GAP, cssPx, fitText, hitTile, layoutTiles, listRect,
+  MIN_TOUCH_CSS, orderedBlockIds, PALETTE_COLS, PLATE, removeSheetContent, ROW_GAP, scrollToReveal, SHEET_BUTTON_H, sheetContent, sheetGeometry,
+  SheetInput, TILE_H, TILE_W, tileLook, tileMetrics, visibleTiles,
 } from '../src/builder/paletteLogic';
-import { LAYOUT } from '../src/builder/layout';
 
 const blocks = pickerBlocks();
+const ids = orderedBlockIds(blocks);
 const sheetBase: SheetInput = {
   id: 'flat_plus', name: 'Flat +', desc: 'Adds +1 damage.', owned: 3, available: 2, level: 1, maxLevel: 5, credits: 100,
   copyPrice: 40, upgradePrice: 120, lock: null,
 };
 
-describe('layout math', () => {
-  it('always 4 columns; the tiles and gaps fill the width exactly (rounding aside) at several widths', () => {
-    for (const w of [360, 540, 810, 1080]) {
-      const m = tileMetrics(w);
-      expect(m.cols).toBe(PALETTE_COLS);
-      const used = m.cols * m.w + (m.cols + 1) * m.gap;
-      expect(used).toBeLessThanOrEqual(w);
-      expect(w - used).toBeLessThan(m.cols);
-      expect(m.h).toBe(Math.round(m.w * 0.9));
-    }
+describe('layout maths (16e: gaps, plates, 4 per row)', () => {
+  it('always 4 columns, centred, with fixed gaps; everything fits the 540 wide screen', () => {
+    const m = tileMetrics(540);
+    expect(m.cols).toBe(PALETTE_COLS);
+    expect(m.marginX * 2 + m.cols * m.w + (m.cols - 1) * m.colGap).toBeLessThanOrEqual(540);
+    expect(540 - (m.marginX * 2 + m.cols * m.w + (m.cols - 1) * m.colGap)).toBeLessThan(2);
+    expect([m.w, m.h, m.plate]).toEqual([TILE_W, TILE_H, PLATE]);
+    // The plate is smaller than the 85 px of the 16b tile and sits inside its box.
+    expect(PLATE).toBeLessThan(85);
+    expect(PLATE).toBeLessThan(TILE_W);
   });
 
-  it('the real palette: 125 x 113 tiles, and every touch target is at least 44 css px at a 360 px wide phone', () => {
-    const m = paletteGeometry().metrics;
-    expect([m.w, m.h]).toEqual([125, 113]);
+  it('every layout number is a whole CSS pixel on a 360 px phone (multiples of 3 game px)', () => {
+    const m = tileMetrics(540);
+    for (const v of [m.marginX, m.marginY, m.w, m.h, m.plate, m.colGap, m.rowGap, (m.w - m.plate) / 2]) expect(v % 3).toBe(0);
+    const { tiles } = layoutTiles(ids, m);
+    for (const t of tiles) { expect(t.x % 3).toBe(0); expect(t.y % 3).toBe(0); }
+  });
+
+  it('every touch target is at least 44 css px at a 360 px wide phone', () => {
+    const m = tileMetrics(540);
     expect(cssPx(m.w)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS);
     expect(cssPx(m.h)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS);
-    const strip = chipLayout(LAYOUT.sheet.w, 0);
-    for (const c of strip.chips) { expect(cssPx(c.h)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS); expect(cssPx(c.w)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS); }
-    expect(cssPx(strip.close.w)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS);
-    const b = sheetButtonRects(paletteGeometry().sheet, ['place', 'upgrade', 'buy']);
-    for (const r of Object.values(b)) { expect(cssPx(r!.h)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS); expect(cssPx(r!.w)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS); }
+    expect(cssPx(SHEET_BUTTON_H)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS);
   });
 
-  it('lays tiles out row by row and reports the content height', () => {
+  it('lays tiles out row by row with the gaps and reports the content height', () => {
     const m = tileMetrics(540);
-    const { tiles, contentH } = layoutTiles(blocks.map(b => b.id), m);
-    expect(tiles.length).toBe(blocks.length);
-    expect(tiles[0]).toMatchObject({ x: 8, y: 8 });
+    const { tiles, contentH } = layoutTiles(ids, m);
+    expect(tiles.length).toBe(ids.length);
+    expect(tiles[0]).toMatchObject({ x: m.marginX, y: m.marginY });
     expect(tiles[3].y).toBe(tiles[0].y);
-    expect(tiles[4]).toMatchObject({ x: tiles[0].x, y: 8 + m.h + 8 });
-    const rows = Math.ceil(blocks.length / 4);
-    expect(contentH).toBe(8 + rows * (m.h + 8));
-    // No overlaps.
+    expect(tiles[1].x - (tiles[0].x + tiles[0].w)).toBe(COL_GAP);
+    expect(tiles[4]).toMatchObject({ x: tiles[0].x, y: m.marginY + m.h + ROW_GAP });
+    const rows = Math.ceil(ids.length / 4);
+    expect(contentH).toBe(m.marginY + rows * m.h + (rows - 1) * ROW_GAP + m.marginY);
     for (let i = 0; i < tiles.length; i++) for (let j = i + 1; j < tiles.length; j++) {
       const a = tiles[i], b = tiles[j];
       expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h).toBe(false);
     }
   });
 
-  it('an empty tab has no tiles and nothing to scroll', () => {
+  it('an empty list has no tiles and nothing to scroll', () => {
     const { tiles, contentH } = layoutTiles([], tileMetrics(540));
     expect(tiles).toEqual([]);
+    expect(contentH).toBe(0);
     expect(clampScroll(500, contentH, 400)).toBe(0);
   });
 
@@ -68,49 +71,29 @@ describe('layout math', () => {
 
   it('revealing scrolls the minimum to bring a tile fully into view', () => {
     const t = { id: 'x', x: 0, y: 600, w: 100, h: 100 };
-    expect(scrollToReveal(t, 0, 400)).toBe(600 + 100 + 8 - 400);
+    expect(scrollToReveal(t, 0, 400)).toBe(600 + 100 + 15 - 400);
     expect(scrollToReveal(t, 400, 400)).toBe(400);
-    expect(scrollToReveal(t, 900, 400)).toBe(592);
+    expect(scrollToReveal(t, 900, 400)).toBe(585);
     expect(scrollToReveal({ ...t, y: 2 }, 50, 400)).toBe(0);
   });
 
   it('only tiles touching the visible window are listed (culling)', () => {
-    const { tiles } = layoutTiles(blocks.map(b => b.id), tileMetrics(540));
-    const vis = visibleTiles(tiles, 0, 224);
+    const { tiles } = layoutTiles(ids, tileMetrics(540));
+    const vis = visibleTiles(tiles, 0, 282);
     expect(vis.length).toBeGreaterThanOrEqual(8);
     expect(vis.length).toBeLessThan(tiles.length);
-    expect(vis.every(t => t.y < 224)).toBe(true);
+    expect(vis.every(t => t.y < 282)).toBe(true);
   });
 
-  it('chips fit the width without overlapping, and the sheet, tabs and list partition the area', () => {
-    const { chips, close } = chipLayout(540, 470);
-    expect(chips.length).toBe(PALETTE_TABS.length);
-    for (let i = 1; i < chips.length; i++) expect(chips[i].x).toBeGreaterThanOrEqual(chips[i - 1].x + chips[i - 1].w);
-    expect(chips[chips.length - 1].x + chips[chips.length - 1].w).toBeLessThanOrEqual(close.x);
-    expect(chips.every(c => c.h === CHIP_H && c.y === 470)).toBe(true);
-    const noClose = chipLayout(540, 0, 6, 0);
-    expect(noClose.chips[5].x + noClose.chips[5].w).toBeLessThanOrEqual(540);
-    const g = paletteGeometry({ x: 0, y: 100, w: 540, h: 700 });
-    expect(g.chipRow.h + g.listClosed.h).toBe(700);
-    expect(g.listOpen.h + INFO_SHEET_H).toBe(g.listClosed.h);
-    expect(g.sheet.y).toBe(g.listOpen.y + g.listOpen.h);
-  });
-
-  it('sheet buttons share the width and never overlap, for one, two or three buttons', () => {
-    const info = { x: 0, y: 700, w: 540, h: INFO_SHEET_H };
-    for (const ids of [['place'], ['upgrade', 'buy'], ['place', 'upgrade', 'buy']] as const) {
-      const r = sheetButtonRects(info, ids);
-      const list = ids.map(i => r[i]!);
-      for (let i = 1; i < list.length; i++) expect(list[i].x).toBeGreaterThanOrEqual(list[i - 1].x + list[i - 1].w);
-      expect(list[list.length - 1].x + list[list.length - 1].w).toBeLessThanOrEqual(540);
-      expect(list.every(b => b.y + b.h <= info.y + info.h)).toBe(true);
-    }
+  it('the list viewport is the area minus the sheet at its bottom', () => {
+    const area = { x: 0, y: 576, w: 540, h: 384 };
+    expect(listRect(area, 0)).toEqual(area);
+    expect(listRect(area, 100)).toEqual({ x: 0, y: 576, w: 540, h: 284 });
   });
 });
 
-describe('hit testing and tile -> block mapping', () => {
+describe('hit testing with the gaps', () => {
   const m = tileMetrics(540);
-  const ids = blocks.map(b => b.id);
   const { tiles } = layoutTiles(ids, m);
 
   it('the centre of every tile maps back to that tile\'s block', () => {
@@ -120,61 +103,92 @@ describe('hit testing and tile -> block mapping', () => {
     }
   });
 
-  it('gaps, margins and points past the last tile hit nothing; a tile edge counts, the far edge does not', () => {
+  it('a point in the gap between two tiles, in the margins or past the last tile hits nothing', () => {
+    const a = tiles[0];
+    expect(hitTile(tiles, a.x + a.w + COL_GAP / 2, a.y + 10)).toBeNull();
+    expect(hitTile(tiles, a.x + 10, a.y + a.h + ROW_GAP / 2)).toBeNull();
     expect(hitTile(tiles, 3, 3)).toBeNull();
-    expect(hitTile(tiles, tiles[0].x + tiles[0].w + 2, tiles[0].y + 10)).toBeNull();
-    expect(hitTile(tiles, tiles[0].x, tiles[0].y)?.id).toBe(ids[0]);
-    expect(hitTile(tiles, tiles[0].x + tiles[0].w, tiles[0].y)).toBeNull();
     expect(hitTile(tiles, 10, 99999)).toBeNull();
   });
+
+  it('the edges: the first pixel of a tile hits it, the pixel after its far edge falls into the gap', () => {
+    const a = tiles[0], b = tiles[1];
+    expect(hitTile(tiles, a.x, a.y)?.id).toBe(ids[0]);
+    expect(hitTile(tiles, a.x + a.w - 1, a.y + a.h - 1)?.id).toBe(ids[0]);
+    expect(hitTile(tiles, a.x + a.w, a.y)).toBeNull();
+    expect(hitTile(tiles, b.x - 1, a.y)).toBeNull();
+    expect(hitTile(tiles, b.x, a.y)?.id).toBe(ids[1]);
+  });
 });
 
-describe('tabs and filtering', () => {
-  it('All lists every placeable block once, in data order; no passive block', () => {
-    const all = idsForTab('all', blocks);
-    expect(all).toEqual(blocks.filter(b => b.category !== 'passive').map(b => b.id));
-    expect(new Set(all).size).toBe(all.length);
-  });
-
-  it('each category tab shows only its blocks and the tabs partition All', () => {
-    const cats = PALETTE_TABS.filter(t => t !== 'all');
-    const seen: string[] = [];
-    for (const tab of cats) {
-      const ids = idsForTab(tab, blocks);
-      expect(ids.length).toBeGreaterThan(0);
-      for (const id of ids) expect(blocks.find(b => b.id === id)!.category).toBe(tab);
-      seen.push(...ids);
+describe('one list, ordered by category (no tabs)', () => {
+  it('lists every placeable block once, no passive, category by category, then in data order', () => {
+    expect(ids.length).toBe(blocks.filter(b => b.category !== 'passive').length);
+    expect(new Set(ids).size).toBe(ids.length);
+    const catOf = (id: string) => blocks.find(b => b.id === id)!.category;
+    const ranks = ids.map(id => CATEGORY_ORDER.indexOf(catOf(id) as (typeof CATEGORY_ORDER)[number]));
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+    expect(ranks.every(r => r >= 0)).toBe(true);
+    expect([...new Set(ranks)]).toEqual([0, 1, 2, 3, 4]);
+    for (const cat of CATEGORY_ORDER) {
+      const inData = blocks.filter(b => b.category === cat).map(b => b.id);
+      expect(ids.filter(id => catOf(id) === cat)).toEqual(inData);
     }
-    expect([...seen].sort()).toEqual([...idsForTab('all', blocks)].sort());
   });
 
-  it('an unknown category list gives an empty tab', () => {
-    expect(idsForTab('pathing', [{ id: 'a', category: 'damage' }])).toEqual([]);
-  });
-
-  it('the remembered tab survives a round trip and bad values fall back to All', () => {
-    const mem: Record<string, string> = {};
-    const store = { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v; } };
-    expect(loadTab(store)).toBe('all');
-    saveTab(store, 'status');
-    expect(mem[TAB_STORAGE_KEY]).toBe('status');
-    expect(loadTab(store)).toBe('status');
-    mem[TAB_STORAGE_KEY] = 'passive';
-    expect(loadTab(store)).toBe('all');
-    expect(loadTab(null)).toBe('all');
-    const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
-    expect(loadTab(broken)).toBe('all');
-    expect(() => saveTab(broken, 'damage')).not.toThrow();
+  it('sorts a shuffled input into Pathing, Damage, Modifiers, Status, Mitosis and keeps the given order inside a category', () => {
+    const input = [
+      { id: 'm1', category: 'mitosis' as const }, { id: 's1', category: 'status' as const }, { id: 'd2', category: 'damage' as const },
+      { id: 'p1', category: 'passive' as const }, { id: 'a1', category: 'pathing' as const }, { id: 'd1', category: 'damage' as const },
+      { id: 'o1', category: 'modifier' as const },
+    ];
+    expect(orderedBlockIds(input)).toEqual(['a1', 'd2', 'd1', 'o1', 's1', 'm1']);
   });
 });
 
-describe('badge text', () => {
-  it('prints whole numbers, 99+ above 99, never negative or NaN', () => {
+describe('tile look: count text, dimming, padlock', () => {
+  it('an owned block shows its free count as plain text at full strength', () => {
+    expect(tileLook({ count: 7, owned: true, locked: false })).toEqual({ alpha: ALPHA_NORMAL, count: { text: '7', faint: false }, padlock: false });
+  });
+
+  it('an owned block with none free shows a very dim 0 and a slightly dimmed plate', () => {
+    expect(tileLook({ count: 0, owned: true, locked: false })).toEqual({ alpha: ALPHA_USED, count: { text: '0', faint: true }, padlock: false });
+    expect(ALPHA_USED).toBeLessThan(ALPHA_NORMAL);
+    expect(ALPHA_USED).toBeGreaterThan(ALPHA_DIM);
+  });
+
+  it('an unowned block is dimmed and has no count; a locked one also gets the padlock', () => {
+    expect(tileLook({ count: 0, owned: false, locked: false })).toEqual({ alpha: ALPHA_DIM, count: null, padlock: false });
+    expect(tileLook({ count: 0, owned: false, locked: true })).toEqual({ alpha: ALPHA_DIM, count: null, padlock: true });
+  });
+
+  it('the Remove tile (no count, always owned) is plain', () => {
+    expect(tileLook({ count: null, owned: true, locked: false })).toEqual({ alpha: ALPHA_NORMAL, count: null, padlock: false });
+  });
+
+  it('counts print whole numbers, 99+ above 99, never negative or NaN', () => {
     expect([0, 1, 15, 99].map(badgeText)).toEqual(['0', '1', '15', '99']);
     expect([100, 5000, 1e9].map(badgeText)).toEqual(['99+', '99+', '99+']);
     expect(badgeText(-4)).toBe('0');
     expect(badgeText(NaN)).toBe('0');
     expect(badgeText(7.9)).toBe('7');
+    expect(tileLook({ count: 250, owned: true, locked: false }).count?.text).toBe('99+');
+  });
+});
+
+describe('tile names fit on one line', () => {
+  const measure = (s: string) => s.length * 10;
+  it('a name that fits is unchanged', () => {
+    expect(fitText('Turn Left', 100, measure)).toBe('Turn Left');
+  });
+  it('a long name is cut with an ellipsis and never wider than the limit', () => {
+    const t = fitText('Armor-Piercer Tip', 100, measure);
+    expect(t.endsWith('…')).toBe(true);
+    expect(measure(t)).toBeLessThanOrEqual(100);
+    expect(t.length).toBeGreaterThan(3);
+  });
+  it('a limit too small for any letter gives just the ellipsis', () => {
+    expect(fitText('Splitter', 5, measure)).toBe('…');
   });
 });
 
@@ -184,6 +198,7 @@ describe('info sheet content', () => {
     expect(c.title).toBe('Flat +');
     expect(c.levelLine).toBe('Level 1/5');
     expect(c.ownedLine).toBe('Owned 3');
+    expect(c.warn).toBe(false);
     expect(c.lockText).toBeNull();
     expect(c.buy).toEqual({ label: 'Buy +1\n40', enabled: true });
     // 100 credits: Buy (40) is affordable, Upgrade (120) is not.
@@ -195,11 +210,41 @@ describe('info sheet content', () => {
     expect(sheetContent({ ...sheetBase, showFree: true }).ownedLine).toBe('Owned 3 · free 2');
   });
 
-  it('an unowned block stays buyable: owned 0, Buy enabled when affordable, Place disabled', () => {
+  it('builder, unowned block: placing is off and the sheet says to buy it in the Shop', () => {
+    const c = sheetContent({ ...sheetBase, owned: 0, available: 0, showFree: true });
+    expect(c.ownedLine).toBe('Not owned · buy it in the Shop');
+    expect(c.warn).toBe(true);
+    expect(c.place.enabled).toBe(false);
+    expect(c.place.hint).toBe('Buy Flat + in the Shop');
+  });
+
+  it('builder, locked block: placing is off and the sheet gives the unlock requirement', () => {
+    const c = sheetContent({ ...sheetBase, owned: 0, available: 0, lock: 'Reach ring 10 North', showFree: true });
+    expect(c.ownedLine).toBe('Locked: Reach ring 10 North');
+    expect(c.warn).toBe(true);
+    expect(c.place.enabled).toBe(false);
+    expect(c.place.hint).toBe('Locked: Reach ring 10 North');
+    expect(c.buy).toBeNull();
+    expect(c.upgrade).toBeNull();
+  });
+
+  it('builder, all copies placed: placing is off with a "none left" hint', () => {
+    const c = sheetContent({ ...sheetBase, owned: 2, available: 0, showFree: true });
+    expect(c.ownedLine).toBe('Owned 2 · free 0');
+    expect(c.place).toMatchObject({ enabled: false, hint: 'No Flat + left' });
+  });
+
+  it('a preview note is added to the status line in the warning colour', () => {
+    const c = sheetContent({ ...sheetBase, showFree: true, note: 'No ejector reached' });
+    expect(c.ownedLine).toBe('Owned 3 · free 2 · No ejector reached');
+    expect(c.warn).toBe(true);
+  });
+
+  it('the Shop: an unowned block stays buyable (Owned 0, Buy enabled when affordable)', () => {
     const c = sheetContent({ ...sheetBase, owned: 0, available: 0 });
     expect(c.ownedLine).toBe('Owned 0');
+    expect(c.warn).toBe(false);
     expect(c.buy?.enabled).toBe(true);
-    expect(c.place.enabled).toBe(false);
   });
 
   it('buttons turn off when the player cannot pay, and Upgrade says MAX at the top level', () => {
@@ -214,14 +259,6 @@ describe('info sheet content', () => {
     expect(max.levelLine).toBe('Level 5/5');
   });
 
-  it('a locked block shows the requirement and has no buy or upgrade button', () => {
-    const c = sheetContent({ ...sheetBase, owned: 0, available: 0, lock: 'Reach ring 10 North' });
-    expect(c.lockText).toBe('Reach ring 10 North');
-    expect(c.buy).toBeNull();
-    expect(c.upgrade).toBeNull();
-    expect(c.place.enabled).toBe(false);
-  });
-
   it('large prices are abbreviated like everywhere else', () => {
     expect(sheetContent({ ...sheetBase, copyPrice: 1644 }).buy?.label).toBe('Buy +1\n1.64K');
   });
@@ -231,5 +268,36 @@ describe('info sheet content', () => {
     expect(c.place).toEqual({ label: 'Remove', enabled: true });
     expect(c.buy).toBeNull();
     expect(c.upgrade).toBeNull();
+  });
+});
+
+describe('info sheet geometry', () => {
+  it('compact (builder): one small button at the right, vertically centred, text column beside it', () => {
+    const g = sheetGeometry(540, 'compact', 2, ['place']);
+    const b = g.buttons.place!;
+    expect(b.h).toBe(SHEET_BUTTON_H);
+    expect(b.x + b.w).toBeLessThanOrEqual(540);
+    expect(b.y).toBeGreaterThanOrEqual(0);
+    expect(b.y + b.h).toBeLessThanOrEqual(g.h);
+    expect(g.textW + 14 + 8).toBeLessThanOrEqual(b.x);
+    expect(g.h).toBeLessThan(150);
+  });
+
+  it('grows with the description and never less than the button needs', () => {
+    const one = sheetGeometry(540, 'compact', 1, ['place']);
+    const four = sheetGeometry(540, 'compact', 4, ['place']);
+    expect(four.h).toBeGreaterThan(one.h);
+    expect(one.h).toBeGreaterThanOrEqual(SHEET_BUTTON_H + 20);
+  });
+
+  it('full (Shop): the buttons sit in a row under the text and share the width without overlap', () => {
+    const g = sheetGeometry(540, 'full', 2, ['upgrade', 'buy']);
+    const u = g.buttons.upgrade!, b = g.buttons.buy!;
+    expect(u.y).toBe(b.y);
+    expect(u.y).toBeGreaterThan(g.statusY);
+    expect(b.x).toBeGreaterThanOrEqual(u.x + u.w);
+    expect(b.x + b.w).toBeLessThanOrEqual(540);
+    expect(b.y + b.h).toBeLessThanOrEqual(g.h);
+    expect(g.textW).toBeGreaterThan(sheetGeometry(540, 'compact', 2, ['place']).textW);
   });
 });

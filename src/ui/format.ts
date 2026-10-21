@@ -17,6 +17,21 @@ export function fmtBig(n: number): string {
   let x = v;
   while (x >= 1000 && i < SUFFIXES.length - 1) { x /= 1000; i++; }
   const digits = x >= 100 ? 0 : x >= 10 ? 1 : 2;
-  const s = x.toFixed(digits).replace(/\.?0+$/, '');
+  // Zeros are only trimmed after a decimal point (before 16e "140K" lost its zero and printed "14K").
+  const fixed = x.toFixed(digits);
+  const s = fixed.includes('.') ? fixed.replace(/\.?0+$/, '') : fixed;
   return sign + s + SUFFIXES[i];
+}
+
+/**
+ * A circuit stat as the stats strip prints it (16e): small values as before (whole, or one decimal), anything from 1000 up in
+ * K / M / B form with its sign (140K, -2.4M). The same rule as fmtBig, which keeps two digits for values under 100K.
+ */
+export function fmtStat(n: number): string {
+  if (!isFinite(n)) return '0';
+  if (Math.abs(n) < 1000) {
+    const r = Math.abs(n - Math.round(n)) < 0.005 ? String(Math.round(n)) : n.toFixed(1);
+    return r === '-0' ? '0' : r;
+  }
+  return fmtBig(n);
 }

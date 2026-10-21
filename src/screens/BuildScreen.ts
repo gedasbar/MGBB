@@ -1,4 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
+import { hullFacts, hullFactsLine, HullFacts, HullRowState, hullRowState, buyAndSelectHull } from '../builder/hullPicker';
+import { HULL_PRICE } from '../econ/economy';
+import { fmtBig } from '../ui/format';
 import { CONFIG } from '../config';
 import { Screen, ScreenManager } from './ScreenManager';
 import { FlyScreen } from './FlyScreen';
@@ -30,6 +33,22 @@ import { CaptainScreen } from './CaptainScreen';
 import { sfx } from '../audio';
 
 const HOVER_MS = 800;
+
+/** Hull picker geometry (game px). */
+const HULL_PANEL_X = 16;
+const HULL_PANEL_Y = 70;
+const HULL_HEAD_H = 50;
+const HULL_ROW_H = 72;
+const HULL_ROW_GAP = 6;
+const HULL_INFO_H = 120;
+/** Alpha of an unowned hull's row. */
+const HULL_DIM_ALPHA = 0.45;
+
+/** A crisp frame: four filled bars inside `r`, no stroke. */
+function drawFrame(g: Graphics, r: Rect, color: number, w: number) {
+  g.rect(r.x, r.y, r.w, w).fill(color).rect(r.x, r.y + r.h - w, r.w, w).fill(color)
+    .rect(r.x, r.y, w, r.h).fill(color).rect(r.x + r.w - w, r.y, w, r.h).fill(color);
+}
 
 function fmtNum(n: number): string {
   return Math.abs(n - Math.round(n)) < 0.005 ? String(Math.round(n)) : n.toFixed(1);
@@ -77,7 +96,10 @@ export class BuildScreen implements Screen {
   private tipText = makeText('', 13, THEME.text, { lineHeight: 17 });
   private hover: { x: number; y: number; since: number } | null = null;
   private hullPanel = new Container();
-  private hullRows: { id: string; rect: Rect }[] = [];
+  private hullRows: { id: string; rect: Rect; state: HullRowState }[] = [];
+  private hullSel: string | null = null;
+  private hullBuyRect: Rect | null = null;
+  private hullPanelRect: Rect | null = null;
 
   constructor(private sm: ScreenManager) {
     this.model = getBuilderModel();
@@ -463,9 +485,9 @@ export class BuildScreen implements Screen {
     this.picker.open(this.model, target, {
       onHighlight: (id) => this.highlightTile(id),
       onPlace: (id) => this.placeFromPicker(id),
-      onClose: () => this.closePicker(),
       onMessage: (m) => this.toast.show(m),
     });
+    this.toast.y = LAYOUT.sheet.y - LAYOUT.stats.h - 54;
     this.refresh();
   }
 
@@ -475,24 +497,23 @@ export class BuildScreen implements Screen {
     this.preview = null;
     this.dim.visible = false;
     this.stats.moveTo(LAYOUT.stats.y);
+    this.toast.y = LAYOUT.stats.y - 54;
     if (this.viewBeforePicker) { this.view = this.viewBeforePicker; this.viewBeforePicker = null; this.applyView(); }
     this.refresh();
   }
 
+  /**
+   * Previews a tapped tile on the circuit. The block's info shows in the sheet only (16e): the top line keeps describing the
+   * selected cell, and the "no ejector reached" warning goes into the sheet's status line.
+   */
   private highlightTile(id: string) {
     const t = this.picker.target!;
-    this.picker.highlight(id);
     const blockId = id === REMOVE_TILE ? null : id;
     const p = this.model.previewPlace(t.x, t.y, blockId);
     if (p) this.preview = { x: t.x, y: t.y, blockId, ...p };
+    if (blockId) this.picker.setPreviewReach(id, !!p && p.compiled.recipes.length > 0);
+    this.picker.highlight(id);
     this.refresh();
-    if (blockId) {
-      const def = BLOCKS[blockId];
-      const ok = p && p.compiled.recipes.length > 0;
-      this.inspector.set(ok ? def.name : `${def.name} · no ejector reached`, describeBlock(def, this.model.levelOf(blockId)), ok ? THEME.text : THEME.warn);
-    } else {
-      this.inspector.set('Remove', 'Clears this cell and returns the block to your inventory.');
-    }
   }
 
   private placeFromPicker(id: string) {
@@ -567,48 +588,117 @@ export class BuildScreen implements Screen {
     this.tip.visible = false;
   }
 
-  // ------------------------------------------------------------------ hull panel
+  // ------------------------------------------------------------------ hull picker
+  // Chunk 16e: the hull picker lists every hull. Owned ones switch on a tap; an unowned one is dimmed with its price, a tap
+  // shows its facts and a Buy button, and buying selects it. (The Shop no longer sells hulls.)
   private openHullPanel() {
-    for (const ch of this.hullPanel.removeChildren()) ch.destroy({ children: true });
-    this.hullRows = [];
-    const dim = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill({ color: THEME.dim, alpha: 0.6 });
-    const panel = new Graphics().rect(16, 150, VIEW_W - 32, 90 + HULL_INFO.length * 84).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
-    const title = makeText('Choose a hull', 20, THEME.text, { fontWeight: 'bold' });
-    title.position.set(32, 164);
-    this.hullPanel.addChild(dim, panel, title);
-    HULL_INFO.forEach((h, i) => {
-      const rect: Rect = { x: 28, y: 204 + i * 84, w: VIEW_W - 56, h: 72 };
-      const active = h.id === this.model.hullId;
-      const locked = !this.model.store.data.ownedHulls.includes(h.id);
-      const row = new Graphics().rect(rect.x, rect.y, rect.w, rect.h).fill(THEME.buttonFill).stroke({ color: active ? THEME.select : THEME.border, width: active ? 3 : 1.5 });
-      const name = makeText(active ? `${h.name} (current)` : locked ? `${h.name} (locked)` : h.name, 20, locked ? THEME.disabled : THEME.text, { fontWeight: 'bold' });
-      name.position.set(rect.x + 70, rect.y + 8);
-      const desc = makeText(locked ? 'Locked: buy it in the Shop.' : h.desc, 13, locked ? THEME.disabled : THEME.textDim, { wordWrap: true, wordWrapWidth: rect.w - 84 });
-      desc.position.set(rect.x + 70, rect.y + 34);
-      const thumb = shipThumbnail(this.sm.app.renderer, h.id, 52);
-      thumb.position.set(rect.x + 36, rect.y + rect.h / 2);
-      if (locked) thumb.alpha = 0.4;
-      this.hullPanel.addChild(row, thumb, name, desc);
-      this.hullRows.push({ id: h.id, rect });
-    });
+    this.hullSel = null;
+    this.drawHullPanel();
     this.hullPanel.visible = true;
   }
 
+  private drawHullPanel() {
+    for (const ch of this.hullPanel.removeChildren()) ch.destroy({ children: true });
+    this.hullRows = [];
+    this.hullBuyRect = null;
+    const p = this.model.store.data;
+    const facts = this.hullSel ? hullFacts(this.hullSel) : null;
+    const rowsH = HULL_INFO.length * (HULL_ROW_H + HULL_ROW_GAP);
+    const infoH = facts ? HULL_INFO_H : 0;
+    const panelH = HULL_HEAD_H + rowsH + infoH + 12;
+    const panel: Rect = { x: HULL_PANEL_X, y: HULL_PANEL_Y, w: VIEW_W - 2 * HULL_PANEL_X, h: panelH };
+    this.hullPanelRect = panel;
+    const dim = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill({ color: THEME.dim, alpha: 0.6 });
+    const bg = new Graphics().rect(panel.x, panel.y, panel.w, panel.h).fill(THEME.panel);
+    drawFrame(bg, panel, THEME.border, 2);
+    const title = makeText('Choose a hull', 20, THEME.text, { fontWeight: 'bold' });
+    title.position.set(panel.x + 16, panel.y + 14);
+    this.hullPanel.addChild(dim, bg, title);
+    HULL_INFO.forEach((h, i) => {
+      const rect: Rect = { x: panel.x + 12, y: panel.y + HULL_HEAD_H + i * (HULL_ROW_H + HULL_ROW_GAP), w: panel.w - 24, h: HULL_ROW_H };
+      const state = hullRowState(p.ownedHulls, this.model.hullId, h.id);
+      const unowned = state === 'unowned';
+      const sel = state === 'current' || this.hullSel === h.id;
+      const row = new Container();
+      const face = new Graphics().rect(rect.x, rect.y, rect.w, rect.h).fill(THEME.buttonFill);
+      drawFrame(face, rect, sel ? THEME.select : THEME.border, sel ? 3 : 2);
+      const name = makeText(state === 'current' ? `${h.name} (current)` : h.name, 20, THEME.text, { fontWeight: 'bold' });
+      name.position.set(rect.x + 70, rect.y + 8);
+      const desc = makeText(h.desc, 13, THEME.textDim, { wordWrap: true, wordWrapWidth: rect.w - 84 - (unowned ? 70 : 0) });
+      desc.position.set(rect.x + 70, rect.y + 34);
+      const thumb = shipThumbnail(this.sm.app.renderer, h.id, 52);
+      thumb.position.set(rect.x + 36, rect.y + rect.h / 2);
+      row.addChild(face, thumb, name, desc);
+      if (unowned) row.alpha = HULL_DIM_ALPHA;
+      this.hullPanel.addChild(row);
+      if (unowned) {
+        const price = makeText(fmtBig(HULL_PRICE[h.id] ?? 0), 20, THEME.currency, { fontWeight: 'bold' });
+        price.anchor.set(1, 0);
+        price.position.set(rect.x + rect.w - 12, rect.y + 8);
+        this.hullPanel.addChild(price);
+      }
+      this.hullRows.push({ id: h.id, rect, state });
+    });
+    if (facts) this.drawHullInfo(panel, facts);
+  }
+
+  private drawHullInfo(panel: Rect, f: HullFacts) {
+    const y = panel.y + HULL_HEAD_H + HULL_INFO.length * (HULL_ROW_H + HULL_ROW_GAP);
+    const line = new Graphics().rect(panel.x, y - 2, panel.w, 2).fill(THEME.border);
+    const title = makeText(f.name, 18, THEME.text, { fontWeight: 'bold' });
+    title.position.set(panel.x + 16, y + 8);
+    const facts = makeText(hullFactsLine(f), 14, THEME.text, { fontWeight: 'bold' });
+    facts.position.set(panel.x + 16, y + 34);
+    const desc = makeText(f.desc, 13, THEME.textDim, { wordWrap: true, wordWrapWidth: panel.w - 32 - 150 });
+    desc.position.set(panel.x + 16, y + 58);
+    const can = this.model.store.data.credits >= f.price;
+    const rect: Rect = { x: panel.x + panel.w - 12 - 140, y: y + 12, w: 140, h: 66 };
+    const btn = new Graphics().rect(rect.x, rect.y, rect.w, rect.h).fill(THEME.buttonFill);
+    drawFrame(btn, rect, can ? THEME.buttonLine : THEME.disabled, 2);
+    const label = makeText(`Buy
+${fmtBig(f.price)}`, 16, can ? THEME.text : THEME.disabled, { fontWeight: 'bold', align: 'center', lineHeight: 20 });
+    label.anchor.set(0.5);
+    label.position.set(rect.x + rect.w / 2, rect.y + rect.h / 2);
+    this.hullPanel.addChild(line, title, facts, desc, btn, label);
+    this.hullBuyRect = rect;
+  }
+
   private tapHullPanel(x: number, y: number) {
+    if (this.hullBuyRect && inRect(this.hullBuyRect, x, y) && this.hullSel) { this.buyHull(this.hullSel); return; }
     const row = this.hullRows.find(r => inRect(r.rect, x, y));
+    if (row?.state === 'unowned') { this.hullSel = row.id; this.drawHullPanel(); return; }
+    if (!row) {
+      if (!this.hullPanelRect || !inRect(this.hullPanelRect, x, y)) this.hullPanel.visible = false;
+      return;
+    }
     this.hullPanel.visible = false;
-    if (!row || row.id === this.model.hullId) return;
+    if (row.state === 'current') return;
     const res = this.model.switchHull(row.id);
     if (!res.ok) { this.toast.show(res.error); return; }
+    this.afterHullSwitch(row.id);
+  }
+
+  private buyHull(id: string) {
+    const f = hullFacts(id);
+    const before = this.model.store.data.credits;
+    const res = buyAndSelectHull(this.model, id);
+    sfx.play(this.model.store.data.credits < before ? 'purchase' : 'denied');
+    if (!res.ok) { this.toast.show(res.error); return; }
+    this.hullPanel.visible = false;
+    this.afterHullSwitch(id, `Bought the ${f.name} hull`);
+  }
+
+  private afterHullSwitch(id: string, prefix?: string) {
     this.selected = null;
     this.fit();
     this.refresh();
-    const hullName = HULL_INFO.find(h => h.id === row.id)?.name ?? row.id;
+    const hullName = HULL_INFO.find(h => h.id === id)?.name ?? id;
+    const head = prefix ?? `Hull: ${hullName}`;
     if (this.model.trimmed > 0) {
       const n = this.model.trimmed;
       this.model.trimmed = 0;
-      this.toast.show(`Hull: ${hullName}. ${n} block${n === 1 ? '' : 's'} returned: you own fewer than the circuit used`, 3500);
-    } else this.toast.show(`Hull: ${hullName}`, 1400);
+      this.toast.show(`${head}. ${n} block${n === 1 ? '' : 's'} returned: you own fewer than the circuit used`, 3500);
+    } else this.toast.show(head, 1400);
   }
 
   // ------------------------------------------------------------------ actions
