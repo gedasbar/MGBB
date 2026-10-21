@@ -11,9 +11,9 @@ import { fmtBig } from '../ui/format';
  */
 
 export const PALETTE_COLS = 4;
-/** Hit box of one tile (plate plus the name under it). 102 x 105 game px = 68 x 70 CSS px on a 360 px phone. */
+/** Hit box of one tile (plate plus the name under it). 102 x 108 game px = 68 x 72 CSS px on a 360 px phone. */
 export const TILE_W = 102;
-export const TILE_H = 105;
+export const TILE_H = 108;
 /** The plate inside the tile (it was 85 px in the 125 px frame before 16e). */
 export const PLATE = 78;
 /** Space between tile hit boxes: the plates end up 48 px apart. */
@@ -21,8 +21,8 @@ export const COL_GAP = 24;
 export const ROW_GAP = 18;
 /** Space above the first row and below the last. */
 export const MARGIN_Y = 15;
-/** Gap between the plate and its name. */
-export const NAME_GAP = 6;
+/** Gap between the plate and its name (the selection frame sits 6 px off the plate, so the name clears it). */
+export const NAME_GAP = 9;
 export const PHONE_CSS_W = 360;
 export const MIN_TOUCH_CSS = 44;
 /** Height of the info sheet buttons: 44 px at the 360 px phone width (game px x 360 / 540). */

@@ -92,7 +92,7 @@ async function montage(page, shots, captions, file, k) {
   const shotDefault = await canvasShot(page);
 
   // A tap in the gap between two tiles does nothing.
-  await tap(page, tiles[0].x + tiles[0].w + gapX / 2, tiles[0].y + 52 + 52);
+  await tap(page, tiles[0].x + tiles[0].w + gapX / 2, tiles[0].y + 50);
   check((await shopState(page)).selected === null, 'a tap in the gap between tiles selects nothing');
 
   // Select a tile: the info sheet opens with Upgrade and Buy, the tile stays visible, prices unchanged.

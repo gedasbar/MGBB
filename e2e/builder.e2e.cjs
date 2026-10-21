@@ -11,10 +11,10 @@ const TB = { clearCell: 54, rotCCW: 162, auto: 270, rotCW: 378, clearAll: 486, y
 const CORNER = { fit: [28, 144], undo: [76, 144], redo: [124, 144], ab: [512, 144], paste: [464, 144], copy: [416, 144] };
 const FLY = [468, 789];
 const STATS_STRIP = [270, 837];
-// Palette (chunk 16e): the sheet is y 576..960 with no tabs: the tile list starts at y 576, 4 columns of 102 x 105 px tiles (x from 30, 24 px
+// Palette (chunk 16e): the sheet is y 576..960 with no tabs: the tile list starts at y 576, 4 columns of 102 x 108 px tiles (x from 30, 24 px
 // gaps) with 18 px between rows (15 px margin on top), blocks in category order: pathing first (turn_l turn_r splitter_2 splitter_3 on row 0).
 // The independent formula is only used for row 0; every other tile is scrolled into view with the picker's own reveal and read back.
-const tileCentreIndep = (col, row) => [30 + col * 126 + 51, 576 + 15 + row * 123 + 52.5];
+const tileCentreIndep = (col, row) => [30 + col * 126 + 51, 576 + 15 + row * 126 + 54];
 const tileCentre = (page, key) => page.evaluate((k) => { const p = window.__mgbm.buildScreen.picker; p.reveal(k); const r = p.tileScreenRect(k); return [r.x + r.w / 2, r.y + r.h / 2]; }, key);
 const DIM_AREA = [270, 300]; // a tap here (above the sheet) closes the picker; there is no close button since 16e
 
@@ -139,7 +139,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   const tr0 = await page.evaluate(() => window.__mgbm.buildScreen.picker.tileScreenRect('turn_r'));
   const [tx, ty] = tileCentreIndep(1, 0);
   check(tr0.x < tx && tx < tr0.x + tr0.w && tr0.y < ty && ty < tr0.y + tr0.h, 'independently computed Turn Right tile position hits the real tile');
-  // The list is 384 px high and a row is 123 px: a few drags bring pure_converter into view.
+  // The list is 384 px high and a row is 126 px: a few drags bring pure_converter into view.
   for (let i = 0; i < 6; i++) {
     const vis = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; const r = p.tileScreenRect('pure_converter'); return r.y >= p.listRect.y && r.y + r.h <= p.listRect.y + p.listRect.h; });
     if (vis) break;

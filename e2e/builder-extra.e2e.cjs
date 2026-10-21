@@ -18,7 +18,7 @@ const fanCell = (col, row) => [6 + (col - 0.5) * FAN_CELL, FAN_OY + (row - 0.5) 
 const TB = { clearAll: 486, y: 880 };
 const SHIP = [28, 28];
 const FLY = [468, 789];
-// Tile layout (chunk 16e, see builder.e2e.cjs): no tabs, list from y 576, 102 x 105 tiles. Tiles are scrolled into view and read back.
+// Tile layout (chunk 16e, see builder.e2e.cjs): no tabs, list from y 576, 102 x 108 tiles. Tiles are scrolled into view and read back.
 const tileCentre = (page, key) => page.evaluate((k) => { const p = window.__mgbm.buildScreen.picker; p.reveal(k); const r = p.tileScreenRect(k); return [r.x + r.w / 2, r.y + r.h / 2]; }, key);
 const DIM_AREA = [270, 250]; // above the sheet: closes the picker (no close button since 16e)
 
