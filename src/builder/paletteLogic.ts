@@ -8,7 +8,7 @@ export const PALETTE_COLS = 4;
 export const PALETTE_GAP = 8;
 /** Tile height as a fraction of its width. */
 export const TILE_ASPECT = 0.9;
-/** Height of the tab chip row, of the sheet buttons: 44 px at the 360 px phone width (game px x 360 / 540). */
+/** Height of the builder panel's header (close button), of the sheet buttons: 44 px at the 360 px phone width (game px x 360 / 540). */
 export const CHIP_H = 66;
 export const SHEET_BUTTON_H = 66;
 export const PHONE_CSS_W = 360;
@@ -17,13 +17,9 @@ export const INFO_SHEET_H = 200;
 /** Largest count the badge prints exactly. */
 export const BADGE_MAX = 99;
 export const REMOVE_TILE = '__remove';
-export const TAB_STORAGE_KEY = 'mgbm_palette_tab';
 
-export type PaletteTab = 'all' | Exclude<BlockCategory, 'passive'>;
-export const PALETTE_TABS: readonly PaletteTab[] = ['all', 'pathing', 'damage', 'modifier', 'status', 'mitosis'];
-export const TAB_LABEL: Record<PaletteTab, string> = {
-  all: 'All', pathing: 'Pathing', damage: 'Damage', modifier: 'Modifiers', status: 'Status', mitosis: 'Mitosis',
-};
+/** Palette order: by category, then the data order within a category. */
+export const PALETTE_CATEGORIES: readonly BlockCategory[] = ['pathing', 'damage', 'modifier', 'status', 'mitosis'];
 
 export type SheetButtonId = 'place' | 'buy' | 'upgrade';
 
@@ -71,35 +67,9 @@ export function scrollToReveal(t: TileBox, scroll: number, viewH: number, margin
   return scroll;
 }
 
-/** Chip row: `PALETTE_TABS` chips followed by a close button, all CHIP_H high. */
-export function chipLayout(width: number, y: number, count = PALETTE_TABS.length, closeW = CHIP_H, gap = 4): { chips: Rect[]; close: Rect } {
-  const cw = Math.floor((width - closeW - gap * (count + 1)) / count);
-  const chips: Rect[] = [];
-  for (let i = 0; i < count; i++) chips.push({ x: gap + i * (cw + gap), y, w: cw, h: CHIP_H });
-  return { chips, close: { x: width - closeW, y, w: closeW, h: CHIP_H } };
-}
-
-/** The block ids a tab shows, in the order given (the picker order of the data file). */
-export function idsForTab(tab: PaletteTab, blocks: readonly { id: string; category: BlockCategory }[]): string[] {
-  return blocks.filter(b => b.category !== 'passive' && (tab === 'all' || b.category === tab)).map(b => b.id);
-}
-
-export function isPaletteTab(v: unknown): v is PaletteTab {
-  return typeof v === 'string' && (PALETTE_TABS as readonly string[]).includes(v);
-}
-
-/** The remembered tab from a storage-like object; anything unknown or a failing storage gives 'all'. */
-export function loadTab(storage: Pick<Storage, 'getItem'> | null): PaletteTab {
-  try {
-    const v = storage?.getItem(TAB_STORAGE_KEY);
-    return isPaletteTab(v) ? v : 'all';
-  } catch {
-    return 'all';
-  }
-}
-
-export function saveTab(storage: Pick<Storage, 'setItem'> | null, tab: PaletteTab): void {
-  try { storage?.setItem(TAB_STORAGE_KEY, tab); } catch { /* storage blocked: the tab is only remembered in memory */ }
+/** The block ids the palette shows: one list ordered by category, then the order given (the picker order of the data file). */
+export function paletteIds(blocks: readonly { id: string; category: BlockCategory }[]): string[] {
+  return PALETTE_CATEGORIES.flatMap(cat => blocks.filter(b => b.category === cat).map(b => b.id));
 }
 
 /** The number on a tile: whole counts, 99+ above BADGE_MAX, never negative. */
@@ -179,7 +149,8 @@ export function removeSheetContent(): SheetContent {
 // ---------------------------------------------------------------- fixed geometry
 
 export interface PaletteGeometry {
-  chipRow: Rect;
+  /** The header above the list (the builder's close button); zero high when the palette has none. */
+  header: Rect;
   /** The tile list while the info sheet is closed / open. */
   listClosed: Rect;
   listOpen: Rect;
@@ -187,12 +158,12 @@ export interface PaletteGeometry {
   metrics: TileMetrics;
 }
 
-export function paletteGeometry(sheet: Rect = LAYOUT.sheet): PaletteGeometry {
-  const chipRow = { x: sheet.x, y: sheet.y, w: sheet.w, h: CHIP_H };
-  const listClosed = { x: sheet.x, y: sheet.y + CHIP_H, w: sheet.w, h: sheet.h - CHIP_H };
+export function paletteGeometry(sheet: Rect = LAYOUT.sheet, headerH = CHIP_H): PaletteGeometry {
+  const header = { x: sheet.x, y: sheet.y, w: sheet.w, h: headerH };
+  const listClosed = { x: sheet.x, y: sheet.y + headerH, w: sheet.w, h: sheet.h - headerH };
   const info = { x: sheet.x, y: sheet.y + sheet.h - INFO_SHEET_H, w: sheet.w, h: INFO_SHEET_H };
   const listOpen = { ...listClosed, h: listClosed.h - INFO_SHEET_H };
-  return { chipRow, listClosed, listOpen, sheet: info, metrics: tileMetrics(sheet.w) };
+  return { header, listClosed, listOpen, sheet: info, metrics: tileMetrics(sheet.w) };
 }
 
 /** The info sheet's buttons, `ids` left to right, sharing the width equally. */
