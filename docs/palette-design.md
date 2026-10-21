@@ -19,18 +19,18 @@ y 760  info sheet (only when a tile is selected, 200 high)  name, level, descrip
 
 ## Tiles
 Only the block's plate art (`drawPlate`) and a number badge (top right: what is still free to place = owned minus placed in the
-active circuit, `99+` above 99). Category colour is the tile outline. A block you cannot place is dim (badge 0). A block gated
+active circuit, `99+` above 99). The tile is a grey square (no category-colour outline); only the selected (white) or current tile has an outline. A block you cannot place is dim (badge 0). A block gated
 by a Frontier ring shows a small padlock in the top left. The "Remove" tile (an X) comes first in every view when the cell holds a block.
-Display objects are created once per block and reused (position, visibility and style change, nothing is rebuilt on a tab
-change or a scroll); tiles outside the visible window are hidden.
+Display objects are created once per block and reused (position, visibility and style change, nothing is rebuilt on a
+scroll); tiles outside the visible window are hidden.
 
-## Tabs
-`All` plus the five categories, each in its category colour. The last tab is remembered (memory + `localStorage` key
-`mgbm_palette_tab`). Changing tab closes the info sheet and scrolls back to the top.
+## No tabs
+One scrolling list ordered by category (pathing, damage, modifier, status, mitosis), then data order (`paletteIds`). The
+builder panel keeps a header row with the close button; the Shop has none. The old `mgbm_palette_tab` value is never read.
 
 ## Selecting and placing
 - Tap a tile: it is selected and previewed on the circuit (as before) and the info sheet opens.
-- Tap the same tile again, another tab, or the circuit grid: the sheet closes (the grid tap closes only the sheet; the next grid
+- Tap the same tile again, or the circuit grid: the sheet closes (the grid tap closes only the sheet; the next grid
   tap closes the palette as before). Tapping the tile again deliberately no longer places: the sheet's `Place` button does.
 - `Place` (or `Remove` for the Remove tile) does what the second tap used to do. `Buy` and `Upgrade` call
   `ProgressStore.buyCopy` / `buyUpgrade`, and upgrades call `model.refreshLevels()` like the Shop does.
@@ -38,4 +38,4 @@ change or a scroll); tiles outside the visible window are hidden.
 
 ## Testing hooks
 `window.__mgbm.buildScreen.picker` keeps `tiles`, `tileScreenRect(id)`, `reveal(id)`, `listRect`, `scrollY`, `maxScrollValue`,
-`selected`, `armed`, `isOpen`, `target`. New: `tab`, `setTab(tab)`, `sheetOpen`, `sheetButtonRect('place'|'buy'|'upgrade')`, `chipRect(tab)`.
+`selected`, `armed`, `isOpen`, `target`. New: `sheetOpen`, `sheetButtonRect('place'|'buy'|'upgrade')`.

@@ -17,7 +17,7 @@ import { copyPrice, HULL_PRICE, maxLevelOf, upgradePrice } from '../econ/economy
 import { HULL_INFO } from '../game/gridUtils';
 import { shipThumbnail } from '../ui/shipArt';
 import { TilePalette, PaletteSource, SheetButtonId } from '../builder/tilePalette';
-import { idsForTab, sheetContent, SheetContent } from '../builder/paletteLogic';
+import { paletteIds, sheetContent, SheetContent } from '../builder/paletteLogic';
 import { fmtBig } from '../ui/format';
 import { CreditsBadge } from '../ui/hud';
 import { THEME } from '../ui/theme';
@@ -54,7 +54,7 @@ export class ShopScreen implements Screen {
   private gestures: GestureTracker | null = null;
   private unsubscribe: (() => void) | null = null;
 
-  /** Chunk 16b-fix: the Blocks section is the shared tile palette (4 per row, tabs, info sheet); only Hulls keep rows. */
+  /** Chunk 16b-fix: the Blocks section is the shared tile palette (4 per row, one list by category, info sheet); only Hulls keep rows. */
   readonly palette = new TilePalette({ area: PALETTE_AREA, buttons: ['upgrade', 'buy'], tapAgain: 'close', panel: false });
   section: Section = 'blocks';
   selected: string | null = null;
@@ -153,7 +153,6 @@ export class ShopScreen implements Screen {
         toast: this.toast.message,
         inspector: { title: this.inspector.titleText, body: this.inspector.bodyText },
         rows: this.rowsView(),
-        tab: this.palette.tab,
         sheetOpen: this.palette.sheetOpen,
       }),
     };
@@ -169,7 +168,7 @@ export class ShopScreen implements Screen {
   }
 
   /**
-   * Test view of the list: one entry per block (Blocks section) with its tile rect when the current tab shows it and its Buy /
+   * Test view of the list: one entry per block (Blocks section) with its tile rect when the list shows it and its Buy /
    * Upgrade state (the button rects only for the selected block, whose sheet is open); or one entry per hull.
    */
   private rowsView() {
@@ -211,7 +210,7 @@ export class ShopScreen implements Screen {
   private paletteSource(): PaletteSource {
     const keys = new Set(this.blockKeys());
     return {
-      ids: (tab) => idsForTab(tab, pickerBlocks()).filter(id => keys.has(id)),
+      ids: () => paletteIds(pickerBlocks()).filter(id => keys.has(id)),
       badge: (id) => this.store.data.owned[id] ?? 0,
       lock: (id) => blockLockReason(this.store.data, id, this.store.frontierReach),
       current: () => false,

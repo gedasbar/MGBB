@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { pickerBlocks } from '../src/data/blocks';
 import {
-  badgeText, CHIP_H, chipLayout, clampScroll, cssPx, hitTile, idsForTab, INFO_SHEET_H, layoutTiles, loadTab, MIN_TOUCH_CSS,
-  PALETTE_COLS, PALETTE_TABS, paletteGeometry, removeSheetContent, saveTab, scrollToReveal, sheetButtonRects, sheetContent, SheetInput,
-  TAB_STORAGE_KEY, tileMetrics, visibleTiles,
+  badgeText, CHIP_H, clampScroll, cssPx, hitTile, INFO_SHEET_H, layoutTiles, MIN_TOUCH_CSS,
+  PALETTE_COLS, PALETTE_CATEGORIES, paletteIds, paletteGeometry, removeSheetContent, scrollToReveal, sheetButtonRects, sheetContent, SheetInput,
+  tileMetrics, visibleTiles,
 } from '../src/builder/paletteLogic';
-import { LAYOUT } from '../src/builder/layout';
 
 const blocks = pickerBlocks();
 const sheetBase: SheetInput = {
@@ -30,9 +29,7 @@ describe('layout math', () => {
     expect([m.w, m.h]).toEqual([125, 113]);
     expect(cssPx(m.w)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS);
     expect(cssPx(m.h)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS);
-    const strip = chipLayout(LAYOUT.sheet.w, 0);
-    for (const c of strip.chips) { expect(cssPx(c.h)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS); expect(cssPx(c.w)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS); }
-    expect(cssPx(strip.close.w)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS);
+    expect(cssPx(CHIP_H)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS);
     const b = sheetButtonRects(paletteGeometry().sheet, ['place', 'upgrade', 'buy']);
     for (const r of Object.values(b)) { expect(cssPx(r!.h)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS); expect(cssPx(r!.w)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS); }
   });
@@ -82,18 +79,13 @@ describe('layout math', () => {
     expect(vis.every(t => t.y < 224)).toBe(true);
   });
 
-  it('chips fit the width without overlapping, and the sheet, tabs and list partition the area', () => {
-    const { chips, close } = chipLayout(540, 470);
-    expect(chips.length).toBe(PALETTE_TABS.length);
-    for (let i = 1; i < chips.length; i++) expect(chips[i].x).toBeGreaterThanOrEqual(chips[i - 1].x + chips[i - 1].w);
-    expect(chips[chips.length - 1].x + chips[chips.length - 1].w).toBeLessThanOrEqual(close.x);
-    expect(chips.every(c => c.h === CHIP_H && c.y === 470)).toBe(true);
-    const noClose = chipLayout(540, 0, 6, 0);
-    expect(noClose.chips[5].x + noClose.chips[5].w).toBeLessThanOrEqual(540);
+  it('the header, list and info sheet partition the area; a palette without header gives the list the full height', () => {
     const g = paletteGeometry({ x: 0, y: 100, w: 540, h: 700 });
-    expect(g.chipRow.h + g.listClosed.h).toBe(700);
+    expect(g.header.h + g.listClosed.h).toBe(700);
     expect(g.listOpen.h + INFO_SHEET_H).toBe(g.listClosed.h);
     expect(g.sheet.y).toBe(g.listOpen.y + g.listOpen.h);
+    const bare = paletteGeometry({ x: 0, y: 100, w: 540, h: 700 }, 0);
+    expect(bare.listClosed).toEqual({ x: 0, y: 100, w: 540, h: 700 });
   });
 
   it('sheet buttons share the width and never overlap, for one, two or three buttons', () => {
@@ -129,42 +121,23 @@ describe('hit testing and tile -> block mapping', () => {
   });
 });
 
-describe('tabs and filtering', () => {
-  it('All lists every placeable block once, in data order; no passive block', () => {
-    const all = idsForTab('all', blocks);
-    expect(all).toEqual(blocks.filter(b => b.category !== 'passive').map(b => b.id));
+describe('one list ordered by category', () => {
+  it('lists every placeable block once, grouped by category in palette order, data order inside a category; no passive block', () => {
+    const all = paletteIds(blocks);
     expect(new Set(all).size).toBe(all.length);
-  });
-
-  it('each category tab shows only its blocks and the tabs partition All', () => {
-    const cats = PALETTE_TABS.filter(t => t !== 'all');
-    const seen: string[] = [];
-    for (const tab of cats) {
-      const ids = idsForTab(tab, blocks);
-      expect(ids.length).toBeGreaterThan(0);
-      for (const id of ids) expect(blocks.find(b => b.id === id)!.category).toBe(tab);
-      seen.push(...ids);
+    expect([...all].sort()).toEqual(blocks.filter(b => b.category !== 'passive').map(b => b.id).sort());
+    const cats = all.map(id => blocks.find(b => b.id === id)!.category);
+    const order = cats.map(c => PALETTE_CATEGORIES.indexOf(c));
+    expect(order).toEqual([...order].sort((x, y) => x - y));
+    for (const cat of PALETTE_CATEGORIES) {
+      expect(all.filter(id => blocks.find(b => b.id === id)!.category === cat))
+        .toEqual(blocks.filter(b => b.category === cat).map(b => b.id));
     }
-    expect([...seen].sort()).toEqual([...idsForTab('all', blocks)].sort());
   });
 
-  it('an unknown category list gives an empty tab', () => {
-    expect(idsForTab('pathing', [{ id: 'a', category: 'damage' }])).toEqual([]);
-  });
-
-  it('the remembered tab survives a round trip and bad values fall back to All', () => {
-    const mem: Record<string, string> = {};
-    const store = { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v; } };
-    expect(loadTab(store)).toBe('all');
-    saveTab(store, 'status');
-    expect(mem[TAB_STORAGE_KEY]).toBe('status');
-    expect(loadTab(store)).toBe('status');
-    mem[TAB_STORAGE_KEY] = 'passive';
-    expect(loadTab(store)).toBe('all');
-    expect(loadTab(null)).toBe('all');
-    const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
-    expect(loadTab(broken)).toBe('all');
-    expect(() => saveTab(broken, 'damage')).not.toThrow();
+  it('interleaved input comes out grouped', () => {
+    const mixed = [{ id: 'a', category: 'damage' }, { id: 'b', category: 'pathing' }, { id: 'c', category: 'damage' }, { id: 'p', category: 'passive' }] as const;
+    expect(paletteIds(mixed)).toEqual(['b', 'a', 'c']);
   });
 });
 

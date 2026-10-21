@@ -4,7 +4,7 @@ import { LAYOUT } from './layout';
 import { copyPrice, maxLevelOf, upgradePrice } from '../econ/economy';
 import { blockLockReason } from '../econ/progress';
 import { describeBlock } from '../engine/compilerTypes';
-import { idsForTab, REMOVE_TILE, removeSheetContent, sheetContent } from './paletteLogic';
+import { paletteIds, REMOVE_TILE, removeSheetContent, sheetContent } from './paletteLogic';
 import { PaletteSource, TilePalette } from './tilePalette';
 
 export { REMOVE_TILE };
@@ -37,8 +37,8 @@ export class Picker extends TilePalette {
     this.armed = null;
     const cell = () => model.cellAt(target.x, target.y);
     const source: PaletteSource = {
-      ids: (tab) => {
-        const ids = idsForTab(tab, pickerBlocks());
+      ids: () => {
+        const ids = paletteIds(pickerBlocks());
         return cell()?.blockId ? [REMOVE_TILE, ...ids] : ids;
       },
       badge: (id) => (id === REMOVE_TILE ? null : model.available(id)),

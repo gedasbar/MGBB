@@ -13,7 +13,7 @@ The owner is not a programmer. They test in the browser and describe what they s
 ## Working rules (important)
 1. **Be honest.** Never claim something works, or that a screenshot shows something, unless you checked it. Open every screenshot you mention and describe what is really there. End every report with a "Not verified" list.
 2. **Tests must be meaningful.** A test that cannot fail is worthless. For new logic, run a mutation check (break the code, see the test fail, restore) on a few tests and say which.
-3. **Keep tests and screenshots lean** (token budget): focused unit tests, at most one e2e per chunk, contact sheets (one montage image) instead of many screenshots. Run the existing e2e scripts once each for regressions.
+3. **Keep tests and screenshots lean** (token budget): focused unit tests, at most one new e2e per chunk, contact sheets (one montage image) instead of many screenshots. How many existing e2e scripts to run is set by "Test scope" below.
 4. **Commit after each step** with a clear message. If you run low on budget, stop cleanly at a finished step and report what remains.
 5. **DECISIONS.md**: append numbered entries for every non-obvious decision or deviation from the prompt. Continue the existing numbering; never renumber old entries (when two branches collide, renumber only the newer ones).
 6. **Don't change existing behaviour** unless the chunk says so. Level-1 numbers of existing blocks, saved games, and old tests must keep working. Saves are versioned: bump the version and write a migration, unit-tested, when you change the save shape.
@@ -22,13 +22,18 @@ The owner is not a programmer. They test in the browser and describe what they s
 
 ## Git rules
 - Start every chunk from the latest `main` (`git fetch`, then branch from `origin/main`). Work on a new branch. Never commit to `main`, never force-push, never delete branches.
-- Push the chunk's branch when finished so a pull request can be opened. Do not merge pull requests.
+- When the chunk is finished, push the branch and OPEN A PULL REQUEST against `main` (gh pr create). The description is a short summary plus the report's "Not verified" list. Never merge it: the owner reviews and merges on GitHub.
+- Do not run two chunks in the same folder at once. If you need a second working copy, use a separate git worktree and do not stash or touch files that belong to another session.
 - If you notice the branch is missing work that is already on `origin/main`, merge `origin/main` into the branch (merge, not rebase) and resolve conflicts keeping both sides' intent.
 
-## Game design (current state)
-**Circuit model.** The Generator (fixed hull cell) always emits a red signal that travels through empty cells as implicit straight pieces. Blocks transform packets in path order and output relative directions (F/L/R). Every block has a STORED orientation and the compiler only reads it (chunk 16a): a block is entered from the side it faces, any other side is a dead end. A new block works out its direction once at placement (it faces the way the signal reaches that cell, `src/engine/orient.ts`) and keeps it; placing, removing or moving a block never re-orients another one. The Auto-orient button is a one-time action on the selected block only; Rotate turns it by hand. Old saves (builder save v2, blocks in "auto") are oriented once on load against the circuit as saved. Lines may cross freely, but a block shared by two signals only passes the one entering from the side it faces. Same-axis overlap cuts the later signal. The compiler is in `src/engine/compiler.ts`.
+## Test scope
+- Tiny UI-only changes (colours, spacing, removing a control): typecheck, unit tests, and at most ONE relevant e2e script. Do not run the whole e2e suite.
+- Run the full e2e suite only for chunks that change gameplay, saves, the compiler or the economy, and say so in the report.
 
-**Blocks.** Data in `src/data/blocks.ts`. Categories: Pathing (blue), Damage (salmon/orange), Modifiers (purple), Status (teal), Mitosis (amber, Free Fly rock mechanics; 41 blocks are shown in all). Each block has levels. Copy price = base x 1.18^owned, upgrade price = base x 2.0 x 2.2^(level-1). More blocks are hidden until added by a chunk.
+## Game design (current state)
+**Circuit model.** The Generator (fixed hull cell) always emits a red signal that travels through empty cells as implicit straight pieces. Blocks transform packets in path order and output relative directions (F/L/R). Every block has a STORED orientation and the compiler only reads it (chunk 16a): a block is entered from the side it faces, any other side is a dead end. A new block works out its direction once at placement (it faces the way the signal reaches that cell, `src/engine/orient.ts`) and keeps it; placing, removing or moving a block never re-orients another one. The Auto-orient button is a one-time placement action on the selected block only (the orientation is stored, never recomputed afterwards); Rotate turns it by hand. Old saves (builder save v2, blocks in "auto") are oriented once on load against the circuit as saved. Lines may cross freely, but a block shared by two signals only passes the one entering from the side it faces. Same-axis overlap cuts the later signal. The compiler is in `src/engine/compiler.ts`.
+
+**Blocks.** Data in `src/data/blocks.ts`. Categories: Pathing (blue), Damage (salmon/orange), Modifiers (purple), Status (teal), Mitosis (amber, Free Fly rock mechanics; 41 blocks are shown in all). Each block has levels. The builder palette and the Shop block list are one shared tile component (`src/builder/tilePalette.ts`): a single scrolling list ordered by category, then data order, no tabs and no category-coloured tile outline. Copy price = base x 1.18^owned, upgrade price = base x 2.0 x 2.2^(level-1). More blocks are hidden until added by a chunk.
 
 **Hulls.** `src/data/hulls.ts`. Dart (free, 1 slot, weak gun) is the starter, then Twin (2), Prong (3 slots, 2 ejectors), Fan, Shuttle. Every basic shot deals 1; the pulse rate is the hull stat (Dart 2/s, Twin 2.5, Prong 4, Fan 4, Shuttle 5). Ejector offsets from the ship centre are scaled by `FIRE_OFFSET_SCALE`.
 

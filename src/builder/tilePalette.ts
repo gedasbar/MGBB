@@ -1,14 +1,12 @@
 import { Container, Graphics, Text } from 'pixi.js';
-import { BLOCKS } from '../data/blocks';
-import { CATEGORY_COLOR, drawX } from './draw';
+import { drawX } from './draw';
 import { drawPlate } from '../ui/blockArt';
 import { inRect, Rect } from './layout';
 import { makeText } from './ui';
 import { THEME } from '../ui/theme';
 import {
-  badgeText, chipLayout, clampScroll, hitTile, INFO_SHEET_H, layoutTiles, loadTab, maxScrollOf, paletteGeometry,
-  PALETTE_TABS, PaletteTab, REMOVE_TILE, saveTab, scrollToReveal, SheetButtonId, SheetContent, sheetButtonRects,
-  TAB_LABEL, TileBox, visibleTiles,
+  badgeText, CHIP_H, clampScroll, hitTile, INFO_SHEET_H, layoutTiles, maxScrollOf, paletteGeometry,
+  REMOVE_TILE, scrollToReveal, SheetButtonId, SheetContent, sheetButtonRects, TileBox, visibleTiles,
 } from './paletteLogic';
 
 export { REMOVE_TILE };
@@ -16,8 +14,8 @@ export type { SheetButtonId };
 
 /** What a palette shows: the builder and the Shop each supply their own (ids per tab, counts, locks, sheet text). */
 export interface PaletteSource {
-  /** Every tile of a tab in order, special tiles (Remove) included. */
-  ids(tab: PaletteTab): string[];
+  /** Every tile in order, special tiles (Remove) included. */
+  ids(): string[];
   /** The number on the tile, or null for no badge. */
   badge(id: string): number | null;
   /** Requirement text when the block is gated, else null. */
@@ -28,7 +26,7 @@ export interface PaletteSource {
 }
 
 export interface PaletteOptions {
-  /** The whole region: tab row, list and the info sheet at the bottom. */
+  /** The whole region: header (builder only), list and the info sheet at the bottom. */
   area: Rect;
   /** Buttons of the info sheet, left to right. */
   buttons: SheetButtonId[];
@@ -62,25 +60,18 @@ interface TileView {
 
 interface SheetButtonView { c: Container; bg: Graphics; label: Text; rect: Rect }
 
-function safeStorage(): Storage | null {
-  try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; }
-}
-
-/** The last tab used, shared by the builder and the Shop (a player thinks of "the Damage tab", not of one screen's). */
-let rememberedTab: PaletteTab | null = null;
-
 const BADGE_W = 34;
 const BADGE_H = 22;
 const ALL_BUTTONS: SheetButtonId[] = ['place', 'upgrade', 'buy'];
 
 /**
- * The block palette shared by the Shop and the builder: tab chips, a scrolling grid of plate tiles with count badges, and an
+ * The block palette shared by the Shop and the builder: a scrolling grid of plate tiles with count badges, and an
  * info sheet for the selected tile. Chunk 16b-fix: one component, two sources.
  */
 export class TilePalette {
   readonly container = new Container();
   readonly geo;
-  /** The whole region (tabs, list, info sheet). */
+  /** The whole region (header, list, info sheet). */
   readonly sheet: Rect;
   readonly closeRect: Rect;
   /** The tile list; its height shrinks while the info sheet is open. */
@@ -88,7 +79,6 @@ export class TilePalette {
   scrollY = 0;
   selected: string | null = null;
   tiles: Tile[] = [];
-  tab: PaletteTab;
   sheetOpen = false;
   protected source: PaletteSource | null = null;
   protected events: PaletteEvents | null = null;
@@ -97,9 +87,6 @@ export class TilePalette {
   private bg = new Graphics();
   private maskG = new Graphics();
   private views = new Map<string, TileView>();
-  private chipRects: Record<PaletteTab, Rect>;
-  private chipG = new Graphics();
-  private chipLabels: Record<string, Text> = {};
   private infoC = new Container();
   private infoBg = new Graphics();
   private infoTitle = makeText('', 18, THEME.text, { fontWeight: 'bold' });
@@ -111,31 +98,19 @@ export class TilePalette {
   private buttonIds: SheetButtonId[];
 
   constructor(protected opts: PaletteOptions) {
-    const g = this.geo = paletteGeometry(opts.area);
+    const g = this.geo = paletteGeometry(opts.area, opts.panel ? CHIP_H : 0);
     this.buttonIds = opts.buttons;
     this.sheet = { ...opts.area };
     this.listRect = { ...g.listClosed };
-    const strip = chipLayout(opts.area.w, opts.area.y, PALETTE_TABS.length, opts.panel ? undefined : 0);
-    this.closeRect = strip.close;
-    this.chipRects = Object.fromEntries(PALETTE_TABS.map((t, i) => [t, strip.chips[i]])) as Record<PaletteTab, Rect>;
-    this.tab = rememberedTab ?? loadTab(safeStorage());
-    rememberedTab = this.tab;
+    this.closeRect = opts.panel ? { x: opts.area.x + opts.area.w - CHIP_H, y: opts.area.y, w: CHIP_H, h: CHIP_H } : { x: -999, y: -999, w: 0, h: 0 };
 
     const s = this.sheet;
     if (opts.panel) {
       this.bg.rect(s.x, s.y, s.w, s.h + 20).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
-      this.bg.rect(s.x, s.y + g.chipRow.h - 1, s.w, 1).fill(THEME.border);
+      this.bg.rect(s.x, s.y + g.header.h - 1, s.w, 1).fill(THEME.border);
       drawX(this.bg, this.closeRect.x + this.closeRect.w / 2, this.closeRect.y + this.closeRect.h / 2, 9, THEME.buttonIcon, 3);
     }
-    this.container.addChild(this.bg, this.chipG);
-    for (const t of PALETTE_TABS) {
-      const r = this.chipRects[t];
-      const label = makeText(TAB_LABEL[t], 12, THEME.text, { fontWeight: 'bold' });
-      label.anchor.set(0.5);
-      label.position.set(r.x + r.w / 2, r.y + r.h / 2);
-      this.chipLabels[t] = label;
-      this.container.addChild(label);
-    }
+    this.container.addChild(this.bg);
     this.listC.mask = this.maskG;
     this.container.addChild(this.maskG, this.listC);
 
@@ -151,7 +126,6 @@ export class TilePalette {
     this.infoC.visible = false;
     this.container.addChild(this.infoC);
 
-    this.drawChips();
     this.layoutSheetButtons();
   }
 
@@ -176,8 +150,6 @@ export class TilePalette {
     return v && v.badge.visible ? v.badge.text : null;
   }
 
-  chipRect(tab: PaletteTab): Rect { return this.chipRects[tab]; }
-
   sheetButtonRect(id: SheetButtonId): Rect { return this.infoButtons[id].rect; }
 
   /** Whether a sheet button is on screen (a locked block has no buy / upgrade). */
@@ -200,16 +172,6 @@ export class TilePalette {
     return this.isOpen && inRect(this.listRect, x, y);
   }
 
-  // ------------------------------------------------------------------ tabs
-  setTab(tab: PaletteTab) {
-    this.tab = tab;
-    rememberedTab = tab;
-    saveTab(safeStorage(), tab);
-    this.sheetOpen = false;
-    this.scrollY = 0;
-    this.build();
-  }
-
   closeSheet() {
     if (!this.sheetOpen) return;
     this.sheetOpen = false;
@@ -217,20 +179,19 @@ export class TilePalette {
   }
 
   // ------------------------------------------------------------------ building
-  /** Re-lays-out the list for the current tab, sheet state and counts. Display objects are reused. */
+  /** Re-lays-out the list for the current sheet state and counts. Display objects are reused. */
   build() {
     if (!this.source) return;
     const lr = this.sheetOpen ? this.geo.listOpen : this.geo.listClosed;
     Object.assign(this.listRect, lr);
     this.maskG.clear().rect(lr.x, lr.y, lr.w, lr.h).fill(0xffffff);
-    const laid = layoutTiles(this.source.ids(this.tab), this.geo.metrics);
+    const laid = layoutTiles(this.source.ids(), this.geo.metrics);
     this.tiles = laid.tiles;
     this.contentH = laid.contentH;
     this.scrollY = clampScroll(this.scrollY, this.contentH, this.listRect.h);
     const shown = new Set(this.tiles.map(t => t.id));
     for (const [id, v] of this.views) if (!shown.has(id)) v.c.visible = false;
     for (const t of this.tiles) this.styleTile(t, this.viewOf(t.id));
-    this.drawChips();
     this.updateSheet();
     this.applyScroll();
   }
@@ -268,11 +229,13 @@ export class TilePalette {
     v.c.visible = true;
     if (v.key === key) return;
     v.key = key;
-    const color = isRemove ? THEME.bad : CATEGORY_COLOR[BLOCKS[t.id].category];
     const a = usable ? 1 : 0.4;
-    v.bg.clear()
-      .rect(0, 0, t.w, t.h).fill({ color: THEME.buttonFill, alpha: usable ? 1 : 0.55 })
-      .rect(0, 0, t.w, t.h).stroke({ color: sel ? THEME.select : cur ? THEME.warn : color, width: sel ? 3 : 2, alpha: sel || cur ? 1 : a });
+    v.bg.clear().rect(0, 0, t.w, t.h).fill({ color: THEME.buttonFill, alpha: usable ? 1 : 0.55 });
+    // Only the selected / current tile has an outline, drawn inside the tile: a stroke centred on a half-width inset covers whole pixels.
+    if (sel || cur) {
+      const w = 3;
+      v.bg.rect(w / 2, w / 2, t.w - w, t.h - w).stroke({ color: sel ? THEME.select : THEME.warn, width: w });
+    }
     v.plate.position.set(t.w / 2, t.h / 2);
     v.plate.alpha = a;
     v.badgeBg.clear();
@@ -290,18 +253,6 @@ export class TilePalette {
       v.lock.rect(4, 4, 26, 26).fill({ color: THEME.hullDark, alpha: 0.85 });
       v.lock.rect(10, 16, 14, 10).fill(THEME.warn);
       v.lock.moveTo(13, 16).lineTo(13, 12).arc(17, 12, 4, Math.PI, 0).lineTo(21, 16).stroke({ color: THEME.warn, width: 2.5 });
-    }
-  }
-
-  private drawChips() {
-    const g = this.chipG.clear();
-    for (const t of PALETTE_TABS) {
-      const r = this.chipRects[t];
-      const col = t === 'all' ? THEME.buttonLine : CATEGORY_COLOR[t];
-      const on = t === this.tab;
-      g.rect(r.x, r.y + 4, r.w, r.h - 8).fill(on ? col : THEME.buttonFill);
-      g.rect(r.x, r.y + 4, r.w, r.h - 8).stroke({ color: col, width: on ? 3 : 1.5 });
-      this.chipLabels[t].style.fill = on ? THEME.pressedIcon : col;
     }
   }
 
@@ -408,9 +359,6 @@ export class TilePalette {
   tap(x: number, y: number): boolean {
     if (!this.contains(x, y)) return false;
     if (this.opts.panel && inRect(this.closeRect, x, y)) { this.events!.onClose(); return true; }
-    for (const t of PALETTE_TABS) {
-      if (inRect(this.chipRects[t], x, y)) { if (t !== this.tab) this.setTab(t); else this.closeSheet(); return true; }
-    }
     if (this.sheetOpen && inRect(this.geo.sheet, x, y)) { this.tapSheet(x, y); return true; }
     const t = this.tileAt(x, y);
     if (!t) return true;
