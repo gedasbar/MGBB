@@ -5,7 +5,7 @@ import { inRect, Rect } from './layout';
 import { makeText } from './ui';
 import { THEME } from '../ui/theme';
 import {
-  badgeText, CHIP_H, clampScroll, hitTile, INFO_SHEET_H, layoutTiles, maxScrollOf, paletteGeometry,
+  badgeText, clampScroll, hitTile, INFO_SHEET_H, INFO_SHEET_NO_BUTTONS_H, layoutTiles, maxScrollOf, paletteGeometry,
   REMOVE_TILE, scrollToReveal, SheetButtonId, SheetContent, sheetButtonRects, TileBox, visibleTiles,
 } from './paletteLogic';
 
@@ -26,13 +26,13 @@ export interface PaletteSource {
 }
 
 export interface PaletteOptions {
-  /** The whole region: header (builder only), list and the info sheet at the bottom. */
+  /** The whole region: the list and the info sheet at the bottom. */
   area: Rect;
   /** Buttons of the info sheet, left to right. */
   buttons: SheetButtonId[];
   /** What a second tap on the selected tile does: close the sheet (Shop) or press its place button (builder). */
   tapAgain: 'close' | 'place';
-  /** The builder's bottom sheet draws its own panel and an X; the Shop sits on its own background. */
+  /** The builder's bottom sheet draws its own panel; the Shop sits on its own background. */
   panel: boolean;
 }
 
@@ -40,7 +40,6 @@ export interface PaletteEvents {
   /** A tile that was not selected has been tapped: the caller shows what it needs (preview, inspector text). */
   onSelect(id: string): void;
   onButton(id: string, button: SheetButtonId): void;
-  onClose(): void;
   onMessage(msg: string): void;
 }
 
@@ -71,9 +70,8 @@ const ALL_BUTTONS: SheetButtonId[] = ['place', 'upgrade', 'buy'];
 export class TilePalette {
   readonly container = new Container();
   readonly geo;
-  /** The whole region (header, list, info sheet). */
+  /** The whole region (list, info sheet). */
   readonly sheet: Rect;
-  readonly closeRect: Rect;
   /** The tile list; its height shrinks while the info sheet is open. */
   readonly listRect: Rect;
   scrollY = 0;
@@ -98,17 +96,14 @@ export class TilePalette {
   private buttonIds: SheetButtonId[];
 
   constructor(protected opts: PaletteOptions) {
-    const g = this.geo = paletteGeometry(opts.area, opts.panel ? CHIP_H : 0);
+    const g = this.geo = paletteGeometry(opts.area, opts.buttons.length ? INFO_SHEET_H : INFO_SHEET_NO_BUTTONS_H);
     this.buttonIds = opts.buttons;
     this.sheet = { ...opts.area };
     this.listRect = { ...g.listClosed };
-    this.closeRect = opts.panel ? { x: opts.area.x + opts.area.w - CHIP_H, y: opts.area.y, w: CHIP_H, h: CHIP_H } : { x: -999, y: -999, w: 0, h: 0 };
 
     const s = this.sheet;
     if (opts.panel) {
       this.bg.rect(s.x, s.y, s.w, s.h + 20).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
-      this.bg.rect(s.x, s.y + g.header.h - 1, s.w, 1).fill(THEME.border);
-      drawX(this.bg, this.closeRect.x + this.closeRect.w / 2, this.closeRect.y + this.closeRect.h / 2, 9, THEME.buttonIcon, 3);
     }
     this.container.addChild(this.bg);
     this.listC.mask = this.maskG;
@@ -119,7 +114,7 @@ export class TilePalette {
     this.infoLevel.anchor.set(1, 0);
     this.infoLevel.position.set(s.w - 14, 11);
     this.infoBody.position.set(14, 36);
-    this.infoOwned.position.set(14, INFO_SHEET_H - 8 - 66 - 6 - 18);
+    this.infoOwned.position.set(14, g.sheet.h - 8 - (opts.buttons.length ? 66 + 6 : 0) - 18);
     this.infoC.addChild(this.infoBg, this.infoTitle, this.infoLevel, this.infoBody, this.infoOwned);
     for (const b of Object.values(this.infoButtons)) this.infoC.addChild(b.c);
     this.infoC.position.set(g.sheet.x, g.sheet.y);
@@ -276,7 +271,7 @@ export class TilePalette {
       v.c.position.set(b.x - this.geo.sheet.x, b.y - this.geo.sheet.y);
       v.label.position.set(b.w / 2, b.h / 2);
     }
-    this.infoBg.clear().rect(0, 0, this.geo.sheet.w, INFO_SHEET_H).fill(THEME.panel).rect(0, 0, this.geo.sheet.w, 2).fill(THEME.border);
+    this.infoBg.clear().rect(0, 0, this.geo.sheet.w, this.geo.sheet.h).fill(THEME.panel).rect(0, 0, this.geo.sheet.w, 2).fill(THEME.border);
   }
 
   private updateSheet() {
@@ -358,7 +353,6 @@ export class TilePalette {
    */
   tap(x: number, y: number): boolean {
     if (!this.contains(x, y)) return false;
-    if (this.opts.panel && inRect(this.closeRect, x, y)) { this.events!.onClose(); return true; }
     if (this.sheetOpen && inRect(this.geo.sheet, x, y)) { this.tapSheet(x, y); return true; }
     const t = this.tileAt(x, y);
     if (!t) return true;

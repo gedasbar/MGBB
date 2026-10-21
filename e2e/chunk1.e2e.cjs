@@ -10,10 +10,10 @@ const { check, tap, drag, wheel, state, shot, isRedLine } = lib;
 const CELL = 48, OX = 6, OY = 204;
 const cell = (col, row) => [OX + (col - 0.5) * CELL, OY + (row - 0.5) * CELL];
 const TB = { rotCW: 378, clearAll: 486, y: 880 };
-const CLOSE_X = [516, 492];
-// Picker tiles (see builder.e2e.cjs for the layout): tileCentre(column, row) on the 'All' tab.
-const tileCentre = (col, row) => [8 + col * 133 + 62.5, 536 + 8 + row * 121 + 56.5];
-const TILE = { turn_l: [0, 0], turn_r: [1, 0], splitter_2: [2, 0], flat_plus: [3, 1], percent_mult: [0, 2] };
+const CLOSE_X = [270, 250]; // the X button is gone: a tap on the dimmed circuit area closes the sheet
+// Picker tiles (see builder.e2e.cjs for the layout): tileCentre(column, row) in the single category-ordered list.
+const tileCentre = (col, row) => [8 + col * 106 + 49, 470 + 8 + row * 96 + 44];
+const TILE = { turn_l: [0, 0], turn_r: [1, 0], splitter_2: [2, 0], flat_plus: [2, 1], percent_mult: [3, 1] };
 const REMOVE_TILE = tileCentre(0, 0); // first tile on an occupied cell
 
 const redish = (p) => p[0] > 190 && p[1] < 130 && p[2] < 130;
