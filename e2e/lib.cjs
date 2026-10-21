@@ -187,8 +187,8 @@ function richProgressJson() {
 
 // `dart: true` keeps the truly fresh save (the free one-slot Dart). Otherwise the save starts on the Shuttle, which the older
 // scripts were written for (the hull ladder came later): the Shuttle is owned and selected, everything else is new-game.
-async function openGame(browser, { viewport = { width: 540, height: 960 }, clearStorage = true, permissions = [], rich = true, dart = false } = {}) {
-  const context = await browser.newContext({ viewport, permissions });
+async function openGame(browser, { viewport = { width: 540, height: 960 }, clearStorage = true, permissions = [], rich = true, dart = false, deviceScaleFactor = 1 } = {}) {
+  const context = await browser.newContext({ viewport, permissions, deviceScaleFactor });
   const page = await context.newPage();
   page.on('pageerror', (err) => check(false, `page error: ${err.message}`));
   page.on('console', (m) => { if (m.type() === 'error') process.stdout.write(`console.error: ${m.text()}\n`); });

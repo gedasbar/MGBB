@@ -290,6 +290,13 @@ describe('info sheet geometry', () => {
     expect(one.h).toBeGreaterThanOrEqual(SHEET_BUTTON_H + 20);
   });
 
+  it('a sheet without buttons (a locked block in the Shop) has no empty button row', () => {
+    const none = sheetGeometry(540, 'full', 2, []);
+    const two = sheetGeometry(540, 'full', 2, ['upgrade', 'buy']);
+    expect(none.buttons).toEqual({});
+    expect(two.h - none.h).toBeGreaterThanOrEqual(SHEET_BUTTON_H);
+  });
+
   it('full (Shop): the buttons sit in a row under the text and share the width without overlap', () => {
     const g = sheetGeometry(540, 'full', 2, ['upgrade', 'buy']);
     const u = g.buttons.upgrade!, b = g.buttons.buy!;

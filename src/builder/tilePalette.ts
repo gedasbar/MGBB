@@ -299,13 +299,16 @@ export class TilePalette {
     if (!this.infoC.visible) { this.content = null; this.sheetH = 0; return; }
     const c = this.source!.content(this.selected!);
     this.content = c;
-    const probe = sheetGeometry(this.sheet.w, this.mode, 1, this.buttonIds);
+    const specs: Record<SheetButtonId, SheetContent['place'] | null> = { place: c.place, buy: c.buy, upgrade: c.upgrade };
+    // A locked block has no Buy / Upgrade: the sheet then has no button row.
+    const shown = this.buttonIds.filter(id => !!specs[id]);
+    const probe = sheetGeometry(this.sheet.w, this.mode, 1, shown);
     this.infoBody.style.wordWrapWidth = probe.textW;
     this.infoTitle.text = c.title;
     this.infoLevel.text = c.levelLine;
     this.infoBody.text = c.body;
     const lines = Math.max(1, Math.round(this.infoBody.height / SHEET_LINE_H));
-    this.geo = sheetGeometry(this.sheet.w, this.mode, lines, this.buttonIds);
+    this.geo = sheetGeometry(this.sheet.w, this.mode, lines, shown);
     this.sheetH = this.geo.h;
     this.infoStatus.text = fitText(c.ownedLine, this.geo.textW, (s) => CanvasTextMetrics.measureText(s, this.infoStyle).width);
     this.infoStatus.style.fill = c.warn ? THEME.warn : THEME.textDim;
@@ -315,7 +318,6 @@ export class TilePalette {
     this.infoC.position.set(this.sheet.x, top);
     this.infoBg.clear().rect(0, 0, this.sheet.w, this.sheetH + 20).fill(THEME.panel).rect(0, 0, this.sheet.w, BORDER_W).fill(THEME.border);
 
-    const specs: Record<SheetButtonId, SheetContent['place'] | null> = { place: c.place, buy: c.buy, upgrade: c.upgrade };
     for (const id of ALL_BUTTONS) {
       const v = this.infoButtons[id];
       const spec = this.buttonIds.includes(id) ? specs[id] : null;

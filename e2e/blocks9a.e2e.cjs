@@ -26,8 +26,8 @@ const move = async (page, gx, gy) => { const p = await gameToClient(page, gx, gy
 
 /** Shop: scroll the row for `id` to the top of the list and press its Buy button with a real tap. */
 async function buy(page, id) {
-  // Chunk 16b-fix: the Shop is a tile grid. Select the tile (All tab), then press Buy in its info sheet.
-  await page.evaluate((id) => { const p = window.__mgbm.shopScreen.palette; if (p.tab !== 'all') p.setTab('all'); p.reveal(id); }, id);
+  // Chunk 16b-fix: the Shop is a tile grid. Select the tile, then press Buy in its info sheet.
+  await page.evaluate((id) => { const p = window.__mgbm.shopScreen.palette; p.reveal(id); }, id);
   const tile = await page.evaluate((id) => window.__mgbm.shopScreen.palette.tileScreenRect(id), id);
   if (!tile) throw new Error(`no shop tile for ${id}`);
   await tap(page, ...centre(tile));

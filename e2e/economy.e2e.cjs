@@ -65,8 +65,9 @@ async function aim(page, s) {
   await tap(page, ...centre(sp));
   await tap(page, ...centre(sp));
   s = await state(page);
-  check(/No Splitter 2 left/.test(s.toast) && s.pickerOpen, `second tap on an unowned tile only toasts: "${s.toast}"`);
-  await tap(page, 516, 492); // close the sheet
+  check(/Buy Splitter 2 in the Shop/.test(s.toast) && s.pickerOpen, `second tap on an unowned tile only toasts where to get it: "${s.toast}"`);
+  check(s.sheet && s.sheet.title === 'Splitter 2' && /Not owned/.test(s.sheet.status) && s.sheet.warn && !s.sheet.place.enabled, `its sheet says it is not owned and Place is off: ${JSON.stringify(s.sheet && s.sheet.status)}`);
+  await tap(page, 270, 300); // close the sheet (a tap above it; there is no close button since 16e)
   s = await state(page);
   check(!s.pickerOpen, 'sheet closes');
   const flatBefore = s.statsStrip[0];
@@ -146,7 +147,7 @@ async function aim(page, s) {
   await selectTile('splitter_2');
   let row;
   s = await state(page);
-  check(s.selected === 'splitter_2' && /Splits the signal into two full copies/.test(s.inspector.body), `tile tap selects it and shows its rule: "${s.inspector.title}"`);
+  check(s.selected === 'splitter_2' && s.sheet && /Splits the signal into two full copies/.test(s.sheet.body), `tile tap selects it and the sheet shows its rule: "${s.sheet && s.sheet.title}"`);
   row = s.rows.find(r => r.key === 'splitter_2');
   check(row.buttons[0].label === 'Buy +1\n200' && row.buttons[0].enabled, `buy button "${row.buttons[0].label}" is enabled`);
   check(row.buttons[1].label === 'Upgrade L1→L2\n400', `Splitter 2 has upgrade levels now ("${row.buttons[1].label}")`);
@@ -166,7 +167,7 @@ async function aim(page, s) {
   check(s.credits === credBeforeUp - 120, `upgrade cost 120 (${credBeforeUp} -> ${s.credits})`);
   const flat2 = s.rows.find(r => r.key === 'flat_plus');
   check(/^Upgrade L2→L3\n264$/.test(flat2.buttons[1].label), `next upgrade is "${flat2.buttons[1].label}"`);
-  check(/\+2 damage/.test(s.inspector.body), `inspector shows the level-2 rule: "${s.inspector.body}"`);
+  check(/\+2 damage/.test(s.sheet.body), `the sheet shows the level-2 rule: "${s.sheet.body}"`);
   await snap(page, 'shop_blocks.png');
 
   // ---- back to Build: picker count and stats strip
@@ -176,34 +177,34 @@ async function aim(page, s) {
   const count1 = await page.evaluate(() => window.__mgbm.model.available('splitter_2'));
   await tap(page, 174, 420);
   await tap(page, 174, 420);
-  // Chunk 16b: the tile's badge is just the number of free copies.
-  const badge = await page.evaluate(() => window.__mgbm.buildScreen.picker.badgeOf('splitter_2'));
-  check(count1 === 1 && badge === '1', `the picker shows Splitter 2 with the badge ${JSON.stringify(badge)} (available ${count1})`);
-  await tap(page, 516, 492);
+  // Chunk 16e: the tile's count is just the number of free copies, as plain text.
+  const badge = await page.evaluate(() => window.__mgbm.buildScreen.picker.countOf('splitter_2'));
+  check(count1 === 1 && badge === '1', `the picker shows Splitter 2 with the count ${JSON.stringify(badge)} (available ${count1})`);
+  await tap(page, 270, 300);
   await snap(page, 'build_after_purchases.png');
 
-  // ---- Fan hull: locked until bought
+  // ---- Fan hull (chunk 16e): unowned hulls are listed in the builder's hull picker, dimmed, with their price; buying there selects it
   await tap(page, ...SHIP_BTN);
-  await tap(page, 270, 492); // Fan row (Dart, Twin, Prong, Fan, Shuttle)
   s = await state(page);
-  check(s.hull === 'shuttle', `the locked Fan hull is not selectable (hull ${s.hull}, toast "${s.toast}")`);
-  await tap(page, ...TAB.shop);
-  await tap(page, 405, 136); // Hulls section
+  const fanRow = s.hullPanel.rows.find(r => r.id === 'fan');
+  check(s.hullPanel.rows.length === 5 && fanRow.state === 'unowned', `the hull picker lists all 5 hulls and the Fan is unowned (${s.hullPanel.rows.map(r => r.id + ':' + r.state).join(' ')})`);
+  await tap(page, ...centre(fanRow.rect));
   s = await state(page);
-  check(s.section === 'hulls', 'Hulls section opens');
-  if (s.credits < 1200) await dbg('dbg-credits');
-  s = await state(page);
-  const fan = s.rows.find(r => r.key === 'fan');
-  check(/Buy - 1\.2K/.test(fan.buttons[0].label) && fan.buttons[0].enabled, `Fan hull button "${fan.buttons[0].label}"`);
+  check(s.hull === 'shuttle' && s.hullPanelOpen && s.hullPanel.selected === 'fan' && !!s.hullPanel.buy, `tapping the unowned Fan shows its info and a Buy button; the hull stays (${s.hull})`);
   const credBeforeFan = s.credits;
-  await tap(page, ...centre(fan.buttons[0].rect), { pause: 200 });
+  if (s.credits < 1200) {
+    await tap(page, ...centre(s.hullPanel.buy));
+    s = await state(page);
+    check(s.hull === 'shuttle' && s.credits === credBeforeFan && /Not enough credits/.test(s.toast), `Buy with too few credits changes nothing (hull ${s.hull}, credits ${s.credits}, toast "${s.toast}")`);
+    await dbg('dbg-credits');
+    s = await state(page);
+    if (!s.hullPanelOpen) { await tap(page, ...SHIP_BTN); await tap(page, ...centre(fanRow.rect)); s = await state(page); }
+  }
+  const credBeforeBuy2 = s.credits;
+  await tap(page, ...centre(s.hullPanel.buy));
   s = await state(page);
-  check(s.credits === credBeforeFan - 1200, `Fan hull cost 1200 (${credBeforeFan} -> ${s.credits})`);
-  await tap(page, ...TAB.build);
-  await tap(page, ...SHIP_BTN);
-  await tap(page, 270, 492);
-  s = await state(page);
-  check(s.hull === 'fan', `the bought Fan hull is selectable (hull ${s.hull})`);
+  check(s.credits === credBeforeBuy2 - 1200, `Fan hull cost 1200 (${credBeforeBuy2} -> ${s.credits})`);
+  check(s.hull === 'fan' && !s.hullPanelOpen, `buying the Fan from the picker selects it and closes the picker (hull ${s.hull})`);
 
   // ---- progress survives a reload
   await page.reload();

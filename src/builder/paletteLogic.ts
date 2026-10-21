@@ -188,7 +188,8 @@ export function sheetContent(i: SheetInput): SheetContent {
   let warn = false;
   if (i.lock) { status = `Locked: ${i.lock}`; warn = true; }
   else if (i.showFree && i.owned <= 0) { status = 'Not owned · buy it in the Shop'; warn = true; }
-  if (i.note) { status += ` · ${i.note}`; warn = true; }
+  // A preview warning only matters for a block that can be placed.
+  if (i.note && placeable) { status += ` · ${i.note}`; warn = true; }
   const base = {
     title: i.name,
     levelLine: `Level ${i.level}/${i.maxLevel}`,
@@ -248,6 +249,7 @@ export function sheetGeometry(width: number, mode: SheetMode, bodyLines: number,
     ids.forEach((id, i) => { buttons[id] = { x: width - SHEET_PAD - bw - i * (bw + 6), y: Math.round((h - SHEET_BUTTON_H) / 2), w: bw, h: SHEET_BUTTON_H }; });
     return { h, textW: width - 2 * SHEET_PAD - bw - 8, statusY, buttons };
   }
+  if (ids.length === 0) return { h: textBottom, textW: width - 2 * SHEET_PAD, statusY, buttons };
   const gap = 6;
   const bw = Math.floor((width - 2 * SHEET_PAD - (ids.length - 1) * gap) / Math.max(1, ids.length));
   ids.forEach((id, i) => { buttons[id] = { x: SHEET_PAD + i * (bw + gap), y: textBottom, w: bw, h: SHEET_BUTTON_H }; });

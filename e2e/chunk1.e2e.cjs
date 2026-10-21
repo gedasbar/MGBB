@@ -10,11 +10,10 @@ const { check, tap, drag, wheel, state, shot, isRedLine } = lib;
 const CELL = 48, OX = 6, OY = 204;
 const cell = (col, row) => [OX + (col - 0.5) * CELL, OY + (row - 0.5) * CELL];
 const TB = { rotCW: 378, clearAll: 486, y: 880 };
-const CLOSE_X = [516, 492];
-// Picker tiles (see builder.e2e.cjs for the layout): tileCentre(column, row) on the 'All' tab.
-const tileCentre = (col, row) => [8 + col * 133 + 62.5, 536 + 8 + row * 121 + 56.5];
-const TILE = { turn_l: [0, 0], turn_r: [1, 0], splitter_2: [2, 0], flat_plus: [3, 1], percent_mult: [0, 2] };
-const REMOVE_TILE = tileCentre(0, 0); // first tile on an occupied cell
+// There is no close button since 16e: a tap above the sheet closes the picker.
+const CLOSE_X = [270, 300];
+// Picker tiles (chunk 16e, see builder.e2e.cjs for the layout): scrolled into view with the picker's own reveal and read back.
+const tc = (page, key) => page.evaluate((k) => { const p = window.__mgbm.buildScreen.picker; p.reveal(k); const r = p.tileScreenRect(k); return [r.x + r.w / 2, r.y + r.h / 2]; }, key);
 
 const redish = (p) => p[0] > 190 && p[1] < 130 && p[2] < 130;
 const redishDimmed = (p) => p[0] > 140 && p[1] < 100 && p[2] < 100 && p[0] > 2 * p[1];
@@ -54,7 +53,7 @@ async function lineAt(page, col, row, axis, ok = redish) {
   check(st.pickerOpen && (await opens(page)) === 1, `1: second tap on the selected cell opens the picker exactly once (opens=${await opens(page)})`);
   await shot(page, 'c1_02_picker_opened_by_retap.png');
   await tap(page, ...CLOSE_X);
-  check(!(await state(page)).pickerOpen && (await opens(page)) === 1, '1: the close button closes it; still one open');
+  check(!(await state(page)).pickerOpen && (await opens(page)) === 1, '1: a tap above the sheet closes it; still one open');
 
   // A fast double tap (two presses within a few ms) still works and opens once.
   const p4 = await lib.gameToClient(page, ...cell(4, 5));
@@ -116,11 +115,11 @@ async function lineAt(page, col, row, axis, ok = redish) {
   await tap(page, ...cell(6, 9));
   await tap(page, ...cell(6, 9));
   check((await state(page)).pickerOpen, '2: tap, tap on (6,9) opens the picker');
-  await tap(page, ...tileCentre(...TILE.turn_r));
+  await tap(page, ...(await tc(page, 'turn_r')));
   st = await state(page);
   const pk1 = await picker(page);
-  check(st.pickerOpen && (await blocks(page)).length === 0 && pk1.armed === 'turn_r' && st.inspector.title.startsWith('Turn Right'),
-    `2: first tap on a tile previews it and places nothing ("${st.inspector.title}", blocks=${(await blocks(page)).length})`);
+  check(st.pickerOpen && (await blocks(page)).length === 0 && pk1.armed === 'turn_r' && st.sheet && st.sheet.title === 'Turn Right',
+    `2: first tap on a tile previews it and places nothing (sheet "${st.sheet && st.sheet.title}", blocks=${(await blocks(page)).length})`);
   const v = st.view;
   const pcell = (col, row) => [v.ox + (col - 0.5) * v.scale, v.oy + (row - 0.5) * v.scale];
   const dimmedLine = async (col, row, axis) => {
@@ -130,7 +129,7 @@ async function lineAt(page, col, row, axis, ok = redish) {
   };
   check((await dimmedLine(7, 9, 'H')) && (await dimmedLine(8, 9, 'H')), '2: the preview already re-routes the line east along row 9');
   await shot(page, 'c1_03_tile_previewed.png');
-  await tap(page, ...tileCentre(...TILE.turn_r));
+  await tap(page, ...(await tc(page, 'turn_r')));
   st = await state(page);
   check(!st.pickerOpen && JSON.stringify(await blocks(page)) === JSON.stringify(['6,9:turn_r:0:false']), `2: second tap on the same tile places Turn Right (auto) and closes the sheet: ${JSON.stringify(await blocks(page))}`);
   const route = [[6, 10, 'V'], [7, 9, 'H'], [8, 9, 'H']];
@@ -154,15 +153,15 @@ async function lineAt(page, col, row, axis, ok = redish) {
   const pk2 = await picker(page);
   check(pk2.open && pk2.armed === 'percent_mult' && (await blocks(page)).length === nBefore, `2: tapping a different tile moves the selection and places nothing (armed=${pk2.armed})`);
   // Remove tile: first tap previews, second removes.
-  await tap(page, ...REMOVE_TILE);
+  await tap(page, ...(await tc(page, '__remove')));
   st = await state(page);
-  check(st.pickerOpen && (await blocks(page)).length === 1 && /Remove/.test(st.inspector.title), `2: first tap on Remove previews the removal, the block is still there ("${st.inspector.title}")`);
-  await tap(page, ...REMOVE_TILE);
+  check(st.pickerOpen && (await blocks(page)).length === 1 && st.sheet && st.sheet.title === 'Remove', `2: first tap on Remove previews the removal, the block is still there (sheet "${st.sheet && st.sheet.title}")`);
+  await tap(page, ...(await tc(page, '__remove')));
   check(!(await state(page)).pickerOpen && (await blocks(page)).length === 0, '2: second tap on Remove removes the block and closes the sheet');
   // Re-placing the same block id: the second tap just closes, no undo entry.
   await tap(page, ...cell(6, 9)); // selected after the remove -> opens
-  await tap(page, ...tileCentre(...TILE.turn_r));
-  await tap(page, ...tileCentre(...TILE.turn_r));
+  await tap(page, ...(await tc(page, 'turn_r')));
+  await tap(page, ...(await tc(page, 'turn_r')));
   check((await blocks(page)).length === 1, '2: Turn Right placed again at (6,9)');
   await tap(page, ...cell(6, 9)); // open on the occupied cell
   const depth1 = await undoDepth(page);
@@ -177,7 +176,8 @@ async function lineAt(page, col, row, axis, ok = redish) {
   await tap(page, ...cell(6, 9));
   check((await state(page)).pickerOpen, '2: picker open again for the scroll test');
   const nb = JSON.stringify(await blocks(page));
-  await drag(page, ...tileCentre(1, 2), tileCentre(1, 2)[0], 560);
+  const t9 = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; const r = p.tileScreenRect(p.tiles[9].id); return [r.x + r.w / 2, r.y + r.h / 2]; });
+  await drag(page, ...t9, t9[0], 640);
   let pk = await picker(page);
   check(pk.open && pk.scroll > 40 && pk.armed === null && JSON.stringify(await blocks(page)) === nb, `2: dragging the list from a tile scrolls it (scrollY ${pk.scroll.toFixed(0)}) and selects/places nothing (armed=${pk.armed})`);
   await shot(page, 'c1_05_list_scrolled.png');
@@ -194,15 +194,15 @@ async function lineAt(page, col, row, axis, ok = redish) {
   check(!(await state(page)).pickerOpen && JSON.stringify(await blocks(page)) === nb, '2: tapping the dimmed area closes the sheet without changes');
   await tap(page, ...cell(6, 9));
   await tap(page, ...CLOSE_X);
-  check(!(await state(page)).pickerOpen && JSON.stringify(await blocks(page)) === nb, '2: the close button closes the sheet without changes');
+  check(!(await state(page)).pickerOpen && JSON.stringify(await blocks(page)) === nb, '2: a second tap above the sheet closes it without changes (no close button since 16e)');
 
   // ================================================================== 3. Badges and marks are gone
   // Build a circuit: Turn Right (6,9), Turn Left (9,9), Flat+ (9,6) on the line, Flat+ (3,5) off the line.
   async function place(col, row, key) {
     await tap(page, ...cell(col, row));
     if (!(await state(page)).pickerOpen) await tap(page, ...cell(col, row));
-    await tap(page, ...tileCentre(...TILE[key]));
-    await tap(page, ...tileCentre(...TILE[key]));
+    await tap(page, ...(await tc(page, key)));
+    await tap(page, ...(await tc(page, key)));
   }
   await place(9, 9, 'turn_l');
   await place(9, 6, 'flat_plus');

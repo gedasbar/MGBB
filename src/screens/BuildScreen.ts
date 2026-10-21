@@ -374,6 +374,13 @@ export class BuildScreen implements Screen {
         ledger: this.tip.visible ? this.tipText.text : null,
         hull: this.model.hullId,
         hullPanelOpen: this.hullPanel.visible,
+        hullPanel: this.hullPanel.visible
+          ? { selected: this.hullSel, buy: this.hullBuyRect, rows: this.hullRows.map(r => ({ id: r.id, state: r.state, rect: r.rect })) }
+          : null,
+        sheet: (() => {
+          const c = this.picker.sheetContentNow;
+          return c ? { title: c.title, level: c.levelLine, body: c.body, status: c.ownedLine, warn: c.warn, place: c.place, rect: this.picker.sheetRect, placeRect: this.picker.sheetButtonRect('place') } : null;
+        })(),
         credits: this.model.store.data.credits,
         creditsText: this.credits.text,
       }),

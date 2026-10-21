@@ -473,7 +473,7 @@ export function drawPlate(g: Graphics, id: string, cell: number, rotationDeg = 0
 }
 
 /** Icon half-size as a share of the plate side, and the glyph stroke in game px (3 px = 2 CSS px on a 360 px phone). */
-export const TILE_ICON_SCALE = 0.27;
+export const TILE_ICON_SCALE = 0.25;
 export const TILE_ICON_STROKE = 3;
 
 /**

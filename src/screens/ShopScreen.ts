@@ -110,6 +110,10 @@ export class ShopScreen implements Screen {
         toast: this.toast.message,
         rows: this.rowsView(),
         sheetOpen: this.palette.sheetOpen,
+        sheet: (() => {
+          const c = this.palette.sheetContentNow;
+          return c ? { title: c.title, level: c.levelLine, body: c.body, status: c.ownedLine, rect: this.palette.sheetRect } : null;
+        })(),
       }),
     };
   }

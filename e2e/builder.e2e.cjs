@@ -11,10 +11,12 @@ const TB = { clearCell: 54, rotCCW: 162, auto: 270, rotCW: 378, clearAll: 486, y
 const CORNER = { fit: [28, 144], undo: [76, 144], redo: [124, 144], ab: [512, 144], paste: [464, 144], copy: [416, 144] };
 const FLY = [468, 789];
 const STATS_STRIP = [270, 837];
-// Palette (chunk 16b): the sheet is y 470..960: a 66 px tab row, then the tile list from y 536 (tab 'All'); 4 columns of 125 x 113 px tiles
-// with 8 px gaps, rows 121 px apart, blocks in data order: pathing first (turn_l turn_r splitter_2 splitter_3 on row 0), flat_plus at column 3 row 1.
-const tileCentre = (col, row, scroll = 0) => [8 + col * 133 + 62.5, 536 + 8 + row * 121 + 56.5 - scroll];
-const TILE = { turn_l: [0, 0], turn_r: [1, 0], splitter_2: [2, 0], splitter_3: [3, 0], flat_plus: [3, 1], percent_mult: [0, 2] };
+// Palette (chunk 16e): the sheet is y 576..960 with no tabs: the tile list starts at y 576, 4 columns of 102 x 105 px tiles (x from 30, 24 px
+// gaps) with 18 px between rows (15 px margin on top), blocks in category order: pathing first (turn_l turn_r splitter_2 splitter_3 on row 0).
+// The independent formula is only used for row 0; every other tile is scrolled into view with the picker's own reveal and read back.
+const tileCentreIndep = (col, row) => [30 + col * 126 + 51, 576 + 15 + row * 123 + 52.5];
+const tileCentre = (page, key) => page.evaluate((k) => { const p = window.__mgbm.buildScreen.picker; p.reveal(k); const r = p.tileScreenRect(k); return [r.x + r.w / 2, r.y + r.h / 2]; }, key);
+const DIM_AREA = [270, 300]; // a tap here (above the sheet) closes the picker; there is no close button since 16e
 
 const redish = (p) => p[0] > 190 && p[1] < 130 && p[2] < 130;
 // The picker dims the grid by 28%, which pulls the red channel down to about 184.
@@ -53,7 +55,7 @@ const ROUTE_EMPTY = [[6, 10, 'V'], [7, 9, 'H'], [8, 9, 'H'], [9, 8, 'V'], [9, 7,
 /** Makes (col,row) the selected cell without opening its picker (a tap on an already selected cell would open it). */
 async function select(page, col, row) {
   const is = async () => { const s = (await state(page)).selected; return !!s && s.x === col - 1 && s.y === row - 1; };
-  if ((await state(page)).pickerOpen) await tap(page, 516, 492);
+  if ((await state(page)).pickerOpen) await tap(page, ...DIM_AREA);
   if (!(await is())) await tap(page, ...cell(col, row));
 }
 
@@ -62,9 +64,8 @@ async function placeViaPicker(page, col, row, tileKey) {
   await tap(page, ...cell(col, row));
   if (!(await state(page)).pickerOpen) await tap(page, ...cell(col, row)); // the cell may already be selected
   const open = (await state(page)).pickerOpen;
-  const [tc, tr] = TILE[tileKey];
-  await tap(page, ...tileCentre(tc, tr));
-  await tap(page, ...tileCentre(tc, tr));
+  await tap(page, ...(await tileCentre(page, tileKey)));
+  await tap(page, ...(await tileCentre(page, tileKey)));
   return open;
 }
 
@@ -136,11 +137,14 @@ async function placeViaPicker(page, col, row, tileKey) {
   check(tiles.minTile >= 44, `tiles are at least 44 px: ${tiles.minTile}`);
   check(!tiles.visible.includes('pure_converter'), `pure_converter is not visible before scrolling (visible: ${tiles.visible.length} tiles)`);
   const tr0 = await page.evaluate(() => window.__mgbm.buildScreen.picker.tileScreenRect('turn_r'));
-  const [tx, ty] = tileCentre(...TILE.turn_r);
+  const [tx, ty] = tileCentreIndep(1, 0);
   check(tr0.x < tx && tx < tr0.x + tr0.w && tr0.y < ty && ty < tr0.y + tr0.h, 'independently computed Turn Right tile position hits the real tile');
-  // The list is 424 px high now and the tiles are 113 px: two drags bring row 6 (pure_converter) into view.
-  await drag(page, 270, 900, 270, 560);
-  await drag(page, 270, 900, 270, 560);
+  // The list is 384 px high and a row is 123 px: a few drags bring pure_converter into view.
+  for (let i = 0; i < 6; i++) {
+    const vis = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; const r = p.tileScreenRect('pure_converter'); return r.y >= p.listRect.y && r.y + r.h <= p.listRect.y + p.listRect.h; });
+    if (vis) break;
+    await drag(page, 270, 900, 270, 700);
+  }
   const tiles2 = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; const r = p.tileScreenRect('pure_converter'); return { scroll: p.scrollY, vis: r.y >= p.listRect.y && r.y + r.h <= p.listRect.y + p.listRect.h }; });
   check(tiles2.scroll > 100 && tiles2.vis, `dragging the list scrolls it (scrollY ${Math.round(tiles2.scroll)}) and reveals pure_converter`);
   await shot(page, 'b05_picker_scrolled.png');
@@ -148,9 +152,10 @@ async function placeViaPicker(page, col, row, tileKey) {
   check((await page.evaluate(() => window.__mgbm.buildScreen.picker.scrollY)) === 0, 'mouse wheel scrolls the list back to the top');
 
   // Single tap on Turn Right: rule text + live preview.
-  await tap(page, ...tileCentre(...TILE.turn_r));
+  await tap(page, ...(await tileCentre(page, 'turn_r')));
   st = await state(page);
-  check(st.inspector.title.startsWith('Turn Right') && st.inspector.body === 'Turns the signal 90° to the right.', `tap Turn Right tile -> "${st.inspector.title}: ${st.inspector.body}"`);
+  check(st.sheet && st.sheet.title === 'Turn Right' && st.sheet.body === 'Turns the signal 90° to the right.', `tap Turn Right tile -> the sheet shows "${st.sheet && st.sheet.title}: ${st.sheet && st.sheet.body}"`);
+  check(st.inspector.title === 'Empty cell', `the top line still describes the selected cell, not the block (one place for the block info): "${st.inspector.title}"`);
   const viewNow = st.view;
   const pc = (col, row) => [viewNow.ox + (col - 0.5) * viewNow.scale, viewNow.oy + (row - 0.5) * viewNow.scale];
   await shot(page, 'b06_preview_turn_right.png');
@@ -165,7 +170,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   check((await gridBlocks(page)).length === 0, 'preview did not place anything');
 
   // A second tap on the same tile places it.
-  await tap(page, ...tileCentre(...TILE.turn_r));
+  await tap(page, ...(await tileCentre(page, 'turn_r')));
   st = await state(page);
   check(!st.pickerOpen, 'tapping the selected tile again closes the sheet');
   check(JSON.stringify(await gridBlocks(page)) === JSON.stringify([{ col: 6, row: 9, id: 'turn_r', rotation: 0 }]), 'Turn Right placed at (6,9) facing up (the way the signal reaches it)');
