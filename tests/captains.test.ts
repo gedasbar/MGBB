@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  HERO_LEVEL_BASE_DAMAGE, CAPTAINS, CAPTAIN_BY_ID, FLY_MEDAL_MILESTONES, HERO_LEVEL_COSTS, HERO_MAX_LEVEL, OPTION_BY_ID, TIER_COSTS, TIER_KILLS, describeOption,
+  HERO_LEVEL_BASE_DAMAGE, heroLevelCost, CAPTAINS, CAPTAIN_BY_ID, FLY_MEDAL_MILESTONES, OPTION_BY_ID, TIER_COSTS, TIER_KILLS, describeOption,
 } from '../src/captains/data';
 import { computeRunModifiers, modifiersFor, neutralModifiers } from '../src/captains/modifiers';
 import {
@@ -41,7 +41,7 @@ describe('captain data', () => {
       });
     }
     expect(TIER_KILLS).toEqual([0, 300, 1500, 6000]);
-    expect(HERO_LEVEL_COSTS.length).toBe(HERO_MAX_LEVEL);
+    expect(heroLevelCost(0)).toBe(1);
     expect(CAPTAIN_BY_ID.cadet.unlockCost).toBe(0);
   });
 });
@@ -152,17 +152,21 @@ describe('tiers, buying and switching', () => {
     expect(p.captains.selected).toBe('bulwark');
     expect(unlockCaptain(p, 'pathfinder')).toEqual({ ok: false, error: 'Not enough Medals' });
   });
-  it('hero level: cost rises, +1 each, stops at 10', () => {
-    const p = holder(1000);
+  it('hero level: geometric cost round(1.2^n) (at least 1), +1 each, no cap', () => {
+    const p = holder(1_000_000);
     let spent = 0;
-    for (let i = 0; i < HERO_MAX_LEVEL; i++) {
-      const r = upgradeHero(p, 'cadet');
-      expect(r).toEqual({ ok: true, cost: HERO_LEVEL_COSTS[i] });
-      spent += HERO_LEVEL_COSTS[i];
+    for (let i = 0; i < 30; i++) {
+      const cost = Math.max(1, Math.round(Math.pow(1.2, i)));
+      expect(upgradeHero(p, 'cadet')).toEqual({ ok: true, cost });
+      spent += cost;
     }
-    expect(p.captains.heroes.cadet.level).toBe(10);
-    expect(p.medals).toBe(1000 - spent);
-    expect(upgradeHero(p, 'cadet')).toEqual({ ok: false, error: 'Already at max level' });
+    expect(p.captains.heroes.cadet.level).toBe(30);
+    expect(p.medals).toBe(1_000_000 - spent);
+    expect(heroLevelCost(9)).toBe(5); // 1.2^9 = 5.16
+    expect(heroLevelCost(19)).toBe(32); // level 20 costs 32, cumulative 185
+    let cum = 0;
+    for (let n = 0; n < 20; n++) cum += heroLevelCost(n);
+    expect(cum).toBe(185);
   });
 });
 
@@ -203,8 +207,8 @@ describe('save v6', () => {
   it('a v5 save loads with Cadet owned and selected, level 0, no kills, and the old Medal rule', () => {
     const v5 = { version: 5, credits: 40, clearedTiers: [1, 2, 3], passedTiers: [1, 2, 3], medals: 99, bestWave: 4 };
     const p = loadProgress(JSON.stringify(v5));
-    expect(PROGRESS_VERSION).toBe(7);
-    expect(p.version).toBe(7);
+    expect(PROGRESS_VERSION).toBe(8);
+    expect(p.version).toBe(8);
     expect(p.medals).toBe(3); // never more than cleared tiers for a pre-v6 save
     expect(p.captains.selected).toBe('cadet');
     expect(p.captains.owned).toEqual(['cadet']);
@@ -227,7 +231,7 @@ describe('save v6', () => {
     expect(back.captains.heroes.bulwark).toMatchObject({ level: 1, kills: 7 });
     expect(back.captains.milestones).toEqual([5]);
   });
-  it('garbage in captains is repaired: unknown ids dropped, active must be an owned option of its tier, level clamped', () => {
+  it('garbage in captains is repaired: unknown ids dropped, active must be an owned option of its tier, a level is kept (no cap)', () => {
     const c = sanitizeCaptains({
       selected: 'nobody', owned: ['gunner', 'ghost', 5],
       heroes: { cadet: { level: 99, kills: -4, owned: ['cad_prospector', 'gun_barrel', 7], active: { '1': 'cad_lucky', '2': 'cad_prospector', '3': 'gun_barrel' } }, gunner: { level: 3, kills: 12.5, owned: ['gun_barrel'], active: { '1': 'gun_barrel' } } },
@@ -235,7 +239,7 @@ describe('save v6', () => {
     });
     expect(c.selected).toBe('cadet');
     expect(c.owned).toEqual(['cadet', 'gunner']);
-    expect(c.heroes.cadet).toEqual({ level: 0, kills: 0, owned: ['cad_prospector'], active: {} });
+    expect(c.heroes.cadet).toEqual({ level: 99, kills: 0, owned: ['cad_prospector'], active: {} });
     expect(c.heroes.gunner).toEqual({ level: 3, kills: 0, owned: ['gun_barrel'], active: { '1': 'gun_barrel' } });
     expect(c.milestones).toEqual([5, 50]);
   });

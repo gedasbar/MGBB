@@ -3,7 +3,7 @@ import { maxLevelOf } from '../econ/economy';
 import { ProgressStore, defaultProgress } from '../econ/progress';
 import { HULL_BUILDERS } from '../game/gridUtils';
 import { MAX_TIER } from '../wall/generator';
-import { CAPTAINS, HERO_MAX_LEVEL } from '../captains/data';
+import { CAPTAINS, HERO_LEVEL_SANITY_MAX } from '../captains/data';
 import { MAP_UNLOCK_TIER } from '../frontier/constants';
 import { SQ_CLEARED } from '../frontier/state';
 import { getWorld, sqKey } from '../frontier/world';
@@ -38,10 +38,10 @@ export function unlockAllCaptains(store: ProgressStore) {
   store.commit();
 }
 
-/** Sets the ACTIVE captain's hero level (0..max). */
+/** Sets the ACTIVE captain's hero level (0 and up; no cap). */
 export function setHeroLevel(store: ProgressStore, level: number) {
   const c = store.data.captains;
-  c.heroes[c.selected].level = Math.max(0, Math.min(HERO_MAX_LEVEL, Math.floor(level)));
+  c.heroes[c.selected].level = Math.max(0, Math.min(HERO_LEVEL_SANITY_MAX, Math.floor(level)));
   store.commit();
 }
 

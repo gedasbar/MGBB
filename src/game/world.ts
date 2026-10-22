@@ -554,7 +554,7 @@ export class World {
           const depth = e.spillDepth ?? 0;
           for (const c of this.mitosis.enemies) {
             if (!childIds.includes(c.id)) continue;
-            c.hp -= burst;
+            c.hp = burst === Infinity ? Math.min(c.hp, 0) - 1 : c.hp - burst; // Infinity - Infinity would be NaN
             this.fx.spillChildren++;
             if (c.hp <= 0 && depth + 1 < SPILL_CHAIN_DEPTH && this.canSplit(c)) { c.spillBurst = burst; c.spillDepth = depth + 1; }
           }

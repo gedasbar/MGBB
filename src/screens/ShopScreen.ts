@@ -13,7 +13,7 @@ import { sfx } from '../audio';
 import { Inspector, makeText, Toast, UIButton } from '../builder/ui';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
 import { describeBlock } from '../engine/compilerTypes';
-import { copyPrice, HULL_PRICE, maxLevelOf, upgradePrice } from '../econ/economy';
+import { copyCap, copyPrice, HULL_PRICE, maxLevelOf, upgradePrice } from '../econ/economy';
 import { HULL_INFO } from '../game/gridUtils';
 import { shipThumbnail } from '../ui/shipArt';
 import { TilePalette, PaletteSource, SheetButtonId } from '../builder/tilePalette';
@@ -186,7 +186,8 @@ export class ShopScreen implements Screen {
       const rectOf = (k: 'buy' | 'upgrade') => (open ? this.palette.sheetButtonRect(k) : null);
       const buttons = c.lockText
         ? [{ kind: 'buy', label: c.lockText, enabled: false, lock: c.lockText, rect: rectOf('buy') }, { kind: 'upgrade', label: 'Locked', enabled: false, lock: c.lockText, rect: rectOf('upgrade') }]
-        : [{ kind: 'buy', label: c.buy!.label, enabled: c.buy!.enabled, lock: null, rect: rectOf('buy') }, { kind: 'upgrade', label: c.upgrade!.label, enabled: c.upgrade!.enabled, lock: null, rect: rectOf('upgrade') }];
+        : [{ kind: 'buy', label: c.buy!.label, enabled: c.buy!.enabled, lock: null, rect: rectOf('buy') },
+          ...(c.upgrade ? [{ kind: 'upgrade', label: c.upgrade.label, enabled: c.upgrade.enabled, lock: null, rect: rectOf('upgrade') }] : [])];
       return { key, rect: this.palette.tileScreenRect(key), buttons };
     });
   }
@@ -201,7 +202,7 @@ export class ShopScreen implements Screen {
     const level = p.levels[id] ?? 1;
     const owned = p.owned[id] ?? 0;
     return sheetContent({
-      id, name: BLOCKS[id].name, desc: describeBlock(BLOCKS[id], level), owned, available: owned, level, maxLevel: maxLevelOf(id),
+      id, name: BLOCKS[id].name, desc: describeBlock(BLOCKS[id], level), owned, available: owned, level, maxLevel: maxLevelOf(id), cap: copyCap(id),
       credits: p.credits, copyPrice: copyPrice(id, owned), upgradePrice: upgradePrice(id, level),
       lock: blockLockReason(p, id, this.store.frontierReach),
     });
@@ -254,7 +255,7 @@ export class ShopScreen implements Screen {
   private showBlock(id: string) {
     this.selected = id;
     const level = this.store.data.levels[id] ?? 1;
-    this.inspector.set(`${BLOCKS[id].name} · Lv ${level}`, describeBlock(BLOCKS[id], level));
+    this.inspector.set(maxLevelOf(id) > 1 ? `${BLOCKS[id].name} · Lv ${level}` : BLOCKS[id].name, describeBlock(BLOCKS[id], level));
   }
 
   private pressBlock(id: string, kind: SheetButtonId) {
@@ -265,7 +266,8 @@ export class ShopScreen implements Screen {
     try {
       if (c.lockText) { this.toast.show(`Locked: ${c.lockText} on the Frontier`); return; }
       if (!btn?.enabled) {
-        this.toast.show(kind === 'upgrade' && (this.store.data.levels[id] ?? 1) >= maxLevelOf(id) ? 'Already at max level' : 'Not enough credits');
+        const atCap = kind === 'buy' && (this.store.data.owned[id] ?? 0) >= copyCap(id);
+        this.toast.show(atCap ? `Max copies of ${BLOCKS[id].name}` : kind === 'upgrade' && (this.store.data.levels[id] ?? 1) >= maxLevelOf(id) ? 'Already at max level' : 'Not enough credits');
         return;
       }
       if (kind === 'buy') {

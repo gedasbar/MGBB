@@ -1,5 +1,5 @@
 import { EjectorRecipe, Grid } from '../engine/compiler';
-import { evalDamage, isDynamic } from '../engine/compilerTypes';
+import { evalDamage, isDynamic, mulSafe } from '../engine/compilerTypes';
 import { OVERCLOCK_WINDOW } from '../engine/effects';
 import { ProjectilePool } from '../engine/pools';
 import { ProjectileSystem } from '../engine/projectiles';
@@ -72,7 +72,7 @@ export class Gun {
   // Delay queue (struct of arrays, no allocation per shot).
   private dqT = new Float64Array(DELAY_CAP);
   private dqR = new Int16Array(DELAY_CAP);
-  private dqD = new Float32Array(DELAY_CAP);
+  private dqD = new Float64Array(DELAY_CAP);
   private dqN = 0;
 
   constructor(
@@ -130,13 +130,13 @@ export class Gun {
         damage = r.packet.damage;
         if (r.packet.gates.length > 0) {
           damage = evalDamage(r.packet, () => rng.combat.next());
-          if (damage <= 0) continue;
         }
       } else {
         damage = this.evalDynamic(ri);
-        if (damage <= 0) continue;
         delay = this.curDelay;
       }
+      // Zero, negative or NaN: nothing leaves (chunk 16c-2; `damage <= 0` is false for NaN, so the test is written the other way).
+      if (!(damage > 0)) continue;
       if (delay > 0 && this.dqN < DELAY_CAP) {
         const k = this.dqN++;
         this.dqT[k] = this.time + delay;
@@ -169,7 +169,7 @@ export class Gun {
       switch (op.t) {
         case 'add': d += op.v; break;
         case 'mul': d *= op.v; break;
-        case 'gate': d *= rng.combat.next() < op.gate.prob ? op.gate.mult : op.gate.elseMult; break;
+        case 'gate': d = mulSafe(d, rng.combat.next() < op.gate.prob ? op.gate.mult : op.gate.elseMult); break;
         case 'oc': {
           const o = k * 3;
           if (st[o + 1] > 0 && this.time - st[o + 1] > this.window) { st[o] = 0; this.fx.overclockResets++; }
@@ -182,6 +182,7 @@ export class Gun {
         }
         case 'cap': {
           const o = k * 3;
+          if (Number.isNaN(d)) return 0;
           st[o] += d;
           st[o + 1]++;
           if (st[o + 1] < op.n) { this.fx.capacitorAbsorbed++; return 0; }
@@ -211,7 +212,7 @@ export class Gun {
         }
         case 'delay': this.curDelay += op.sec; break;
       }
-      if (d <= 0 && op.t !== 'cap') return 0;
+      if (!(d > 0) && op.t !== 'cap') return 0; // also drops NaN
     }
     return d;
   }

@@ -119,10 +119,13 @@ export class BuildScreen implements Screen {
     const offModel = this.model.onChange(() => this.refresh());
     const offStore = this.model.store.onChange(() => this.credits.set(this.model.store.data.credits));
     this.unsubscribe = () => { offModel(); offStore(); };
+    // One-time messages: the economy refund of a migrated save, and blocks taken off a circuit that used more than is owned.
+    const note = this.model.store.takeNotice();
     if (this.model.trimmed > 0) {
       const n = this.model.trimmed;
-        this.toast.show(`${n} block${n === 1 ? '' : 's'} returned: you own fewer than the circuit used`, 3500);
-    }
+      const trimmed = `${n} block${n === 1 ? '' : 's'} returned: you own fewer than the circuit used`;
+      this.toast.show(note ? `${note} ${trimmed}.` : trimmed, note ? 7000 : 3500);
+    } else if (note) this.toast.show(note, 6000);
   }
 
   destroy() {

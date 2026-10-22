@@ -1,5 +1,5 @@
 import {
-  CAPTAIN_BY_ID, CAPTAINS, FLY_MEDAL_MILESTONES, HERO_MAX_LEVEL, heroLevelCost, OPTION_BY_ID, STARTER_CAPTAIN, TIER_COSTS, TIER_COUNT,
+  CAPTAIN_BY_ID, CAPTAINS, FLY_MEDAL_MILESTONES, HERO_LEVEL_SANITY_MAX, heroLevelCost, OPTION_BY_ID, STARTER_CAPTAIN, TIER_COSTS, TIER_COUNT,
   TIER_KILLS, OptionDef,
 } from './data';
 
@@ -55,7 +55,7 @@ export function sanitizeCaptains(raw: unknown): CaptainsState {
     const h = r.heroes?.[c.id];
     if (!h || typeof h !== 'object') continue;
     const hero = out.heroes[c.id];
-    hero.level = isInt(h.level, 0, HERO_MAX_LEVEL) ? h.level : 0;
+    hero.level = isInt(h.level, 0, HERO_LEVEL_SANITY_MAX) ? h.level : 0;
     hero.kills = isInt(h.kills, 0, Number.MAX_SAFE_INTEGER) ? h.kills : 0;
     const mine = new Set(c.tiers.flat().map(opt => opt.id));
     hero.owned = Array.from(new Set((Array.isArray(h.owned) ? h.owned : []).filter((id: unknown) => typeof id === 'string' && mine.has(id)))) as string[];
@@ -117,7 +117,6 @@ export function upgradeHero(p: CaptainHolder, id: string): CaptainResult {
   if (!CAPTAIN_BY_ID[id]) return { ok: false, error: 'Unknown captain' };
   if (!isCaptainOwned(p.captains, id)) return { ok: false, error: 'Unlock this captain first' };
   const hero = p.captains.heroes[id];
-  if (hero.level >= HERO_MAX_LEVEL) return { ok: false, error: 'Already at max level' };
   const cost = heroLevelCost(hero.level);
   if (p.medals < cost) return { ok: false, error: 'Not enough Medals' };
   p.medals -= cost;

@@ -22,9 +22,11 @@ export interface Effect { type: EffectType; value: number }
  * (docs/balance-damage.md, section 1c).
  */
 export const HERO_LEVEL_BASE_DAMAGE = 0.5;
-export const HERO_MAX_LEVEL = 10;
-/** Medals to go from level n to n + 1 (index n - 1 for n >= 1; index 0 is level 0 -> 1). */
-export const HERO_LEVEL_COSTS = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5];
+/** Hero levels have no cap (chunk 16c-2); a stored level above this is treated as damage to the save, not as progress. */
+export const HERO_LEVEL_SANITY_MAX = 100_000;
+/** Medals to go from level n to n + 1 (n = 0 is level 0 to 1): round(HERO_COST_BASE x HERO_COST_RATIO^n), at least 1. */
+export const HERO_COST_BASE = 1;
+export const HERO_COST_RATIO = 1.2;
 
 /** Tiers per captain and the options in each. */
 export const TIER_COUNT = 4;
@@ -157,5 +159,5 @@ export function describeOption(opt: OptionDef): string {
 
 /** Medals to take a hero from `level` to `level + 1` (Infinity at the max). */
 export function heroLevelCost(level: number): number {
-  return level >= HERO_MAX_LEVEL ? Infinity : HERO_LEVEL_COSTS[Math.max(0, level)];
+  return Math.max(1, Math.round(HERO_COST_BASE * Math.pow(HERO_COST_RATIO, Math.max(0, level))));
 }

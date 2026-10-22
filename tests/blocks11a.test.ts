@@ -70,12 +70,11 @@ function shootAt(w: WallWorld, x: number, y: number, dmg: number, mods: Mod[], v
 // ================================================================== the nine blocks
 describe('Mitosis category and block data', () => {
   const NEW = ['fission_catalyst', 'cauterize', 'cleaver', 'culling_bolt', 'residue_seed', 'overkill_spill', 'gravity_well', 'static_charge', 'random_router'];
-  it.each(NEW)('%s: shown, shop-unlocked, priced by rarity, at least 4 levels, text with the current numbers', (id) => {
+  it.each(NEW)('%s: shown, shop-unlocked, priced from the economy table, one fixed level, text with the current numbers', (id) => {
     const b = BLOCKS[id];
     expect(b.shown && b.unlock === 'shop' && b.rarity && b.baseCost).toBeTruthy();
-    expect(b.maxLevel).toBeGreaterThanOrEqual(4);
+    expect(b.maxLevel).toBe(1);
     expect(pickerBlocks().some(p => p.id === id)).toBe(true);
-    expect(describeBlock(b, 1)).not.toBe(describeBlock(b, 2));
     expect(describeBlock(b, 1)).toMatch(/\d/);
   });
   it('the six mitosis blocks form their own category; the rock-only ones say so in the inspector', () => {
@@ -359,26 +358,26 @@ describe('Random Router', () => {
     }
     return { seq, w };
   };
-  it('is seeded: the same seed gives the same sequence, another seed another; level 1: half the pulses take both outputs, the rest one side at 50/50', () => {
+  it('is seeded: the same seed gives the same sequence, another seed another; fixed level 3: 70% of pulses take both outputs, the rest one side at 50/50', () => {
     const a = pulses(1, 7, 2000), b = pulses(1, 7, 2000), c = pulses(1, 8, 2000);
     expect(a.seq).toEqual(b.seq);
     expect(a.seq).not.toEqual(c.seq);
     expect(a.seq.every(s => s === '10' || s === '01' || s === '11')).toBe(true);
     const both = a.seq.filter(s => s === '11').length / 2000;
-    expect(both).toBeGreaterThan(0.46);
-    expect(both).toBeLessThan(0.54);
+    expect(both).toBeGreaterThan(0.66);
+    expect(both).toBeLessThan(0.74);
     const one = a.seq.filter(s => s !== '11');
     const left = one.filter(s => s === '10').length / one.length;
     expect(left).toBeGreaterThan(0.44);
     expect(left).toBeLessThan(0.56);
-    expect(compile(fanWithRouter(1)).stats.projectilesPerPulse).toBeCloseTo(1.5, 9);
+    expect(compile(fanWithRouter(1)).stats.projectilesPerPulse).toBeCloseTo(1.7, 9);
   });
-  it('level 5: 90% of pulses take both outputs (so 1.9 projectiles per pulse), the rest split evenly', () => {
+  it('a stored level 5 changes nothing (no upgrades): still 70% both outputs, 1.7 projectiles per pulse, the rest split evenly', () => {
     const a = pulses(5, 11, 4000);
     const both = a.seq.filter(s => s === '11').length / 4000;
-    expect(both).toBeGreaterThan(0.88);
-    expect(both).toBeLessThan(0.92);
-    expect(compile(fanWithRouter(5)).stats.projectilesPerPulse).toBeCloseTo(1.9, 9);
+    expect(both).toBeGreaterThan(0.66);
+    expect(both).toBeLessThan(0.74);
+    expect(compile(fanWithRouter(5)).stats.projectilesPerPulse).toBeCloseTo(1.7, 9);
     const one = a.seq.filter(s => s !== '11');
     const left = one.filter(s => s === '10').length / one.length;
     expect(left).toBeGreaterThan(0.38);

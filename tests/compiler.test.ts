@@ -4,7 +4,7 @@ import { entryDirection, orientCell, orientLegacyAuto } from '../src/engine/orie
 import { Dir, Rotation } from '../src/engine/compilerTypes';
 import { buildFanGrid, buildShuttleGrid, parseLayout } from '../src/game/gridUtils';
 import { buildStarterGrid } from '../src/game/starter';
-import '../src/data/blocks';
+import { percentMul } from '../src/data/blocks';
 
 // All coordinates in this file are 1-indexed (col,row), as in the hull diagram.
 const idx = (g: Grid, col: number, row: number) => (row - 1) * g.w + (col - 1);
@@ -172,14 +172,14 @@ describe('compiler: the automatic red line', () => {
     fixed(g, 6, 2, 'ejector', 'N');
     fixed(g, 10, 6, 'ejector', 'E');
     put(g, 6, 9, 'flat_plus'); // only line 1 sees this
-    put(g, 3, 6, 'percent_mult', { level: 2 }); // only line 2 sees this (x2)
+    put(g, 3, 6, 'percent_mult', { level: 2 }); // only line 2 sees this (x1.62)
     const res = compile(g);
     expect(res.warnings).toEqual([]);
     expect(res.recipes.length).toBe(2);
     const north = res.recipes.find(r => r.direction === 'N')!;
     const east = res.recipes.find(r => r.direction === 'E')!;
     expect(north.packet.damage).toBe(2);
-    expect(east.packet.damage).toBe(2);
+    expect(east.packet.damage).toBeCloseTo(percentMul(2), 9);
     // Both lines run through the shared cell (6,6): one vertically, one horizontally.
     expect(res.cellInfo[idx(g, 6, 6)].inDirs.sort()).toEqual(['E', 'N']);
   });
@@ -224,16 +224,16 @@ describe('compiler: the automatic red line', () => {
     expect(res.segments.length).toBeLessThan(40);
   });
 
-  it('order matters: Flat+ then x2 is not x2 then Flat+', () => {
+  it('order matters: Flat+ then Percent x is not Percent x then Flat+', () => {
     const a = routedShuttle();
     put(a, 9, 6, 'flat_plus');
     put(a, 9, 5, 'percent_mult', { level: 2 });
-    expect(compile(a).recipes[0].packet.damage).toBe((1 + 1) * 2);
+    expect(compile(a).recipes[0].packet.damage).toBeCloseTo((1 + 1) * percentMul(2), 9);
 
     const b = routedShuttle();
     put(b, 9, 6, 'percent_mult', { level: 2 });
     put(b, 9, 5, 'flat_plus');
-    expect(compile(b).recipes[0].packet.damage).toBe(1 * 2 + 1);
+    expect(compile(b).recipes[0].packet.damage).toBeCloseTo(percentMul(2) + 1, 9);
   });
 
   it('chance blocks keep their position in the damage order and count towards the expected DPS', () => {
@@ -317,9 +317,9 @@ describe('compiler: ledger (packet after each cell)', () => {
     expect(info(9, 7).ledger?.damage).toBe(1); // before Flat+
     expect(info(9, 6).ledger?.damage).toBe(2); // after Flat+
     expect(info(9, 5).ledger?.damage).toBe(2);
-    expect(info(9, 4).ledger?.damage).toBe(4); // after x2
+    expect(info(9, 4).ledger?.damage).toBeCloseTo(2 * percentMul(2), 9); // after the Percent x
     expect(info(9, 3).ledger?.mods).toEqual(['piercing']);
-    expect(info(9, 2).ledger).toMatchObject({ damage: 4, mods: ['piercing'] }); // arriving at the ejector
+    expect(info(9, 2).ledger).toMatchObject({ damage: 2 * percentMul(2), mods: ['piercing'] }); // arriving at the ejector
     expect(info(3, 3).ledger).toBeUndefined(); // off the path
   });
 

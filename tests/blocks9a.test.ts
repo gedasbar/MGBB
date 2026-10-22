@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { BLOCKS, pickerBlocks } from '../src/data/blocks';
 import { BASE_PRICE } from '../src/econ/economy';
+import { BLOCK_ECONOMY } from '../src/data/blockEconomy';
 import { defaultProgress, sanitizeProgress } from '../src/econ/progress';
 import { compile, Grid } from '../src/engine/compiler';
 import { describeBlock, Modifier } from '../src/engine/compilerTypes';
@@ -119,38 +120,32 @@ const ROWS: Row[] = [
         gun.fire(270, 800);
         const out = shot();
         expect(out.length, `pulse ${p}: exactly one projectile`).toBe(1);
-        expect(out[0].damage).toBeCloseTo(2, 6); // x2.0 on a base damage of 1
+        expect(out[0].damage).toBeCloseTo(2.2, 6); // x2.2 (fixed level 3) on a base damage of 1
         seq.push(out[0].ri);
       }
       expect(seq[0]).not.toBe(seq[1]);
       expect(seq).toEqual([seq[0], seq[1], seq[0], seq[1], seq[0], seq[1]]); // A, B, A, B
-      // the strip: one projectile per pulse, x2.0 damage
+      // the strip: one projectile per pulse, x2.2 damage
       expect(c.stats.projectilesPerPulse).toBeCloseTo(1, 9);
-      expect(c.stats.damagePerShot).toBeCloseTo(2, 9);
+      expect(c.stats.damagePerShot).toBeCloseTo(2.2, 9);
       const g5 = buildFanGrid();
       place(g5, 5, 9, 'alternator', 5);
       place(g5, 2, 9, 'turn_r');
       place(g5, 8, 9, 'turn_l');
-      expect(compile(g5).recipes[0].packet.damage).toBeCloseTo(2.4, 6); // +0.1 per level
+      expect(compile(g5).recipes[0].packet.damage).toBeCloseTo(2.2, 6); // no upgrades since 16c-2: a stored level changes nothing
     },
     wall: { grid: () => { const g = buildFanGrid(); place(g, 5, 9, 'alternator'); place(g, 2, 9, 'turn_r'); place(g, 8, 9, 'turn_l'); return g; }, seconds: 3, count: w => w.gun.fx.alternations },
   },
   {
     id: 'delay_line',
     fly: () => {
-      const { gun, pool, shot } = gunRig(twin(['delay_line', 3]));
+      const { gun, pool, shot } = gunRig(twin(['delay_line', 3])); // a stored level 3 changes nothing: no upgrades, always 0.1 s
       gun.fire(270, 800);
       expect(pool.count).toBe(0); // held
-      gun.update(0.29, 270, 800);
+      gun.update(0.09, 270, 800);
       expect(pool.count).toBe(0);
-      gun.update(0.02, 270, 800); // 0.31 s >= 0.1 x level 3
+      gun.update(0.02, 270, 800); // 0.11 s >= 0.1 s
       expect(shot().length).toBe(1);
-      const l1 = gunRig(twin(['delay_line', 1]));
-      l1.gun.fire(270, 800);
-      l1.gun.update(0.09, 270, 800);
-      expect(l1.pool.count).toBe(0);
-      l1.gun.update(0.02, 270, 800);
-      expect(l1.pool.count).toBe(1);
       // the rate of fire is untouched in the strip
       expect(compile(twin(['delay_line', 3])).stats.pulsesPerSecond).toBe(compile(twin()).stats.pulsesPerSecond);
     },
@@ -189,14 +184,11 @@ const ROWS: Row[] = [
       const { gun, shot, c } = gunRig(twin(['flat_plus'], ['capacitor']));
       const out: number[][] = [];
       for (let p = 0; p < 6; p++) { gun.fire(270, 800); out.push(shot().map(s => s.damage)); }
-      expect(out).toEqual([[], [], [expect.closeTo(6, 3)], [], [], [expect.closeTo(6, 3)]]); // the sum of three 2s
-      const l3 = gunRig(twin(['flat_plus'], ['capacitor', 3]));
-      for (let p = 0; p < 3; p++) l3.gun.fire(270, 800);
-      expect(l3.shot()[0].damage).toBeCloseTo(6 * 1.2, 6); // +10% per level on the sum
-      // same damage per second, one slower shot
+      expect(out).toEqual([[], [], [expect.closeTo(7.2, 3)], [], [], [expect.closeTo(7.2, 3)]]); // the sum of three 2s, +20% (fixed level 3)
+      // same damage per second (+20% from the fixed level), one slower shot
       const plain = compile(twin(['flat_plus'])).stats;
-      expect(c.stats.estDps).toBeCloseTo(plain.estDps, 6);
-      expect(c.stats.damagePerShot).toBeCloseTo(6, 6);
+      expect(c.stats.estDps).toBeCloseTo(plain.estDps * 1.2, 6);
+      expect(c.stats.damagePerShot).toBeCloseTo(7.2, 6);
       expect(c.stats.pulsesPerSecond).toBeCloseTo(plain.pulsesPerSecond / 3, 9);
       expect(c.stats.projectilesPerPulse).toBeCloseTo(1, 9);
     },
@@ -469,15 +461,17 @@ const ROWS: Row[] = [
 
 // ---------------------------------------------------------------- tests
 describe('chunk 9a blocks: data', () => {
-  it.each(ROWS.map(r => [r.id]))('%s is a placeable shop block with levels, rarity, price and rule text', (id) => {
+  it.each(ROWS.map(r => [r.id]))('%s is a placeable shop block with one level (fixed), rarity, price and rule text', (id) => {
     const b = BLOCKS[id];
     expect(b.shown).toBe(true);
-    expect(b.maxLevel).toBeGreaterThanOrEqual(4);
+    expect(b.maxLevel).toBe(1); // no upgrades since 16c-2
+    expect(b.fixedLevel).toBeGreaterThanOrEqual(1);
     expect(b.unlock).toBe('shop');
     expect(['uncommon', 'rare', 'epic']).toContain(b.rarity);
-    expect(BASE_PRICE[id]).toBe(b.baseCost);
-    expect(BASE_PRICE[id]).toBeGreaterThan(450); // dearer than the mid blocks of the old list
-    expect(describeBlock(b, 1)).not.toBe(describeBlock(b, b.maxLevel));
+    expect(BASE_PRICE[id]).toBe(BLOCK_ECONOMY[id].base);
+    expect(BASE_PRICE[id]).toBeGreaterThan(0);
+    expect(describeBlock(b, 1)).toMatch(/\d/);
+    expect(describeBlock(b, 1)).toBe(describeBlock(b, 4)); // the cell's level does not matter: the block runs at its fixed level
     expect(pickerBlocks().some(p => p.id === id)).toBe(true);
   });
   it('the picker has 41 blocks in 5 categories (Status and Mitosis are their own sections)', () => {
@@ -513,20 +507,23 @@ describe('old saves and old blocks', () => {
     for (const id of Object.keys(old.levels)) delete (old.levels as Record<string, number>)[id];
     Object.assign(old.owned, { flat_plus: 7, turn_l: 2, homing: 1 });
     Object.assign(old.levels, { flat_plus: 6, homing: 3 });
-    const loaded = sanitizeProgress(JSON.parse(JSON.stringify({ ...old, credits: 1234 })));
-    expect(loaded.credits).toBe(1234);
+    const loaded = sanitizeProgress(JSON.parse(JSON.stringify({ ...old, version: 4, credits: 1234 })));
+    // 16c-2: Homing lost its levels (refunded at the old prices: 400 x 2 + 400 x 2 x 2.2), Flat+ keeps its 7 copies and level 6
+    expect(loaded.credits).toBe(1234 + 800 + 1760);
     expect(loaded.owned.flat_plus).toBe(7);
     expect(loaded.levels.flat_plus).toBe(6);
-    expect(loaded.levels.homing).toBe(3);
+    expect(loaded.levels.homing).toBe(1);
     for (const r of ROWS) { expect(loaded.owned[r.id]).toBe(0); expect(loaded.levels[r.id]).toBe(1); }
   });
-  it('every shown block has at least 3 levels (5 for the named ones) and level 1 text of the old blocks is unchanged', () => {
-    for (const b of pickerBlocks()) expect(b.maxLevel, b.id).toBeGreaterThanOrEqual(3);
-    for (const id of ['flat_plus', 'percent_mult', 'piercing', 'homing', 'aoe_circle', 'splitter_2', 'splitter_3']) expect(BLOCKS[id].maxLevel, id).toBeGreaterThanOrEqual(5);
+  it('only the eight upgradable blocks have levels; the old blocks keep their level 1 text', () => {
+    const withLevels = pickerBlocks().filter(b => b.maxLevel > 1).map(b => b.id).sort();
+    expect(withLevels).toEqual(['armor_piercer', 'flat_plus', 'gamblers_gate', 'jackpot', 'lucky_strike', 'percent_mult', 'pure_converter', 'shield_breaker']);
+    expect(BLOCKS.flat_plus.maxLevel).toBe(10);
+    expect(BLOCKS.percent_mult.maxLevel).toBe(10);
     expect(describeBlock(BLOCKS.turn_l, 1)).toBe('Turns the signal 90° to the left.');
     expect(describeBlock(BLOCKS.splitter_2, 1)).toBe('Splits the signal into two full copies, one to the left and one to the right.');
     expect(describeBlock(BLOCKS.lucky_strike, 1)).toBe('33% chance to double projectile damage.');
     expect(describeBlock(BLOCKS.jackpot, 1)).toBe('4% chance to multiply projectile damage by 10.');
-    expect(describeBlock(BLOCKS.gamblers_gate, 1)).toBe('50% chance to triple projectile damage, otherwise the projectile is lost.');
+    expect(describeBlock(BLOCKS.gamblers_gate, 1)).toBe('40% chance to triple projectile damage, otherwise the projectile is lost.');
   });
 });

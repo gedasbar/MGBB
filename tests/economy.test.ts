@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { BLOCK_ECONOMY } from '../src/data/blockEconomy';
 import {
   BASE_PRICE, copyPrice, FAMILY_MULT, GEN_BODIES, HULL_PRICE, leakDamage, parentReward, rockHp, rockReward, tierOfTime, upgradePrice,
 } from '../src/econ/economy';
@@ -22,14 +23,14 @@ const withCredits = (n: number): Progress => ({ ...defaultProgress(), credits: n
 
 describe('pricing formulas', () => {
   const cases: [string, number, number][] = [
-    // id, owned count, expected copy price = round(base * 1.18^owned)
-    ['turn_l', 0, 40], ['turn_l', 2, 56], ['flat_plus', 1, 71], ['splitter_2', 0, 200], ['splitter_2', 3, 329], ['fork_impact', 0, 450],
+    // id, owned count, expected copy price = round(base * growth^owned) (family B, chunk 16c-2)
+    ['turn_l', 0, 30], ['turn_l', 2, 40], ['flat_plus', 1, 72], ['splitter_2', 0, 120], ['splitter_2', 3, 183], ['fork_impact', 0, 900], ['percent_mult', 9, 1060],
   ];
   it.each(cases)('copy price of %s with %i owned is %i', (id, owned, price) => {
     expect(copyPrice(id, owned)).toBe(price);
-    expect(copyPrice(id, owned)).toBe(Math.round(BASE_PRICE[id] * Math.pow(1.18, owned)));
+    expect(copyPrice(id, owned)).toBe(Math.round(BASE_PRICE[id] * Math.pow(BLOCK_ECONOMY[id].growth, owned)));
   });
-  const ups: [string, number, number][] = [['flat_plus', 1, 120], ['flat_plus', 2, 264], ['flat_plus', 3, 581], ['homing', 1, 800]];
+  const ups: [string, number, number][] = [['flat_plus', 1, 120], ['flat_plus', 2, 264], ['flat_plus', 3, 581], ['homing', 1, 1600]];
   it.each(ups)('upgrade price of %s from level %i is %i (base*2*2.2^(level-1))', (id, level, price) => {
     expect(upgradePrice(id, level)).toBe(price);
   });
@@ -47,15 +48,15 @@ describe('pricing formulas', () => {
 
 describe('purchases', () => {
   it('buyCopy: insufficient funds rejected, exact funds accepted, counts and credits correct', () => {
-    const p = withCredits(55);
+    const p = withCredits(39);
     expect(buyCopy(p, 'turn_l')).toMatchObject({ ok: false });
-    expect(p.credits).toBe(55);
+    expect(p.credits).toBe(39);
     expect(p.owned.turn_l).toBe(2);
-    p.credits = 56;
-    expect(buyCopy(p, 'turn_l')).toEqual({ ok: true, price: 56 });
+    p.credits = 40;
+    expect(buyCopy(p, 'turn_l')).toEqual({ ok: true, price: 40 });
     expect(p.credits).toBe(0);
     expect(p.owned.turn_l).toBe(3);
-    expect(copyPrice('turn_l', p.owned.turn_l)).toBe(66); // price follows the new owned count
+    expect(copyPrice('turn_l', p.owned.turn_l)).toBe(46); // price follows the new owned count
   });
   it('buyUpgrade: exact funds accepted, one level per purchase, MAX rejected', () => {
     const p = withCredits(119);
@@ -93,7 +94,7 @@ describe('purchases', () => {
     store.buyCopy('splitter_2');
     expect(n).toBe(1);
     expect(JSON.parse(st.d[PROGRESS_KEY]).owned.splitter_2).toBe(1);
-    expect(JSON.parse(st.d[PROGRESS_KEY]).credits).toBe(300);
+    expect(JSON.parse(st.d[PROGRESS_KEY]).credits).toBe(380);
   });
 });
 
@@ -119,12 +120,13 @@ describe('persistence', () => {
   });
   it('keeps what is valid and drops what is not (levels clamped, unknown hulls and ids ignored)', () => {
     const p = loadProgress(JSON.stringify({ credits: 50.9, owned: { splitter_2: 2, nope: 9, turn_l: -1 }, levels: { flat_plus: 99, homing: 3 }, ownedHulls: ['fan', 'ghost'] }));
-    expect(p.credits).toBe(50);
+    // Homing lost its levels (16c-2): the 3 levels it had are refunded at the old upgrade prices (400 x 2, 400 x 2 x 2.2).
+    expect(p.credits).toBe(50 + 800 + 1760);
     expect(p.owned.splitter_2).toBe(2);
     expect(p.owned.turn_l).toBe(2); // negative -> default
     expect('nope' in p.owned).toBe(false);
     expect(p.levels.flat_plus).toBe(1); // above max -> 1
-    expect(p.levels.homing).toBe(3);
+    expect(p.levels.homing).toBe(1);
     expect(p.ownedHulls).toEqual(['dart', 'shuttle', 'fan']);   // the Dart is always owned; an old save keeps its Shuttle
   });
   it('an old save (builder circuit, no progress key) loads with new-game progress and does not crash', () => {
@@ -275,11 +277,21 @@ describe('level scaling of the formerly flat modifiers', () => {
     expect(proj[fn](level)).toBeCloseTo(atLevel, 9);
     expect(proj[fn](1)).toBeCloseTo(atOne, 9);
   });
-  it('Shield-Breaker level 2 deals more direct damage than level 1', async () => {
+  it('Shield-Breaker multiplies only what hits a shield (16c-2): none on bare HP, x(mult x 2) on the shield, plain overflow after it', async () => {
     const { applyDamage } = await import('../src/engine/damage');
-    const hit = (sb: boolean | number) => { const e = { hp: 1000, maxHp: 1000, armor: 0, shield: 0, maxShield: 0 }; applyDamage(e, 100, 0, 1, 0, sb); return 1000 - e.hp; };
-    expect(hit(false)).toBe(100);
-    expect(hit(true)).toBe(150);
-    expect(hit(2)).toBe(200);
+    const hit = (sb: boolean | number, shield = 0) => {
+      const e = { hp: 1000, maxHp: 1000, armor: 0, shield, maxShield: shield };
+      applyDamage(e, 100, 0, 1, 0, sb);
+      return { hp: 1000 - e.hp, shield: shield - e.shield };
+    };
+    expect(hit(false)).toEqual({ hp: 100, shield: 0 });
+    expect(hit(true)).toEqual({ hp: 100, shield: 0 }); // no shield: no bonus
+    expect(hit(2)).toEqual({ hp: 100, shield: 0 });
+    expect(hit(true, 1000)).toEqual({ hp: 0, shield: 300 }); // 100 x 1.5 x 2 to the shield
+    expect(hit(false, 1000)).toEqual({ hp: 0, shield: 100 });
+    const broke = hit(true, 100); // the shield (100) needs 100 / 3 of the hit; the other 66.7 gets through as plain damage
+    expect(broke.shield).toBe(100);
+    expect(broke.hp).toBeCloseTo(100 - 100 / 3, 9);
   });
+
 });

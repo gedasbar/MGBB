@@ -81,10 +81,11 @@ describe('block audit: the picker only offers blocks that compile and change Fly
     };
     expect(text('flat_plus')).toContain("+1 damage");
     expect(text('percent_mult')).toContain('×1.5');
+    expect(text('percent_mult', 10)).toContain('×3');
     expect(text('lucky_strike')).toBe('33% chance to double projectile damage.');
     expect(text('jackpot')).toContain('4%');
     expect(text('jackpot')).toContain('10');
-    expect(text('gamblers_gate')).toContain('50%');
+    expect(text('gamblers_gate')).toContain('40%');
     expect(text('pure_converter')).toContain('15%');
     expect(text('aoe_circle')).toContain('50 units');
     for (const b of pickerBlocks()) expect(text(b.id).length, b.id).toBeGreaterThan(10);
@@ -125,8 +126,8 @@ describe('block audit: compiles correctly', () => {
   it('compiles: jackpot adds a 4% x10 gate', () => {
     expect(compile(withBlock('jackpot')).recipes[0].packet.gates).toEqual([{ prob: 0.04, mult: 10, elseMult: 1 }]);
   });
-  it('compiles: gamblers_gate adds a 50% x3-or-lose gate', () => {
-    expect(compile(withBlock('gamblers_gate')).recipes[0].packet.gates).toEqual([{ prob: 0.5, mult: 3, elseMult: 0 }]);
+  it('compiles: gamblers_gate adds a 40% x3-or-lose gate', () => {
+    expect(compile(withBlock('gamblers_gate')).recipes[0].packet.gates).toEqual([{ prob: 0.4, mult: 3, elseMult: 0 }]);
   });
   it('compiles: piercing, bouncing, aoe_circle and shield_breaker tag the packet', () => {
     for (const [id, type] of [['piercing', 'piercing'], ['bouncing', 'bouncing'], ['aoe_circle', 'aoe_circle'], ['shield_breaker', 'shield_breaker']]) {
@@ -199,12 +200,12 @@ describe('block audit: changes what the ship fires in Fly', () => {
     expect(big).toBeLessThan(0.055);
   });
 
-  it('fly: gamblers_gate loses about half the projectiles and triples the rest', () => {
+  it('fly: gamblers_gate loses about 60% of the projectiles and triples the rest', () => {
     const d = roll('gamblers_gate');
     const lost = d.filter(x => x === 0).length / d.length;
     expect(d.every(x => x === 0 || x === 6)).toBe(true);
-    expect(lost).toBeGreaterThan(0.45);
-    expect(lost).toBeLessThan(0.55);
+    expect(lost).toBeGreaterThan(0.55);
+    expect(lost).toBeLessThan(0.65);
   });
 
   it('fly: the expected DPS in the stats strip matches the long-run average damage fired', () => {

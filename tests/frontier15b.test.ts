@@ -214,7 +214,7 @@ describe('Directional unlocks', () => {
   it('grandfather rule: an old save that owns a gated block keeps it unlocked (no save change)', () => {
     const old = { version: 6, credits: 5000, owned: { chain_lightning: 2, orbit: 0 }, levels: { chain_lightning: 3 }, ownedHulls: ['dart'] };
     const p = loadProgress(JSON.stringify(old));
-    expect(PROGRESS_VERSION).toBe(7);
+    expect(PROGRESS_VERSION).toBe(8);
     expect(p.owned.chain_lightning).toBe(2);
     expect(blockLockReason(p, 'chain_lightning')).toBeNull();
     expect(buyCopy(p, 'chain_lightning').ok).toBe(true);

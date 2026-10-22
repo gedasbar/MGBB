@@ -25,7 +25,7 @@ import { generateLevel } from '../src/wall/generator';
 import { rewardPerBlock } from '../src/wall/level';
 import { blockCost } from '../src/wall/sim';
 import { BOOST_MAX, CELL, PASS_MARGIN_CELLS, VIEW_H, WALL_COLS } from '../src/wall/constants';
-import { HERO_LEVEL_BASE_DAMAGE, HERO_LEVEL_COSTS } from '../src/captains/data';
+import { HERO_LEVEL_BASE_DAMAGE, heroLevelCost } from '../src/captains/data';
 import { World } from '../src/game/world';
 import { botRun } from '../src/debug/freeflyBot';
 import { rng } from '../src/rng';
@@ -334,7 +334,7 @@ function wallNeeds(t: number) {
   const clearTime = (VIEW_H - SHIP_MARGIN - 7) / l.approachSpeed;
   return { pass: cheapest / cross, clear: total / clearTime, credits: l.cells.filter(Boolean).length * rewardPerBlock(t) };
 }
-const heroLevelFor = (medals: number) => { let lv = 0, spent = 0; while (lv < HERO_LEVEL_COSTS.length && spent + HERO_LEVEL_COSTS[lv] <= medals) spent += HERO_LEVEL_COSTS[lv++]; return lv; };
+const heroLevelFor = (medals: number) => { let lv = 0, spent = 0; while (spent + heroLevelCost(lv) <= medals) spent += heroLevelCost(lv++); return lv; };
 function bestAffordable(budget: number, baseDamage = 0, mode: 'wall' | 'fly' = 'wall'): { f: Found | null; dps: number } {
   const w = mode === 'wall' ? W_WALL : W_FLY;
   const cands = FRONTIER.filter(f => f.cost <= budget).sort((a, b) => b[mode] - a[mode]).slice(0, baseDamage ? 25 : 1);
