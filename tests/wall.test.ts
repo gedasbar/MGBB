@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { CONFIG, shipHalfW } from '../src/config';
 import { World } from '../src/game/world';
 import { buildStarterGrid } from '../src/game/starter';
+import { buildDartGrid } from '../src/game/gridUtils';
 import { applyDamage } from '../src/engine/damage';
 import { ProgressStore } from '../src/econ/progress';
 import {
@@ -220,7 +221,8 @@ describe('Crash, pass, clear', () => {
   });
 
   it('the hit point is 7 px: brushing the edge of a block 8 px away is safe, 6 px away crashes', () => {
-    const mk = () => { const w = world(level(1, (_r, c) => (c === 5 ? plain() : null))); w.setWallOffset(300); return w; };
+    // The small-class hit radius (HIT_RADIUS): the Dart's. Bigger hulls have bigger circles (tests/hullLadder.test.ts).
+    const mk = () => { const w = new WallWorld(level(1, (_r, c) => (c === 5 ? plain() : null)), { grid: buildDartGrid() }); w.autoFire = false; w.setWallOffset(300); return w; };
     const right = 6 * CELL; // x where column 5 ends
     const a = mk();
     a.update(1 / 60, { x: right + 9, y: 300 - 27 });

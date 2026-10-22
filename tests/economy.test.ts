@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BLOCK_ECONOMY } from '../src/data/blockEconomy';
+import { HULL_ORDER } from '../src/data/hulls';
 import {
   BASE_PRICE, copyPrice, FAMILY_MULT, GEN_BODIES, HULL_PRICE, leakDamage, parentReward, rockHp, rockReward, tierOfTime, upgradePrice,
 } from '../src/econ/economy';
@@ -38,7 +39,7 @@ describe('pricing formulas', () => {
     for (const b of pickerBlocks()) expect(BASE_PRICE[b.id]).toBeGreaterThan(0);
     expect(pickerBlocks().length).toBe(41);
     expect(HULL_PRICE.dart).toBe(0);
-    const ladder = ['dart', 'twin', 'prong', 'fan', 'shuttle'].map(id => HULL_PRICE[id]);
+    const ladder = HULL_ORDER.map(id => HULL_PRICE[id]);
     for (let i = 1; i < ladder.length; i++) expect(ladder[i]).toBeGreaterThan(ladder[i - 1]);
   });
   it('formats big numbers compactly', () => {

@@ -48,12 +48,14 @@ describe('ship size and hit point', () => {
     expect(CONFIG.PLAYER.HITBOX_R).toBe(HIT_RADIUS);
     expect(SHIP_HIT_R).toBe(HIT_RADIUS);
     for (const def of Object.values(SHIP_ART)) expect(def.size).toBe(1);
+    // chunk 17a: the Shuttle is a big hull, so the default grid's circle is bigger; the small class keeps HIT_RADIUS
   });
 });
 
 describe('hull ladder', () => {
-  it('the ladder is Dart, Twin, Prong, Fan, Shuttle and every hull has a builder and info', () => {
-    expect(HULL_ORDER.join()).toBe('dart,twin,prong,fan,shuttle');
+  it('the ladder has 19 hulls from the Dart up and every hull has a builder and info', () => {
+    expect(HULL_ORDER.length).toBe(19);
+    expect(HULL_ORDER.slice(0, 3).join()).toBe('dart,twin,prong');
     expect(HULL_INFO.map(h => h.id)).toEqual([...HULL_ORDER]);
     for (const id of HULL_ORDER) expect(HULL_BUILDERS[id]().hullId).toBe(id);
   });

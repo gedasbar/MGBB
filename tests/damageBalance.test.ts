@@ -4,7 +4,7 @@ import { compile, Grid } from '../src/engine/compiler';
 import { BLOCKS, pickerBlocks } from '../src/data/blocks';
 import { HULL_ORDER } from '../src/data/hulls';
 import { HULL_BUILDERS } from '../src/game/gridUtils';
-import { buildStarterGrid, place } from '../src/game/starter';
+import { buildPathGrid, buildStarterGrid, place } from '../src/game/starter';
 import { World } from '../src/game/world';
 import { flatPlusAdd, orbitTime } from '../src/engine/effects';
 import { PROJECTILE_MAX_AGE } from '../src/wall/constants';
@@ -16,7 +16,7 @@ import { rockHp } from '../src/econ/economy';
 const DT = 1 / 60;
 /** A hull with nothing placed, except the Shuttle's two starter turns (its ejector is off the generator's column). */
 function bare(hull: string): Grid {
-  if (hull !== 'shuttle') return HULL_BUILDERS[hull]();
+  if (hull !== 'shuttle') return compile(HULL_BUILDERS[hull]()).recipes.length ? HULL_BUILDERS[hull]() : buildPathGrid(hull)!;
   const g = buildStarterGrid();
   for (const c of g.cells) if (c.blockId === 'flat_plus') c.blockId = null;
   return g;
