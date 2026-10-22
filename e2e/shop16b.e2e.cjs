@@ -1,4 +1,4 @@
-// Chunk 16b-fix: the Shop's tile palette (4 per row, one list by category, info sheet) and a builder crop; writes the contact sheet.
+// Chunk 16b-fix: the Shop's tile palette (5 per row, one list by category, info sheet) and a builder crop; writes the contact sheet.
 // Requires the Vite dev server. Run: node e2e/shop16b.e2e.cjs   (GAME_URL=http://localhost:PORT to pick the server)
 const lib = require('./lib.cjs');
 const fs = require('fs');
@@ -67,9 +67,9 @@ async function montage(page, shots, captions, file, k) {
   // ---- layout at the phone width (360 css px = 540 game px, so css = game x 0.667)
   let st = await shopState(page);
   check(st.section === 'blocks' && st.rows.length === 41, `the Shop lists 41 blocks as tiles (${st.rows.length})`);
-  const tiles = await pal(page, 'p.tiles.slice(0, 5).map(t => ({ x: t.x, y: t.y, w: t.w, h: t.h }))');
-  check(tiles[3].x > tiles[2].x && tiles[2].x > tiles[1].x && tiles[1].x > tiles[0].x && tiles[3].y === tiles[0].y && tiles[4].x === tiles[0].x && tiles[4].y > tiles[0].y,
-    `4 tiles per row: ${JSON.stringify(tiles.map(t => [t.x, t.y]))}`);
+  const tiles = await pal(page, 'p.tiles.slice(0, 6).map(t => ({ x: t.x, y: t.y, w: t.w, h: t.h }))');
+  check(tiles[4].x > tiles[3].x && tiles[3].x > tiles[2].x && tiles[2].x > tiles[1].x && tiles[1].x > tiles[0].x && tiles[4].y === tiles[0].y && tiles[5].x === tiles[0].x && tiles[5].y > tiles[0].y,
+    `5 tiles per row: ${JSON.stringify(tiles.map(t => [t.x, t.y]))}`);
   const k = 360 / 540;
   check(tiles[0].w * k >= 44 && tiles[0].h * k >= 44, `tiles ${(tiles[0].w * k).toFixed(0)}x${(tiles[0].h * k).toFixed(0)} px at 360 px wide (>= 44)`);
   check(await page.evaluate(() => !('setTab' in window.__mgbm.shopScreen.palette) && !('tab' in window.__mgbm.shopScreen.palette)), 'the palette has no tabs');

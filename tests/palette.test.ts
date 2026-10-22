@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pickerBlocks } from '../src/data/blocks';
 import {
-  badgeText, CHIP_H, clampScroll, cssPx, hitTile, INFO_SHEET_H, layoutTiles, MIN_TOUCH_CSS,
+  badgeText, clampScroll, cssPx, hitTile, INFO_SHEET_H, INFO_SHEET_NO_BUTTONS_H, layoutTiles, MIN_TOUCH_CSS,
   PALETTE_COLS, PALETTE_CATEGORIES, paletteIds, paletteGeometry, removeSheetContent, scrollToReveal, sheetButtonRects, sheetContent, SheetInput,
   tileMetrics, visibleTiles,
 } from '../src/builder/paletteLogic';
@@ -13,7 +13,7 @@ const sheetBase: SheetInput = {
 };
 
 describe('layout math', () => {
-  it('always 4 columns; the tiles and gaps fill the width exactly (rounding aside) at several widths', () => {
+  it('always PALETTE_COLS (5) columns; the tiles and gaps fill the width exactly (rounding aside) at several widths', () => {
     for (const w of [360, 540, 810, 1080]) {
       const m = tileMetrics(w);
       expect(m.cols).toBe(PALETTE_COLS);
@@ -24,12 +24,11 @@ describe('layout math', () => {
     }
   });
 
-  it('the real palette: 125 x 113 tiles, and every touch target is at least 44 css px at a 360 px wide phone', () => {
+  it('the real palette: 5 per row, 98 x 88 tiles, and every touch target is at least 44 css px at a 360 px wide phone', () => {
     const m = paletteGeometry().metrics;
-    expect([m.w, m.h]).toEqual([125, 113]);
+    expect([m.w, m.h]).toEqual([98, 88]);
     expect(cssPx(m.w)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS);
     expect(cssPx(m.h)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS);
-    expect(cssPx(CHIP_H)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS);
     const b = sheetButtonRects(paletteGeometry().sheet, ['place', 'upgrade', 'buy']);
     for (const r of Object.values(b)) { expect(cssPx(r!.h)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS); expect(cssPx(r!.w)).toBeGreaterThanOrEqual(MIN_TOUCH_CSS); }
   });
@@ -39,9 +38,9 @@ describe('layout math', () => {
     const { tiles, contentH } = layoutTiles(blocks.map(b => b.id), m);
     expect(tiles.length).toBe(blocks.length);
     expect(tiles[0]).toMatchObject({ x: 8, y: 8 });
-    expect(tiles[3].y).toBe(tiles[0].y);
-    expect(tiles[4]).toMatchObject({ x: tiles[0].x, y: 8 + m.h + 8 });
-    const rows = Math.ceil(blocks.length / 4);
+    expect(tiles[PALETTE_COLS - 1].y).toBe(tiles[0].y);
+    expect(tiles[PALETTE_COLS]).toMatchObject({ x: tiles[0].x, y: 8 + m.h + 8 });
+    const rows = Math.ceil(blocks.length / PALETTE_COLS);
     expect(contentH).toBe(8 + rows * (m.h + 8));
     // No overlaps.
     for (let i = 0; i < tiles.length; i++) for (let j = i + 1; j < tiles.length; j++) {
@@ -79,13 +78,15 @@ describe('layout math', () => {
     expect(vis.every(t => t.y < 224)).toBe(true);
   });
 
-  it('the header, list and info sheet partition the area; a palette without header gives the list the full height', () => {
-    const g = paletteGeometry({ x: 0, y: 100, w: 540, h: 700 });
-    expect(g.header.h + g.listClosed.h).toBe(700);
-    expect(g.listOpen.h + INFO_SHEET_H).toBe(g.listClosed.h);
+  it('the list and the info sheet partition the area, with or without sheet buttons', () => {
+    const area = { x: 0, y: 100, w: 540, h: 700 };
+    const g = paletteGeometry(area);
+    expect(g.listClosed).toEqual(area);
+    expect(g.listOpen.h + INFO_SHEET_H).toBe(700);
     expect(g.sheet.y).toBe(g.listOpen.y + g.listOpen.h);
-    const bare = paletteGeometry({ x: 0, y: 100, w: 540, h: 700 }, 0);
-    expect(bare.listClosed).toEqual({ x: 0, y: 100, w: 540, h: 700 });
+    const bare = paletteGeometry(area, INFO_SHEET_NO_BUTTONS_H);
+    expect(bare.listOpen.h).toBe(700 - INFO_SHEET_NO_BUTTONS_H);
+    expect(bare.sheet.y + bare.sheet.h).toBe(800);
   });
 
   it('sheet buttons share the width and never overlap, for one, two or three buttons', () => {
