@@ -147,10 +147,9 @@ export class Inspector {
   get bodyText(): string { return this.body.text; }
 }
 
+/** The stats strip's numbers: the damage formatter (whole or one decimal below 1000, K / M / B / T above). */
 function fmt(n: number): string {
-  if (!(Math.abs(n) < 1000)) return fmtDamage(n); // 1000 and up, Infinity, NaN: the compact form (chunk 16c-2)
-  if (Math.abs(n - Math.round(n)) < 0.005) return String(Math.round(n));
-  return n.toFixed(1);
+  return fmtDamage(n);
 }
 
 function fmtDelta(n: number): string {

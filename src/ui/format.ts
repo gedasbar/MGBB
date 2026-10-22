@@ -39,6 +39,7 @@ export function fmtDamage(n: number): string {
   const a = Math.abs(n);
   if (a >= 1000) return sign + compact(a);
   const r = Math.round(a * 10) / 10;
+  if (r >= 1000) return `${sign}1${SUFFIXES[1]}`;   // 999.96 rounds to 1000
   return sign + (Math.abs(r - Math.round(r)) < 1e-9 ? String(Math.round(r)) : r.toFixed(1));
 }
 

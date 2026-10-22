@@ -1,0 +1,3656 @@
+{
+ "dart": {
+  "estDps": 4,
+  "ff": {
+   "credits": 76.33333333333333,
+   "wave": 5,
+   "time": 184.7277777778169,
+   "maxWave": 5
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "crashed",
+    "clearAllCredits": 22,
+    "clearAllPct": 0.5151515151515151
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "crashed",
+    "clearAllCredits": 26,
+    "clearAllPct": 0.5555555555555556
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "crashed",
+    "clearAllCredits": 10,
+    "clearAllPct": 0.1347517730496454
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "crashed",
+    "clearAllCredits": 14,
+    "clearAllPct": 0.16312056737588654
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 12,
+    "clearAllPct": 0.11728395061728394
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "crashed",
+    "clearAllCredits": 4,
+    "clearAllPct": 0.03278688524590164
+   },
+   {
+    "tier": 20,
+    "carve": "crashed",
+    "carveCredits": 9,
+    "clearAll": "crashed",
+    "clearAllCredits": 3,
+    "clearAllPct": 0.013333333333333334
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 2,
+    "clearAllPct": 0.00749063670411985
+   },
+   {
+    "tier": 30,
+    "carve": "crashed",
+    "carveCredits": 0,
+    "clearAll": "crashed",
+    "clearAllCredits": 1,
+    "clearAllPct": 0.003236245954692557
+   },
+   {
+    "tier": 40,
+    "carve": "crashed",
+    "carveCredits": 0,
+    "clearAll": "crashed",
+    "clearAllCredits": 0,
+    "clearAllPct": 0
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 0,
+    "tier": 26,
+    "clearAllCredits": 1,
+    "carveCredits": 5,
+    "passed": false
+   },
+   {
+    "ring": 5,
+    "tier": 27.333333333333332,
+    "clearAllCredits": 1.6666666666666667,
+    "carveCredits": 3.6666666666666665,
+    "passed": true
+   },
+   {
+    "ring": 10,
+    "tier": 28.666666666666668,
+    "clearAllCredits": 1.6666666666666667,
+    "carveCredits": 4,
+    "passed": false
+   },
+   {
+    "ring": 25,
+    "tier": 31.666666666666668,
+    "clearAllCredits": 2.3333333333333335,
+    "carveCredits": 4.333333333333333,
+    "passed": false
+   }
+  ]
+ },
+ "twin": {
+  "estDps": 7.5,
+  "ff": {
+   "credits": 128.66666666666666,
+   "wave": 7,
+   "time": 256.7388888889746,
+   "maxWave": 7
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "crashed",
+    "clearAllCredits": 20,
+    "clearAllPct": 0.2624113475177305
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "crashed",
+    "clearAllCredits": 30,
+    "clearAllPct": 0.3475177304964539
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 24,
+    "clearAllPct": 0.2222222222222222
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "crashed",
+    "clearAllCredits": 7,
+    "clearAllPct": 0.04918032786885246
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 10,
+    "clearAll": "crashed",
+    "clearAllCredits": 6,
+    "clearAllPct": 0.02666666666666667
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 6,
+    "clearAllPct": 0.018726591760299626
+   },
+   {
+    "tier": 30,
+    "carve": "crashed",
+    "carveCredits": 3,
+    "clearAll": "crashed",
+    "clearAllCredits": 3,
+    "clearAllPct": 0.006472491909385114
+   },
+   {
+    "tier": 40,
+    "carve": "crashed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 0,
+    "clearAllPct": 0
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 0,
+    "tier": 26,
+    "clearAllCredits": 4,
+    "carveCredits": 8,
+    "passed": true
+   },
+   {
+    "ring": 5,
+    "tier": 27.333333333333332,
+    "clearAllCredits": 5.333333333333333,
+    "carveCredits": 9.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 10,
+    "tier": 28.666666666666668,
+    "clearAllCredits": 3.6666666666666665,
+    "carveCredits": 9.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 25,
+    "tier": 31.666666666666668,
+    "clearAllCredits": 5.666666666666667,
+    "carveCredits": 8.666666666666666,
+    "passed": true
+   },
+   {
+    "ring": 50,
+    "tier": 39.666666666666664,
+    "clearAllCredits": 3.3333333333333335,
+    "carveCredits": 6.666666666666667,
+    "passed": true
+   },
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 0,
+    "carveCredits": 1.6666666666666667,
+    "passed": false
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "prong": {
+  "estDps": 16,
+  "ff": {
+   "credits": 182,
+   "wave": 8,
+   "time": 298.51666666672384,
+   "maxWave": 8
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "crashed",
+    "clearAllCredits": 65,
+    "clearAllPct": 0.8226950354609929
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "crashed",
+    "clearAllCredits": 57,
+    "clearAllPct": 0.6524822695035462
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 64,
+    "clearAllPct": 0.5864197530864198
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "crashed",
+    "clearAllCredits": 35,
+    "clearAllPct": 0.2459016393442623
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 10,
+    "clearAll": "crashed",
+    "clearAllCredits": 13,
+    "clearAllPct": 0.057777777777777775
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 14,
+    "clearAllPct": 0.04119850187265917
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 8,
+    "clearAll": "crashed",
+    "clearAllCredits": 11,
+    "clearAllPct": 0.022653721682847898
+   },
+   {
+    "tier": 40,
+    "carve": "crashed",
+    "carveCredits": 13,
+    "clearAll": "crashed",
+    "clearAllCredits": 2,
+    "clearAllPct": 0.002544529262086514
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 30,
+    "clearAll": "crashed",
+    "clearAllCredits": 8,
+    "clearAllPct": 0.0043859649122807015
+   },
+   {
+    "tier": 60,
+    "carve": "crashed",
+    "carveCredits": 56,
+    "clearAll": "crashed",
+    "clearAllCredits": 14,
+    "clearAllPct": 0.003703703703703704
+   },
+   {
+    "tier": 75,
+    "carve": "crashed",
+    "carveCredits": 59,
+    "clearAll": "crashed",
+    "clearAllCredits": 14,
+    "clearAllPct": 0.0015015015015015015
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 0,
+    "tier": 26,
+    "clearAllCredits": 10,
+    "carveCredits": 8,
+    "passed": true
+   },
+   {
+    "ring": 5,
+    "tier": 27.333333333333332,
+    "clearAllCredits": 12,
+    "carveCredits": 9.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 10,
+    "tier": 28.666666666666668,
+    "clearAllCredits": 9,
+    "carveCredits": 12.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 25,
+    "tier": 31.666666666666668,
+    "clearAllCredits": 11.333333333333334,
+    "carveCredits": 15.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 50,
+    "tier": 39.666666666666664,
+    "clearAllCredits": 12.333333333333334,
+    "carveCredits": 11.666666666666666,
+    "passed": true
+   },
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 5,
+    "carveCredits": 11.666666666666666,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "wisp": {
+  "estDps": 33.342750701447116,
+  "ff": {
+   "credits": 246,
+   "wave": 9,
+   "time": 340.4166666666857,
+   "maxWave": 9
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 10,
+    "clearAll": "crashed",
+    "clearAllCredits": 35,
+    "clearAllPct": 0.15555555555555556
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 34,
+    "clearAllPct": 0.10112359550561797
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 8,
+    "clearAll": "crashed",
+    "clearAllCredits": 24,
+    "clearAllPct": 0.04854368932038835
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 26,
+    "clearAll": "crashed",
+    "clearAllCredits": 5,
+    "clearAllPct": 0.005089058524173028
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 30,
+    "clearAll": "crashed",
+    "clearAllCredits": 17,
+    "clearAllPct": 0.008771929824561403
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 78,
+    "clearAll": "crashed",
+    "clearAllCredits": 35,
+    "clearAllPct": 0.009259259259259259
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 162,
+    "clearAll": "crashed",
+    "clearAllCredits": 29,
+    "clearAllPct": 0.003003003003003003
+   },
+   {
+    "tier": 90,
+    "carve": "crashed",
+    "carveCredits": 461,
+    "clearAll": "crashed",
+    "clearAllCredits": 61,
+    "clearAllPct": 0.0025940337224383916
+   },
+   {
+    "tier": 100,
+    "carve": "crashed",
+    "carveCredits": 350,
+    "clearAll": "crashed",
+    "clearAllCredits": 50,
+    "clearAllPct": 0.0011695906432748538
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 0,
+    "tier": 26,
+    "clearAllCredits": 27,
+    "carveCredits": 8,
+    "passed": true
+   },
+   {
+    "ring": 5,
+    "tier": 27.333333333333332,
+    "clearAllCredits": 30,
+    "carveCredits": 9.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 10,
+    "tier": 28.666666666666668,
+    "clearAllCredits": 20,
+    "carveCredits": 12.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 25,
+    "tier": 31.666666666666668,
+    "clearAllCredits": 21.666666666666668,
+    "carveCredits": 15.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 50,
+    "tier": 39.666666666666664,
+    "clearAllCredits": 27.333333333333332,
+    "carveCredits": 18.333333333333332,
+    "passed": true
+   },
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 15,
+    "carveCredits": 58,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 8.666666666666666,
+    "carveCredits": 8.666666666666666,
+    "passed": false
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "hornet": {
+  "estDps": 44.24690339046262,
+  "ff": {
+   "credits": 321.3333333333333,
+   "wave": 10,
+   "time": 369.0333333333263,
+   "maxWave": 10
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 10,
+    "clearAll": "crashed",
+    "clearAllCredits": 50,
+    "clearAllPct": 0.2222222222222222
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 49,
+    "clearAllPct": 0.14232209737827714
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 8,
+    "clearAll": "crashed",
+    "clearAllCredits": 37,
+    "clearAllPct": 0.0744336569579288
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 26,
+    "clearAll": "crashed",
+    "clearAllCredits": 8,
+    "clearAllPct": 0.007633587786259542
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 30,
+    "clearAll": "crashed",
+    "clearAllCredits": 21,
+    "clearAllPct": 0.010964912280701754
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 78,
+    "clearAll": "crashed",
+    "clearAllCredits": 42,
+    "clearAllPct": 0.011111111111111112
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 162,
+    "clearAll": "crashed",
+    "clearAllCredits": 29,
+    "clearAllPct": 0.003003003003003003
+   },
+   {
+    "tier": 90,
+    "carve": "crashed",
+    "carveCredits": 830,
+    "clearAll": "crashed",
+    "clearAllCredits": 123,
+    "clearAllPct": 0.005188067444876783
+   },
+   {
+    "tier": 100,
+    "carve": "crashed",
+    "carveCredits": 551,
+    "clearAll": "crashed",
+    "clearAllCredits": 100,
+    "clearAllPct": 0.0023391812865497076
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 0,
+    "tier": 26,
+    "clearAllCredits": 39,
+    "carveCredits": 8,
+    "passed": true
+   },
+   {
+    "ring": 5,
+    "tier": 27.333333333333332,
+    "clearAllCredits": 42,
+    "carveCredits": 9.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 10,
+    "tier": 28.666666666666668,
+    "clearAllCredits": 28.333333333333332,
+    "carveCredits": 12.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 25,
+    "tier": 31.666666666666668,
+    "clearAllCredits": 31.333333333333332,
+    "carveCredits": 15.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 50,
+    "tier": 39.666666666666664,
+    "clearAllCredits": 40.666666666666664,
+    "carveCredits": 18.333333333333332,
+    "passed": true
+   },
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 23.666666666666668,
+    "carveCredits": 58,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 17.666666666666668,
+    "carveCredits": 8.666666666666666,
+    "passed": false
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "lancet": {
+  "estDps": 102.48245339830959,
+  "ff": {
+   "credits": 462,
+   "wave": 11.333333333333334,
+   "time": 440.36666666659477,
+   "maxWave": 12
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 10,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 187,
+    "clearAllPct": 0.5430711610486891
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 8,
+    "clearAll": "crashed",
+    "clearAllCredits": 93,
+    "clearAllPct": 0.18446601941747573
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 26,
+    "clearAll": "crashed",
+    "clearAllCredits": 21,
+    "clearAllPct": 0.020356234096692113
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 30,
+    "clearAll": "crashed",
+    "clearAllCredits": 61,
+    "clearAllPct": 0.03070175438596491
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 78,
+    "clearAll": "crashed",
+    "clearAllCredits": 71,
+    "clearAllPct": 0.018518518518518517
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 162,
+    "clearAll": "crashed",
+    "clearAllCredits": 88,
+    "clearAllPct": 0.009009009009009009
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 1107,
+    "clearAll": "crashed",
+    "clearAllCredits": 307,
+    "clearAllPct": 0.01297016861219196
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 2053,
+    "clearAll": "crashed",
+    "clearAllCredits": 200,
+    "clearAllPct": 0.004678362573099415
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 0,
+    "tier": 26,
+    "clearAllCredits": 125,
+    "carveCredits": 8,
+    "passed": true
+   },
+   {
+    "ring": 5,
+    "tier": 27.333333333333332,
+    "clearAllCredits": 176.66666666666666,
+    "carveCredits": 2.3333333333333335,
+    "passed": true
+   },
+   {
+    "ring": 10,
+    "tier": 28.666666666666668,
+    "clearAllCredits": 85.66666666666667,
+    "carveCredits": 6.333333333333333,
+    "passed": true
+   },
+   {
+    "ring": 25,
+    "tier": 31.666666666666668,
+    "clearAllCredits": 109.66666666666667,
+    "carveCredits": 15.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 50,
+    "tier": 39.666666666666664,
+    "clearAllCredits": 121.33333333333333,
+    "carveCredits": 18.333333333333332,
+    "passed": true
+   },
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 53.333333333333336,
+    "carveCredits": 58,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 51.666666666666664,
+    "carveCredits": 175.66666666666666,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   },
+   {
+    "ring": 800,
+    "tier": 264.6666666666667,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "kestrel": {
+  "estDps": 63.07292755974042,
+  "ff": {
+   "credits": 378,
+   "wave": 11,
+   "time": 409.1166666666233,
+   "maxWave": 11
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 10,
+    "clearAll": "crashed",
+    "clearAllCredits": 90,
+    "clearAllPct": 0.4
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 70,
+    "clearAllPct": 0.20599250936329588
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 8,
+    "clearAll": "crashed",
+    "clearAllCredits": 57,
+    "clearAllPct": 0.11326860841423948
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 26,
+    "clearAll": "crashed",
+    "clearAllCredits": 13,
+    "clearAllPct": 0.01272264631043257
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 30,
+    "clearAll": "crashed",
+    "clearAllCredits": 34,
+    "clearAllPct": 0.017543859649122806
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 78,
+    "clearAll": "crashed",
+    "clearAllCredits": 56,
+    "clearAllPct": 0.014814814814814815
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 162,
+    "clearAll": "crashed",
+    "clearAllCredits": 44,
+    "clearAllPct": 0.0045045045045045045
+   },
+   {
+    "tier": 90,
+    "carve": "crashed",
+    "carveCredits": 1076,
+    "clearAll": "crashed",
+    "clearAllCredits": 184,
+    "clearAllPct": 0.007782101167315175
+   },
+   {
+    "tier": 100,
+    "carve": "crashed",
+    "carveCredits": 1352,
+    "clearAll": "crashed",
+    "clearAllCredits": 100,
+    "clearAllPct": 0.0023391812865497076
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 0,
+    "tier": 26,
+    "clearAllCredits": 65,
+    "carveCredits": 8,
+    "passed": true
+   },
+   {
+    "ring": 5,
+    "tier": 27.333333333333332,
+    "clearAllCredits": 65.33333333333333,
+    "carveCredits": 9.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 10,
+    "tier": 28.666666666666668,
+    "clearAllCredits": 47.666666666666664,
+    "carveCredits": 12.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 25,
+    "tier": 31.666666666666668,
+    "clearAllCredits": 58,
+    "carveCredits": 15.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 50,
+    "tier": 39.666666666666664,
+    "clearAllCredits": 56.666666666666664,
+    "carveCredits": 18.333333333333332,
+    "passed": true
+   },
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 32.666666666666664,
+    "carveCredits": 58,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 26.333333333333332,
+    "carveCredits": 44,
+    "passed": false
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "mantis": {
+  "estDps": 450.5185556720439,
+  "ff": {
+   "credits": 776,
+   "wave": 14.333333333333334,
+   "time": 560.066666666486,
+   "maxWave": 15
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 12,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 344,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 11,
+    "clearAll": "crashed",
+    "clearAllCredits": 433,
+    "clearAllPct": 0.8511326860841424
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 26,
+    "clearAll": "crashed",
+    "clearAllCredits": 99,
+    "clearAllPct": 0.09414758269720101
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 30,
+    "clearAll": "crashed",
+    "clearAllCredits": 353,
+    "clearAllPct": 0.17763157894736842
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 78,
+    "clearAll": "crashed",
+    "clearAllCredits": 391,
+    "clearAllPct": 0.10185185185185185
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 162,
+    "clearAll": "crashed",
+    "clearAllCredits": 532,
+    "clearAllPct": 0.05405405405405406
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 1107,
+    "clearAll": "crashed",
+    "clearAllCredits": 1783,
+    "clearAllPct": 0.07522697795071336
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 2053,
+    "clearAll": "crashed",
+    "clearAllCredits": 1502,
+    "clearAllPct": 0.03508771929824561
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 0,
+    "tier": 26,
+    "clearAllCredits": 352,
+    "carveCredits": 9,
+    "passed": true
+   },
+   {
+    "ring": 5,
+    "tier": 27.333333333333332,
+    "clearAllCredits": 444.6666666666667,
+    "carveCredits": 11.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 10,
+    "tier": 28.666666666666668,
+    "clearAllCredits": 446,
+    "carveCredits": 14,
+    "passed": true
+   },
+   {
+    "ring": 25,
+    "tier": 31.666666666666668,
+    "clearAllCredits": 428.6666666666667,
+    "carveCredits": 16.666666666666668,
+    "passed": true
+   },
+   {
+    "ring": 50,
+    "tier": 39.666666666666664,
+    "clearAllCredits": 679.3333333333334,
+    "carveCredits": 21.333333333333332,
+    "passed": true
+   },
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 287.3333333333333,
+    "carveCredits": 58,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 162.33333333333334,
+    "carveCredits": 365.6666666666667,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 150,
+    "carveCredits": 150,
+    "passed": false
+   },
+   {
+    "ring": 800,
+    "tier": 264.6666666666667,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "bastion": {
+  "estDps": 40.16474000104626,
+  "ff": {
+   "credits": 284.6666666666667,
+   "wave": 9.333333333333334,
+   "time": 351.51111111112004,
+   "maxWave": 10
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "crashed",
+    "clearAllCredits": 141,
+    "clearAllPct": 0.9781420765027322
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 10,
+    "clearAll": "crashed",
+    "clearAllCredits": 60,
+    "clearAllPct": 0.26666666666666666
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "crashed",
+    "clearAllCredits": 46,
+    "clearAllPct": 0.1348314606741573
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 8,
+    "clearAll": "crashed",
+    "clearAllCredits": 32,
+    "clearAllPct": 0.06472491909385113
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 26,
+    "clearAll": "crashed",
+    "clearAllCredits": 8,
+    "clearAllPct": 0.007633587786259542
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 30,
+    "clearAll": "crashed",
+    "clearAllCredits": 21,
+    "clearAllPct": 0.010964912280701754
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 78,
+    "clearAll": "crashed",
+    "clearAllCredits": 35,
+    "clearAllPct": 0.009259259259259259
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 162,
+    "clearAll": "crashed",
+    "clearAllCredits": 29,
+    "clearAllPct": 0.003003003003003003
+   },
+   {
+    "tier": 90,
+    "carve": "crashed",
+    "carveCredits": 768,
+    "clearAll": "crashed",
+    "clearAllCredits": 92,
+    "clearAllPct": 0.0038910505836575876
+   },
+   {
+    "tier": 100,
+    "carve": "crashed",
+    "carveCredits": 500,
+    "clearAll": "crashed",
+    "clearAllCredits": 50,
+    "clearAllPct": 0.0011695906432748538
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 0,
+    "tier": 26,
+    "clearAllCredits": 36,
+    "carveCredits": 8,
+    "passed": true
+   },
+   {
+    "ring": 5,
+    "tier": 27.333333333333332,
+    "clearAllCredits": 38.666666666666664,
+    "carveCredits": 9.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 10,
+    "tier": 28.666666666666668,
+    "clearAllCredits": 25.666666666666668,
+    "carveCredits": 12.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 25,
+    "tier": 31.666666666666668,
+    "clearAllCredits": 27,
+    "carveCredits": 15.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 50,
+    "tier": 39.666666666666664,
+    "clearAllCredits": 37,
+    "carveCredits": 18.333333333333332,
+    "passed": true
+   },
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 18.666666666666668,
+    "carveCredits": 58,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 8.666666666666666,
+    "carveCredits": 8.666666666666666,
+    "passed": false
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "halberd": {
+  "estDps": 1296.8704629118524,
+  "ff": {
+   "credits": 954.6666666666666,
+   "wave": 15,
+   "time": 599.999999999783,
+   "maxWave": 15
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 5,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 6,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 23,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 5,
+    "clearAll": "cleared",
+    "clearAllCredits": 344,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 32,
+    "clearAll": "cleared",
+    "clearAllCredits": 508,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 53,
+    "clearAll": "crashed",
+    "clearAllCredits": 764,
+    "clearAllPct": 0.7251908396946565
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 65,
+    "clearAll": "cleared",
+    "clearAllCredits": 1992,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 163,
+    "clearAll": "crashed",
+    "clearAllCredits": 1352,
+    "clearAllPct": 0.35185185185185186
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 325,
+    "clearAll": "crashed",
+    "clearAllCredits": 1982,
+    "clearAllPct": 0.2012012012012012
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 2245,
+    "clearAll": "crashed",
+    "clearAllCredits": 8242,
+    "clearAllPct": 0.3476005188067445
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 3456,
+    "clearAll": "crashed",
+    "clearAllCredits": 4658,
+    "clearAllPct": 0.10877192982456141
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 0,
+    "tier": 26,
+    "clearAllCredits": 475,
+    "carveCredits": 20,
+    "passed": true
+   },
+   {
+    "ring": 5,
+    "tier": 27.333333333333332,
+    "clearAllCredits": 444.6666666666667,
+    "carveCredits": 24.333333333333332,
+    "passed": true
+   },
+   {
+    "ring": 10,
+    "tier": 28.666666666666668,
+    "clearAllCredits": 490,
+    "carveCredits": 28.666666666666668,
+    "passed": true
+   },
+   {
+    "ring": 25,
+    "tier": 31.666666666666668,
+    "clearAllCredits": 502.3333333333333,
+    "carveCredits": 39.333333333333336,
+    "passed": true
+   },
+   {
+    "ring": 50,
+    "tier": 39.666666666666664,
+    "clearAllCredits": 1199.3333333333333,
+    "carveCredits": 44.666666666666664,
+    "passed": true
+   },
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 2056.3333333333335,
+    "carveCredits": 116.66666666666667,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 463.6666666666667,
+    "carveCredits": 1043.6666666666667,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 607.3333333333334,
+    "carveCredits": 757.3333333333334,
+    "passed": false
+   },
+   {
+    "ring": 800,
+    "tier": 264.6666666666667,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "corvette": {
+  "estDps": 309.0676696851682,
+  "ff": {
+   "credits": 724.3333333333334,
+   "wave": 14,
+   "time": 532.9111111109551,
+   "maxWave": 14
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 6,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 14,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 344,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 8,
+    "clearAll": "crashed",
+    "clearAllCredits": 289,
+    "clearAllPct": 0.56957928802589
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 26,
+    "clearAll": "crashed",
+    "clearAllCredits": 69,
+    "clearAllPct": 0.06615776081424936
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 30,
+    "clearAll": "crashed",
+    "clearAllCredits": 214,
+    "clearAllPct": 0.1074561403508772
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 78,
+    "clearAll": "crashed",
+    "clearAllCredits": 220,
+    "clearAllPct": 0.05740740740740741
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 162,
+    "clearAll": "crashed",
+    "clearAllCredits": 310,
+    "clearAllPct": 0.03153153153153153
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 1107,
+    "clearAll": "crashed",
+    "clearAllCredits": 1014,
+    "clearAllPct": 0.042801556420233464
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 2053,
+    "clearAll": "crashed",
+    "clearAllCredits": 901,
+    "clearAllPct": 0.021052631578947368
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 0,
+    "tier": 26,
+    "clearAllCredits": 396,
+    "carveCredits": 10,
+    "passed": true
+   },
+   {
+    "ring": 5,
+    "tier": 27.333333333333332,
+    "clearAllCredits": 444.6666666666667,
+    "carveCredits": 10.333333333333334,
+    "passed": true
+   },
+   {
+    "ring": 10,
+    "tier": 28.666666666666668,
+    "clearAllCredits": 455.3333333333333,
+    "carveCredits": 14,
+    "passed": true
+   },
+   {
+    "ring": 25,
+    "tier": 31.666666666666668,
+    "clearAllCredits": 398,
+    "carveCredits": 18,
+    "passed": true
+   },
+   {
+    "ring": 50,
+    "tier": 39.666666666666664,
+    "clearAllCredits": 407,
+    "carveCredits": 18.333333333333332,
+    "passed": true
+   },
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 180.66666666666666,
+    "carveCredits": 58,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 128.66666666666666,
+    "carveCredits": 249.66666666666666,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 0,
+    "carveCredits": 150,
+    "passed": false
+   },
+   {
+    "ring": 800,
+    "tier": 264.6666666666667,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "trident": {
+  "estDps": 425.2454298502923,
+  "ff": {
+   "credits": 839.3333333333334,
+   "wave": 14.666666666666666,
+   "time": 563.6944444442605,
+   "maxWave": 15
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 5,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 6,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 23,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 5,
+    "clearAll": "cleared",
+    "clearAllCredits": 344,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 18,
+    "clearAll": "cleared",
+    "clearAllCredits": 508,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 53,
+    "clearAll": "crashed",
+    "clearAllCredits": 115,
+    "clearAllPct": 0.10941475826972011
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 61,
+    "clearAll": "crashed",
+    "clearAllCredits": 393,
+    "clearAllPct": 0.19736842105263158
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 142,
+    "clearAll": "crashed",
+    "clearAllCredits": 398,
+    "clearAllPct": 0.1037037037037037
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 325,
+    "clearAll": "crashed",
+    "clearAllCredits": 502,
+    "clearAllPct": 0.05105105105105105
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 1445,
+    "clearAll": "crashed",
+    "clearAllCredits": 1753,
+    "clearAllPct": 0.07392996108949416
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 2053,
+    "clearAll": "crashed",
+    "clearAllCredits": 1402,
+    "clearAllPct": 0.03274853801169591
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 288.6666666666667,
+    "carveCredits": 85.66666666666667,
+    "passed": true
+   },
+   {
+    "ring": 150,
+    "tier": 69.33333333333333,
+    "clearAllCredits": 133.33333333333334,
+    "carveCredits": 222,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 162.33333333333334,
+    "carveCredits": 340.3333333333333,
+    "passed": true
+   },
+   {
+    "ring": 250,
+    "tier": 100,
+    "clearAllCredits": 132.66666666666666,
+    "carveCredits": 395.6666666666667,
+    "passed": true
+   },
+   {
+    "ring": 300,
+    "tier": 115,
+    "clearAllCredits": 71,
+    "carveCredits": 833.3333333333334,
+    "passed": false
+   },
+   {
+    "ring": 350,
+    "tier": 130,
+    "clearAllCredits": 144.33333333333334,
+    "carveCredits": 213,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 150,
+    "carveCredits": 150,
+    "passed": false
+   },
+   {
+    "ring": 450,
+    "tier": 160,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "galleon": {
+  "estDps": 347.53252270609505,
+  "ff": {
+   "credits": 719,
+   "wave": 13.666666666666666,
+   "time": 538.4055555553946,
+   "maxWave": 14
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 13,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 344,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 8,
+    "clearAll": "crashed",
+    "clearAllCredits": 350,
+    "clearAllPct": 0.6893203883495146
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 26,
+    "clearAll": "crashed",
+    "clearAllCredits": 85,
+    "clearAllPct": 0.08142493638676845
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 30,
+    "clearAll": "crashed",
+    "clearAllCredits": 231,
+    "clearAllPct": 0.1162280701754386
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 78,
+    "clearAll": "crashed",
+    "clearAllCredits": 227,
+    "clearAllPct": 0.05925925925925926
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 162,
+    "clearAll": "crashed",
+    "clearAllCredits": 369,
+    "clearAllPct": 0.03753753753753754
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 1107,
+    "clearAll": "crashed",
+    "clearAllCredits": 1076,
+    "clearAllPct": 0.04539559014267185
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 2053,
+    "clearAll": "crashed",
+    "clearAllCredits": 1052,
+    "clearAllPct": 0.02456140350877193
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 215.66666666666666,
+    "carveCredits": 58,
+    "passed": true
+   },
+   {
+    "ring": 150,
+    "tier": 69.33333333333333,
+    "clearAllCredits": 111,
+    "carveCredits": 222,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 137.33333333333334,
+    "carveCredits": 274.6666666666667,
+    "passed": true
+   },
+   {
+    "ring": 250,
+    "tier": 100,
+    "clearAllCredits": 100,
+    "carveCredits": 275.3333333333333,
+    "passed": true
+   },
+   {
+    "ring": 300,
+    "tier": 115,
+    "clearAllCredits": 71,
+    "carveCredits": 557.3333333333334,
+    "passed": false
+   },
+   {
+    "ring": 350,
+    "tier": 130,
+    "clearAllCredits": 72,
+    "carveCredits": 140.66666666666666,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 0,
+    "carveCredits": 150,
+    "passed": false
+   },
+   {
+    "ring": 450,
+    "tier": 160,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "shuttle": {
+  "estDps": 2075.070972681014,
+  "ff": {
+   "credits": 859.6666666666666,
+   "wave": 15,
+   "time": 599.999999999783,
+   "maxWave": 15
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 12,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 344,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 13,
+    "clearAll": "cleared",
+    "clearAllCredits": 508,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 29,
+    "clearAll": "cleared",
+    "clearAllCredits": 1053,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 43,
+    "clearAll": "cleared",
+    "clearAllCredits": 1992,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 92,
+    "clearAll": "crashed",
+    "clearAllCredits": 2191,
+    "clearAllPct": 0.5703703703703704
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 177,
+    "clearAll": "crashed",
+    "clearAllCredits": 2929,
+    "clearAllPct": 0.2972972972972973
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 1137,
+    "clearAll": "crashed",
+    "clearAllCredits": 13685,
+    "clearAllPct": 0.5771725032425421
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 2104,
+    "clearAll": "crashed",
+    "clearAllCredits": 7714,
+    "clearAllPct": 0.18011695906432748
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 2444,
+    "carveCredits": 67,
+    "passed": true
+   },
+   {
+    "ring": 150,
+    "tier": 69.33333333333333,
+    "clearAllCredits": 864,
+    "carveCredits": 225.66666666666666,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 825,
+    "carveCredits": 902,
+    "passed": true
+   },
+   {
+    "ring": 250,
+    "tier": 100,
+    "clearAllCredits": 832.6666666666666,
+    "carveCredits": 558.6666666666666,
+    "passed": true
+   },
+   {
+    "ring": 300,
+    "tier": 115,
+    "clearAllCredits": 801.6666666666666,
+    "carveCredits": 2608.3333333333335,
+    "passed": true
+   },
+   {
+    "ring": 350,
+    "tier": 130,
+    "clearAllCredits": 793.6666666666666,
+    "carveCredits": 2818,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 1215,
+    "carveCredits": 1807.6666666666667,
+    "passed": false
+   },
+   {
+    "ring": 450,
+    "tier": 160,
+    "clearAllCredits": 0,
+    "carveCredits": 640.6666666666666,
+    "passed": false
+   }
+  ]
+ },
+ "spire": {
+  "estDps": 512.5097280323383,
+  "ff": {
+   "credits": 844.3333333333334,
+   "wave": 14.666666666666666,
+   "time": 566.1833333331471,
+   "maxWave": 15
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 4,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 5,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 6,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 22,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 5,
+    "clearAll": "cleared",
+    "clearAllCredits": 344,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 18,
+    "clearAll": "cleared",
+    "clearAllCredits": 508,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 53,
+    "clearAll": "crashed",
+    "clearAllCredits": 134,
+    "clearAllPct": 0.1272264631043257
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 61,
+    "clearAll": "crashed",
+    "clearAllCredits": 454,
+    "clearAllPct": 0.22807017543859648
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 149,
+    "clearAll": "crashed",
+    "clearAllCredits": 441,
+    "clearAllPct": 0.11481481481481481
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 325,
+    "clearAll": "crashed",
+    "clearAllCredits": 606,
+    "clearAllPct": 0.06156156156156156
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 1322,
+    "clearAll": "crashed",
+    "clearAllCredits": 1937,
+    "clearAllPct": 0.08171206225680934
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 2053,
+    "clearAll": "crashed",
+    "clearAllCredits": 1803,
+    "clearAllPct": 0.042105263157894736
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 379.3333333333333,
+    "carveCredits": 80.66666666666667,
+    "passed": true
+   },
+   {
+    "ring": 150,
+    "tier": 69.33333333333333,
+    "clearAllCredits": 152,
+    "carveCredits": 222,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 187.66666666666666,
+    "carveCredits": 902,
+    "passed": true
+   },
+   {
+    "ring": 250,
+    "tier": 100,
+    "clearAllCredits": 183.33333333333334,
+    "carveCredits": 464,
+    "passed": true
+   },
+   {
+    "ring": 300,
+    "tier": 115,
+    "clearAllCredits": 104,
+    "carveCredits": 1138,
+    "passed": false
+   },
+   {
+    "ring": 350,
+    "tier": 130,
+    "clearAllCredits": 144.33333333333334,
+    "carveCredits": 213,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 150,
+    "carveCredits": 150,
+    "passed": false
+   },
+   {
+    "ring": 450,
+    "tier": 160,
+    "clearAllCredits": 0,
+    "carveCredits": 0,
+    "passed": false
+   }
+  ]
+ },
+ "leviathan": {
+  "estDps": 7578.407725538234,
+  "ff": {
+   "credits": 714.3333333333334,
+   "wave": 15,
+   "time": 599.999999999783,
+   "maxWave": 15
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 4,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 5,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 8,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 24,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 7,
+    "clearAll": "cleared",
+    "clearAllCredits": 344,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 26,
+    "clearAll": "cleared",
+    "clearAllCredits": 508,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 53,
+    "clearAll": "cleared",
+    "clearAllCredits": 1053,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 78,
+    "clearAll": "cleared",
+    "clearAllCredits": 1992,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 170,
+    "clearAll": "cleared",
+    "clearAllCredits": 3842,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 340,
+    "clearAll": "cleared",
+    "clearAllCredits": 9852,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 2245,
+    "clearAll": "cleared",
+    "clearAllCredits": 23711,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 2755,
+    "clearAll": "crashed",
+    "clearAllCredits": 19236,
+    "clearAllPct": 0.44912280701754387
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 2607,
+    "carveCredits": 120,
+    "passed": true
+   },
+   {
+    "ring": 150,
+    "tier": 69.33333333333333,
+    "clearAllCredits": 4066.6666666666665,
+    "carveCredits": 292,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 3508.3333333333335,
+    "carveCredits": 999.3333333333334,
+    "passed": true
+   },
+   {
+    "ring": 250,
+    "tier": 100,
+    "clearAllCredits": 4290.666666666667,
+    "carveCredits": 609.3333333333334,
+    "passed": true
+   },
+   {
+    "ring": 300,
+    "tier": 115,
+    "clearAllCredits": 3959,
+    "carveCredits": 2644.6666666666665,
+    "passed": true
+   },
+   {
+    "ring": 350,
+    "tier": 130,
+    "clearAllCredits": 2682,
+    "carveCredits": 4463.666666666667,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 4995.666666666667,
+    "carveCredits": 5468.333333333333,
+    "passed": true
+   },
+   {
+    "ring": 450,
+    "tier": 160,
+    "clearAllCredits": 1531.6666666666667,
+    "carveCredits": 6925.666666666667,
+    "passed": false
+   },
+   {
+    "ring": 500,
+    "tier": 175.66666666666666,
+    "clearAllCredits": 4055.3333333333335,
+    "carveCredits": 18961,
+    "passed": false
+   }
+  ]
+ },
+ "fan": {
+  "estDps": 2914.4784776226347,
+  "ff": {
+   "credits": 897,
+   "wave": 15,
+   "time": 599.999999999783,
+   "maxWave": 15
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 4,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 5,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 8,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 24,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 7,
+    "clearAll": "cleared",
+    "clearAllCredits": 344,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 26,
+    "clearAll": "cleared",
+    "clearAllCredits": 508,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 53,
+    "clearAll": "cleared",
+    "clearAllCredits": 1053,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 78,
+    "clearAll": "cleared",
+    "clearAllCredits": 1992,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 170,
+    "clearAll": "cleared",
+    "clearAllCredits": 3842,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 340,
+    "clearAll": "cleared",
+    "clearAllCredits": 9852,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 2245,
+    "clearAll": "cleared",
+    "clearAllCredits": 23711,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 4107,
+    "clearAll": "crashed",
+    "clearAllCredits": 14427,
+    "clearAllPct": 0.3368421052631579
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 2607,
+    "carveCredits": 123.33333333333333,
+    "passed": true
+   },
+   {
+    "ring": 150,
+    "tier": 69.33333333333333,
+    "clearAllCredits": 1369.6666666666667,
+    "carveCredits": 292,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 1231,
+    "carveCredits": 1052.3333333333333,
+    "passed": true
+   },
+   {
+    "ring": 250,
+    "tier": 100,
+    "clearAllCredits": 1283,
+    "carveCredits": 609.3333333333334,
+    "passed": true
+   },
+   {
+    "ring": 300,
+    "tier": 115,
+    "clearAllCredits": 1248,
+    "carveCredits": 2681.3333333333335,
+    "passed": true
+   },
+   {
+    "ring": 350,
+    "tier": 130,
+    "clearAllCredits": 1086.3333333333333,
+    "carveCredits": 3402.6666666666665,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 1515,
+    "carveCredits": 2715.3333333333335,
+    "passed": false
+   },
+   {
+    "ring": 450,
+    "tier": 160,
+    "clearAllCredits": 297,
+    "carveCredits": 1531.6666666666667,
+    "passed": false
+   }
+  ]
+ },
+ "citadel": {
+  "estDps": 2778.6106967270634,
+  "ff": {
+   "credits": 869,
+   "wave": 15,
+   "time": 599.999999999783,
+   "maxWave": 15
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 5,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 6,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 1,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 23,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 5,
+    "clearAll": "cleared",
+    "clearAllCredits": 344,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 32,
+    "clearAll": "cleared",
+    "clearAllCredits": 508,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 53,
+    "clearAll": "cleared",
+    "clearAllCredits": 1053,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 74,
+    "clearAll": "cleared",
+    "clearAllCredits": 1992,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 177,
+    "clearAll": "cleared",
+    "clearAllCredits": 3842,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 325,
+    "clearAll": "cleared",
+    "clearAllCredits": 9852,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 2245,
+    "clearAll": "cleared",
+    "clearAllCredits": 23711,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 4107,
+    "clearAll": "crashed",
+    "clearAllCredits": 13275,
+    "clearAllPct": 0.30994152046783624
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 2607,
+    "carveCredits": 120,
+    "passed": true
+   },
+   {
+    "ring": 150,
+    "tier": 69.33333333333333,
+    "clearAllCredits": 1134,
+    "carveCredits": 346,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 1123,
+    "carveCredits": 1380.6666666666667,
+    "passed": true
+   },
+   {
+    "ring": 250,
+    "tier": 100,
+    "clearAllCredits": 1217,
+    "carveCredits": 697,
+    "passed": true
+   },
+   {
+    "ring": 300,
+    "tier": 115,
+    "clearAllCredits": 1248,
+    "carveCredits": 2821.6666666666665,
+    "passed": true
+   },
+   {
+    "ring": 350,
+    "tier": 130,
+    "clearAllCredits": 1010.6666666666666,
+    "carveCredits": 3402.6666666666665,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 1515,
+    "carveCredits": 2565.3333333333335,
+    "passed": false
+   },
+   {
+    "ring": 450,
+    "tier": 160,
+    "clearAllCredits": 297,
+    "carveCredits": 1531.6666666666667,
+    "passed": false
+   }
+  ]
+ },
+ "zenith": {
+  "estDps": 5124,
+  "ff": {
+   "credits": 845.3333333333334,
+   "wave": 15,
+   "time": 599.999999999783,
+   "maxWave": 15
+  },
+  "wall": [
+   {
+    "tier": 1,
+    "carve": "passed",
+    "carveCredits": 0,
+    "clearAll": "cleared",
+    "clearAllCredits": 31,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 3,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 43,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 5,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 48,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 8,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 79,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 10,
+    "carve": "passed",
+    "carveCredits": 3,
+    "clearAll": "cleared",
+    "clearAllCredits": 87,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 12,
+    "carve": "passed",
+    "carveCredits": 6,
+    "clearAll": "cleared",
+    "clearAllCredits": 110,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 15,
+    "carve": "passed",
+    "carveCredits": 2,
+    "clearAll": "cleared",
+    "clearAllCredits": 144,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 20,
+    "carve": "passed",
+    "carveCredits": 16,
+    "clearAll": "cleared",
+    "clearAllCredits": 227,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 25,
+    "carve": "passed",
+    "carveCredits": 6,
+    "clearAll": "cleared",
+    "clearAllCredits": 344,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 30,
+    "carve": "passed",
+    "carveCredits": 18,
+    "clearAll": "cleared",
+    "clearAllCredits": 508,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 40,
+    "carve": "passed",
+    "carveCredits": 34,
+    "clearAll": "cleared",
+    "clearAllCredits": 1053,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 50,
+    "carve": "passed",
+    "carveCredits": 56,
+    "clearAll": "cleared",
+    "clearAllCredits": 1992,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 60,
+    "carve": "passed",
+    "carveCredits": 120,
+    "clearAll": "cleared",
+    "clearAllCredits": 3842,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 75,
+    "carve": "passed",
+    "carveCredits": 177,
+    "clearAll": "cleared",
+    "clearAllCredits": 9852,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 90,
+    "carve": "passed",
+    "carveCredits": 1107,
+    "clearAll": "cleared",
+    "clearAllCredits": 23711,
+    "clearAllPct": 1
+   },
+   {
+    "tier": 100,
+    "carve": "passed",
+    "carveCredits": 2204,
+    "clearAll": "cleared",
+    "clearAllCredits": 42831,
+    "clearAllPct": 1
+   }
+  ],
+  "frontier": [
+   {
+    "ring": 100,
+    "tier": 53.666666666666664,
+    "clearAllCredits": 2607,
+    "carveCredits": 79,
+    "passed": true
+   },
+   {
+    "ring": 150,
+    "tier": 69.33333333333333,
+    "clearAllCredits": 5385.666666666667,
+    "carveCredits": 236.66666666666666,
+    "passed": true
+   },
+   {
+    "ring": 200,
+    "tier": 86,
+    "clearAllCredits": 3172.3333333333335,
+    "carveCredits": 910.6666666666666,
+    "passed": true
+   },
+   {
+    "ring": 250,
+    "tier": 100,
+    "clearAllCredits": 2704.3333333333335,
+    "carveCredits": 558.6666666666666,
+    "passed": true
+   },
+   {
+    "ring": 300,
+    "tier": 115,
+    "clearAllCredits": 2568,
+    "carveCredits": 2608.3333333333335,
+    "passed": true
+   },
+   {
+    "ring": 350,
+    "tier": 130,
+    "clearAllCredits": 1588.6666666666667,
+    "carveCredits": 3857.3333333333335,
+    "passed": true
+   },
+   {
+    "ring": 400,
+    "tier": 145.33333333333334,
+    "clearAllCredits": 3030.3333333333335,
+    "carveCredits": 4388.333333333333,
+    "passed": true
+   },
+   {
+    "ring": 450,
+    "tier": 160,
+    "clearAllCredits": 937.6666666666666,
+    "carveCredits": 4502.333333333333,
+    "passed": false
+   },
+   {
+    "ring": 500,
+    "tier": 175.66666666666666,
+    "clearAllCredits": 1361.6666666666667,
+    "carveCredits": 6623,
+    "passed": false
+   }
+  ]
+ }
+}

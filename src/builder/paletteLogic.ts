@@ -178,3 +178,29 @@ export function sheetButtonRects(info: Rect, ids: readonly SheetButtonId[], pad 
   ids.forEach((id, i) => { out[id] = { x: info.x + pad + i * (w + gap), y, w, h: SHEET_BUTTON_H }; });
   return out;
 }
+
+// ---------------------------------------------------------------- Shop marks (chunk 17a)
+
+export interface CopyMarkInput {
+  credits: number;
+  /** Price of the next copy. */
+  copyPrice: number;
+  owned: number;
+  /** Copies one can own (Infinity = no cap). */
+  cap: number;
+  /** The block is gated behind a Frontier requirement. */
+  locked: boolean;
+}
+
+/**
+ * The small yellow dot on a Shop tile: the next copy can be paid for and is allowed. No dot at the cap, when it cannot be
+ * paid, or while the block is locked. Brightness says nothing about ownership (the count does).
+ */
+export function copyAffordable(i: CopyMarkInput): boolean {
+  return !i.locked && i.owned < i.cap && i.credits >= i.copyPrice;
+}
+
+/** The same mark on a hull the player does not own yet in the hull picker. */
+export function hullAffordable(owned: boolean, credits: number, price: number): boolean {
+  return !owned && credits >= price;
+}

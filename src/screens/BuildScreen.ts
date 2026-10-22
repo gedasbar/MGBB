@@ -6,7 +6,8 @@ import { MapScreen } from './MapScreen';
 import { clientToGame } from '../input';
 import { BLOCKS, MOD_LABEL } from '../data/blocks';
 import { HULL_INFO } from '../game/gridUtils';
-import { shipThumbnail } from '../ui/shipArt';
+import { HullPicker } from '../builder/hullPicker';
+import { buyAndSelectHull } from '../builder/hullPickerLogic';
 import { describeBlock } from '../engine/compilerTypes';
 import { CompiledShip, Grid } from '../engine/compiler';
 import { BuilderModel, statsDelta } from '../builder/model';
@@ -20,7 +21,6 @@ import {
   COLORS, drawToolIcon, ToolIcon,
 } from '../builder/draw';
 import { InfoPanel, Inspector, makeText, StatsStrip, Toast, UIButton } from '../builder/ui';
-import { Rect } from '../builder/layout';
 import { Picker, REMOVE_TILE } from '../builder/picker';
 import { THEME } from '../ui/theme';
 import { CreditsBadge } from '../ui/hud';
@@ -78,11 +78,15 @@ export class BuildScreen implements Screen {
   private tipBg = new Graphics();
   private tipText = makeText('', 13, THEME.text, { lineHeight: 17 });
   private hover: { x: number; y: number; since: number } | null = null;
-  private hullPanel = new Container();
-  private hullRows: { id: string; rect: Rect }[] = [];
+  readonly hullPicker: HullPicker;
 
   constructor(private sm: ScreenManager) {
     this.model = getBuilderModel();
+    this.hullPicker = new HullPicker(this.sm.app.renderer, {
+      choose: (id) => this.chooseHull(id),
+      buy: (id) => this.buyHull(id),
+      state: () => ({ ownedHulls: this.model.store.data.ownedHulls, current: this.model.hullId, credits: this.model.store.data.credits }),
+    });
     this.view = fitView(this.model.grid.w, this.model.grid.h);
 
     const bg = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill(COLORS.bg);
@@ -92,8 +96,7 @@ export class BuildScreen implements Screen {
     this.dim.visible = false;
     this.tip.visible = false;
     this.tip.addChild(this.tipBg, this.tipText);
-    this.hullPanel.visible = false;
-    this.container.addChild(this.dim, this.picker.container, this.stats.container, this.tip, this.hullPanel, this.info.container, this.toast.container);
+    this.container.addChild(this.dim, this.picker.container, this.stats.container, this.tip, this.hullPicker.container, this.info.container, this.toast.container);
 
     this.gridR.setView(this.view);
     this.refresh();
@@ -180,7 +183,7 @@ export class BuildScreen implements Screen {
 
     // Top bar buttons.
     this.addButton(new UIButton({
-      id: 'ship', rect: { x: 6, y: 4, w: 44, h: 44 }, onTap: () => this.openHullPanel(),
+      id: 'ship', rect: { x: 6, y: 4, w: 44, h: 44 }, onTap: () => this.hullPicker.open(),
       draw: (g, b) => this.flatFace(g, b, 'ship', 30),
     }));
     this.addButton(new UIButton({
@@ -356,7 +359,7 @@ export class BuildScreen implements Screen {
         statsStrip: this.stats.texts(),
         ledger: this.tip.visible ? this.tipText.text : null,
         hull: this.model.hullId,
-        hullPanelOpen: this.hullPanel.visible,
+        hullPanelOpen: this.hullPicker.isOpen,
         credits: this.model.store.data.credits,
         creditsText: this.credits.text,
       }),
@@ -387,7 +390,8 @@ export class BuildScreen implements Screen {
   }
 
   private canDrag(x: number, y: number): boolean {
-    if (this.info.isOpen || this.hullPanel.visible) return false;
+    if (this.info.isOpen) return false;
+    if (this.hullPicker.isOpen) return this.hullPicker.inList(x, y);
     if (this.picker.isOpen) return this.picker.inList(x, y);
     return inRect(LAYOUT.gridArea, x, y) && !this.buttonAt(x, y);
   }
@@ -395,6 +399,7 @@ export class BuildScreen implements Screen {
   private handleDrag(dx: number, dy: number) {
     this.hideTip();
     this.hover = null;
+    if (this.hullPicker.isOpen) { this.hullPicker.scrollBy(-dy); return; }
     if (this.picker.isOpen) { this.picker.scrollBy(-dy); return; }
     this.view = panBy(this.view, dx, dy);
     this.applyView();
@@ -402,13 +407,14 @@ export class BuildScreen implements Screen {
 
   private handleWheel(deltaY: number, x: number, y: number) {
     if (this.info.isOpen) return;
+    if (this.hullPicker.isOpen) { if (this.hullPicker.inList(x, y)) this.hullPicker.scrollBy(deltaY); return; }
     if (this.picker.isOpen) { if (this.picker.inList(x, y)) this.picker.wheel(deltaY); return; }
     if (inRect(LAYOUT.gridArea, x, y)) this.zoom(Math.exp(-deltaY * 0.0015), x, y);
   }
 
   handleTap(x: number, y: number) {
     this.hideTip();
-    if (this.hullPanel.visible) { this.tapHullPanel(x, y); return; }
+    if (this.hullPicker.isOpen) { this.hullPicker.tap(x, y); return; }
     if (this.info.isOpen) { this.info.hide(); return; }
     if (this.picker.isOpen) {
       if (this.picker.tap(x, y)) return;
@@ -521,7 +527,7 @@ export class BuildScreen implements Screen {
 
   // ------------------------------------------------------------------ ledger tooltip
   private cellUnder(x: number, y: number): { x: number; y: number } | null {
-    if (this.picker.isOpen || this.info.isOpen || this.hullPanel.visible) return null;
+    if (this.picker.isOpen || this.info.isOpen || this.hullPicker.isOpen) return null;
     if (!inRect(LAYOUT.gridArea, x, y) || this.buttonAt(x, y)) return null;
     return cellFromPoint(this.view, this.model.grid.w, this.model.grid.h, x, y);
   }
@@ -571,48 +577,36 @@ export class BuildScreen implements Screen {
     this.tip.visible = false;
   }
 
-  // ------------------------------------------------------------------ hull panel
-  private openHullPanel() {
-    for (const ch of this.hullPanel.removeChildren()) ch.destroy({ children: true });
-    this.hullRows = [];
-    const dim = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill({ color: THEME.dim, alpha: 0.6 });
-    const panel = new Graphics().rect(16, 150, VIEW_W - 32, 90 + HULL_INFO.length * 84).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
-    const title = makeText('Choose a hull', 20, THEME.text, { fontWeight: 'bold' });
-    title.position.set(32, 164);
-    this.hullPanel.addChild(dim, panel, title);
-    HULL_INFO.forEach((h, i) => {
-      const rect: Rect = { x: 28, y: 204 + i * 84, w: VIEW_W - 56, h: 72 };
-      const active = h.id === this.model.hullId;
-      const locked = !this.model.store.data.ownedHulls.includes(h.id);
-      const row = new Graphics().rect(rect.x, rect.y, rect.w, rect.h).fill(THEME.buttonFill).stroke({ color: active ? THEME.select : THEME.border, width: active ? 3 : 1.5 });
-      const name = makeText(active ? `${h.name} (current)` : locked ? `${h.name} (locked)` : h.name, 20, locked ? THEME.disabled : THEME.text, { fontWeight: 'bold' });
-      name.position.set(rect.x + 70, rect.y + 8);
-      const desc = makeText(locked ? 'Locked: buy it in the Shop.' : h.desc, 13, locked ? THEME.disabled : THEME.textDim, { wordWrap: true, wordWrapWidth: rect.w - 84 });
-      desc.position.set(rect.x + 70, rect.y + 34);
-      const thumb = shipThumbnail(this.sm.app.renderer, h.id, 52);
-      thumb.position.set(rect.x + 36, rect.y + rect.h / 2);
-      if (locked) thumb.alpha = 0.4;
-      this.hullPanel.addChild(row, thumb, name, desc);
-      this.hullRows.push({ id: h.id, rect });
-    });
-    this.hullPanel.visible = true;
-  }
-
-  private tapHullPanel(x: number, y: number) {
-    const row = this.hullRows.find(r => inRect(r.rect, x, y));
-    this.hullPanel.visible = false;
-    if (!row || row.id === this.model.hullId) return;
-    const res = this.model.switchHull(row.id);
-    if (!res.ok) { this.toast.show(res.error); return; }
+  // ------------------------------------------------------------------ hull picker
+  /** An owned hull was tapped in the picker (or one was just bought): the builder switches to it. */
+  private chooseHull(id: string) {
+    this.hullPicker.close();
+    if (id === this.model.hullId) return;
+    const res = this.model.switchHull(id);
+    if (!res.ok) { this.toast.show(res.error ?? 'Cannot switch hull'); return; }
     this.selected = null;
     this.fit();
     this.refresh();
-    const hullName = HULL_INFO.find(h => h.id === row.id)?.name ?? row.id;
+    const hullName = HULL_INFO.find(h => h.id === id)?.name ?? id;
     if (this.model.trimmed > 0) {
       const n = this.model.trimmed;
       this.model.trimmed = 0;
       this.toast.show(`Hull: ${hullName}. ${n} block${n === 1 ? '' : 's'} returned: you own fewer than the circuit used`, 3500);
     } else this.toast.show(`Hull: ${hullName}`, 1400);
+  }
+
+  /** The Buy button of an unowned hull's info sheet: pay, then switch to it. */
+  private buyHull(id: string) {
+    const before = this.model.store.data.credits;
+    const hullName = HULL_INFO.find(h => h.id === id)?.name ?? id;
+    const res = buyAndSelectHull({ store: this.model.store, model: this.model }, id);
+    sfx.play(this.model.store.data.credits < before ? 'purchase' : 'denied');
+    if (!res.ok) { this.toast.show(res.error ?? 'Cannot buy'); this.hullPicker.refresh(); return; }
+    this.hullPicker.close();
+    this.selected = null;
+    this.fit();
+    this.refresh();
+    this.toast.show(`Bought the ${hullName}`, 1800);
   }
 
   // ------------------------------------------------------------------ actions
