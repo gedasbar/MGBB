@@ -10,7 +10,7 @@ import {
   orbitTime, ORBIT_OPEN, ORBIT_RADIUS, ORBIT_REHIT,
   bounceCount, BOUNCE_SPREAD_DEG, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct,
   FRAGMENT_GENERATION, residueFrac, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac,
-  WELL_TIME, wellPull, stackGrowth, harmonic, aoeStackDamage, FORK_PAIR_DAMAGE, MAX_BOUNCES,
+  WELL_TIME, wellPull, stackGrowth, harmonic, aoeStackDamage, FORK_PAIR_DAMAGE, MAX_BOUNCES, CHAIN_STACK_FALL,
 } from './effects';
 import { RING } from './pools';
 import { wrapDx } from './wrap';
@@ -801,7 +801,8 @@ export class ProjectileSystem {
     seen.length = 0;
     seen.push(origin.id);
     let cur = origin;
-    const jumps = chainJumps(mi.chain) + Math.max(0, this.stk.chain - 1);
+    const baseJumps = chainJumps(mi.chain);
+    const jumps = baseJumps + Math.max(0, this.stk.chain - 1);
     for (let j = 0; j < jumps; j++) {
       field.collectCircle(cur.x, cur.y, CHAIN_RANGE, buf);
       let best: EnemyEntity | null = null;
@@ -814,7 +815,7 @@ export class ProjectileSystem {
       if (!best) break;
       seen.push(best.id);
       this.addArc(cur.x, cur.y, cur.x + this.dxw(best.x, cur.x), best.y);
-      this.strike(best, damage * CHAIN_FRAC, pure, tier, armorPierce, shieldBreaker, mi, best.x, best.y, HIT_CHAIN);
+      this.strike(best, damage * CHAIN_FRAC * (j < baseJumps ? 1 : Math.pow(CHAIN_STACK_FALL, j - baseJumps + 1)), pure, tier, armorPierce, shieldBreaker, mi, best.x, best.y, HIT_CHAIN);
       this.fx.chainJumps++;
       cur = best;
     }

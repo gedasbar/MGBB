@@ -133,3 +133,5 @@ export const aoeStackDamage = (k: number) => Math.pow(AOE_STACK_DAMAGE, Math.max
 export const FORK_PAIR_DAMAGE = 0.8;
 /** Most bounces a projectile can hold (the pool stores them in an Int8Array). */
 export const MAX_BOUNCES = 127;
+/** Chain Lightning: the e-th jump added by an extra copy deals CHAIN_STACK_FALL^e of a normal jump (the jumps of one block stay at 70% each, as before). */
+export const CHAIN_STACK_FALL = 0.85;

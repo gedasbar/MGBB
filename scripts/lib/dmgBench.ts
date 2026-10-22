@@ -19,7 +19,8 @@ import { ENEMIES } from '../../src/data/enemies';
 import { CONFIG } from '../../src/config';
 import type { RunModifiers } from '../../src/captains/modifiers';
 
-export type Scenario = 'big' | 'cluster' | 'split';
+/** 'spread' (chunk 16c-2) is not part of SCENARIOS / benchAll: a dense row of 30 small bodies, for the stacking area blocks (AoE) whose blast the tight cluster already covers. */
+export type Scenario = 'big' | 'cluster' | 'split' | 'spread';
 export const SCENARIOS: Scenario[] = ['big', 'cluster', 'split'];
 
 const DT = 1 / 60;
@@ -28,12 +29,13 @@ const SHIP_Y = 768;
 /** Distances from the ship to the targets: a near and a far one, half of the bench each (range-limited shots reach only the near one). */
 const DISTANCES = [200, 450];
 /** Seconds of the estimate each target is worth (big body; one cluster body; a split family's parent). */
-const SECONDS_OF: Record<Scenario, number> = { big: 4, cluster: 0.75, split: 1.5 };
+const SECONDS_OF: Record<Scenario, number> = { big: 4, cluster: 0.75, split: 1.5, spread: 0.75 };
 /** HP of a whole split family as a multiple of its parent (1 + 2 x 0.55 + 4 x 0.55^2 + 8 x 0.55^3). */
 const SHARE = ENEMIES.mitotic_rock.split!.hpShare;
 export const FAMILY_HP = 1 + 2 * SHARE + 4 * SHARE ** 2 + 8 * SHARE ** 3;
 
-export interface BenchOpts { seconds?: number; seed?: number; modifiers?: RunModifiers }
+/** `hpMul` scales the target HP (default 1): with small numbers a body dies after a whole number of hits, so a stacking check averages several. */
+export interface BenchOpts { seconds?: number; seed?: number; modifiers?: RunModifiers; hpMul?: number }
 
 function hover<T>(fn: () => T): T {
   const saved = Object.values(SPECIES).map(s => ({ s, speed: s.speed, sway: s.sway, zig: s.zig, aim: s.aim }));
@@ -49,7 +51,7 @@ export function bench(grid: Grid, sc: Scenario, o: BenchOpts = {}, est?: number)
 
 function benchAt(grid: Grid, sc: Scenario, o: BenchOpts, est: number | undefined, seconds: number, TARGET_Y: number): number {
   const base = Math.max(0.5, est ?? compile(grid, { baseDamage: o.modifiers?.baseDamage ?? 0 }).stats.estDps);
-  const hp = base * SECONDS_OF[sc];
+  const hp = base * SECONDS_OF[sc] * (o.hpMul ?? 1);
   return hover(() => {
     rng.reset(o.seed ?? 1);
     const w = new World({ grid, autoSpawn: false, seed: o.seed ?? 1, modifiers: o.modifiers });
@@ -69,6 +71,12 @@ function benchAt(grid: Grid, sc: Scenario, o: BenchOpts, est: number | undefined
           const e = w.spawnSpecies('darter', X + ((k % 4) - 1.5) * 32, TARGET_Y + Math.floor(k / 4) * 32, { hp, radius: 14 });
           if (e) live.set(e.id, e.maxHp);
         }
+      } else if (sc === 'spread') {
+        // 30 small bodies in a row, about 12 px apart with a fixed jitter (a dense crowd about 360 px wide), so a bigger blast reaches more of it at every step.
+        for (let k = 0; k < 30; k++) {
+          const e = w.spawnSpecies('darter', CONFIG.VIEW.W / 2 + (k - 14.5) * 12 + (((k * 37) % 9) - 4), TARGET_Y, { hp, radius: 5 });
+          if (e) live.set(e.id, e.maxHp);
+        }
       } else w.spawnSpecies('mitotic_rock', X, TARGET_Y, { hp, radius: 20 });
     };
     spawn();
@@ -77,6 +85,7 @@ function benchAt(grid: Grid, sc: Scenario, o: BenchOpts, est: number | undefined
     for (let i = 0; i < steps; i++) {
       let aim = p.x, low = -Infinity;
       for (const e of w.mitosis.enemies) if (e.y < SHIP_Y - 30 && e.y > low) { low = e.y; aim = e.x; }
+      if (sc === 'spread') aim = CONFIG.VIEW.W / 2; // the crowd is centred: aim at its middle, so a bigger blast reaches more of it on both sides
       p.x += Math.max(-TRACK_SPEED * DT, Math.min(TRACK_SPEED * DT, aim - p.x));
       w.update(DT, p);
       w.hits.length = 0; w.splits.length = 0; w.killEvents.length = 0; w.waveEvents.length = 0;
