@@ -88,18 +88,20 @@ async function montage(page, shots, captions, file, k) {
 
   // ---- select a tile: info sheet opens, tile stays visible, buy / upgrade work with the Shop's prices
   const first = dmgIds[0];
+  // 16c-2: Flat+ is capped at 10 copies, so this test starts from 5 (the rich save's 20 would sit above the cap).
+  await page.evaluate((id) => { const st = window.__mgbm.shopScreen.store; st.data.owned[id] = 5; st.commit(); }, first);
   await tapTile(page, first);
   let pst = await pal(page, '({ sheet: p.sheetOpen, sel: p.selected, c: p.sheetContentNow, list: p.listRect, tile: p.tileScreenRect(p.selected) })');
   check(pst.sheet && pst.sel === first && pst.c.buy && pst.c.upgrade && pst.tile.y >= pst.list.y && pst.tile.y + pst.tile.h <= pst.list.y + pst.list.h,
     `tapping ${first} opens the sheet and keeps the tile in view`);
-  check(/^Level 1\/\d+$/.test(pst.c.levelLine) && /^Owned 20$/.test(pst.c.ownedLine) && pst.c.body.length > 5, `sheet text: ${pst.c.title} | ${pst.c.levelLine} | ${pst.c.ownedLine}`);
+  check(/^Level 1\/\d+$/.test(pst.c.levelLine) && /^Owned 5 \/ 10$/.test(pst.c.ownedLine) && pst.c.body.length > 5, `sheet text: ${pst.c.title} | ${pst.c.levelLine} | ${pst.c.ownedLine}`);
   const shotSheet = await canvasShot(page);
   const before = await own(page, first);
   const prices = await page.evaluate(async (a) => { const m = await import('/src/econ/economy.ts'); return { buy: m.copyPrice(a.id, a.owned), up: m.upgradePrice(a.id, a.level) }; }, { id: first, owned: before.owned, level: before.level });
   await tap(page, ...centre(await pal(page, 'p.sheetButtonRect("buy")')));
   const after = await own(page, first);
   check(after.owned === before.owned + 1 && before.credits - after.credits === prices.buy, `Buy another copy: owned ${before.owned}->${after.owned}, price ${prices.buy}`);
-  check((await pal(page, 'p.badgeOf(arg)', first)) === '21', 'the badge updates to 21');
+  check((await pal(page, 'p.badgeOf(arg)', first)) === '6', 'the badge updates to 6');
   await tap(page, ...centre(await pal(page, 'p.sheetButtonRect("upgrade")')));
   const after2 = await own(page, first);
   check(after2.level === 2 && after.credits - after2.credits === prices.up, `Upgrade: level ${after.level}->${after2.level}, price ${prices.up}`);

@@ -1,4 +1,7 @@
 // Chunk 16c-1: economy audit. READ-ONLY for game code: measures and prices things, changes no number.
+// Chunk 16c-2: the proposals of 16c-1 are in the game now (src/data/blockEconomy.ts); this script reads the shipped values, so
+// sections B, C and D can be rerun after any change. B shows copies 1..6 and checks the stacking shape blocks.
+// Run with OUT=docs/economy-audit-tables-16c2.md to keep the 16c-1 tables (docs/economy-audit-tables.md) as the 'before'.
 // Run: npm run economy-audit      (PART=a,b,c,d,e,f picks parts; QUICK=1 shortens the bots; OUT=<file> redirects the tables)
 // Writes docs/economy-audit-tables.md (every generated table); docs/economy-audit.md is the written audit that quotes it.
 //
@@ -11,19 +14,27 @@
 import { writeFileSync } from 'node:fs';
 import { compile, Grid } from '../src/engine/compiler';
 import { evalDamage } from '../src/engine/compilerTypes';
-import { BLOCKS, pickerBlocks } from '../src/data/blocks';
+import { BLOCKS, percentMul, pickerBlocks } from '../src/data/blocks';
 import { describeBlock } from '../src/engine/compilerTypes';
 import { HULL_BUILDERS } from '../src/game/gridUtils';
 import { buildDartStarterGrid, place } from '../src/game/starter';
 import { HULL_ORDER, HULL_PRICES, fireRateMul } from '../src/data/hulls';
 import { CONFIG } from '../src/config';
-import { BASE_PRICE, COPY_GROWTH, copyPrice, DEFAULT_OWNED, rockHp, UPGRADE_GROWTH, UPGRADE_MUL, upgradePrice, wholeRockHp } from '../src/econ/economy';
-import { benchAll } from './lib/dmgBench';
+import { BASE_PRICE, copyPrice, DEFAULT_OWNED, rockHp, upgradePrice, wholeRockHp } from '../src/econ/economy';
+import { BLOCK_ECONOMY, FIXED_LEVEL as GAME_FIXED, UPGRADABLE } from '../src/data/blockEconomy';
+import {
+  LEGACY_COPY_GROWTH as COPY_GROWTH, LEGACY_UPGRADE_GROWTH as UPGRADE_GROWTH, LEGACY_UPGRADE_MUL as UPGRADE_MUL, LEGACY_BASE_PRICE,
+} from '../src/econ/legacyPrices';
+import { bench, benchAll, Scenario } from './lib/dmgBench';
 import { generateLevel } from '../src/wall/generator';
 import { rewardPerBlock, blockHp } from '../src/wall/level';
 import { blockCost } from '../src/wall/sim';
 import { BOOST_MAX, CELL, PASS_MARGIN_CELLS, VIEW_H, WALL_COLS } from '../src/wall/constants';
-import { FLY_MEDAL_MILESTONES, HERO_LEVEL_BASE_DAMAGE, HERO_LEVEL_COSTS, HERO_MAX_LEVEL, CAPTAINS, TIER_COSTS } from '../src/captains/data';
+import { FLY_MEDAL_MILESTONES, HERO_LEVEL_BASE_DAMAGE, CAPTAINS, TIER_COSTS } from '../src/captains/data';
+
+/** The hero level costs before 16c-2 (capped at level 10). */
+const HERO_LEVEL_COSTS = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5];
+const HERO_MAX_LEVEL = 10;
 import { World } from '../src/game/world';
 import { botRun } from '../src/debug/freeflyBot';
 import { rng } from '../src/rng';
@@ -103,17 +114,14 @@ const refOf = (id: string, l = 1) => (ROUTING.has(id) ? fanRef(id, true, l) : tw
 const SC = ['big', 'cluster', 'split'] as const;
 type Sc = (typeof SC)[number];
 
-/** Level the no-upgrade blocks should keep: the middle level when it is measurably stronger than L1 in some scenario, else L1. */
+/** The level a block without upgrades runs at: the shipped table (src/data/blockEconomy.ts). */
 const FIXED_LEVEL: Record<string, number> = {};
-const MID_GAIN = 1.1;
+for (const b of pickerBlocks()) if (!UPGRADABLE.has(b.id)) FIXED_LEVEL[b.id] = GAME_FIXED[b.id] ?? 1;
 
-/** Proposed ownership cap, base price and growth per block (family B of part D; every other shown block is cap 1 at 2 x today's base). */
-const SPEC: Record<string, [number, number, number]> = {
-  turn_l: [8, 30, 1.15], turn_r: [8, 30, 1.15], splitter_2: [2, 120, 1.15],
-  flat_plus: [10, 60, 1.2], percent_mult: [10, 100, 1.3],
-  lucky_strike: [6, 70, 1.25], jackpot: [6, 75, 1.25], gamblers_gate: [4, 45, 1.25], overclock: [3, 500, 1.35],
-};
-const proposedUp = (id: string) => INFO[id].up === 'yes' || (INFO[id].up === '?' && INFO[id].rec === 'yes');
+/** Shipped ownership cap (Infinity = none), base price and growth per block. */
+const SPEC: Record<string, [number, number, number]> = {};
+for (const [id, e] of Object.entries(BLOCK_ECONOMY)) SPEC[id] = [e.cap ?? Infinity, e.base, e.growth];
+const proposedUp = (id: string) => UPGRADABLE.has(id);
 
 function partA() {
   log('## A. Block classification\n');
@@ -129,38 +137,14 @@ function partA() {
     log(`| ${b.name}${b.shown ? '' : ' (hidden)'} | ${b.category} | ${inf.cls} | ${b.maxLevel} | ${price ?? '-'} | ${price && b.maxLevel > 1 ? upgradePrice(b.id, 1) : '-'} | ${t1} | ${tm} | ${up} | ${inf.why} |`);
   }
 
-  // Power of the single level a no-upgrade block would keep.
-  log('\n### A2. Blocks losing their upgrades: what the single level should equal\n');
-  log('Each block benched on the reference circuit (Twin: generator -> Flat+ -> block -> ejector; routing blocks on a Fan) in the engine, at L1, the middle level and the top level. Gain = engine HP/s relative to the same block at L1, in the three scenarios (big target / cluster of 8 / splitting rock). Proposed level = the middle one when its best gain is at least ' + MID_GAIN + 'x, otherwise L1. An effect block that is limited to one expensive copy would otherwise be worth less than it costs; the owner may still pick L1 everywhere (then the "power change" column is the loss).\n');
-  log('| block | max L | proposed level | mid gain big/cluster/split | top gain big/cluster/split | power change vs today\'s L1 (best scenario) | power change vs today\'s top level (best scenario) |');
-  log('|---|---|---|---|---|---|---|');
-  const rows: string[] = [];
-  const cache = new Map<string, ReturnType<typeof benchAll>>();
-  const bench = (id: string, l: number) => { const k = `${id}:${l}`; if (!cache.has(k)) cache.set(k, benchAll(refOf(id, l))); return cache.get(k)!; };
-  for (const b of pickerBlocks()) {
-    const inf = INFO[b.id];
-    const noUp = inf.up === 'no' || (inf.up === '?' && inf.rec === 'no');
-    if (!noUp) continue;
-    if (b.maxLevel <= 1) { FIXED_LEVEL[b.id] = 1; continue; }
-    const m = mid(b.maxLevel);
-    const r1 = bench(b.id, 1), rm = bench(b.id, m), rt = bench(b.id, b.maxLevel);
-    // The denominator is floored at a quarter of the circuit's estimate: a shot that mostly misses in one scenario (Orbit, Curving) would otherwise show an infinite gain.
-    const fl = (s: Sc) => Math.max(r1[s], 0.25 * r1.est);
-    const gm = SC.map(s => Math.max(rm[s], 0.25 * r1.est) / fl(s));
-    const gt = SC.map(s => Math.max(rt[s], 0.25 * r1.est) / fl(s));
-    const best = Math.max(...gm);
-    const isRouting = b.id.startsWith('turn') || b.id.startsWith('splitter');
-    // Turns and splitters: L1 (their higher levels are only a speed or copy bonus; the owner's rule is a single flat level).
-    const L = isRouting ? 1 : best >= MID_GAIN ? m : 1;
-    FIXED_LEVEL[b.id] = L;
-    const rl = L === 1 ? gm.map(() => 1) : gm;
-    rows.push(`| ${b.name} | ${b.maxLevel} | L${L} | ${gm.map(f2).join(' / ')} | ${gt.map(f2).join(' / ')} | x${f2(Math.max(...rl))} | x${f2(Math.max(...rl) / Math.max(...gt))} |`);
-  }
-  rows.forEach(r => log(r));
-  log('\nOne-level blocks (max L 1: Berserker Coil, Magnetized and similar hidden ones) keep L1.');
-
+  // The levels as shipped.
+  log('\n### A2. Blocks without upgrades: the fixed level they run at (as shipped in 16c-2)\n');
+  log('| block | fixed level | rule text at that level |');
+  log('|---|---|---|');
+  for (const b of pickerBlocks()) if (!UPGRADABLE.has(b.id)) log(`| ${b.name} | L${FIXED_LEVEL[b.id]} | ${describeBlock(b, 1).replace(/\|/g, '/')} |`);
+  log('');
   log('\n### A3. Compact summary (every shown block)\n');
-  log('Stack cap = ownership cap proposed from part B (1 = a 2nd copy does nothing in the engine). Level kept = the single level of a block that loses upgrades (A2). Price = today.\n');
+  log('Stack cap = the shipped ownership cap (Infinity = none: the shape blocks that stack). Level kept = the single level of a block without upgrades (A2). Prices are the shipped ones.\n');
   log('| block | cat | class | max L today | base price | L1->L2 today | proposed upgrades | level kept | stack cap |');
   log('|---|---|---|---|---|---|---|---|---|');
   for (const b of pickerBlocks()) {
@@ -184,30 +168,57 @@ function lineGrid(id: string, k: number, level: number): Grid {
   return g;
 }
 
+/** The scenario a stacking shape block is meant for (its DPS must not fall with more copies there). */
+const INTENDED: Record<string, Sc> = {
+  piercing: 'cluster', bouncing: 'cluster', aoe_circle: 'spread', aoe_rect: 'spread', chain_lightning: 'cluster', homing: 'big', fork_impact: 'cluster',
+  boomerang: 'cluster', orbit: 'big', mine: 'big',
+};
+const COPIES = 6;
+/** A stacking block's DPS may dip by this much between two copies (bench noise) but never more. */
+const STACK_TOLERANCE = 0.05;
+/** The long bench used for the stacking check (the standard one is 16 s). */
+const STACK_SECONDS = 48;
+const HP_MULS = [3, 3.5, 4, 4.5];
+
 function partB() {
-  log('\n## B. Marginal value of the 1st..5th copy\n');
-  log('Circuit: one lane on the Fan (generator, then Flat+, then k copies of the block in a straight line, ejector; Flat+ itself has no Flat+ in front). Fan fires 4 pulses/s. Targets are sized to the circuit\'s own estimate (scripts/lib/dmgBench.ts), so the number is HP removed per second on the real engine, not a formula. Each cell = DPS with k copies / DPS with k-1 copies (copy 1 is against the bare Flat+ circuit). `cap` = the last copy whose best-scenario gain is at least ' + MIN_GAIN * 100 + '%: cap 1 = nothing from the 2nd copy, 2-3 = small, 4-5+ = scales (benched up to 5 only). Blocks are tested at L1, and for the blocks that will lose upgrades also at the level proposed in part A.\n');
-  log('| block | L | scenario | DPS with 0 copies | copy 1 | copy 2 | copy 3 | copy 4 | copy 5 | cap |');
-  log('|---|---|---|---|---|---|---|---|---|---|');
+  log('\n## B. Marginal value of the 1st..' + COPIES + 'th copy\n');
+  log('Circuit: one lane on the Fan (generator, then Flat+, then k copies of the block in a straight line, ejector; Flat+ itself has no Flat+ in front). Fan fires 4 pulses/s. Targets are sized to the circuit\'s own estimate (scripts/lib/dmgBench.ts), so the number is HP removed per second on the real engine, not a formula. Each cell = DPS with k copies / DPS with k-1 copies (copy 1 is against the bare Flat+ circuit). `cap` = the last copy whose best-scenario gain is at least ' + MIN_GAIN * 100 + '% (cap 1: nothing from the 2nd copy). Upgradable blocks are tested at L1 and at their top level; a block without upgrades runs at its fixed level.\n');
+  log('| block | L | scenario | DPS with 0 copies | ' + Array.from({ length: COPIES }, (_, k) => `copy ${k + 1}`).join(' | ') + ' | cap |');
+  log('|---|---|---|---|' + '---|'.repeat(COPIES) + '---|');
   const ids = pickerBlocks().filter(b => !ROUTING.has(b.id)).map(b => b.id);
+  const checks: string[] = [];
   for (const id of ids) {
     const b = BLOCKS[id];
     const levels = new Set<number>([1]);
-    if (INFO[id].up === 'yes') levels.add(b.maxLevel); else if (FIXED_LEVEL[id] && FIXED_LEVEL[id] > 1) levels.add(FIXED_LEVEL[id]);
+    if (UPGRADABLE.has(id)) levels.add(b.maxLevel);
     for (const l of [...levels]) {
-      const res = [0, 1, 2, 3, 4, 5].map(k => benchAll(lineGrid(id, k, l)));
+      const res = Array.from({ length: COPIES + 1 }, (_, k) => benchAll(lineGrid(id, k, l)));
       const dps = { big: res.map(r => r.big), cluster: res.map(r => r.cluster), split: res.map(r => r.split) };
       // Best-scenario marginal gain of copy k.
       const gain = (k: number) => Math.max(...SC.map(s => dps[s][k] / Math.max(1e-9, dps[s][k - 1]) - 1));
       let cap = 1;
-      for (let k = 2; k <= 5; k++) { if (gain(k) >= MIN_GAIN) cap = k; else break; }
+      for (let k = 2; k <= COPIES; k++) { if (gain(k) >= MIN_GAIN) cap = k; else break; }
       if (gain(1) < MIN_GAIN) cap = 0;
       MARGINS.push({ id, l, base: { big: dps.big[0], cluster: dps.cluster[0], split: dps.split[0] }, dps, cap });
       SC.forEach((s, si) => {
-        log(`| ${si === 0 ? b.name : ''} | ${si === 0 ? l : ''} | ${s} | ${f1(dps[s][0])} | ${[1, 2, 3, 4, 5].map(k => 'x' + f2(dps[s][k] / Math.max(1e-9, dps[s][k - 1]))).join(' | ')} | ${si === 0 ? (cap === 0 ? 'none' : cap >= 5 ? '5+' : cap) : ''} |`);
+        log(`| ${si === 0 ? b.name : ''} | ${si === 0 ? l : ''} | ${s}${INTENDED[id] === s ? ' *' : ''} | ${f1(dps[s][0])} | ${Array.from({ length: COPIES }, (_, k) => 'x' + f2(dps[s][k + 1] / Math.max(1e-9, dps[s][k]))).join(' | ')} | ${si === 0 ? (cap === 0 ? 'none' : cap >= COPIES ? COPIES + '+' : cap) : ''} |`);
       });
+      const sc = INTENDED[id];
+      if (sc && l === 1) {
+        // The check runs on a longer bench in the block's own scenario.
+        // Bodies die after a whole number of hits (small numbers), so a x0.95 can cost a whole hit at one HP and nothing at another: average over target HPs.
+        const v = Array.from({ length: COPIES + 1 }, (_, k) => { const g = lineGrid(id, k, l); return HP_MULS.reduce((a, m) => a + bench(g, sc as Scenario, { seconds: STACK_SECONDS, hpMul: m }), 0) / HP_MULS.length; });
+        let worst = 0;
+        for (let k = 2; k <= COPIES; k++) if (v[k - 1] > 1e-6) worst = Math.min(worst, v[k] / v[k - 1] - 1);
+        const first = v[3] - v[0], second = v[6] - v[3];
+        checks.push(`| ${b.name} | ${sc} | ${v.map(x => f1(x)).join(' / ')} | ${worst < -STACK_TOLERANCE ? 'FAIL: falls (' + f2(worst * 100) + '%)' : 'ok (worst step ' + f2(worst * 100) + '%)'} | ${second <= Math.max(first, 0) + STACK_TOLERANCE * Math.max(1e-6, v[0]) ? 'ok (copies 4-6 add ' + f1(second) + ', copies 1-3 add ' + f1(first) + ')' : 'FAIL: does not flatten (' + f1(second) + ' vs ' + f1(first) + ')'} |`);
+      }
     }
   }
+  log('\n`*` = the scenario the stacking block is meant for (checked on a ' + STACK_SECONDS + ' s bench; AoE uses the extra "spread" scenario: 30 small bodies in a dense row about 360 px wide, aimed at its middle). Stacking shape blocks, copies 0 to ' + COPIES + ' (HP/s):\n');
+  log('| block | scenario | DPS with 0..' + COPIES + ' copies | never falls | flattens |');
+  log('|---|---|---|---|---|');
+  checks.forEach(c => log(c));
 
   // Routing: copies are lanes, and lanes are limited by ejectors.
   log('\n### B2. Routing blocks: lanes reaching an ejector\n');
@@ -251,7 +262,7 @@ function partB() {
 // ============================================================================================ C. ceilings
 /** Percent x per-copy ladder: x1.5 at L1 to x3 at L10, linear in log space (each level multiplies the per-copy factor by 2^(1/9)). */
 const PCT_L1 = 1.5, PCT_MAX = 3, PCT_LEVELS = 10;
-const pctLadder = (l: number) => PCT_L1 * Math.pow(PCT_MAX / PCT_L1, (l - 1) / (PCT_LEVELS - 1));
+const pctLadder = percentMul; // the shipped ladder (src/data/blocks.ts)
 const PCT_CAP = 10;
 /** Proposed chance-booster values (average multiplier per copy at L1 / L3) and caps. Engine mechanics unchanged except Gambler's chance. */
 const CHANCE = [
@@ -512,18 +523,24 @@ function partD() {
   const dart = INCOME[0].credits, prong = INCOME[3].credits;
   const refs: [string, number][] = [['Dart run', dart], ['Prong run', prong], ['tier-10 wall run', wallCredits(10)], ['tier-25 wall run', wallCredits(25)], ['tier-50 wall run', wallCredits(50)]];
 
-  log('\n### D2. Today\'s formulas\n');
+  log('\n### D2. Before (16c-1 formulas) and after (shipped)\n');
   const pm = 'percent_mult';
-  const own10 = copies(BASE_PRICE[pm], COPY_GROWTH, 10);
-  const lad = ladder(BASE_PRICE[pm], UPGRADE_MUL, UPGRADE_GROWTH, 10);
-  log(`Copy price = base x ${COPY_GROWTH}^owned; upgrade price (L to L+1) = base x ${UPGRADE_MUL} x ${UPGRADE_GROWTH}^(L-1); the level is per block, shared by every copy. Percent x base ${BASE_PRICE[pm]}, max level 10.\n`);
+  const own10Old = copies(LEGACY_BASE_PRICE[pm], COPY_GROWTH, 10);
+  const ladOld = ladder(LEGACY_BASE_PRICE[pm], UPGRADE_MUL, UPGRADE_GROWTH, 10);
+  let own10 = 0;
+  for (let k = 0; k < 10; k++) own10 += copyPrice(pm, k);
+  let lad = 0;
+  for (let l = 1; l < 10; l++) lad += upgradePrice(pm, l);
+  log(`Before: copy = base x ${COPY_GROWTH}^owned, Percent x base ${LEGACY_BASE_PRICE[pm]}. After: Percent x base ${BASE_PRICE[pm]} x ${BLOCK_ECONOMY[pm].growth}^owned. Upgrade = base x ${UPGRADE_MUL} x ${UPGRADE_GROWTH}^(L-1) in both; the level is per block, shared by every copy.\n`);
   log('| item | credits | ' + refs.map(r => 'runs: ' + r[0]).join(' | ') + ' |');
   log('|---|---|' + refs.map(() => '---').join('|') + '|');
   const row = (n: string, c: number) => log(`| ${n} | ${Math.round(c)} | ${refs.map(r => f1(c / r[1])).join(' | ')} |`);
-  row('10 Percent x at L1', own10);
-  row('Upgrade ladder L1 -> L10 (once)', lad);
-  row('10 Percent x at L10 (copies + ladder)', own10 + lad);
-  log(`\nThe ladder alone is ${f1(lad / dart)} Dart runs; the 10 copies are ${f1(own10 / dart)}. Note the upgrade price growth ${UPGRADE_GROWTH} per level is close to the VALUE growth of a level at 10 copies (about x2.16 per level), so with 10 copies each level costs about what it is worth; with fewer copies it is a bad deal.`);
+  row('BEFORE 10 Percent x at L1', own10Old);
+  row('BEFORE upgrade ladder L1 -> L10', ladOld);
+  row('AFTER 10 Percent x at L1', own10);
+  row('AFTER upgrade ladder L1 -> L10', lad);
+  row('AFTER 10 Percent x at L10 (copies + ladder)', own10 + lad);
+  log(`\nAfter: the ladder alone is ${f1(lad / dart)} Dart runs; the 10 copies are ${f1(own10 / dart)}.`);
 
   log('\n### D3. Three candidate price families\n');
   log('Copy price = base x growth^owned, per block; bases by block band: cheap (turns, Splitter 2), normal (Percent x, Flat+, chance boosters scaled), expensive (Splitter 3, AoE, Homing, Chain Lightning, Fork, Residue Seed, Overkill Spill: 1 copy). Upgrade ladder = normal base x 2 x u^(L-1), L1->L10. Percent x sets the yardstick; "full cheap set" = 4 Turn L + 4 Turn R + 2 Splitter 2 (cheap base all, growth per block type). Runs of play are in Dart runs (what the player earns first) and in Prong runs (the mid game).\n');
@@ -547,19 +564,18 @@ function partD() {
 
   // D4: the recommended family (B) applied block by block.
   const B = FAMILIES[1];
-  log('\n### D4. Family B applied to every shown block (proposal)\n');
-  log('Rules: blocks whose extra copies do nothing (part B) get cap 1 and a price of 2 x today\'s base (one copy, expensive). Additive blocks get a cap and a base/growth from their band: turns and Splitter 2 = cheap band (growth ' + B.cheapGrowth + '), Flat+ = cheap-normal (1.20), Percent x = normal (' + B.growth + '), chance boosters priced below Percent x in proportion to their per-copy value (x1.33 / x1.36 / x1.2 against x1.5) with growth 1.25. Overclock stacks (about x1.3-1.6 a copy in the bench) so it gets cap 3 and growth 1.35. Upgrade ladders: base x 2 x 2.2^(L-1) as today, over the levels the block would keep. "Dart runs" = cost of every copy up to the cap, ' + f1(dart) + ' credits per Dart run.\n');
-  log('| block | upgrades | level kept | cap | base | growth | cost of 1st copy | cost of all copies | ... in Dart runs | upgrade ladder to top |');
+  log('\n### D4. Family B, block by block (as shipped)\n');
+  log('From src/data/blockEconomy.ts. Cap-1 blocks cost 2 x their old base; stacking shape blocks have no cap (cost shown for the first 10 copies); Dart runs at ' + f1(dart) + ' credits per Dart run.\n');
+  log('| block | upgrades | level kept | cap | base | growth | cost of 1st copy | cost of all copies (or first 10) | ... in Dart runs | upgrade ladder to top |');
   log('|---|---|---|---|---|---|---|---|---|---|');
-  const spec = SPEC;
   for (const b of pickerBlocks()) {
-    const inf = INFO[b.id];
-    const up = inf.up === 'yes' || (inf.up === '?' && inf.rec === 'yes');
-    const [cap, base, g] = spec[b.id] ?? [1, 2 * BASE_PRICE[b.id], 1];
-    const total = copies(base, g, cap);
+    const up = UPGRADABLE.has(b.id);
+    const [cap, base, g] = SPEC[b.id];
+    const n = Number.isFinite(cap) ? cap : 10;
+    const total = copies(base, g, n);
     const lvKept = up ? b.maxLevel : FIXED_LEVEL[b.id] ?? 1;
     const lad = up ? ladder(base, 2, 2.2, b.maxLevel) : 0;
-    log(`| ${b.name} | ${inf.up === '?' ? '? ' : ''}${up ? 'yes' : 'no'} | ${up ? 'L1..L' + b.maxLevel : 'L' + lvKept} | ${cap} | ${base} | ${g === 1 ? '-' : g} | ${base} | ${total} | ${f1(total / dart)} | ${up ? lad : '-'} |`);
+    log(`| ${b.name} | ${up ? 'yes' : 'no'} | ${up ? 'L1..L' + b.maxLevel : 'L' + lvKept} | ${Number.isFinite(cap) ? cap : 'none'} | ${base} | ${g === 1 ? '-' : g} | ${base} | ${total} | ${f1(total / dart)} | ${up ? lad : '-'} |`);
   }
   return famRows;
 }

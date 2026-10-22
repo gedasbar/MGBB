@@ -1,5 +1,6 @@
 import { CONFIG } from '../config';
 import { BLOCKS } from '../data/blocks';
+import { BLOCK_ECONOMY, capOf, UPGRADE_GROWTH, UPGRADE_MUL } from '../data/blockEconomy';
 import { HULL_PRICES } from '../data/hulls';
 
 /** Seconds of survival per tier step inside one run. */
@@ -19,19 +20,11 @@ export const LEAK_BASE = 0.1;
 /** Size factor by generation: parent large (1.5x), second generation medium (1x), the rest small (0.5x). */
 export const LEAK_SIZE_MUL = [1.5, 1, 0.5, 0.5];
 
-export const COPY_GROWTH = 1.18;
-export const UPGRADE_MUL = 2.0;
-export const UPGRADE_GROWTH = 2.2;
+export { UPGRADE_MUL, UPGRADE_GROWTH } from '../data/blockEconomy';
 
-/** Base copy price of every block shown in the picker. */
-export const BASE_PRICE: Record<string, number> = {
-  turn_l: 40, turn_r: 40, flat_plus: 60, percent_mult: 120, lucky_strike: 100, jackpot: 150, gamblers_gate: 180,
-  splitter_2: 200, splitter_3: 350, piercing: 250, bouncing: 250, aoe_circle: 300, aoe_rect: 300, shield_breaker: 220,
-  pure_converter: 300, armor_piercer: 220, curving_right: 150, random_curve: 150, homing: 400, fork_impact: 450,
-};
-
-// Blocks added in chunk 9a carry their own price band (rarity) in the block data.
-for (const b of Object.values(BLOCKS)) if (b.baseCost !== undefined && b.shown) BASE_PRICE[b.id] = b.baseCost;
+/** Base (first copy) price of every block for sale: the table in data/blockEconomy.ts. */
+export const BASE_PRICE: Record<string, number> = {};
+for (const [id, e] of Object.entries(BLOCK_ECONOMY)) BASE_PRICE[id] = e.base;
 
 /** Shop price per hull (constants live in data/hulls.ts). */
 export const HULL_PRICE: Record<string, number> = { ...HULL_PRICES };
@@ -58,7 +51,14 @@ export function leakDamage(maxHull: number, generation: number): number {
   return maxHull * LEAK_BASE * LEAK_SIZE_MUL[genIndex(generation, LEAK_SIZE_MUL.length)];
 }
 
-export const copyPrice = (id: string, owned: number) => Math.max(1, Math.round((BASE_PRICE[id] ?? 100) * Math.pow(COPY_GROWTH, owned)));
+/** Price of the next copy when `owned` are held: base x growth^owned. */
+export const copyPrice = (id: string, owned: number) => {
+  const e = BLOCK_ECONOMY[id];
+  return Math.max(1, Math.round((e?.base ?? 100) * Math.pow(e?.growth ?? 1, owned)));
+};
 export const upgradePrice = (id: string, level: number) =>
   Math.max(1, Math.round((BASE_PRICE[id] ?? 100) * UPGRADE_MUL * Math.pow(UPGRADE_GROWTH, level - 1)));
+/** Copies one can own (Infinity = no cap) and whether the cap is reached. */
+export const copyCap = capOf;
+export const atCopyCap = (id: string, owned: number) => owned >= capOf(id);
 export const maxLevelOf = (id: string) => BLOCKS[id]?.maxLevel ?? 1;

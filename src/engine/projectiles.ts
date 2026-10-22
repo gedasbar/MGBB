@@ -10,7 +10,7 @@ import {
   orbitTime, ORBIT_OPEN, ORBIT_RADIUS, ORBIT_REHIT,
   bounceCount, BOUNCE_SPREAD_DEG, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct,
   FRAGMENT_GENERATION, residueFrac, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac,
-  WELL_TIME, wellPull,
+  WELL_TIME, wellPull, stackGrowth, harmonic, aoeStackDamage, FORK_PAIR_DAMAGE, MAX_BOUNCES, CHAIN_STACK_FALL,
 } from './effects';
 import { RING } from './pools';
 import { wrapDx } from './wrap';
@@ -77,6 +77,12 @@ export const WELL_MAX = 16;
 export interface EffectLevels {
   chain: number; boomerang: number; orbit: number; mine: number; ignite: number; corrosion: number; frostbite: number; executioner: number;
   fission: number; cauterize: number; cleaver: number; culling: number; residue: number; spill: number; gravity: number; staticCharge: number;
+}
+
+/** Copies of each stacking shape block on the projectile being processed (0 = absent). Every copy adds a step (chunk 16c-2). */
+export interface StackCounts {
+  pierce: number; bounce: number; aoeCircle: number; aoeRect: number; chain: number; homing: number; fork: number;
+  boomerang: number; orbit: number; mine: number;
 }
 
 /** Counters of what the effect blocks did (debug hook and tests). */
@@ -185,7 +191,7 @@ export class ProjectileSystem {
   readonly cloudX = new Float32Array(CLOUD_MAX);
   readonly cloudY = new Float32Array(CLOUD_MAX);
   readonly cloudT = new Float32Array(CLOUD_MAX);
-  readonly cloudD = new Float32Array(CLOUD_MAX);
+  readonly cloudD = new Float64Array(CLOUD_MAX);
   private cloudTick = new Float32Array(CLOUD_MAX);
   private cloudNext = 0;
   /** Gravity Well attractors (a ring): position, seconds left, pull speed. Free Fly applies the pull to its rocks. */
@@ -200,6 +206,9 @@ export class ProjectileSystem {
     chain: 0, boomerang: 0, orbit: 0, mine: 0, ignite: 0, corrosion: 0, frostbite: 0, executioner: 0,
     fission: 0, cauterize: 0, cleaver: 0, culling: 0, residue: 0, spill: 0, gravity: 0, staticCharge: 0,
   };
+
+  /** Copies of the stacking shape blocks on the projectile being processed (filled by scan(); one reused object). */
+  private stk: StackCounts = { pierce: 0, bounce: 0, aoeCircle: 0, aoeRect: 0, chain: 0, homing: 0, fork: 0, boomerang: 0, orbit: 0, mine: 0 };
 
   /** Captain effects on every hit (chunk 13a). The neutral values change nothing; the world sets them at run start. */
   readonly bonus = { damageMul: 1, vsArmor: 0, vsShield: 0, vsFragment: 0 };
@@ -219,7 +228,11 @@ export class ProjectileSystem {
   init(i: number) {
     const mods = this.modsOf(i);
     const bounce = mods.find(m => m.type === 'bouncing');
-    if (bounce) this.pool.bounces[i] = bounceCount(bounce.level ?? 1);
+    if (bounce) {
+      this.scan(mods);
+      // Each extra Bouncing block on the path adds one bounce.
+      this.pool.bounces[i] = Math.min(MAX_BOUNCES, bounceCount(bounce.level ?? 1) + this.stk.bounce - 1);
+    }
     if (mods.some(m => m.type === 'random_curve')) {
       this.pool.aux1[i] = rng.combat.next() * 2 - 1;
       this.pool.aux2[i] = rng.combat.next() * 2 - 1;
@@ -242,12 +255,20 @@ export class ProjectileSystem {
     const mi = this.mi;
     mi.chain = mi.boomerang = mi.orbit = mi.mine = mi.ignite = mi.corrosion = mi.frostbite = mi.executioner = 0;
     mi.fission = mi.cauterize = mi.cleaver = mi.culling = mi.residue = mi.spill = mi.gravity = mi.staticCharge = 0;
+    const stk = this.stk;
+    stk.pierce = stk.bounce = stk.aoeCircle = stk.aoeRect = stk.chain = stk.homing = stk.fork = stk.boomerang = stk.orbit = stk.mine = 0;
     for (const m of mods) {
       switch (m.type) {
-        case 'chain_lightning': mi.chain = m.level ?? 1; break;
-        case 'boomerang': mi.boomerang = m.level ?? 1; break;
-        case 'orbit': mi.orbit = m.level ?? 1; break;
-        case 'mine': mi.mine = m.level ?? 1; break;
+        case 'piercing': stk.pierce++; break;
+        case 'bouncing': stk.bounce++; break;
+        case 'aoe_circle': stk.aoeCircle++; break;
+        case 'aoe_rect': stk.aoeRect++; break;
+        case 'homing': stk.homing++; break;
+        case 'fork_impact': stk.fork++; break;
+        case 'chain_lightning': mi.chain = m.level ?? 1; stk.chain++; break;
+        case 'boomerang': mi.boomerang = m.level ?? 1; stk.boomerang++; break;
+        case 'orbit': mi.orbit = m.level ?? 1; stk.orbit++; break;
+        case 'mine': mi.mine = m.level ?? 1; stk.mine++; break;
         case 'ignite': mi.ignite = m.level ?? 1; break;
         case 'corrosion': mi.corrosion = m.level ?? 1; break;
         case 'frostbite': mi.frostbite = m.level ?? 1; break;
@@ -294,7 +315,7 @@ export class ProjectileSystem {
       pool.vy[i] = (this.shipY + Math.sin(th) * r - pool.y[i]) / dt;
     } else if (ph === PHASE_BOOM_OUT) {
       pool.s1[i] += Math.hypot(pool.vx[i], pool.vy[i]) * dt;
-      if (pool.s1[i] >= boomerangRange(mi.boomerang)) {
+      if (pool.s1[i] >= boomerangRange(mi.boomerang) * stackGrowth(this.stk.boomerang)) {
         pool.phase[i] = PHASE_BOOM_BACK;
         pool.skipId[i] = -1; // the way back may hit what the way out hit
         pool.age[i] = 0;
@@ -321,7 +342,7 @@ export class ProjectileSystem {
         pool.vy[i] *= k;
         pool.s1[i] = dist;
         pool.s2[i] = 0;
-        pool.size[i] = MINE_SIZE;
+        pool.size[i] = MINE_SIZE * stackGrowth(this.stk.mine);
         pool.phase[i] = PHASE_MINE_WAIT;
       } else {
         pool.s1[i] += step;
@@ -369,6 +390,9 @@ export class ProjectileSystem {
         }
       }
       const homing = mods.find(m => m.type === 'homing');
+      let homingK = 0;
+      if (homing) for (const m of mods) if (m.type === 'homing') homingK++;
+      const hFactor = harmonic(homingK);
       let rotate = turn * dt;
       if (homing) {
         const vx = pool.vx[i];
@@ -385,13 +409,13 @@ export class ProjectileSystem {
           const d2 = dx * dx + dy * dy;
           if (d2 > best) continue;
           const diff = wrapAngle(Math.atan2(dy, dx) - heading);
-          if (Math.abs(diff) > (HOMING_CONE_DEG / 2) * RAD) continue;
+          if (Math.abs(diff) > Math.min(Math.PI, (HOMING_CONE_DEG * hFactor / 2) * RAD)) continue;
           best = d2;
           bestDiff = diff;
           found = true;
         }
         if (found) {
-          const maxStep = HOMING_RATE_DEG * (homing.level ?? 1) * RAD * dt;
+          const maxStep = HOMING_RATE_DEG * (homing.level ?? 1) * hFactor * RAD * dt;
           rotate += Math.max(-maxStep, Math.min(maxStep, bestDiff));
         }
       }
@@ -452,21 +476,24 @@ export class ProjectileSystem {
       if (mi.gravity) this.addWell(px, py, mi.gravity);
 
       if (aoeMod) {
-        const radius = aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1);
+        const radius = (aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1)) * stackGrowth(this.stk.aoeCircle);
+        const blastDamage = damage * aoeStackDamage(this.stk.aoeCircle);
         field.collectCircle(px, py, radius, blast);
         for (const ce of blast) {
           if (ce.hp <= 0) continue;
-          this.strike(ce, damage, pure, tier, armorPierce, isShieldBreaker, mi, ce.x, ce.y, HIT_NORMAL);
+          this.strike(ce, blastDamage, pure, tier, armorPierce, isShieldBreaker, mi, ce.x, ce.y, HIT_NORMAL);
         }
         if (mi.chain) this.chain(field, target, damage, pure, tier, armorPierce, isShieldBreaker, mi);
         this.pool.free(i); // AoE detonates
       } else if (rectMod) {
         // Detonates as a horizontal bar centred on the hit: full damage once to every target it overlaps.
+        const grow = stackGrowth(this.stk.aoeRect);
         const { w, h } = aoeRectSize(rectMod.level ?? 1);
-        field.collectRect(px, py, w, h, blast);
+        const blastDamage = damage * aoeStackDamage(this.stk.aoeRect);
+        field.collectRect(px, py, w * grow, h * grow, blast);
         for (const ce of blast) {
           if (ce.hp <= 0) continue;
-          this.strike(ce, damage, pure, tier, armorPierce, isShieldBreaker, mi, ce.x, ce.y, HIT_NORMAL);
+          this.strike(ce, blastDamage, pure, tier, armorPierce, isShieldBreaker, mi, ce.x, ce.y, HIT_NORMAL);
         }
         if (mi.chain) this.chain(field, target, damage, pure, tier, armorPierce, isShieldBreaker, mi);
         this.pool.free(i);
@@ -475,7 +502,7 @@ export class ProjectileSystem {
         const res = this.strike(target, damage, pure, tier, armorPierce, isShieldBreaker, mi, px, py, HIT_NORMAL);
         if (mi.chain) this.chain(field, target, damage, pure, tier, armorPierce, isShieldBreaker, mi);
 
-        if (forkMod && !this.pool.copy[i]) this.fork(i, target.id, forkMod.level ?? 1);
+        if (forkMod && !this.pool.copy[i]) this.fork(i, target.id, forkMod.level ?? 1, this.stk.fork);
 
         if (phase === PHASE_ORBIT) {
           this.ringAdd(i, target.id); // orbiting: hits, and keeps going
@@ -486,8 +513,10 @@ export class ProjectileSystem {
           // frame while inside it, which made Piercing L2+ a hidden damage multiplier on big targets and wall blocks).
           this.pool.skipId[i] = target.id;
           const damageSpent = res.hpDamage; // actual hp taken
-          const drop = Math.max(damage * 0.1, damageSpent) * pierceCostMul(pierceMod!.level ?? 1);
-          this.pool.damage[i] -= drop;
+          // Each extra Piercing block adds one pierce: a hit costs 1 / (level + extra copies) of the damage dealt.
+          const drop = Math.max(damage * 0.1, damageSpent) * pierceCostMul((pierceMod!.level ?? 1) + this.stk.pierce - 1);
+          // An infinite shot never runs out (Infinity - Infinity would be NaN).
+          if (Number.isFinite(drop) && Number.isFinite(this.pool.damage[i])) this.pool.damage[i] -= drop;
           if (this.pool.damage[i] <= 0) {
             // Piercing first; a Bouncing block turns the shot that Piercing would have used up into a bounce, at full damage.
             if (bounceMod && this.bouncesLeft(i, bounceMod.level ?? 1) > 0) { this.pool.damage[i] = damage; this.bounce(i, field, target, px, py, hitR); }
@@ -561,7 +590,7 @@ export class ProjectileSystem {
     const n = pool.ringN[i];
     const base = i * RING;
     for (let k = 0; k < n; k++) {
-      if (pool.ringId[base + k] === id && this.clock - pool.ringT[base + k] < ORBIT_REHIT) return true;
+      if (pool.ringId[base + k] === id && this.clock - pool.ringT[base + k] < ORBIT_REHIT / harmonic(this.stk.orbit)) return true;
     }
     return false;
   }
@@ -772,7 +801,8 @@ export class ProjectileSystem {
     seen.length = 0;
     seen.push(origin.id);
     let cur = origin;
-    const jumps = chainJumps(mi.chain);
+    const baseJumps = chainJumps(mi.chain);
+    const jumps = baseJumps + Math.max(0, this.stk.chain - 1);
     for (let j = 0; j < jumps; j++) {
       field.collectCircle(cur.x, cur.y, CHAIN_RANGE, buf);
       let best: EnemyEntity | null = null;
@@ -785,7 +815,7 @@ export class ProjectileSystem {
       if (!best) break;
       seen.push(best.id);
       this.addArc(cur.x, cur.y, cur.x + this.dxw(best.x, cur.x), best.y);
-      this.strike(best, damage * CHAIN_FRAC, pure, tier, armorPierce, shieldBreaker, mi, best.x, best.y, HIT_CHAIN);
+      this.strike(best, damage * CHAIN_FRAC * (j < baseJumps ? 1 : Math.pow(CHAIN_STACK_FALL, j - baseJumps + 1)), pure, tier, armorPierce, shieldBreaker, mi, best.x, best.y, HIT_CHAIN);
       this.fx.chainJumps++;
       cur = best;
     }
@@ -826,6 +856,7 @@ export class ProjectileSystem {
   }
 
   private burn(t: EnemyEntity, dmg: number) {
+    if (!(dmg > 0)) return; // NaN or nothing: no tick
     const d = (t.freezeT ?? 0) > 0 ? dmg * (1 + (t.freezeBonus ?? 0)) : dmg;
     const taken = Math.min(Math.max(0, t.hp), d);
     t.hp -= d;
@@ -833,20 +864,25 @@ export class ProjectileSystem {
     if (this.onHit) this.onHit(t, taken, t.x, t.y, HIT_BURN);
   }
 
-  /** Two copies at a fraction of the damage and 0.6x size, +/- 35 degrees off the heading. They cannot fork again. */
-  private fork(i: number, enemyId: number, level: number) {
+  /**
+   * Pairs of copies at a fraction of the damage and 0.6x size, +/- 35 degrees x j off the heading for the j-th pair (one pair per Fork
+   * block on the path; each pair deals 0.8 of the one before). They cannot fork again, and the pool's limit stops the spawns.
+   */
+  private fork(i: number, enemyId: number, level: number, pairs: number) {
     const pool = this.pool;
     const speed = Math.hypot(pool.vx[i], pool.vy[i]);
     const heading = Math.atan2(pool.vy[i], pool.vx[i]);
-    const dmg = pool.damage[i] * forkDamageFrac(level);
-    for (const sign of [-1, 1]) {
-      const a = heading + sign * FORK_ANGLE_DEG * RAD;
-      const j = pool.spawn(pool.x[i], pool.y[i], Math.cos(a) * speed, Math.sin(a) * speed, dmg, pool.pure[i], pool.modIndex[i]);
-      if (j < 0) continue;
-      pool.size[j] = pool.size[i] * FORK_SIZE;
-      pool.copy[j] = 1;
-      pool.skipId[j] = enemyId;
-      this.init(j);
+    for (let j = 1; j <= pairs; j++) {
+      const dmg = pool.damage[i] * forkDamageFrac(level) * Math.pow(FORK_PAIR_DAMAGE, j - 1);
+      for (const sign of [-1, 1]) {
+        const a = heading + sign * Math.min(FORK_ANGLE_DEG * j, 85) * RAD;
+        const k = pool.spawn(pool.x[i], pool.y[i], Math.cos(a) * speed, Math.sin(a) * speed, dmg, pool.pure[i], pool.modIndex[i]);
+        if (k < 0) return; // the pool is full: no more forks this hit
+        pool.size[k] = pool.size[i] * FORK_SIZE;
+        pool.copy[k] = 1;
+        pool.skipId[k] = enemyId;
+        this.init(k);
+      }
     }
   }
 }

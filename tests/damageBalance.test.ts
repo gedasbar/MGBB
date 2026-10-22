@@ -8,7 +8,7 @@ import { buildStarterGrid, place } from '../src/game/starter';
 import { World } from '../src/game/world';
 import { flatPlusAdd, orbitTime } from '../src/engine/effects';
 import { PROJECTILE_MAX_AGE } from '../src/wall/constants';
-import { HERO_LEVEL_BASE_DAMAGE, HERO_MAX_LEVEL } from '../src/captains/data';
+import { HERO_LEVEL_BASE_DAMAGE } from '../src/captains/data';
 import { blockHp } from '../src/wall/level';
 import { generateLevel } from '../src/wall/generator';
 import { rockHp } from '../src/econ/economy';
@@ -55,8 +55,8 @@ describe('small numbers: the basic shot and Flat+', () => {
     }
     expect(rockHp(1)).toBe(5);
   });
-  it('a hero at the max level multiplies the bare shot by at most 6', () => {
-    expect(1 + HERO_MAX_LEVEL * HERO_LEVEL_BASE_DAMAGE).toBeLessThanOrEqual(6);
+  it('a level-10 hero multiplies the bare shot by 6 (levels are uncapped since 16c-2, the +0.5 a level is unchanged)', () => {
+    expect(1 + 10 * HERO_LEVEL_BASE_DAMAGE).toBe(6);
   });
 });
 

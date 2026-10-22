@@ -120,6 +120,9 @@ export function gateDamage(p: Packet, gate: ChanceGate) {
 }
 
 /** Replays the damage ops. `roll` supplies a 0..1 random number per gate; without it gates use their expected value. */
+/** d x m where a zero multiplier always gives 0 (Infinity x 0 would be NaN). */
+export const mulSafe = (d: number, m: number) => (m === 0 ? 0 : d * m);
+
 export function evalDamage(p: Packet, roll?: () => number): number {
   let d = p.base;
   for (const op of p.ops) {
@@ -128,8 +131,8 @@ export function evalDamage(p: Packet, roll?: () => number): number {
     else if (op.t === 'oc') d *= op.avg;
     else if (op.t === 'cap') d *= op.n * op.mul;
     else if (op.t === 'alt' || op.t === 'rnd' || op.t === 'delay') continue;
-    else if (roll) d *= roll() < op.gate.prob ? op.gate.mult : op.gate.elseMult;
-    else d *= op.gate.prob * op.gate.mult + (1 - op.gate.prob) * op.gate.elseMult;
+    else if (roll) d = mulSafe(d, roll() < op.gate.prob ? op.gate.mult : op.gate.elseMult);
+    else d = mulSafe(d, op.gate.prob * op.gate.mult + (1 - op.gate.prob) * op.gate.elseMult);
   }
   return d;
 }
@@ -140,7 +143,10 @@ export interface BlockDef {
   id: string;
   name: string;
   category: BlockCategory;
+  /** Levels one can buy (1 = the block has no upgrades). */
   maxLevel: number;
+  /** A block without upgrades runs at this level (chunk 16c-2); absent = the cell's own level. */
+  fixedLevel?: number;
   /** Relative directions the signal leaves through, applied after `transform`. */
   outputs: Rel[];
   /** Mutates the (already cloned) packet. */
@@ -164,8 +170,11 @@ export interface BlockDef {
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
 
+/** The level a block's numbers are read at: its fixed level when it has no upgrades, else the level the cell holds. */
+export const powerLevel = (def: BlockDef, level: number) => def.fixedLevel ?? level;
+
 export function describeBlock(def: BlockDef, level = 1): string {
-  return typeof def.desc === 'function' ? def.desc(level) : def.desc;
+  return typeof def.desc === 'function' ? def.desc(powerLevel(def, level)) : def.desc;
 }
 
 export function clonePacket(p: Packet): Packet {

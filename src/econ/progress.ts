@@ -6,20 +6,23 @@ import { blockName, gateOf, isBlockUnlocked, newlyReached, Reach, reachBySector,
 import { CaptainsState, defaultCaptains, sanitizeCaptains, addCaptainKills, buyOption, activateOption, claimFlyMilestone, rollMedals, selectCaptain, unlockCaptain, upgradeHero, CaptainResult, MedalAward } from '../captains/state';
 import { modifiersFor, RunModifiers } from '../captains/modifiers';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
+import { LEGACY_MAX_LEVEL, migrateEconomyV8, refundNotice } from './migrate';
 import { HULL_BUILDERS } from '../game/gridUtils';
 import { STARTER_HULL } from '../data/hulls';
 import {
-  copyPrice, DEFAULT_OWNED, HULL_PRICE, maxLevelOf, upgradePrice,
+  atCopyCap, copyPrice, DEFAULT_OWNED, HULL_PRICE, maxLevelOf, upgradePrice,
 } from './economy';
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 7;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 8;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 7;
+  version: 8;
+  /** A one-time message for the next screen that can show it (the economy refund of the version 8 migration); cleared when taken. */
+  notice?: string;
   credits: number;
   owned: Record<string, number>;
   levels: Record<string, number>;
@@ -59,7 +62,7 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 7, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    version: 8, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
     frontier: defaultFrontier(),
   };
@@ -116,16 +119,26 @@ export function sanitizeProgress(raw: unknown): Progress {
   // v1-v6 saves have no frontier: it starts empty (only the free origin).
   out.frontier = sanitizeFrontier(r.frontier);
   out.highestCleared = out.clearedTiers.length ? out.clearedTiers[out.clearedTiers.length - 1] : 0;
+  // A save older than v8 still holds the levels of blocks that lost them: read them with the old ceiling so the migration can refund them.
+  const migrating = !(typeof r.version === 'number' && r.version >= 8);
+  const levelCeiling = (id: string) => (migrating ? LEGACY_MAX_LEVEL : maxLevelOf(id));
   for (const id of Object.keys(d.owned)) {
     out.owned[id] = int(r.owned?.[id], 0, 1e6, d.owned[id]);
-    out.levels[id] = int(r.levels?.[id], 1, maxLevelOf(id), 1);
+    out.levels[id] = int(r.levels?.[id], 1, levelCeiling(id), 1);
   }
   // Blocks that exist but are not for sale yet (hidden): only a dev cheat ever writes them; kept so they survive a reload.
   for (const id of Object.keys(BLOCKS)) {
     if (id in out.owned) continue;
     const n = int(r.owned?.[id], 1, 1e6, 0);
-    if (n > 0) { out.owned[id] = n; out.levels[id] = int(r.levels?.[id], 1, maxLevelOf(id), 1); }
+    if (n > 0) { out.owned[id] = n; out.levels[id] = int(r.levels?.[id], 1, levelCeiling(id), 1); }
   }
+  // Saves older than v8 (chunk 16c-2): upgrades that no longer exist are refunded, copies above the new caps too.
+  if (!(typeof r.version === 'number' && r.version >= 8)) {
+    const refund = migrateEconomyV8(out.owned, out.levels);
+    out.credits += refund.credits;
+    const note = refundNotice(refund);
+    if (note) out.notice = note;
+  } else if (typeof r.notice === 'string' && r.notice.length < 400) out.notice = r.notice;
   const hulls = Array.isArray(r.ownedHulls) ? r.ownedHulls.filter((h: unknown) => typeof h === 'string' && h in HULL_BUILDERS) : [];
   // Every save owns the Dart; hulls it already owned (the Shuttle of old saves, a bought Fan) are kept.
   // Saves older than v4 owned the Shuttle for free; it stays owned (a save with no usable hull list is just garbage).
@@ -269,6 +282,7 @@ export function buyCopy(p: Progress, id: string): BuyResult {
   if (!(id in p.owned)) return { ok: false, error: 'Not for sale' };
   const lock = blockLockReason(p, id);
   if (lock) return { ok: false, error: lock };
+  if (atCopyCap(id, p.owned[id])) return { ok: false, error: `Max copies of ${BLOCKS[id]?.name ?? id}` };
   const price = copyPrice(id, p.owned[id]);
   if (p.credits < price) return { ok: false, error: 'Not enough credits' };
   p.credits -= price;
@@ -281,6 +295,7 @@ export function buyUpgrade(p: Progress, id: string): BuyResult {
   const lock = blockLockReason(p, id);
   if (lock) return { ok: false, error: lock };
   const level = p.levels[id];
+  if (maxLevelOf(id) <= 1) return { ok: false, error: 'This block has no upgrades' };
   if (level >= maxLevelOf(id)) return { ok: false, error: 'Already at max level' };
   const price = upgradePrice(id, level);
   if (p.credits < price) return { ok: false, error: 'Not enough credits' };
@@ -319,6 +334,13 @@ export class ProgressStore {
 
   /** Reach per sector (cached; recomputed on every commit). */
   get frontierReach(): Reach { return this.reach; }
+
+  /** The one-time economy message of a migrated save, once (null afterwards). */
+  takeNotice(): string | null {
+    const n = this.data.notice ?? null;
+    if (n !== null) { delete this.data.notice; this.commit(); }
+    return n;
+  }
 
   /** "Unlocked: <block>" messages produced since the last call (each threshold once). */
   takeUnlockNotices(): string[] { const n = this.unlockNotices; this.unlockNotices = []; return n; }

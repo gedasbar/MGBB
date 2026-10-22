@@ -98,6 +98,8 @@ export interface SheetInput {
   maxLevel: number;
   credits: number;
   copyPrice: number;
+  /** Copies one can own (Infinity = no cap). */
+  cap?: number;
   /** Price of the next level (ignored at max level). */
   upgradePrice: number;
   /** Frontier requirement text when the block is gated and not owned, else null. */
@@ -122,19 +124,23 @@ export interface SheetContent {
 
 export function sheetContent(i: SheetInput): SheetContent {
   const atMax = i.level >= i.maxLevel;
+  const hasLevels = i.maxLevel > 1;
+  const cap = i.cap ?? Infinity;
+  const atCap = i.owned >= cap;
+  const ownedText = Number.isFinite(cap) ? `Owned ${i.owned} / ${cap}` : `Owned ${i.owned}`;
   const base = {
     title: i.name,
-    levelLine: `Level ${i.level}/${i.maxLevel}`,
+    levelLine: hasLevels ? `Level ${i.level}/${i.maxLevel}` : '',
     body: i.desc,
-    ownedLine: i.showFree ? `Owned ${i.owned} · free ${Math.max(0, i.available)}` : `Owned ${i.owned}`,
+    ownedLine: i.showFree ? `${ownedText} · free ${Math.max(0, i.available)}` : ownedText,
     place: { label: 'Place', enabled: i.available > 0 },
   };
   if (i.lock) return { ...base, lockText: i.lock, buy: null, upgrade: null };
   return {
     ...base,
     lockText: null,
-    buy: { label: `Buy +1\n${fmtBig(i.copyPrice)}`, enabled: i.credits >= i.copyPrice },
-    upgrade: atMax
+    buy: atCap ? { label: 'Max', enabled: false } : { label: `Buy +1\n${fmtBig(i.copyPrice)}`, enabled: i.credits >= i.copyPrice },
+    upgrade: !hasLevels ? null : atMax
       ? { label: 'Upgrade\nMAX', enabled: false }
       : { label: `Upgrade L${i.level}→L${i.level + 1}\n${fmtBig(i.upgradePrice)}`, enabled: i.credits >= i.upgradePrice },
   };

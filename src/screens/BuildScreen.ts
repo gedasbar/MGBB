@@ -28,10 +28,12 @@ import { makeTabButtons } from '../builder/tabs';
 import { ShopScreen } from './ShopScreen';
 import { CaptainScreen } from './CaptainScreen';
 import { sfx } from '../audio';
+import { fmtDamage } from '../ui/format';
 
 const HOVER_MS = 800;
 
 function fmtNum(n: number): string {
+  if (!(Math.abs(n) < 1000)) return fmtDamage(n);
   return Math.abs(n - Math.round(n)) < 0.005 ? String(Math.round(n)) : n.toFixed(1);
 }
 
@@ -119,10 +121,13 @@ export class BuildScreen implements Screen {
     const offModel = this.model.onChange(() => this.refresh());
     const offStore = this.model.store.onChange(() => this.credits.set(this.model.store.data.credits));
     this.unsubscribe = () => { offModel(); offStore(); };
+    // One-time messages: the economy refund of a migrated save, and blocks taken off a circuit that used more than is owned.
+    const note = this.model.store.takeNotice();
     if (this.model.trimmed > 0) {
       const n = this.model.trimmed;
-        this.toast.show(`${n} block${n === 1 ? '' : 's'} returned: you own fewer than the circuit used`, 3500);
-    }
+      const trimmed = `${n} block${n === 1 ? '' : 's'} returned: you own fewer than the circuit used`;
+      this.toast.show(note ? `${note} ${trimmed}.` : trimmed, note ? 7000 : 3500);
+    } else if (note) this.toast.show(note, 6000);
   }
 
   destroy() {

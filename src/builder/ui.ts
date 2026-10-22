@@ -1,3 +1,4 @@
+import { fmtDamage } from '../ui/format';
 import { Container, Graphics, Text, TextStyleOptions } from 'pixi.js';
 import { CompileStats } from '../engine/compiler';
 import { COLORS } from './draw';
@@ -147,6 +148,7 @@ export class Inspector {
 }
 
 function fmt(n: number): string {
+  if (!(Math.abs(n) < 1000)) return fmtDamage(n); // 1000 and up, Infinity, NaN: the compact form (chunk 16c-2)
   if (Math.abs(n - Math.round(n)) < 0.005) return String(Math.round(n));
   return n.toFixed(1);
 }

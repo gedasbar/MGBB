@@ -25,41 +25,38 @@ export interface DamageResult {
 }
 
 export function applyDamage(
-  enemy: EnemyStats, 
-  damage: number, 
-  pureFrac: number, 
+  enemy: EnemyStats,
+  damage: number,
+  pureFrac: number,
   tier: number,
   /** Multiplier on direct damage against armored enemies (true = 2); 0 or false = none. */
   armorPierce: number | boolean = false,
-  /** true = x1.5 (level 1); a number is the direct-damage multiplier of a higher Shield-Breaker level. */
+  /** true = x1.5 (level 1); a number is the shield multiplier of a higher Shield-Breaker level. */
   shieldBreaker: boolean | number = false
 ): DamageResult {
+  // Chunk 16c-2: a NaN or empty hit does nothing (HP can never become NaN); Infinity kills the target.
+  if (!(damage > 0)) return { hpDamage: 0, shieldDamage: 0, armorDamage: 0, killed: enemy.hp <= 0 };
   const isShieldBreaker = !!shieldBreaker;
   const sbMul = shieldBreaker === true ? 1.5 : typeof shieldBreaker === 'number' ? shieldBreaker : 1;
-  let pureDmg = damage * pureFrac;
-  let directDmg = damage - pureDmg;
-  
-  if (isShieldBreaker) {
-    directDmg *= sbMul; // Example shield breaker logic? "Bonus x damage vs shields only". Let's say x2?
-    // Wait, the spec says "Shield-Breaker: Bonus xdamage vs shields only"
-    // I'll assume directDmg is multiplied for the shield portion. 
-    // Let's do it carefully.
-  }
+  // `pureFrac > 0` first: Infinity x 0 would be NaN.
+  const pureDmg = pureFrac > 0 ? damage * Math.min(1, pureFrac) : 0;
+  // damage x (1 - pure): written so an infinite hit with all of it pure leaves 0 direct damage, not Infinity - Infinity
+  let directDmg = pureFrac >= 1 ? 0 : pureFrac > 0 ? damage * (1 - pureFrac) : damage;
 
+  // A shield takes the direct damage; Shield-Breaker makes it take sbMul x 2 per point (and only the shield: the part of the hit
+  // that gets through to armor and HP is plain direct damage).
   let shieldDamage = 0;
   if (enemy.shield > 0) {
-    let effectiveDirect = directDmg;
-    if (isShieldBreaker) effectiveDirect *= 2; 
-    
-    if (enemy.shield >= effectiveDirect) {
-      shieldDamage = effectiveDirect;
-      enemy.shield -= effectiveDirect;
+    const perPoint = isShieldBreaker ? sbMul * 2 : 1;
+    const need = enemy.shield / perPoint; // direct damage that empties the shield
+    if (directDmg <= need) {
+      shieldDamage = directDmg * perPoint;
+      enemy.shield -= shieldDamage;
       directDmg = 0;
     } else {
       shieldDamage = enemy.shield;
-      let usedDirect = enemy.shield / (isShieldBreaker ? 2 : 1);
       enemy.shield = 0;
-      directDmg -= usedDirect;
+      directDmg -= need;
     }
   }
 
@@ -69,13 +66,15 @@ export function applyDamage(
   }
 
   const armorReduction = 1 / (1 + enemy.armor / armorScale(tier));
-  let afterArmor = directDmg * armorReduction;
+  const afterArmor = directDmg * armorReduction;
 
   let hpDamage = afterArmor + pureDmg;
-  
-  const actualHpTaken = Math.min(enemy.hp, hpDamage);
-  enemy.hp -= hpDamage; // Can go negative
+  if (Number.isNaN(hpDamage) || hpDamage < 0) hpDamage = 0;
+
+  const actualHpTaken = Math.min(Math.max(0, enemy.hp), hpDamage);
+  // Infinity - Infinity would be NaN: an infinite hit simply kills.
+  enemy.hp = hpDamage === Infinity ? Math.min(enemy.hp, 0) - 1 : enemy.hp - hpDamage; // can go negative
   const killed = enemy.hp <= 0;
-  
+
   return { hpDamage: actualHpTaken, shieldDamage, armorDamage: 0, killed };
 }

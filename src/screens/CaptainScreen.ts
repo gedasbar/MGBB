@@ -11,12 +11,13 @@ import { inRect, LAYOUT, Rect, VIEW_H, VIEW_W } from '../builder/layout';
 import { makeTabButtons } from '../builder/tabs';
 import { sfx } from '../audio';
 import { makeText, Toast, UIButton } from '../builder/ui';
-import { CAPTAINS, CaptainDef, CAPTAIN_BY_ID, describeOption, HERO_LEVEL_BASE_DAMAGE, HERO_MAX_LEVEL, heroLevelCost, TIER_COUNT } from '../captains/data';
+import { CAPTAINS, CaptainDef, CAPTAIN_BY_ID, describeOption, HERO_LEVEL_BASE_DAMAGE, heroLevelCost, TIER_COUNT } from '../captains/data';
 import {
   isCaptainOwned, nextTierGoal, optionCost, optionState, tierKillsNeeded, isTierUnlocked,
 } from '../captains/state';
 import { drawEmblem } from '../ui/captainArt';
 import { THEME } from '../ui/theme';
+import { fmtBig, fmtDamage } from '../ui/format';
 
 /** The content area between the top bar and the tabs. */
 const TOP = 52;
@@ -248,7 +249,7 @@ export class CaptainScreen implements Screen {
       const st = this.statusLine(def);
       const s = this.label(this.listC, st.text, r.x + r.w / 2, r.y + CARD_H - 44, 15, st.color, 0, 0.5);
       s.anchor.set(0.5, 0);
-      const sub = this.label(this.listC, `Level ${hero.level}/${HERO_MAX_LEVEL}  -  ${hero.kills} kills`, r.x + r.w / 2, r.y + CARD_H - 24, 12, THEME.textDim, 0, 0.5);
+      const sub = this.label(this.listC, `Level ${fmtBig(hero.level)}  -  ${fmtBig(hero.kills)} kills`, r.x + r.w / 2, r.y + CARD_H - 24, 12, THEME.textDim, 0, 0.5);
       sub.anchor.set(0.5, 0);
       this.hits.push({ id: `card:${def.id}`, rect: r, enabled: true, label: def.name, act: () => this.show('detail', def.id), fixed: true });
     });
@@ -293,13 +294,12 @@ export class CaptainScreen implements Screen {
     // ---- hero level
     const hR: Rect = { x: PAD, y, w: W, h: 104 };
     this.panel(L, hR);
-    this.label(L, `Hero level ${hero.level} / ${HERO_MAX_LEVEL}`, hR.x + 12, hR.y + 10, 20, THEME.text);
-    this.label(L, `+${hero.level * HERO_LEVEL_BASE_DAMAGE} base damage now`, hR.x + 12, hR.y + 40, 14, THEME.textDim);
-    const maxed = hero.level >= HERO_MAX_LEVEL;
+    this.label(L, `Hero level ${fmtBig(hero.level)}`, hR.x + 12, hR.y + 10, 20, THEME.text);
+    this.label(L, `+${fmtDamage(hero.level * HERO_LEVEL_BASE_DAMAGE)} base damage now`, hR.x + 12, hR.y + 40, 14, THEME.textDim);
     const cost = heroLevelCost(hero.level);
-    this.label(L, maxed ? 'Maximum level' : `Each level: +${HERO_LEVEL_BASE_DAMAGE} base damage`, hR.x + 12, hR.y + 62, 13, THEME.textDim);
-    const upLabel = maxed ? 'MAX' : `Upgrade +${HERO_LEVEL_BASE_DAMAGE} - ${cost} Medal${cost === 1 ? '' : 's'}`;
-    this.button(L, 'hero', { x: hR.x + hR.w - 232, y: hR.y + 28, w: 220, h: 44 }, upLabel, owned && !maxed && medals >= cost, () => this.upgradeHero(def.id));
+    this.label(L, `Each level: +${HERO_LEVEL_BASE_DAMAGE} base damage`, hR.x + 12, hR.y + 62, 13, THEME.textDim);
+    const upLabel = `Upgrade +${HERO_LEVEL_BASE_DAMAGE} - ${fmtBig(cost)} Medal${cost === 1 ? '' : 's'}`;
+    this.button(L, 'hero', { x: hR.x + hR.w - 232, y: hR.y + 28, w: 220, h: 44 }, upLabel, owned && medals >= cost, () => this.upgradeHero(def.id));
     y += hR.h + 8;
 
     // ---- kills and progress
@@ -377,7 +377,7 @@ export class CaptainScreen implements Screen {
     const r = this.store.upgradeHero(id);
     if (!r.ok) return this.denied(r.error);
     this.afterChange();
-    this.ok(`${CAPTAIN_BY_ID[id].name} is now level ${this.store.data.captains.heroes[id].level}`);
+    this.ok(`${CAPTAIN_BY_ID[id].name} is now level ${fmtBig(this.store.data.captains.heroes[id].level)}`);
   }
 
   private buy(optionId: string) {

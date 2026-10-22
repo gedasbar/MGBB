@@ -13,7 +13,9 @@ import { rng } from '../src/rng';
 import { generateLevel } from '../src/wall/generator';
 import { BOOST_MAX, CELL, PASS_MARGIN_CELLS, WALL_COLS } from '../src/wall/constants';
 import { simulateWall, blockCost } from '../src/wall/sim';
-import { CAPTAINS, HERO_MAX_LEVEL } from '../src/captains/data';
+import { CAPTAINS } from '../src/captains/data';
+/** The level the captain balance table is read at (hero levels have no cap since chunk 16c-2). */
+const HERO_REF_LEVEL = 10;
 import { computeRunModifiers, RunModifiers } from '../src/captains/modifiers';
 import type { Grid } from '../src/engine/compiler';
 
@@ -38,14 +40,14 @@ interface Build { label: string; ids: string[]; mods: RunModifiers }
 const mk = (label: string, level: number, ids: string[]): Build => ({ label, ids, mods: computeRunModifiers(level, ids) });
 
 // ---- the builds: nothing bought, and for each captain the 16 ways to fill 4 tiers, narrowed to 4 interesting ones
-const builds: Build[] = [mk('starter, nothing bought', 0, []), mk('hero level 10, no options', HERO_MAX_LEVEL, [])];
+const builds: Build[] = [mk('starter, nothing bought', 0, []), mk('hero level 10, no options', HERO_REF_LEVEL, [])];
 for (const c of CAPTAINS) {
   const combos: string[][] = [];
   for (let m = 0; m < 16; m++) combos.push(c.tiers.map((pair, t) => pair[(m >> t) & 1].id));
   const dps = (b: RunModifiers) => ((2 + b.baseDamage) / 2) * b.damageMul * b.fireRateMul * (1 + (b.vsArmor + b.vsShield) / 4);
   const wallDps = (b: RunModifiers) => dps(b) * b.wallDamageMul;
   const credit = (b: RunModifiers) => b.creditMul * (1 + b.wallCreditMul - 1) * (1 + b.passCredits);
-  const pick = (score: (b: RunModifiers) => number) => combos.reduce((best, ids) => (score(computeRunModifiers(HERO_MAX_LEVEL, ids)) > score(computeRunModifiers(HERO_MAX_LEVEL, best)) ? ids : best));
+  const pick = (score: (b: RunModifiers) => number) => combos.reduce((best, ids) => (score(computeRunModifiers(HERO_REF_LEVEL, ids)) > score(computeRunModifiers(HERO_REF_LEVEL, best)) ? ids : best));
   const picks: [string, string[]][] = [
     ['all first options', c.tiers.map(p => p[0].id)],
     ['all second options', c.tiers.map(p => p[1].id)],
@@ -58,7 +60,7 @@ for (const c of CAPTAINS) {
     const key = ids.join(',');
     if (seen.has(key)) continue;
     seen.add(key);
-    builds.push(mk(`${c.name}: ${what}`, HERO_MAX_LEVEL, ids));
+    builds.push(mk(`${c.name}: ${what}`, HERO_REF_LEVEL, ids));
   }
 }
 

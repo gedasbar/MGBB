@@ -110,3 +110,28 @@ export const staticFrac = (l: number) => 1.5 + 0.25 * (l - 1);
 /** Random Router: chance that a packet takes BOTH outputs on a pulse (otherwise 50/50 left or right). */
 /** Chunk 14a: 50% at L1, +10% a level (it was 0% at L1: one lane per pulse, the same as a Turn at an uncommon price). */
 export const routerBoth = (l: number) => 0.5 + 0.1 * (l - 1);
+
+// ---- Chunk 16c-2: shape blocks stack. Every copy on the signal path adds a step; the benefit falls off by itself.
+/** The j-th copy (j >= 2) of a size-type block (AoE, Boomerang range, Mine trigger) multiplies its size by 1 + STACK_GROWTH / j. */
+export const STACK_GROWTH = 0.25;
+/** Size factor of k copies: product of (1 + STACK_GROWTH / j) for j = 2..k (1 for one copy). */
+export function stackGrowth(k: number): number {
+  let f = 1;
+  for (let j = 2; j <= k; j++) f *= 1 + STACK_GROWTH / j;
+  return f;
+}
+/** Harmonic sum 1 + 1/2 + ... + 1/k (1 for one copy): the logarithmic growth of Homing steering and Orbit re-hit speed. */
+export function harmonic(k: number): number {
+  let h = 0;
+  for (let j = 1; j <= k; j++) h += 1 / j;
+  return Math.max(1, h);
+}
+/** AoE damage factor of k copies: each extra copy deals this much of the one before. */
+export const AOE_STACK_DAMAGE = 0.95;
+export const aoeStackDamage = (k: number) => Math.pow(AOE_STACK_DAMAGE, Math.max(0, k - 1));
+/** Fork on Impact: the j-th pair of forks deals this much of the pair before it. */
+export const FORK_PAIR_DAMAGE = 0.8;
+/** Most bounces a projectile can hold (the pool stores them in an Int8Array). */
+export const MAX_BOUNCES = 127;
+/** Chain Lightning: the e-th jump added by an extra copy deals CHAIN_STACK_FALL^e of a normal jump (the jumps of one block stay at 70% each, as before). */
+export const CHAIN_STACK_FALL = 0.85;

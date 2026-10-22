@@ -11,7 +11,8 @@ export class ProjectilePool {
   y: Float32Array;
   vx: Float32Array;
   vy: Float32Array;
-  damage: Float32Array;
+  /** Double precision: a stacked build's damage can pass what a Float32 holds (chunk 16c-2). */
+  damage: Float64Array;
   pure: Float32Array;
   modIndex: Uint16Array;
   active: Uint8Array;
@@ -47,7 +48,7 @@ export class ProjectilePool {
     this.y = new Float32Array(max);
     this.vx = new Float32Array(max);
     this.vy = new Float32Array(max);
-    this.damage = new Float32Array(max);
+    this.damage = new Float64Array(max);
     this.pure = new Float32Array(max);
     this.modIndex = new Uint16Array(max);
     this.active = new Uint8Array(max);

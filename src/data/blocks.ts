@@ -1,4 +1,5 @@
 import { aoeCircleRadius, randomCurveMaxDeg, shieldBreakMul, aoeRectSize, armorPierceMul, forkDamageFrac, CURVE_RATE_DEG, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG } from '../engine/projectiles';
+import { FIXED_LEVEL, UPGRADABLE } from './blockEconomy';
 import { addDamage, BlockCategory, BlockDef, gateDamage, Modifier, mulDamage, Packet, Rarity, Rel } from '../engine/compilerTypes';
 import {
   alternatorMul, boomerangRange, capacitorMul, CAPACITOR_N, chainJumps, CHAIN_ARC_LIFE, CHAIN_FRAC, CHAIN_RANGE, corrosionCap,
@@ -21,8 +22,13 @@ const turnSpeedMul = (l: number) => 1 + 0.1 * (l - 1);
 const splitterMul = (l: number) => 1 + 0.05 * (l - 1);
 const luckyProb = (l: number) => 0.33 + 0.05 * (l - 1);
 const jackpotProb = (l: number) => 0.04 + 0.01 * (l - 1);
-const gamblerProb = (l: number) => 0.5 + 0.05 * (l - 1);
-const percentMul = (l: number) => 1 + 0.5 * l;
+/** Gambler's Gate: 40% at level 1 to 50% at level 3 (chunk 16c-2; it was 50% to 60%). */
+export const gamblerProb = (l: number) => 0.4 + 0.05 * (l - 1);
+/** Percent x per copy: x1.5 at level 1 to x3 at level 10, geometric in the level (chunk 16c-2; it was 1 + 0.5 L). */
+export const PERCENT_MUL_L1 = 1.5;
+export const PERCENT_MUL_MAX = 3;
+export const PERCENT_MAX_LEVEL = 10;
+export const percentMul = (l: number) => PERCENT_MUL_L1 * Math.pow(PERCENT_MUL_MAX / PERCENT_MUL_L1, (l - 1) / (PERCENT_MAX_LEVEL - 1));
 
 /**
  * Data hook for the future perk behind the Crossover block. Lines already cross freely in
@@ -154,7 +160,7 @@ register({
 });
 register({
   id: 'percent_mult', name: 'Percent ×', category: 'damage', maxLevel: 10, outputs: FWD,
-  desc: (l) => `Multiplies projectile damage by ×${percentMul(l)}.`,
+  desc: (l) => `Multiplies projectile damage by ×${Math.round(percentMul(l) * 100) / 100}.`,
   transform: (p, l) => { mulDamage(p, percentMul(l)); },
   shown: true,
 });
@@ -244,7 +250,7 @@ levelMod('bouncing', 'Bouncing', 5, { type: 'bouncing' },
 levelMod('aoe_circle', 'AoE - Circle', 5, { type: 'aoe_circle' },
   (l) => `Projectiles explode on impact, hitting every enemy within ${aoeCircleRadius(l)} units for full damage.`);
 levelMod('shield_breaker', 'Shield-Breaker', 3, { type: 'shield_breaker' },
-  (l) => `Direct damage ×${shieldBreakMul(l)}, and shields take double on top of that.`);
+  (l) => `Damage dealt to a shield ×${shieldBreakMul(l)}, and shields take double on top of that. Hits on armor and HP are unchanged.`);
 register({
   id: 'pure_converter', name: 'Pure Converter', category: 'modifier', maxLevel: 5, outputs: FWD,
   desc: (l) => `Converts ${15 * l}% of projectile damage to pure damage, which ignores armor.`,
@@ -313,6 +319,13 @@ export const MOD_LABEL: Record<string, string> = {
   fission_catalyst: 'Fission Catalyst', cauterize: 'Cauterize', cleaver: 'Cleaver', culling_bolt: 'Culling Bolt', residue_seed: 'Residue Seed',
   overkill_spill: 'Overkill Spill', gravity_well: 'Gravity Well', static_charge: 'Static Charge', random_router: 'Random Router',
 };
+
+// Chunk 16c-2: only the blocks in UPGRADABLE have levels. Every other block has one level and runs at its fixed level.
+for (const b of Object.values(BLOCKS)) {
+  if (UPGRADABLE.has(b.id)) continue;
+  b.maxLevel = 1;
+  b.fixedLevel = FIXED_LEVEL[b.id] ?? 1;
+}
 
 /** Blocks the player can place, in picker order. */
 export function pickerBlocks(): BlockDef[] {
