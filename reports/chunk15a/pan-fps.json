@@ -1,26 +1,26 @@
 {
   "5": {
-    "idleFps": 19,
-    "panFps": 13,
-    "panP95": 117,
-    "cpuMs": 5.18,
-    "drawn": 12066,
-    "sprites": 12066
+    "idleFps": 60,
+    "panFps": 37,
+    "panP95": 33,
+    "cpuMs": 4.02,
+    "drawn": 12088,
+    "sprites": 12088
   },
   "44": {
-    "idleFps": 30,
-    "panFps": 26,
-    "panP95": 50,
-    "cpuMs": 0.3,
-    "drawn": 186,
-    "sprites": 406
+    "idleFps": 60,
+    "panFps": 60,
+    "panP95": 17,
+    "cpuMs": 0.2,
+    "drawn": 165,
+    "sprites": 357
   },
   "110": {
-    "idleFps": 25,
-    "panFps": 20,
-    "panP95": 67,
-    "cpuMs": 0.15,
-    "drawn": 35,
-    "sprites": 81
+    "idleFps": 60,
+    "panFps": 60,
+    "panP95": 17,
+    "cpuMs": 0.07,
+    "drawn": 37,
+    "sprites": 82
   }
 }

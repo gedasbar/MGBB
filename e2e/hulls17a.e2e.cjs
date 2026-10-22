@@ -116,7 +116,8 @@ async function revealRow(page, id) {
   check(s.rows.every(r => !r.dot), 'no dots with 0 credits');
 
   // ---- a flight with a big and a huge hull
-  for (const hull of ['galleon', 'citadel']) {
+  const crops = [], cropCaps = [];
+  for (const hull of ['dart', 'galleon', 'citadel']) {
     await tap(page, ...BUILD_TAB);
     await page.evaluate(async (hull) => {
       const b = window.__mgbm.buildScreen;
@@ -132,17 +133,43 @@ async function revealRow(page, id) {
       b.fit(); b.refresh();
     }, hull);
     const rec = await page.evaluate(() => window.__mgbm.buildScreen.model.compiled.recipes.length);
-    check(rec >= 3, `${hull}: the standard circuit feeds 3 ejectors (${rec})`);
+    check(rec >= (hull === 'dart' ? 1 : 3), `${hull}: the standard circuit feeds ${hull === 'dart' ? 1 : 3} ejectors (${rec})`);
     await page.evaluate(() => window.__mgbm.buildScreen.fly());
     await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
     const hit = await page.evaluate(() => window.__mgbm.world.hitR);
-    check(hit === (hull === 'galleon' ? 10 : 11), `${hull}: hit radius ${hit}`);
+    check(hit === ({ dart: 8, galleon: 10, citadel: 11 })[hull], `${hull}: hit radius ${hit}`);
     await page.mouse.move(...Object.values(await lib.gameToClient(page, 270, 700)));
     await page.waitForTimeout(2200);
-    shots.push(await canvasPng(page)); captions.push(`flight: ${hull}`);
+    if (hull !== 'dart') { shots.push(await canvasPng(page)); captions.push(`flight: ${hull}`); }
+    {
+      // a close crop around the ship (the whole canvas is only 360 px wide here)
+      await page.evaluate(() => { const d = document.getElementById('debug-panel'); if (d) d.style.display = 'none'; });
+      const box = await page.locator('canvas').boundingBox();
+      const sc = box.width / 540;
+      const ship = await page.evaluate(() => ({ x: window.__mgbm.world.shipX, y: window.__mgbm.world.shipY }));
+      const clip = { x: box.x + (ship.x - 60) * sc, y: box.y + (ship.y - 90) * sc, width: 120 * sc, height: 120 * sc };
+      crops.push(await page.screenshot({ clip })); cropCaps.push(`${hull} in flight (3x)`);
+    }
     await page.reload();
     await page.waitForFunction(() => !!window.__mgbm);
     await page.waitForTimeout(400);
+  }
+
+  // ---- close crops of the three ships in flight: Dart (small), Galleon (big), Citadel (huge), enlarged 3x
+  {
+    const b64 = await page.evaluate(async ({ crops, caps }) => {
+      const imgs = await Promise.all(crops.map(s => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.src = 'data:image/png;base64,' + s; })));
+      const k = 3, pad = 8, cap = 22, w = imgs[0].width * k, h = imgs[0].height * k;
+      const c = document.createElement('canvas');
+      c.width = imgs.length * (w + pad) + pad; c.height = h + cap + 2 * pad;
+      const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+      x.fillStyle = '#111'; x.fillRect(0, 0, c.width, c.height);
+      x.font = '14px monospace'; x.fillStyle = '#aaa';
+      imgs.forEach((im, i) => { const cx = pad + i * (w + pad); x.drawImage(im, cx, pad + cap, w, h); x.fillText(caps[i], cx + 2, pad + 15); });
+      return c.toDataURL('image/png').split(',')[1];
+    }, { crops: crops.map(b => b.toString('base64')), caps: cropCaps });
+    fs.writeFileSync(path.join(OUT, 'flight_hulls_17a.png'), Buffer.from(b64, 'base64'));
+    console.log('INFO  wrote', path.join(OUT, 'flight_hulls_17a.png'));
   }
 
   // ---- contact sheet

@@ -1,0 +1,132 @@
+{
+ "wisp": {
+  "recipes": 1,
+  "estDps": 33.342750701447116,
+  "highestTierPassed": 36,
+  "firstFail": "37 Slab (crashed, 3% destroyed)",
+  "ffWaves": [
+   9,
+   9,
+   9
+  ],
+  "ffDied": [
+   true,
+   true,
+   true
+  ],
+  "ffTime": [
+   359,
+   332,
+   330
+  ],
+  "ffCredits": [
+   258,
+   236,
+   244
+  ]
+ },
+ "kestrel": {
+  "recipes": 3,
+  "estDps": 63.07292755974042,
+  "highestTierPassed": 53,
+  "firstFail": "54 Slab (crashed, 1% destroyed)",
+  "ffWaves": [
+   11,
+   11,
+   11
+  ],
+  "ffDied": [
+   true,
+   true,
+   true
+  ],
+  "ffTime": [
+   416,
+   405,
+   406
+  ],
+  "ffCredits": [
+   380,
+   378,
+   376
+  ]
+ },
+ "trident": {
+  "recipes": 3,
+  "estDps": 425.2454298502923,
+  "highestTierPassed": 100,
+  "firstFail": "",
+  "ffWaves": [
+   15,
+   14,
+   15
+  ],
+  "ffDied": [
+   true,
+   true,
+   true
+  ],
+  "ffTime": [
+   564,
+   557,
+   570
+  ],
+  "ffCredits": [
+   865,
+   807,
+   846
+  ]
+ },
+ "spire": {
+  "recipes": 3,
+  "estDps": 512.5097280323383,
+  "highestTierPassed": 100,
+  "firstFail": "",
+  "ffWaves": [
+   15,
+   14,
+   15
+  ],
+  "ffDied": [
+   true,
+   true,
+   true
+  ],
+  "ffTime": [
+   567,
+   560,
+   571
+  ],
+  "ffCredits": [
+   858,
+   832,
+   843
+  ]
+ },
+ "zenith": {
+  "recipes": 3,
+  "estDps": 5124,
+  "highestTierPassed": 100,
+  "firstFail": "",
+  "ffWaves": [
+   21,
+   21,
+   20
+  ],
+  "ffDied": [
+   true,
+   true,
+   true
+  ],
+  "ffTime": [
+   813,
+   807,
+   770
+  ],
+  "ffCredits": [
+   1932,
+   1880,
+   1721
+  ]
+ }
+}
