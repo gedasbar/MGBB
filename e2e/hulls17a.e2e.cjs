@@ -69,7 +69,7 @@ async function revealRow(page, id) {
   let st = await picker(page, '({ sel: p.selected, open: p.sheetOpen, buy: p.buyButtonRect() })');
   check(st.sel === 'hornet' && st.open && st.buy, 'tapping an unowned hull opens its info sheet');
   check(!(await owned(page)).includes('hornet'), 'opening the sheet buys nothing');
-  shots.push(await canvasPng(page)); captions.push('unowned hull: info sheet (Hornet, 1.2K)');
+  shots.push(await canvasPng(page)); captions.push('unowned hull: info sheet (Hornet)');
   // not enough credits: the Buy button is pressed but nothing happens
   await tap(page, ...centre(st.buy));
   check(!(await owned(page)).includes('hornet') && (await page.evaluate(() => window.__mgbm.buildScreen.model.store.data.credits)) === 800, 'Buy without enough credits does nothing');
@@ -97,7 +97,7 @@ async function revealRow(page, id) {
   await tap(page, ...SHIP_BTN);
   await setCredits(page, 5000);
   await revealRow(page, 'kestrel');
-  shots.push(await canvasPng(page)); captions.push('hull picker scrolled, dots on affordable hulls');
+  shots.push(await canvasPng(page)); captions.push('hull picker, 5K credits: dots on affordable');
   await tap(page, 270, 40); // outside the panel (title bar area above it) closes
   check(!(await state(page)).hullPanelOpen, 'a tap outside the panel closes the picker');
 
