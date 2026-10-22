@@ -214,6 +214,19 @@ async function openGame(browser, { viewport = { width: 540, height: 960 }, clear
 
 const state = (page) => page.evaluate(() => window.__mgbm.state());
 
+/** Screen rect of a hull's row in the Build screen's hull picker (chunk 17a; scrolls the list through the dev hook until the row is in view). */
+async function hullRowRect(page, id) {
+  return page.evaluate((hull) => {
+    const p = window.__mgbm.buildScreen.hullPicker;
+    for (let i = 0; i < 40; i++) {
+      const r = p.rowScreenRect(hull);
+      if (r && r.y >= 170 && r.y + r.h <= 780) return r;
+      p.scrollBy(r && r.y < 170 ? -80 : 80);
+    }
+    return p.rowScreenRect(hull);
+  }, id);
+}
+
 async function shot(page, name) {
   const file = path.join(OUT, name);
   await page.screenshot({ path: file });
@@ -222,5 +235,5 @@ async function shot(page, name) {
 
 module.exports = {
   chromium, URL, OUT, VIEW, check, counts, gameToClient, park, tap, drag, wheel,
-  pixelAtClient, pixelsAtClient, countInRegion, countInImage, scanImage, isRedLine, AUTO_BADGE_PRED, PADLOCK_PRED, NO_SIGNAL_PRED, openGame, state, shot,
+  pixelAtClient, pixelsAtClient, countInRegion, countInImage, scanImage, isRedLine, AUTO_BADGE_PRED, PADLOCK_PRED, NO_SIGNAL_PRED, openGame, state, shot, hullRowRect,
 };

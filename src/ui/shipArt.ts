@@ -1,6 +1,8 @@
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CONFIG } from '../config';
 import { CATEGORY_COLOR } from '../builder/draw';
+import { HULL_ORDER, SIZE_CLASSES, sizeClassOf } from '../data/hulls';
+import { HULL_ROWS } from '../game/gridUtils';
 
 /**
  * Ship art: code-drawn, flat, static. A ship is data (`ShipArtDef`): nested sharp polygons in a unit box (x right, y down,
@@ -21,8 +23,10 @@ export interface ShipArtDef {
   engine?: [number, number, number, number];
   /** Where the nose is in the unit box (y); kept for callers that want to place a muzzle on the art. */
   muzzleY?: number;
-  /** Size multiplier: 1 draws the unit box ART_W x ART_H. */
+  /** Size multiplier: 1 draws the unit box of the hull's size class (see art size below). */
   size: number;
+  /** Small coloured pieces [x0, x1, y0, y1] (the ejector tips of a generated hull); without it the hull gets a cockpit square. */
+  accents?: [number, number, number, number][];
 }
 
 
@@ -84,6 +88,52 @@ export const SHIP_ART: Record<string, ShipArtDef> = {
   },
 };
 
+/**
+ * Chunk 17a: the art of every hull added by the ladder is generated from its own layout. Every cell of the layout becomes a
+ * nested plate (light edge, mid, dark, core, like the block plates); an ejector cell is a triangle pointing up, so the guns read
+ * as guns; the accents are a small coloured square on each ejector and the engine bar under the generator. The layout is fitted
+ * into the unit box with its cells allowed to stretch up to MAX_CELL_STRETCH, so a one-cell-wide column is still a visible ship.
+ */
+const MAX_CELL_STRETCH = 2.2;
+const GENERATED_ACCENTS = [CATEGORY_COLOR.damage, CATEGORY_COLOR.pathing, CATEGORY_COLOR.modifier, CATEGORY_COLOR.mitosis, CATEGORY_COLOR.status];
+
+/** Three nested copies of every cell plate (light edge, mid grey, dark centre): calmer than the four of `nest` when a hull has dozens of cells. */
+function plates(pieces: Pt[][]): ShipLayer[] {
+  return [
+    ...pieces.map(p => ({ points: p, role: 'outer' as const })),
+    ...pieces.map(p => ({ points: inset(p, 0.84), role: 'mid' as const })),
+    ...pieces.map(p => ({ points: inset(p, 0.5), role: 'inner' as const })),
+  ];
+}
+
+export function generateShipArt(id: string, rows: string[]): ShipArtDef {
+  const gw = rows[0].length, gh = rows.length;
+  const { artW, artH } = SIZE_CLASSES[sizeClassOf(id)];
+  let cw = artW / gw, ch = artH / gh;
+  if (cw > ch * MAX_CELL_STRETCH) cw = ch * MAX_CELL_STRETCH;
+  if (ch > cw * MAX_CELL_STRETCH) ch = cw * MAX_CELL_STRETCH;
+  const u = cw / artW, v = ch / artH;                       // one cell in unit-box coordinates
+  const ox = (1 - gw * u) / 2, oy = (1 - gh * v) / 2;
+  const pieces: Pt[][] = [];
+  const accents: [number, number, number, number][] = [];
+  let engine: [number, number, number, number] | undefined;
+  rows.forEach((row, y) => [...row].forEach((c, x) => {
+    if (c === '.') return;
+    const x0 = ox + x * u, x1 = x0 + u, y0 = oy + y * v, y1 = y0 + v;
+    if (c === 'E') {
+      pieces.push([[(x0 + x1) / 2, y0], [x1, y1], [x0, y1]]);
+      accents.push([x0 + u * 0.33, x0 + u * 0.67, y0 + v * 0.52, y0 + v * 0.86]);
+    } else pieces.push([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]);
+    if (c === 'G') engine = [x0 + u * 0.2, x1 - u * 0.2, y1 - v * 0.05, Math.min(1, y1 + v * 0.45)];
+  }));
+  return {
+    id, layers: plates(pieces.map(p => p.map(([x, y]) => [Math.round(x * 1e6) / 1e6, Math.round(y * 1e6) / 1e6] as Pt))), accent: GENERATED_ACCENTS[HULL_ORDER.indexOf(id as (typeof HULL_ORDER)[number]) % GENERATED_ACCENTS.length],
+    size: 1, muzzleY: oy, accents, engine,
+  };
+}
+
+for (const id of HULL_ORDER) if (!SHIP_ART[id]) SHIP_ART[id] = generateShipArt(id, HULL_ROWS[id]);
+
 /** Grey ramp of the ships (same family as the block plates): light edge, mid greys, dark core; colour only in small pieces. */
 export const SHIP_EDGE = 0xd4d4d8;
 export const SHIP_MID = 0x8a8a90;
@@ -91,24 +141,31 @@ export const SHIP_DARK = 0x55555a;
 export const SHIP_CORE = 0x26262a;
 const ROLE_FILL: Record<LayerRole, number> = { outer: SHIP_EDGE, mid: SHIP_MID, inner: SHIP_DARK, core: SHIP_CORE };
 
-/** Visible size of every ship in px at the 540 px wide viewport (the unit box is stretched to this). */
-export const ART_W = 26;
-export const ART_H = 34;
+/** Visible size of a small ship in px at the 540 px wide viewport (the unit box is stretched to this); bigger hulls use their size class (data/hulls.ts). */
+export const ART_W = SIZE_CLASSES.small.artW;
+export const ART_H = SIZE_CLASSES.small.artH;
+
+/** Art box in px of a hull: its size class. */
+export function artSizeOf(id: string): { w: number; h: number } {
+  const c = SIZE_CLASSES[sizeClassOf(id)];
+  return { w: c.artW, h: c.artH };
+}
 /** Texture resolution (the sheets zoom the ships 3x). */
 const TEX_RES = 4;
 
 /** Draws a ship into a Graphics at origin (top-left of its box); `w` x `h` is the box in px. */
-export function drawShipArt(g: Graphics, def: ShipArtDef, w = ART_W, h = ART_H): Graphics {
+export function drawShipArt(g: Graphics, def: ShipArtDef, w = artSizeOf(def.id).w, h = artSizeOf(def.id).h): Graphics {
   const kx = w * def.size;
   const ky = h * def.size;
   g.rect(0, 0, kx, ky).fill({ color: 0x000000, alpha: 0 });   // keeps the texture's bounds equal to the unit box, so the art centres on the ship
   for (const layer of def.layers) {
     g.poly(layer.points.flatMap(([x, y]) => [x * kx, y * ky])).fill(ROLE_FILL[layer.role]);
   }
-  // Two small coloured pieces: the engine bar at the back and a cockpit square in the core.
+  // Small coloured pieces: the engine bar at the back and a cockpit square in the core (a generated hull has its ejector tips instead).
   const e = def.engine ?? [0.42, 0.58, 0.92, 0.98];
   g.rect(e[0] * kx, e[2] * ky, (e[1] - e[0]) * kx, (e[3] - e[2]) * ky).fill(def.accent);
-  g.rect(0.44 * kx, 0.4 * ky, 0.12 * kx, 0.12 * ky).fill(def.accent);
+  if (def.accents) for (const a of def.accents) g.rect(a[0] * kx, a[2] * ky, (a[1] - a[0]) * kx, (a[3] - a[2]) * ky).fill(def.accent);
+  else g.rect(0.44 * kx, 0.4 * ky, 0.12 * kx, 0.12 * ky).fill(def.accent);
   return g;
 }
 
@@ -137,8 +194,9 @@ export function clearShipTextureCache() { cache.clear(); }
 export function shipThumbnail(renderer: TextureMaker, id: string, px: number): Sprite {
   const s = new Sprite(getShipTexture(renderer, id));
   s.anchor.set(0.5);
+  const a = artSizeOf(id);
   s.height = px;
-  s.width = px * (ART_W / ART_H);
+  s.width = px * (a.w / a.h);
   return s;
 }
 
@@ -159,8 +217,9 @@ export class ShipView {
     const def = SHIP_ART[hullId] ?? SHIP_ART.dart;
     this.art = new Sprite(getShipTexture(renderer, hullId));
     this.art.anchor.set(0.5);
-    this.art.width = ART_W * def.size * k;
-    this.art.height = ART_H * def.size * k;
+    const a = artSizeOf(hullId);
+    this.art.width = a.w * def.size * k;
+    this.art.height = a.h * def.size * k;
     for (const m of muzzles) {
       const along = m.dir === 'E' || m.dir === 'W';
       const w = along ? 3 : 1.5;

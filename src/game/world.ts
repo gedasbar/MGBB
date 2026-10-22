@@ -1,4 +1,4 @@
-import { CONFIG, shipHalfW } from '../config';
+import { CONFIG, HIT_RADIUS, shipHalfW } from '../config';
 import { ProjectilePool } from '../engine/pools';
 import { MitosisSystem } from '../engine/mitosis';
 import { ProjectileSystem } from '../engine/projectiles';
@@ -9,7 +9,7 @@ import { PointerState } from '../input';
 import { buildStarterGrid, ROCK_RADIUS } from './starter';
 import { leakDamage, rockHp, rockReward, tierOfTime, wholeRockHp } from '../econ/economy';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
-import { fireRateMul } from '../data/hulls';
+import { fireRateMul, hitRadiusOf, shotSpeedMul } from '../data/hulls';
 import { SPECIES, speciesOf } from '../data/species';
 import { ENEMIES } from '../data/enemies';
 import { EnemyField } from '../engine/targets';
@@ -66,6 +66,8 @@ export class World {
   controlStarted: boolean;
   private controlT: number;
   private easeFrom = { x: 0, y: 0 };
+  /** Radius of the invisible hit circle: set by the hull's size class (HIT_RADIUS for a small hull). */
+  hitR = HIT_RADIUS;
   hull = BASE_HULL;
   readonly maxHull: number;
   /** The active captain's effects for this run (neutral when none was given). */
@@ -144,7 +146,8 @@ export class World {
     this.warnings = compiled.warnings;
     this.projSys.modifiersTable = this.recipes.map(r => r.packet.mods);
     this.gun = new Gun(this.pool, this.projSys, this.recipes, this.spawnOffsets, 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul));
-    this.gun.speedMul = this.mods.projSpeedMul;
+    this.gun.speedMul = this.mods.projSpeedMul * shotSpeedMul(hull.hullId);
+    this.hitR = hitRadiusOf(hull.hullId);
     const b = this.projSys.bonus;
     b.damageMul = this.mods.damageMul;
     b.vsArmor = this.mods.vsArmor;
@@ -481,7 +484,7 @@ export class World {
       const sx = this.shipX - e.x;
       const sy = this.shipY - e.y;
       const d = Math.sqrt(sx * sx + sy * sy) || 1;
-      if (d < e.radius + CONFIG.PLAYER.HITBOX_R && this.invuln <= 0 && !this.god) {
+      if (d < e.radius + this.hitR && this.invuln <= 0 && !this.god) {
         if (this.secondChancesLeft > 0) {
           // Second Chance: this contact deals no damage; the ship is untouchable for a second.
           this.secondChancesLeft--;

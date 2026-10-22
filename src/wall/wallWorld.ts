@@ -12,7 +12,7 @@ import {
 import { LevelDef, rewardPerBlock } from './level';
 import { wallResult } from './result';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
-import { fireRateMul } from '../data/hulls';
+import { fireRateMul, hitRadiusOf, shotSpeedMul } from '../data/hulls';
 import { wrapDx, wrapX } from '../engine/wrap';
 import { neutralModifiers, RunModifiers } from '../captains/modifiers';
 import { SECOND_CHANCE_INVULN } from '../captains/data';
@@ -193,6 +193,8 @@ export class WallWorld {
   autoFire = true;
   /** Pulse-rate multiplier of the hull being flown (the Dart is slow). */
   private fireRateMul = 1;
+  /** Radius of the invisible hit circle: set by the hull's size class (SHIP_HIT_R for a small hull). */
+  hitR = SHIP_HIT_R;
   private pulseTimer = 0;
 
   /** Events produced by update(); consumers clear them. */
@@ -216,7 +218,8 @@ export class WallWorld {
     this.spawnOffsets = spawnOffsetsFor(this.recipes, hullGrid);
     this.projSys.modifiersTable = this.recipes.map(r => r.packet.mods);
     this.gun = new Gun(this.pool, this.projSys, this.recipes, this.spawnOffsets, 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul));
-    this.gun.speedMul = this.mods.projSpeedMul;
+    this.gun.speedMul = this.mods.projSpeedMul * shotSpeedMul(hullGrid.hullId);
+    this.hitR = hitRadiusOf(hullGrid.hullId);
     const bonus = this.projSys.bonus;
     bonus.damageMul = this.mods.damageMul * this.mods.wallDamageMul;
     bonus.vsArmor = this.mods.vsArmor;
@@ -494,7 +497,7 @@ export class WallWorld {
 
   /** True if the ship's hit point overlaps the cell of a living block. With `out`, every such block is collected into it. */
   shipHitsBlock(out?: Block[]): boolean {
-    const R = SHIP_HIT_R;
+    const R = this.hitR;
     const x = this.shipX;
     const y = this.shipY;
     const cols = this.level.cols;

@@ -27,20 +27,18 @@ const TAB = { build: [54, 932], shop: [162, 932], map: [916, 932] };
   check((await saved()).credits === 101000 && /101000/.test(await status()), `saved through the store; status "${await status()}"`);
 
   // ---- buy a hull with real taps
-  await tap(page, ...TAB.shop);
-  await tap(page, 405, 136);
-  s = await state(page);
-  const twin = s.rows.find(r => r.key === 'twin');
-  await tap(page, ...centre(twin.buttons[0].rect), { pause: 250 });
-  check((await saved()).ownedHulls.includes('twin') && (await saved()).credits === 101000 - 70, `bought the Twin in the Shop: credits ${(await saved()).credits}`);
+  await tap(page, 28, 26);   // the ship button: the hull picker (chunk 17a: hulls are bought there)
+  { const r = await lib.hullRowRect(page, 'twin'); await tap(page, ...centre(r)); }
+  await tap(page, ...centre(await page.evaluate(() => window.__mgbm.buildScreen.hullPicker.buyButtonRect())), { pause: 250 });
+  check((await saved()).ownedHulls.includes('twin') && (await saved()).credits === 101000 - 70, `bought the Twin in the hull picker: credits ${(await saved()).credits}`);
   await click('dbg-add-10000000');
   s = await state(page);
-  check(s.credits === 101000 - 70 + 10_000_000, `the open Shop sees +10M at once (${s.credits})`);
+  check(s.credits === 101000 - 70 + 10_000_000, `the Build screen sees +10M at once (${s.credits})`);
 
   // ---- own all blocks / hulls
   await click('dbg-own-max'); await click('dbg-own-blocks'); await click('dbg-own-hulls');
   const p = await saved();
-  check(p.ownedHulls.length === 5 && p.owned.flat_plus === 10 && p.levels.flat_plus === 10, `all hulls (${p.ownedHulls.length}), 10 x Flat+ at level ${p.levels.flat_plus}`);
+  check(p.ownedHulls.length === 19 && p.owned.flat_plus === 10 && p.levels.flat_plus === 10, `all hulls (${p.ownedHulls.length}), 10 x Flat+ at level ${p.levels.flat_plus}`);
   check(p.owned.alternator === 10, `a block of chunk 9a owned x10 (${p.owned.alternator}); hidden: ${Object.keys(p.owned).length} entries`);
 
   // ---- unlock tiers: the Map shows them open, no medals

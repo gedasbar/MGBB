@@ -26,7 +26,7 @@ export class FreeFlyBot {
   readonly pointer: PointerState = { x: CONFIG.VIEW.W / 2, y: BOT.Y, active: false, type: 'mouse', seen: true };
 
   step(w: World, dt: number) {
-    const W = CONFIG.VIEW.W, m = shipHalfW(CONFIG.VIEW.W), hitR = CONFIG.PLAYER.HITBOX_R;
+    const W = CONFIG.VIEW.W, m = shipHalfW(CONFIG.VIEW.W), hitR = w.hitR;
     const enemies = w.mitosis.enemies;
     // Target: the lowest body still above the ship, led by the shot's flight time.
     let aim = W / 2, lowest = -Infinity;

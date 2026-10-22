@@ -1,7 +1,7 @@
 import { CONFIG } from '../config';
 import { Grid } from '../engine/compiler';
 import { wrapDx, wrapX } from '../engine/wrap';
-import { CELL, SHIP_HIT_R, VIEW_H } from './constants';
+import { CELL, VIEW_H } from './constants';
 import { LevelDef } from './level';
 import { ShipTarget, WallState, WallWorld } from './wallWorld';
 import type { RunModifiers } from '../captains/modifiers';
@@ -71,7 +71,7 @@ export class CarveBot {
       }
     }
     const bottom = columnBottom(w, this.lane);
-    const wantY = bottom === null ? -200 : bottom + SHIP_HIT_R + 9;
+    const wantY = bottom === null ? -200 : bottom + w.hitR + 9;
     this.x = moveX(w, this.x, dotXFor(w, this.lane), dt);
     this.y = move(this.y, Math.min(wantY, VIEW_H - CONFIG.PLAYER.MARGIN), dt);
     return { x: this.x, y: this.y };

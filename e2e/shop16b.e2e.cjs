@@ -66,7 +66,7 @@ async function montage(page, shots, captions, file, k) {
 
   // ---- layout at the phone width (360 css px = 540 game px, so css = game x 0.667)
   let st = await shopState(page);
-  check(st.section === 'blocks' && st.rows.length === 41, `the Shop lists 41 blocks as tiles (${st.rows.length})`);
+  check(st.section === undefined && st.rows.length === 41, `the Shop lists 41 blocks as tiles (${st.rows.length})`);
   const tiles = await pal(page, 'p.tiles.slice(0, 6).map(t => ({ x: t.x, y: t.y, w: t.w, h: t.h }))');
   check(tiles[4].x > tiles[3].x && tiles[3].x > tiles[2].x && tiles[2].x > tiles[1].x && tiles[1].x > tiles[0].x && tiles[4].y === tiles[0].y && tiles[5].x === tiles[0].x && tiles[5].y > tiles[0].y,
     `5 tiles per row: ${JSON.stringify(tiles.map(t => [t.x, t.y]))}`);
@@ -105,7 +105,7 @@ async function montage(page, shots, captions, file, k) {
   await tap(page, ...centre(await pal(page, 'p.sheetButtonRect("upgrade")')));
   const after2 = await own(page, first);
   check(after2.level === 2 && after.credits - after2.credits === prices.up, `Upgrade: level ${after.level}->${after2.level}, price ${prices.up}`);
-  check((await shopState(page)).inspector.title.includes('Lv 2'), 'the inspector shows the new level');
+  check(/2/.test((await pal(page, 'p.sheetContentNow')).levelLine), 'the sheet shows the new level');
   await tapTile(page, first);
   check(!(await pal(page, 'p.sheetOpen')), 'tapping the selected tile again closes the sheet');
 
@@ -130,11 +130,8 @@ async function montage(page, shots, captions, file, k) {
   await wheel(page, 270, 500, 2000);
   const sc = await pal(page, '({ y: p.scrollY, max: p.maxScrollValue })');
   check(sc.y > 0 && Math.abs(sc.y - sc.max) < 1, `the wheel scrolls the grid to its end (${sc.y.toFixed(0)} of ${sc.max.toFixed(0)})`);
-  await tap(page, ...SEC_HULLS);
   st = await shopState(page);
-  check(st.section === 'hulls' && st.rows.length >= 4 && st.rows[0].buttons.length === 1, `Hulls section keeps its rows (${st.rows.length})`);
-  await tap(page, ...SEC_BLOCKS);
-  check((await shopState(page)).rows.length === 41, 'back on Blocks');
+  check(st.rows.length === 41 && st.section === undefined, 'the Shop is blocks only: no Hulls section');
 
   // ---- wide window
   await page.setViewportSize({ width: 1600, height: 900 });
