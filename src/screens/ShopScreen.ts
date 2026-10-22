@@ -244,7 +244,6 @@ export class ShopScreen implements Screen {
       this.palette.attach(this.paletteSource(), {
         onSelect: (id) => this.showBlock(id),
         onButton: (id, kind) => this.pressBlock(id, kind),
-        onClose: () => {},
         onMessage: (m) => this.toast.show(m),
       });
     } else this.palette.hide();

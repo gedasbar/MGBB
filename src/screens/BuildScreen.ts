@@ -463,7 +463,6 @@ export class BuildScreen implements Screen {
     this.picker.open(this.model, target, {
       onHighlight: (id) => this.highlightTile(id),
       onPlace: (id) => this.placeFromPicker(id),
-      onClose: () => this.closePicker(),
       onMessage: (m) => this.toast.show(m),
     });
     this.refresh();

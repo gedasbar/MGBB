@@ -12,15 +12,14 @@ export { REMOVE_TILE };
 export interface PickerEvents {
   /** Tap on a tile (or REMOVE_TILE) that was not selected: highlight and preview it. */
   onHighlight(id: string): void;
-  /** Second tap on the selected tile, or the sheet's Place / Remove button: place the block (or remove). */
+  /** Second tap on the selected tile, place the block (or remove). */
   onPlace(id: string): void;
-  onClose(): void;
   onMessage(msg: string): void;
 }
 
 /**
  * The builder's bottom sheet: the shared tile palette fed with the builder's inventory. A tile tap previews the block and
- * opens its info sheet; a second tap on the tile (or the sheet's Place button) places it.
+ * opens its info sheet; a second tap on the tile places it (no Place button).
  */
 export class Picker extends TilePalette {
   /** Tile whose preview is on the circuit. Not set by merely opening the palette. */
@@ -28,7 +27,7 @@ export class Picker extends TilePalette {
   target: { x: number; y: number } | null = null;
 
   constructor() {
-    super({ area: LAYOUT.sheet, buttons: ['place'], tapAgain: 'place', panel: true });
+    super({ area: LAYOUT.sheet, buttons: [], tapAgain: 'place', panel: true });
     this.container.visible = false;
   }
 
@@ -58,7 +57,6 @@ export class Picker extends TilePalette {
     this.attach(source, {
       onSelect: (id) => { this.armed = id; events.onHighlight(id); },
       onButton: (id) => events.onPlace(id),
-      onClose: () => events.onClose(),
       onMessage: (m) => events.onMessage(m),
     });
     this.selected = cell()?.blockId ?? null;

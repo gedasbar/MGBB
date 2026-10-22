@@ -26,13 +26,13 @@ scroll); tiles outside the visible window are hidden.
 
 ## No tabs
 One scrolling list ordered by category (pathing, damage, modifier, status, mitosis), then data order (`paletteIds`). The
-builder panel keeps a header row with the close button; the Shop has none. The old `mgbm_palette_tab` value is never read.
+builder panel has no header or X: a tap on the circuit closes it. Tiles are 5 per row (98 x 88 game px, about 65 x 59 css px at 360 wide). The old `mgbm_palette_tab` value is never read.
 
 ## Selecting and placing
 - Tap a tile: it is selected and previewed on the circuit (as before) and the info sheet opens.
 - Tap the same tile again, or the circuit grid: the sheet closes (the grid tap closes only the sheet; the next grid
   tap closes the palette as before). Tapping the tile again deliberately no longer places: the sheet's `Place` button does.
-- `Place` (or `Remove` for the Remove tile) does what the second tap used to do. `Buy` and `Upgrade` call
+- The builder's info sheet has no Place button (it is shorter, `INFO_SHEET_NO_BUTTONS_H`): the second tap on the selected tile places it (or removes, for the Remove tile). `Buy` and `Upgrade` call
   `ProgressStore.buyCopy` / `buyUpgrade`, and upgrades call `model.refreshLevels()` like the Shop does.
 - A block locked by a Frontier ring shows the requirement text and no Buy / Upgrade buttons.
 
