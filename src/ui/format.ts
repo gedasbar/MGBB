@@ -5,7 +5,8 @@ const INFINITY_SIGN = '∞';
 /** Mantissa of 3 significant digits with trailing zeros dropped (1.50 -> 1.5, 120 -> 120). */
 function mantissa(x: number): string {
   const digits = x >= 100 ? 0 : x >= 10 ? 1 : 2;
-  return x.toFixed(digits).replace(/\.?0+$/, '');
+  const t = x.toFixed(digits);
+  return t.includes('.') ? t.replace(/\.?0+$/, '') : t; // only after a decimal point: 950 stays 950
 }
 
 /**

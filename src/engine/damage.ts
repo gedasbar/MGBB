@@ -39,8 +39,9 @@ export function applyDamage(
   const isShieldBreaker = !!shieldBreaker;
   const sbMul = shieldBreaker === true ? 1.5 : typeof shieldBreaker === 'number' ? shieldBreaker : 1;
   // `pureFrac > 0` first: Infinity x 0 would be NaN.
-  const pureDmg = pureFrac > 0 ? damage * pureFrac : 0;
-  let directDmg = damage - pureDmg;
+  const pureDmg = pureFrac > 0 ? damage * Math.min(1, pureFrac) : 0;
+  // damage x (1 - pure): written so an infinite hit with all of it pure leaves 0 direct damage, not Infinity - Infinity
+  let directDmg = pureFrac >= 1 ? 0 : pureFrac > 0 ? damage * (1 - pureFrac) : damage;
 
   // A shield takes the direct damage; Shield-Breaker makes it take sbMul x 2 per point (and only the shield: the part of the hit
   // that gets through to armor and HP is plain direct damage).
