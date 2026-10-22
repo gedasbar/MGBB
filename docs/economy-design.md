@@ -4,7 +4,7 @@ Built on `docs/economy-audit.md` (16c-1). This note says how each step is done a
 before/after numbers are added at the end of the chunk.
 
 ## Baseline (step 0)
-Measured on `origin/main` (d82156d) before any change: typecheck clean, 526 unit tests pass, full e2e: see the table at the end.
+Measured on `origin/main` (d82156d) in a separate worktree before any change: typecheck clean, 526 unit tests pass. Full e2e failures that already existed: `builder` (2: warning counted in the strip; list scroll reveals pure_converter), `campaign` (4: tier passed / medals), `chunk1` (2: second tap on a tile), `frontier15a` (1: panning 31 fps), `economy` (script error, exit 2). Everything else passed.
 
 ## Step 2 - upgrades and single levels
 - One data file, `src/data/blockEconomy.ts`: `UPGRADABLE` (Flat+, Percent x, Lucky Strike, Jackpot, Gambler's Gate, Shield-Breaker,
@@ -75,3 +75,50 @@ Old prices are frozen in `src/econ/legacyPrices.ts` for this. Hero levels are ke
 13. **Audit bench:** `scripts/lib/dmgBench.ts` gained an optional fourth scenario "spread" (a dense row of 30 small bodies, ship aimed at its middle) and an `hpMul` option; they are not part of `benchAll`, so every older table is unchanged. The stacking check averages four target HPs (x3 to x4.5) on a 48 s bench, because with small numbers a body dies after a whole number of hits and a x0.95 can cost a whole hit at one HP and nothing at another.
 14. **e2e:** `e2e/lib.cjs` writes the rich save as version 8, `freefly-waves` expects saved version 8, and `economy16c.e2e.cjs` is new.
 
+
+## Results
+
+### Tests
+Typecheck clean; 568 unit tests pass (526 before, 42 new in `tests/economy16c.test.ts`, about 25 old ones adapted because they hard-coded the old numbers). Full e2e on the new code: the same five scripts fail in the same way as at baseline (`builder` 2, `campaign` 4, `chunk1` 2, `frontier15a` 1 at 34 fps, `economy` exit 2); the only NEW failure was `shop16b` (it assumed Flat+ has no cap and bought a 21st copy), fixed in the script (it starts from 5 copies). New `economy16c` passes 12 of 12. After merging `origin/main` (the 5-column palette) `shop16b`, `economy16c`, `builder-extra`, `builder` and `chunk1` were rerun with the same results.
+
+Mutation checks (broken on a scratch copy, tests run, restored; log in `reports/chunk16c2/mutation-check.txt`): Percent x top x3 to x4, buyCopy ignoring the cap, Piercing copies not adding to the divisor, Shield-Breaker boosting nothing on a shield, `mulSafe` as a plain multiply, migration refunding one level short, AoE growth not shrinking, the `fmtBig` zero-stripping bug back, Fork pairs all equal, Gambler staying 50%: **all 10 killed** by at least one test.
+
+### Before / after
+`docs/economy-audit-tables.md` is the 16c-1 audit (before), `docs/economy-audit-tables-16c2.md` is the shipped game (after).
+
+| thing | before | after |
+|---|---|---|
+| Percent x per copy L1 / L5 / L10 | x1.5 / x3.5 / x6 | x1.5 / x2.04 / x3 |
+| 10 Percent x, all L10 | x6.05e7 | x59,049 |
+| Gambler's Gate chance L1 to L3 | 50% to 60% | 40% to 50% |
+| 10 Percent x at L1, credits (Dart runs) | 2,823 (37) | 4,262 (56) |
+| Percent x upgrade ladder L1 to L10 | 241,255 | 201,045 |
+| 10th Percent x | 532 | 1,060 |
+| Turn Left base / cap | 40 / none | 30 / 8 |
+| Splitter 3 | 350 / none | 700 / 1 |
+| blocks with upgrades | 41 | 8 |
+| 2nd copy of a shape block | x1.00 (nothing) | stacks, see below |
+| hero level cost, cumulative to level 10 / 20 | 30 / no level 20 | 25 / 185 |
+| projectile damage storage | Float32 | Float64 |
+
+Shape blocks stacking, HP/s in the block's own scenario with 0 to 6 copies (48 s bench averaged over four target HPs; every row passes the audit's "never falls" and "flattens" checks):
+
+- Piercing 7.3 / 10.9 / 11.7 / 12.2 / 12.6 / 12.7 / 12.8
+- Bouncing 7.3 / 8.0 / 8.7 / 8.8 / 8.9 / 9.0 / 9.0
+- AoE Circle (crowd) 1.9 / 8.4 / 9.4 / 10.3 / 11.3 / 11.3 / 11.3
+- AoE Rectangle (crowd) 1.9 / 18.8 / 22.5 / 23.4 / 25.3 / 26.3 / 27.2
+- Chain Lightning 7.3 / 20.4 / 21.1 / 23.5 / 25.6 / 29.8 / 29.8
+- Fork on Impact 7.3 / 11.5 / 13.9 / 15.2 / 16.2 / 17.3 / 18.1
+- Boomerang 7.3 / 15.3 / 23.8 / 23.8 / 23.3 / 24.3 / 23.9 (worst step -2%)
+- Homing 7.7 / 7.8 / 7.8 / ... (nothing to gain against targets that do not move)
+- Orbit 7.7 / 7.2 / 7.2 / ... and Mine 7.7 / 3.9 / 3.9 / ...: the first copy costs DPS on this bench and copies 2 to 6 change nothing. Orbit's gain is shown by a unit test on a target the shot keeps overlapping, and Mine's size by another unit test.
+
+Honest notes: Homing, Orbit and Mine are flat on the bench because its targets hover and have no armor. AoE copies beyond about the 8th would start to lose DPS (x0.95 per copy against a radius gain that keeps shrinking). Chain Lightning gains stay positive until the targets run out.
+
+### Frame rate and engine cost with a heavy stacked build
+Browser (headless Chromium, software renderer, `e2e/economy16c.e2e.cjs`, Free Fly wave 3, the 51 straight cells of the Fan snake filled with 17 Fork, 17 Piercing and 17 Bouncing): **60.3 fps, p95 frame 16.7 ms, peak 182 projectiles in the air**, against 60.3 fps, p95 16.8 ms and peak 6 for the plain build (Flat+, Percent x). The headless page is capped at 60 fps, so this shows the load does not pull it below 60, not how much headroom there is.
+
+Engine only (`scripts/perf-stack.ts`, wave 25, 30 s, pool limit 4000): plain 0.04 ms per update; Fork x7 0.04 ms (peak 59 projectiles); the absurd Fork x51 line 0.12 ms mean, 0.27 ms p99, 0.62 ms max, peak 407 projectiles (a tenth of the pool); Piercing, Chain and AoE x51 0.04 ms. Full table: `reports/chunk16c2/perf-stack.md`.
+
+### Contact sheet
+`reports/chunk16c2/sheet_economy.png`: Shop with Turn Left "Owned 8 / 8" and a greyed "Max" button, no level line and no Upgrade button; Shop with Piercing (no cap, only a Buy button, rule text "1/3 of the damage it dealt"); Free Fly wave 3 with the heavy stacked build (cyan shots over the screen); Captain tab with "Hero level 26", "+13 base damage now" and the grey button "Upgrade +0.5 - 114 Medals" with the toast "Cadet is now level 26".
