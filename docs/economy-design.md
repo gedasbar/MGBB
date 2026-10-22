@@ -1,0 +1,62 @@
+# Economy and stacking (chunk 16c-2)
+
+Built on `docs/economy-audit.md` (16c-1). This note says how each step is done and lists every deviation. The
+before/after numbers are added at the end of the chunk.
+
+## Baseline (step 0)
+Measured on `origin/main` (d82156d) before any change: typecheck clean, 526 unit tests pass, full e2e: see the table at the end.
+
+## Step 2 - upgrades and single levels
+- One data file, `src/data/blockEconomy.ts`: `UPGRADABLE` (Flat+, Percent x, Lucky Strike, Jackpot, Gambler's Gate, Shield-Breaker,
+  Armor-Piercer Tip, Pure Converter), `FIXED_LEVEL` (the audit's A2 list), and the per-block copy table (step 4).
+- Every other block gets `maxLevel = 1` and a `fixedLevel` on its `BlockDef`. The compiler and `describeBlock` run the block at
+  `fixedLevel` (`powerLevel(def, cell.level)`), so a placed cell and a save keep level 1 and nothing has to be rewritten.
+  The A2 list is: Alternator, Random Router, Capacitor, Executioner, Cleaver, Culling Bolt, Piercing, Boomerang, Chain Lightning, AoE Rectangle,
+  Frostbite, Static Charge at L3; every other block at L1. This deliberately changes some level-1 numbers (override of rule 6).
+- UI: a block with `maxLevel` 1 shows no "Level x/y" line and no Upgrade button (builder sheet and Shop).
+
+## Step 3 - Percent x and the boosters
+- `percentMul(L) = 1.5 * 2^((L-1)/9)` (x1.5 at L1, x3 at L10). Gambler's Gate chance `0.40 + 0.05 (L-1)`. Lucky Strike and Jackpot untouched.
+
+## Step 4 - caps and prices
+- `BLOCK_ECONOMY[id] = { cap, base, growth }` (`cap: null` = no cap, for the shape blocks that stack). Copy price of the n-th copy
+  = `round(base * growth^(n-1))` (n-1 = copies owned). Upgrade price = `round(base * 2.0 * 2.2^(L-1))` (unchanged formula, new base).
+- Values are the audit's family B / D4 table: turns 30 x1.15 cap 8, Splitter 2 120 x1.15 cap 2, Splitter 3 700 cap 1, Flat+ 60 x1.20 cap 10,
+  Percent x 100 x1.30 cap 10, Lucky 70 / Jackpot 75 / Gambler 45 x1.25 (caps 6 / 6 / 4), Overclock 500 x1.35 cap 3, every other
+  single-copy block 2 x today's base.
+- **Deviation:** the stacking shape blocks (Piercing, Bouncing, AoE x2, Chain, Homing, Fork, Boomerang, Orbit, Mine) have no cap, so they need a
+  growth: they use 2 x today's base and growth 1.30 (the normal band).
+- Shop and builder sheet show `owned / cap` and the Buy button reads "Max" and is disabled at the cap.
+
+## Step 5 - shape blocks stack
+Every copy on the signal's path is one entry in the packet's modifier list, so the engine counts entries (`k` copies, `e = k - 1` extra):
+| block | what extra copies add | natural drop-off |
+|---|---|---|
+| Piercing | +1 pierce per copy: the per-hit cost is `1 / (L + e)` of the damage dealt | each hit still costs damage; the shot lives about `L + e` equal hits |
+| Bouncing | +1 bounce per copy | a bounce still needs a target within reach |
+| AoE Circle / Rectangle | radius (width and height) x `(1 + 0.25/j)` for the j-th copy; damage x0.95 per extra copy | growth `1 + 0.25/j` shrinks; the damage factor compounds |
+| Chain Lightning | +1 jump per copy | each jump still pays 70% and needs a target in 150 px |
+| Homing | turn rate and cone angle x `H(k)` (harmonic sum 1 + 1/2 + ... + 1/k) | logarithmic |
+| Fork on Impact | +1 pair of forks per copy (angles +-35 deg x j); pair j deals `0.8^(j-1)` of the first pair | fragments never fork; pool limit stops spawns |
+| Boomerang | range x `(1 + 0.25/j)` for the j-th copy | same shrinking growth |
+| Orbit | the same target can be hit again after `0.3 / H(k)` s | logarithmic; orbit time unchanged |
+| Mine | trigger size x `(1 + 0.25/j)` for the j-th copy | same |
+| Curving Right, Random Curve | **cap 1**: their turn rates add, so a 2nd copy makes the shot circle or weave out of the fight (audit B: x0.00) | n/a |
+| Status and Mitosis effects, Delay Line, Capacitor, Executioner, Gravity Well, Shield-Breaker, Armor-Piercer, Pure Converter | cap 1 (the engine reads one level) | n/a |
+
+## Step 6 - hero levels
+Cost of level n is `max(1, round(1.2^(n-1)))` Medals, no cap; `HERO_MAX_LEVEL` is removed. +0.5 base damage per level stays. The captain screen prints the level
+with no "/ max" and long names scale down with the card text.
+
+## Step 7 - bugs and safety (no clamp)
+- Shield-Breaker multiplies only the damage dealt to a shield (the hit's overflow to HP is not boosted).
+- Projectile damage, the Delay Line queue and the Residue cloud damage are `Float64Array`.
+- `!(damage > 0)` drops a packet where a pulse's damage is decided and in `applyDamage`. Infinity kills a target; `x * 0` is written so Infinity x 0 is 0, never NaN; HP can never become NaN (guarded in `applyDamage`, burn, spill and cloud ticks).
+- `fmtBig`: plain below 1000, then K, M, B, T, then scientific (`1.2e45`); non-finite input prints `0` (NaN) or an infinity sign, never the words.
+
+## Step 8 - save version 8
+Upgrade levels of blocks that lost them are reset to level 1 and refunded at the old upgrade price; copies above a new cap are refunded at the old
+copy price and `owned` is set to the cap; placed copies above what is now owned are removed by the existing inventory trim (last in reading order first), counted and reported once.
+Old prices are frozen in `src/econ/legacyPrices.ts` for this. Hero levels are kept.
+
+(Deviations, before/after tables and fps: added below as the chunk is finished.)
