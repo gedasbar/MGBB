@@ -1,0 +1,24 @@
+M1 Percent x ladder top x3 -> x4: 2 ⎯⎯⎯⎯⎯⎯⎯
+     killed by: Percent x ladder (step 3) > the compiled damage uses the ladder, and the rule text shows it
+     killed by: Percent x ladder (step 3) > x1.5 at L1, x3 at L10, geometric in between (constant ratio 2^(1/9))
+M2 buyCopy no longer stops at the cap: 1 ⎯⎯⎯⎯⎯⎯⎯
+     killed by: copy caps and prices (step 4) > buying stops at the cap: the cap-th copy is the last, then refused, owned never exceeds the cap
+M3 Piercing copies stop adding to the divisor: 1 ⎯⎯⎯⎯⎯⎯⎯
+     killed by: shape blocks stack (step 5) > Piercing: every copy adds one to the divisor of the loss per hit (1 / (3 + extra)), so the shot keep
+M4 Shield-Breaker boosts nothing on a shield: 1 ⎯⎯⎯⎯⎯⎯⎯
+     killed by: level scaling of the formerly flat modifiers > Shield-Breaker multiplies only what hits a shield (16c-2): none on bare HP, x(mult 
+M5 Infinity x 0 no longer 0: 1 ⎯⎯⎯⎯⎯⎯⎯
+     killed by: NaN and Infinity safety (step 7) > Infinity x 0 is 0: Gambler's else branch with an infinite packet gives 0, never NaN
+M6 migration refunds one level too few: 2 ⎯⎯⎯⎯⎯⎯⎯
+     killed by: persistence > keeps what is valid and drops what is not (levels clamped, unknown hulls and ids ignored)
+     killed by: save version 8: upgrades and copies over the caps are refunded (step 8) > refunds levels of blocks that lost them at the OLD upgra
+M7 AoE growth no longer shrinks (1 + 0.25 for every copy): 3 ⎯⎯⎯⎯⎯⎯⎯
+     killed by: shape blocks stack (step 5) > AoE Circle: a bigger blast per copy with shrinking growth, and x0.95 damage per extra copy
+     killed by: shape blocks stack (step 5) > AoE Rectangle: wider and taller per copy (same factors as the circle)
+     killed by: shape blocks stack (step 5) > the size and harmonic helpers: k = 1 changes nothing, growth shrinks, damage falls
+M8 fmtBig strips whole-number zeros again: 1 ⎯⎯⎯⎯⎯⎯⎯
+     killed by: big number display (step 7) > plain below 1000, then K, M, B, T, then scientific; never the words Infinity or NaN
+M9 Fork pairs all deal the same: 1 ⎯⎯⎯⎯⎯⎯⎯
+     killed by: shape blocks stack (step 5) > Fork on Impact: one more pair of forks per copy (2k forks), each pair 0.8 of the pair before, forks 
+M10 Gambler stays 50%: 1 ⎯⎯⎯⎯⎯⎯⎯
+     killed by: Percent x ladder (step 3) > Gambler's Gate: 40% at L1, 45% at L2, 50% at L3 for x3; Lucky Strike and Jackpot are unchanged

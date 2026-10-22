@@ -59,4 +59,19 @@ Upgrade levels of blocks that lost them are reset to level 1 and refunded at the
 copy price and `owned` is set to the cap; placed copies above what is now owned are removed by the existing inventory trim (last in reading order first), counted and reported once.
 Old prices are frozen in `src/econ/legacyPrices.ts` for this. Hero levels are kept.
 
-(Deviations, before/after tables and fps: added below as the chunk is finished.)
+## Deviations from the prompt (all of them)
+1. **Stacking shape blocks need a price growth.** They have no cap, so a copy price curve is needed: 2 x today's base and growth 1.30 (the normal band).
+2. **Piercing.** There is no hard pierce count in the engine: a shot already pierces until its damage is used up, and each hit costs `1/L` of the damage it has (so the damage decays geometrically). "+1 pierce per copy" is built as one more in that divisor (`1 / (L + extra)`): the shot carries one more hit's worth of damage per copy, and the loss per hit stays the existing rule.
+3. **Chain Lightning.** The jumps of one block already deal a flat 70% each (not falling), so "damage falling per jump as now" is made true for the jumps that copies add: the e-th extra jump deals 0.85^e of a normal jump (`CHAIN_STACK_FALL`).
+4. **AoE** uses the owner's numbers (radius x (1 + 0.25/j) for the j-th copy, damage x0.95 per extra copy). An AoE shot detonates on its first hit, so a Fork, Piercing or Bouncing block on the same path does nothing for that shot (existing behaviour, not changed).
+5. **Cap 1 beyond the owner's list:** Delay Line (a copy only adds delay), Executioner (the engine reads one level), Gravity Well, Shield-Breaker, Armor-Piercer Tip, Pure Converter, Curving Right and Random Curve (turn rates add: a 2nd copy makes the shot circle).
+6. **Level-1 numbers change** (override of rule 6) for the twelve blocks fixed at level 3: Alternator, Random Router, Capacitor, Executioner, Cleaver, Culling Bolt, Piercing, Boomerang, Chain Lightning, AoE Rectangle, Frostbite, Static Charge (and Percent x / Gambler's Gate by the owner's step 3).
+7. **Shield-Breaker text** was rewritten: "Damage dealt to a shield x1.5 (L1), and shields take double on top of that. Hits on armor and HP are unchanged." The shield still takes `mult x 2` per point of direct damage, as before; only the HP-side multiplier (which the old text did not promise) is gone.
+8. **`fmtBig` had a pre-existing bug** (its zero-stripping ran on whole numbers: 100K printed as 1K, 950K as 95K); fixed with the rewrite.
+9. **Infinity prints as an infinity sign** (`∞`), NaN as `0`; the words never appear.
+10. **Bounces** are capped at 127 (the pool stores them in an Int8Array); one block gives 2, so 126 copies would be needed.
+11. **Saves:** pre-v8 levels are read with a ceiling of 10 so the migration can refund them; v8 data is trusted as is (the cheat panel may exceed caps, and the e2e scripts' "rich" save of 20 copies of everything is written as version 8).
+12. **Hero levels** have a sanity ceiling of 100,000 when loading a save (anything above is treated as a damaged save).
+13. **Audit bench:** `scripts/lib/dmgBench.ts` gained an optional fourth scenario "spread" (a dense row of 30 small bodies, ship aimed at its middle) and an `hpMul` option; they are not part of `benchAll`, so every older table is unchanged. The stacking check averages four target HPs (x3 to x4.5) on a 48 s bench, because with small numbers a body dies after a whole number of hits and a x0.95 can cost a whole hit at one HP and nothing at another.
+14. **e2e:** `e2e/lib.cjs` writes the rich save as version 8, `freefly-waves` expects saved version 8, and `economy16c.e2e.cjs` is new.
+

@@ -28,10 +28,12 @@ import { makeTabButtons } from '../builder/tabs';
 import { ShopScreen } from './ShopScreen';
 import { CaptainScreen } from './CaptainScreen';
 import { sfx } from '../audio';
+import { fmtDamage } from '../ui/format';
 
 const HOVER_MS = 800;
 
 function fmtNum(n: number): string {
+  if (!(Math.abs(n) < 1000)) return fmtDamage(n);
   return Math.abs(n - Math.round(n)) < 0.005 ? String(Math.round(n)) : n.toFixed(1);
 }
 

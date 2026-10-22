@@ -178,11 +178,11 @@ const isRedLine = ([r, g, b]) => r > 200 && g < 110 && b < 110;
 
 const SHOWN_BLOCKS = ['turn_l', 'turn_r', 'splitter_2', 'splitter_3', 'flat_plus', 'percent_mult', 'lucky_strike', 'jackpot', 'gamblers_gate', 'piercing', 'bouncing', 'aoe_circle', 'shield_breaker', 'pure_converter', 'curving_right', 'random_curve', 'homing', 'aoe_rect', 'fork_impact', 'armor_piercer'];
 
-/** Progress with 20 of every block and every hull: the pre-economy starting state the older scripts were written for. */
+/** Progress with 20 of every block and every hull: the pre-economy starting state the older scripts were written for. Version 8 so the 16c-2 caps and refunds do not apply (saves of the current version are trusted). */
 function richProgressJson() {
   const owned = {}, levels = {};
   for (const id of SHOWN_BLOCKS) { owned[id] = 20; levels[id] = 1; }
-  return JSON.stringify({ version: 1, credits: 0, owned, levels, ownedHulls: ['shuttle', 'fan'], bestTier: 0, bestTime: 0, totalKills: 0, runs: 0 });
+  return JSON.stringify({ version: 8, credits: 0, owned, levels, ownedHulls: ['shuttle', 'fan'], bestTier: 0, bestTime: 0, totalKills: 0, runs: 0 });
 }
 
 // `dart: true` keeps the truly fresh save (the free one-slot Dart). Otherwise the save starts on the Shuttle, which the older

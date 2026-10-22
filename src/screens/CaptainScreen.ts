@@ -377,7 +377,7 @@ export class CaptainScreen implements Screen {
     const r = this.store.upgradeHero(id);
     if (!r.ok) return this.denied(r.error);
     this.afterChange();
-    this.ok(`${CAPTAIN_BY_ID[id].name} is now level ${this.store.data.captains.heroes[id].level}`);
+    this.ok(`${CAPTAIN_BY_ID[id].name} is now level ${fmtBig(this.store.data.captains.heroes[id].level)}`);
   }
 
   private buy(optionId: string) {
