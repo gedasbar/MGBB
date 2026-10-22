@@ -116,7 +116,7 @@ async function place(page, at, tileKey) {
   await tap(page, ...SHIP);
   check((await state(page)).hullPanelOpen, 'ship button opens the hull picker');
   await shot(page, 'b34_hull_panel.png');
-  await tap(page, 270, 492);
+  { const r = await lib.hullRowRect(page, 'fan'); await tap(page, r.x + r.w / 2, r.y + r.h / 2); }
   st = await state(page);
   check(st.hull === 'fan' && !st.hullPanelOpen, `choosing Fan switches the hull: ${st.hull}`);
   check(Math.abs(st.view.scale - FAN_CELL) < 0.01 && Math.abs(st.view.oy - FAN_OY) < 0.01, `Fan hull is fitted to the screen (cell ${st.view.scale.toFixed(2)})`);

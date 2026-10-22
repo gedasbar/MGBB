@@ -184,24 +184,20 @@ async function aim(page, s) {
 
   // ---- Fan hull: locked until bought
   await tap(page, ...SHIP_BTN);
-  await tap(page, 270, 492); // Fan row (Dart, Twin, Prong, Fan, Shuttle)
+  await tap(page, ...centre(await lib.hullRowRect(page, 'fan'))); // chunk 17a: an unowned hull opens its info sheet instead of being selected
   s = await state(page);
-  check(s.hull === 'shuttle', `the locked Fan hull is not selectable (hull ${s.hull}, toast "${s.toast}")`);
-  await tap(page, ...TAB.shop);
-  await tap(page, 405, 136); // Hulls section
+  check(s.hull === 'shuttle', `the unowned Fan hull is not selected by a tap (hull ${s.hull})`);
+  await page.evaluate(() => { const st = window.__mgbm.buildScreen.model.store; st.data.credits = 600000; st.commit(); window.__mgbm.buildScreen.hullPicker.refresh(); });
+  const credBeforeFan = (await state(page)).credits;
+  const buyRect = await page.evaluate(() => window.__mgbm.buildScreen.hullPicker.buyButtonRect());
+  check(!!buyRect, 'the info sheet of the unowned Fan has a Buy button');
+  await tap(page, ...centre(buyRect), { pause: 200 });
   s = await state(page);
-  check(s.section === 'hulls', 'Hulls section opens');
-  if (s.credits < 1200) await dbg('dbg-credits');
-  s = await state(page);
-  const fan = s.rows.find(r => r.key === 'fan');
-  check(/Buy - 1\.2K/.test(fan.buttons[0].label) && fan.buttons[0].enabled, `Fan hull button "${fan.buttons[0].label}"`);
-  const credBeforeFan = s.credits;
-  await tap(page, ...centre(fan.buttons[0].rect), { pause: 200 });
-  s = await state(page);
-  check(s.credits === credBeforeFan - 1200, `Fan hull cost 1200 (${credBeforeFan} -> ${s.credits})`);
-  await tap(page, ...TAB.build);
+  check(s.credits === credBeforeFan - 500000 && s.hull === 'fan', `Fan hull cost 500K and is selected (${credBeforeFan} -> ${s.credits}, hull ${s.hull})`);
   await tap(page, ...SHIP_BTN);
-  await tap(page, 270, 492);
+  await tap(page, ...centre(await lib.hullRowRect(page, 'shuttle')));
+  await tap(page, ...SHIP_BTN);
+  await tap(page, ...centre(await lib.hullRowRect(page, 'fan')));
   s = await state(page);
   check(s.hull === 'fan', `the bought Fan hull is selectable (hull ${s.hull})`);
 

@@ -131,12 +131,12 @@ const statsNow = (page) => page.evaluate(() => { const n = window.__mgbmStats.nu
   await page.close();
   const { page: p2 } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, rich: false, dart: true });
   await p2.evaluate(() => window.__mgbmStats.set(false));
-  await tap(p2, 162, 932);   // Shop tab
-  await tap(p2, 405, 136);   // Hulls section
+  await tap(p2, 28, 26);   // the ship button: the hull picker lists the ladder (chunk 17a: the Shop is blocks only)
   await p2.waitForTimeout(200);
-  const shopRows = (await state(p2)).rows;
-  check(shopRows && shopRows.length === 5 && shopRows.map(r => r.key).join() === 'dart,twin,prong,fan,shuttle', `Shop lists the hull ladder: ${shopRows && shopRows.map(r => r.key)}`);
-  await snap(p2, 'shop_hulls.png');
+  const pickRows = await p2.evaluate(() => window.__mgbm.buildScreen.hullPicker.rowsView().map(r => r.id));
+  check(pickRows.length === 19 && pickRows.slice(0, 4).join() === 'dart,twin,prong,wisp', `the hull picker lists the ladder: ${pickRows}`);
+  await snap(p2, 'hull_picker.png');
+  await tap(p2, 270, 40);   // a tap outside the panel closes it
   await move(p2, 270, 800);
   await p2.evaluate(() => window.__mgbmStats.set(true));
   await p2.evaluate(() => document.getElementById('dbg-wall-start').click());
