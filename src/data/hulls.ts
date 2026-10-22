@@ -38,30 +38,31 @@ export interface HullStats {
 }
 
 /**
- * Prices in credits (final fit: docs/hull-ladder.md, scripts/hull-pricing.ts). The first three are the old hulls, unchanged:
- * the Twin is about four tier-1 passes of a bare Dart, and every hull after it costs about 1.6 to 2 times the one before.
- * The Fan and the Shuttle used to cost 1,200 and 3,000: a save that already owns them keeps them.
+ * Prices in credits: the fit is docs/hull-ladder.md (scripts/hull-pricing.ts measures what each hull's sensible build earns,
+ * scripts/hull-pricing-fit.ts turns that into prices: about 4.5 runs of income at the point a player wants the hull, growth
+ * 1.5 to 2 a hull). The first three are the old hulls, unchanged. The Fan and the Shuttle used to cost 1,200 and 3,000: a
+ * save that already owns them keeps them.
  */
 export const HULLS: Record<HullId, HullStats> = {
   dart: { name: 'Dart', price: 0, pulsesPerSec: 2, shotSpeed: 1, size: 'small' },
   twin: { name: 'Twin', price: 70, pulsesPerSec: 2.5, shotSpeed: 1, size: 'small' },
   prong: { name: 'Prong', price: 350, pulsesPerSec: 4, shotSpeed: 1, size: 'small' },
   wisp: { name: 'Wisp', price: 700, pulsesPerSec: 3, shotSpeed: 1.2, size: 'small' },
-  hornet: { name: 'Hornet', price: 1500, pulsesPerSec: 3, shotSpeed: 1, size: 'small' },
-  lancet: { name: 'Lancet', price: 2500, pulsesPerSec: 5, shotSpeed: 1.3, size: 'small' },
-  kestrel: { name: 'Kestrel', price: 4000, pulsesPerSec: 2.5, shotSpeed: 1, size: 'medium' },
-  mantis: { name: 'Mantis', price: 7000, pulsesPerSec: 4, shotSpeed: 1.2, size: 'medium' },
-  bastion: { name: 'Bastion', price: 12000, pulsesPerSec: 2, shotSpeed: 0.9, size: 'medium' },
-  halberd: { name: 'Halberd', price: 20000, pulsesPerSec: 3, shotSpeed: 1, size: 'medium' },
-  corvette: { name: 'Corvette', price: 35000, pulsesPerSec: 4.5, shotSpeed: 1.1, size: 'medium' },
-  trident: { name: 'Trident', price: 60000, pulsesPerSec: 3, shotSpeed: 1.1, size: 'medium' },
-  galleon: { name: 'Galleon', price: 100000, pulsesPerSec: 2, shotSpeed: 0.9, size: 'big' },
-  shuttle: { name: 'Shuttle', price: 160000, pulsesPerSec: 5, shotSpeed: 1, size: 'big' },
-  spire: { name: 'Spire', price: 260000, pulsesPerSec: 3.5, shotSpeed: 1, size: 'big' },
-  leviathan: { name: 'Leviathan', price: 420000, pulsesPerSec: 4, shotSpeed: 1, size: 'big' },
-  fan: { name: 'Fan', price: 700000, pulsesPerSec: 4, shotSpeed: 1, size: 'big' },
-  citadel: { name: 'Citadel', price: 1200000, pulsesPerSec: 3, shotSpeed: 1, size: 'huge' },
-  zenith: { name: 'Zenith', price: 2500000, pulsesPerSec: 4, shotSpeed: 1, size: 'huge' },
+  hornet: { name: 'Hornet', price: 1100, pulsesPerSec: 3, shotSpeed: 1, size: 'small' },
+  lancet: { name: 'Lancet', price: 1700, pulsesPerSec: 5, shotSpeed: 1.3, size: 'small' },
+  kestrel: { name: 'Kestrel', price: 2600, pulsesPerSec: 2.5, shotSpeed: 1, size: 'medium' },
+  mantis: { name: 'Mantis', price: 3900, pulsesPerSec: 4, shotSpeed: 1.2, size: 'medium' },
+  bastion: { name: 'Bastion', price: 6200, pulsesPerSec: 2, shotSpeed: 0.9, size: 'medium' },
+  halberd: { name: 'Halberd', price: 11000, pulsesPerSec: 3, shotSpeed: 1, size: 'medium' },
+  corvette: { name: 'Corvette', price: 19000, pulsesPerSec: 4.5, shotSpeed: 1.1, size: 'medium' },
+  trident: { name: 'Trident', price: 33000, pulsesPerSec: 3, shotSpeed: 1.1, size: 'medium' },
+  galleon: { name: 'Galleon', price: 58000, pulsesPerSec: 2, shotSpeed: 0.9, size: 'big' },
+  shuttle: { name: 'Shuttle', price: 96000, pulsesPerSec: 5, shotSpeed: 1, size: 'big' },
+  spire: { name: 'Spire', price: 190000, pulsesPerSec: 3.5, shotSpeed: 1, size: 'big' },
+  leviathan: { name: 'Leviathan', price: 330000, pulsesPerSec: 4, shotSpeed: 1, size: 'big' },
+  fan: { name: 'Fan', price: 500000, pulsesPerSec: 4, shotSpeed: 1, size: 'big' },
+  citadel: { name: 'Citadel', price: 820000, pulsesPerSec: 3, shotSpeed: 1, size: 'huge' },
+  zenith: { name: 'Zenith', price: 1300000, pulsesPerSec: 4, shotSpeed: 1, size: 'huge' },
 };
 
 export const HULL_PRICES: Record<HullId, number> = Object.fromEntries(HULL_ORDER.map(id => [id, HULLS[id].price])) as Record<HullId, number>;

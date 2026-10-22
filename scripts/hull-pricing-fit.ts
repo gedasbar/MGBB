@@ -30,8 +30,8 @@ const fmt = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (
 // (b) a half-clear of the content at that position (a pass or a half-clear pays about half the wall: docs/economy-audit.md D1).
 // Price = RUNS_TARGET x income, then regularised: growth between GROWTH_MIN and GROWTH_MAX per hull, two significant digits.
 const POINT_START = 10;            // Wisp: campaign tier 10 (the brief says 8-12)
-const POINT_STEP = 11;             // tiers per hull: 1.05^11 = 1.71, the middle of the brief's x1.6-2 growth
-const GROWTH_MIN = 1.55, GROWTH_MAX = 2.2;
+const POINT_STEP = 9;              // tiers per hull: 1.05^9 = 1.55; the Zenith lands at Frontier ring 400, the deepest ring the sensible builds pass
+const GROWTH_MIN = 1.5, GROWTH_MAX = 2.0;
 const KEEP = new Set(['dart', 'twin', 'prong']);   // unchanged hulls
 const twoDigits = (n: number) => { const e = Math.pow(10, Math.floor(Math.log10(n)) - 1); return Math.round(n / e) * e; };
 
