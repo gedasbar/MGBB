@@ -35,7 +35,13 @@ const SHARE = ENEMIES.mitotic_rock.split!.hpShare;
 const FAMILY_HP = 1 + 2 * SHARE + 4 * SHARE ** 2 + 8 * SHARE ** 3;
 
 /** `hpMul` scales the target HP (default 1): with small numbers a body dies after a whole number of hits, so a stacking check averages several. */
-export interface BenchOpts { seconds?: number; seed?: number; modifiers?: RunModifiers; hpMul?: number }
+export interface BenchOpts {
+  seconds?: number; seed?: number; modifiers?: RunModifiers; hpMul?: number;
+  /** Chunk 17b: called with the finished World of every half-run (the interaction audit reads its effect counters). */
+  onWorld?: (w: World) => void;
+  /** Chunk 17b: filled while a run goes: most projectiles alive at once, and the slowest 0.1% of update steps in ms. */
+  watch?: { maxAlive: number; stepMs: number[] };
+}
 
 function hover<T>(fn: () => T): T {
   const saved = Object.values(SPECIES).map(s => ({ s, speed: s.speed, sway: s.sway, zig: s.zig, aim: s.aim }));
@@ -87,7 +93,9 @@ function benchAt(grid: Grid, sc: Scenario, o: BenchOpts, est: number | undefined
       for (const e of w.mitosis.enemies) if (e.y < SHIP_Y - 30 && e.y > low) { low = e.y; aim = e.x; }
       if (sc === 'spread') aim = CONFIG.VIEW.W / 2; // the crowd is centred: aim at its middle, so a bigger blast reaches more of it on both sides
       p.x += Math.max(-TRACK_SPEED * DT, Math.min(TRACK_SPEED * DT, aim - p.x));
+      const t0 = o.watch ? performance.now() : 0;
       w.update(DT, p);
+      if (o.watch) { o.watch.stepMs.push(performance.now() - t0); o.watch.maxAlive = Math.max(o.watch.maxAlive, w.pool.count); }
       w.hits.length = 0; w.splits.length = 0; w.killEvents.length = 0; w.waveEvents.length = 0;
       if (sc !== 'split') {
         const alive = new Set(w.mitosis.enemies.map(e => e.id));
@@ -103,6 +111,7 @@ function benchAt(grid: Grid, sc: Scenario, o: BenchOpts, est: number | undefined
       const partial = Math.max(0, Math.min(1, 1 - left / (hp * FAMILY_HP)));
       removed = (families + partial) * hp * FAMILY_HP;
     }
+    o.onWorld?.(w);
     return removed / seconds;
   });
 }
