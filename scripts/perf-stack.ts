@@ -1,6 +1,6 @@
 // Chunk 16c-2: how heavy can a stacked build get? Engine time per update (no rendering) in Free Fly at a late wave, plain build against
 // stacked shape-block builds, and how full the projectile pool gets. Run: npx vite-node scripts/perf-stack.ts
-// The browser frame rate with the same builds is measured by e2e/economy16c.e2e.cjs (rendering included).
+// The browser frame rate with the same builds is measured by e2e/block-economy.e2e.cjs (rendering included).
 import { performance } from 'node:perf_hooks';
 import { HULL_BUILDERS } from '../src/game/gridUtils';
 import { place } from '../src/game/starter';
