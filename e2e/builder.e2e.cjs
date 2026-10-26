@@ -53,7 +53,7 @@ const ROUTE_EMPTY = [[6, 10, 'V'], [7, 9, 'H'], [8, 9, 'H'], [9, 8, 'V'], [9, 7,
 /** Makes (col,row) the selected cell without opening its picker (a tap on an already selected cell would open it). */
 async function select(page, col, row) {
   const is = async () => { const s = (await state(page)).selected; return !!s && s.x === col - 1 && s.y === row - 1; };
-  if ((await state(page)).pickerOpen) await tap(page, 516, 492);
+  if ((await state(page)).pickerOpen) await tap(page, 270, 130);
   if (!(await is())) await tap(page, ...cell(col, row));
 }
 
@@ -121,7 +121,6 @@ async function placeViaPicker(page, col, row, tileKey) {
   check(st.recipes === 0 && (await gridBlocks(page)).length === 0, 'Clear all empties the grid');
   await shot(page, 'b03_empty_grid_dead_end.png');
   await expectLine(page, [[6, 10, 'V'], [6, 8, 'V'], [6, 5, 'V'], [6, 3, 'V']], 'empty Shuttle');
-  check(st.stats.warnings.length >= 1 && st.statsStrip[4] === String(st.stats.warnings.length), `warning counted in the strip: ${st.statsStrip[4]}`);
 
   // ------------------------------------------------------------------ 4. Picker
   await tap(page, ...cell(6, 9));

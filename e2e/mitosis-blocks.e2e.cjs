@@ -117,7 +117,7 @@ async function flyWave10(page, seconds, wave = 10) {
   check(Math.abs(end.y - end.max) < 1 && end.last.y >= end.list.y - 1 && end.last.y + end.last.h <= end.list.y + end.list.h + 1,
     `scrolled to the end (${end.y.toFixed(0)} of ${end.max.toFixed(0)}): the last tile of the list is inside it, unclipped (last tile ${end.last.y.toFixed(0)}..${(end.last.y + end.last.h).toFixed(0)} of ${(end.list.y + end.list.h).toFixed(0)})`);
   const pickerShot = await snap(page, 'picker_mitosis.png');
-  await tap(page, 516, 492);
+  await tap(page, 270, 130);
 
   // The Shuttle's classic circuit keeps its Flat+ at (8,5); the new blocks go on the other cells of the column-9 run.
   const runA = [['culling_bolt', 8, 7], ['residue_seed', 8, 6], ['static_charge', 8, 4], ['cleaver', 8, 3], ['overkill_spill', 8, 2]];

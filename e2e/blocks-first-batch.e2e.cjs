@@ -124,7 +124,7 @@ async function fly(page, seconds, onTick) {
   const scMax = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; return { y: p.scrollY, max: p.maxScrollValue }; });
   check(Math.abs(scMax.y - scMax.max) < 1, `scrolled to the end (${scMax.y.toFixed(0)} of ${scMax.max.toFixed(0)}): the Status section is fully visible`);
   await snap(page, 'picker_status.png');
-  await tap(page, 516, 492); // close the sheet
+  await tap(page, 270, 130); // close the sheet (a tap outside it, on the circuit)
   check(!(await state(page)).pickerOpen, 'sheet closes');
 
   // Flight A: Overclock, Executioner, Chain Lightning, Ignite, Frostbite on the run into the ejector.

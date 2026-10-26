@@ -132,7 +132,7 @@ async function lineAt(page, col, row, axis, ok = redish) {
   await shot(page, 'c1_03_tile_previewed.png');
   await tap(page, ...tileCentre(...TILE.turn_r));
   st = await state(page);
-  check(!st.pickerOpen && JSON.stringify(await blocks(page)) === JSON.stringify(['6,9:turn_r:0:false']), `2: second tap on the same tile places Turn Right (auto) and closes the sheet: ${JSON.stringify(await blocks(page))}`);
+  check(!st.pickerOpen && JSON.stringify(await blocks(page)) === JSON.stringify(['6,9:turn_r:0']), `2: second tap on the same tile places Turn Right (auto) and closes the sheet: ${JSON.stringify(await blocks(page))}`);
   const route = [[6, 10, 'V'], [7, 9, 'H'], [8, 9, 'H']];
   const missing = [];
   for (const [c, r, ax] of route) if (!(await lineAt(page, c, r, ax))) missing.push(`(${c},${r})`);
@@ -169,7 +169,7 @@ async function lineAt(page, col, row, axis, ok = redish) {
   const same = await page.evaluate(() => { const r = window.__mgbm.buildScreen.picker.tileScreenRect('turn_r'); return [r.x + r.w / 2, r.y + r.h / 2]; });
   await tap(page, ...same);
   await tap(page, ...same);
-  check(!(await state(page)).pickerOpen && JSON.stringify(await blocks(page)) === JSON.stringify(['6,9:turn_r:0:false']) && (await undoDepth(page)) === depth1,
+  check(!(await state(page)).pickerOpen && JSON.stringify(await blocks(page)) === JSON.stringify(['6,9:turn_r:0']) && (await undoDepth(page)) === depth1,
     `2: on the block already in the cell, the second tap only closes the sheet: same block, undo depth ${depth1} -> ${await undoDepth(page)}`);
   void depth0;
 

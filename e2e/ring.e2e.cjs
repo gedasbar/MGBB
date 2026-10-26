@@ -49,7 +49,8 @@ async function snap(page, name) {
   while (Date.now() - t0 < 90000) {
     await page.waitForTimeout(200);
     s = await state(page);
-    if (!shot && s.camTravel > ringW * 0.45 && s.camTravel < ringW * 0.55) { await snap(page, 'wall_ring.png'); shot = true; }
+    if (!shot && s.camTravel > ringW * 0.45) {  // first poll past 45% of the ring: a narrow 45-55% window was missed when frames were slow
+      await snap(page, 'wall_ring.png'); shot = true; }
     if (s.camTravel > ringW * 1.3) break;
   }
   const fr = await page.evaluate(() => { cancelAnimationFrame(window.__raf); window.__mgbm.setTimeScale(1); return window.__frames; });

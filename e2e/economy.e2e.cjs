@@ -2,11 +2,10 @@
 // fresh progress -> picker shows only owned blocks -> Fly (kills pay) -> Run Summary -> Build -> Shop (buy, upgrade, hull) -> Build.
 // Needs the Vite dev server. Run: GAME_URL="http://localhost:5173/?debug=1" node e2e/economy.e2e.cjs
 const path = require('path');
-const lib = require('./lib.cjs');
-const { check, tap, state, gameToClient, park } = lib;
-
 const URL_DEBUG = process.env.GAME_URL || 'http://localhost:5173/?debug=1';
 process.env.GAME_URL = URL_DEBUG.includes('debug=1') ? URL_DEBUG : URL_DEBUG + (URL_DEBUG.includes('?') ? '&' : '?') + 'debug=1';
+const lib = require('./lib.cjs');
+const { check, tap, state, gameToClient, park } = lib;
 // Screenshots go to reports/chunk5 and are taken from the canvas only (the DOM debug panel is hidden while shooting).
 const OUT = path.join(__dirname, '..', 'reports', 'chunk5');
 require('fs').mkdirSync(OUT, { recursive: true });
@@ -66,7 +65,7 @@ async function aim(page, s) {
   await tap(page, ...centre(sp));
   s = await state(page);
   check(/No Splitter 2 left/.test(s.toast) && s.pickerOpen, `second tap on an unowned tile only toasts: "${s.toast}"`);
-  await tap(page, 516, 492); // close the sheet
+  await tap(page, 270, 130); // close the sheet (a tap outside it, on the circuit)
   s = await state(page);
   check(!s.pickerOpen, 'sheet closes');
   const flatBefore = s.statsStrip[0];
@@ -143,30 +142,30 @@ async function aim(page, s) {
     const r = await page.evaluate((i) => window.__mgbm.shopScreen.palette.tileScreenRect(i), id);
     await tap(page, ...centre(r), { pause: 200 });
   };
+  const sheet = () => page.evaluate(() => { const p = window.__mgbm.shopScreen.palette; return { sel: p.selected, c: p.sheetContentNow }; });
+  const press = async (which) => tap(page, ...centre(await page.evaluate((w) => window.__mgbm.shopScreen.palette.sheetButtonRect(w), which)), { pause: 200 });
   await selectTile('splitter_2');
-  let row;
+  let sh = await sheet();
+  check(sh.sel === 'splitter_2' && /Splits the signal into two full copies/.test(sh.c.body), `tile tap selects it and shows its rule: "${sh.c.title}"`);
+  check(sh.c.buy.label === 'Buy +1\n120' && sh.c.buy.enabled, `buy button "${sh.c.buy.label}" is enabled`);
+  check(sh.c.upgrade === null && sh.c.levelLine === '', 'Splitter 2 has no upgrade levels (16c-2: only eight blocks have levels)');
+  await press('buy');
   s = await state(page);
-  check(s.selected === 'splitter_2' && /Splits the signal into two full copies/.test(s.inspector.body), `tile tap selects it and shows its rule: "${s.inspector.title}"`);
-  row = s.rows.find(r => r.key === 'splitter_2');
-  check(row.buttons[0].label === 'Buy +1\n200' && row.buttons[0].enabled, `buy button "${row.buttons[0].label}" is enabled`);
-  check(row.buttons[1].label === 'Upgrade L1→L2\n400', `Splitter 2 has upgrade levels now ("${row.buttons[1].label}")`);
-  await tap(page, ...centre(row.buttons[0].rect), { pause: 200 });
-  s = await state(page);
-  check(s.credits === credBeforeBuy - 200, `buying Splitter 2 cost exactly 200 (${credBeforeBuy} -> ${s.credits})`);
+  check(s.credits === credBeforeBuy - 120, `buying Splitter 2 cost exactly 120 (${credBeforeBuy} -> ${s.credits})`);
   check(/Bought Splitter 2/.test(s.toast), `purchase toast: "${s.toast}"`);
 
   // Upgrade Flat+ L1 -> L2
   await selectTile('flat_plus');
+  sh = await sheet();
+  check(/^Upgrade L1→L2\n120$/.test(sh.c.upgrade.label) && sh.c.upgrade.enabled, `upgrade button "${sh.c.upgrade.label}"`);
   s = await state(page);
-  const flat = s.rows.find(r => r.key === 'flat_plus');
-  check(/^Upgrade L1→L2\n120$/.test(flat.buttons[1].label) && flat.buttons[1].enabled, `upgrade button "${flat.buttons[1].label}"`);
   const credBeforeUp = s.credits;
-  await tap(page, ...centre(flat.buttons[1].rect), { pause: 200 });
+  await press('upgrade');
   s = await state(page);
   check(s.credits === credBeforeUp - 120, `upgrade cost 120 (${credBeforeUp} -> ${s.credits})`);
-  const flat2 = s.rows.find(r => r.key === 'flat_plus');
-  check(/^Upgrade L2→L3\n264$/.test(flat2.buttons[1].label), `next upgrade is "${flat2.buttons[1].label}"`);
-  check(/\+2 damage/.test(s.inspector.body), `inspector shows the level-2 rule: "${s.inspector.body}"`);
+  sh = await sheet();
+  check(/^Upgrade L2→L3\n264$/.test(sh.c.upgrade.label), `next upgrade is "${sh.c.upgrade.label}"`);
+  check(/\+2 damage/.test(sh.c.body), `the sheet shows the level-2 rule: "${sh.c.body}"`);
   await snap(page, 'shop_blocks.png');
 
   // ---- back to Build: picker count and stats strip
@@ -179,7 +178,7 @@ async function aim(page, s) {
   // Chunk 16b: the tile's badge is just the number of free copies.
   const badge = await page.evaluate(() => window.__mgbm.buildScreen.picker.badgeOf('splitter_2'));
   check(count1 === 1 && badge === '1', `the picker shows Splitter 2 with the badge ${JSON.stringify(badge)} (available ${count1})`);
-  await tap(page, 516, 492);
+  await tap(page, 270, 130);
   await snap(page, 'build_after_purchases.png');
 
   // ---- Fan hull: locked until bought
