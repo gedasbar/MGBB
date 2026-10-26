@@ -68,13 +68,13 @@ async function snap(page, name) {
   check(wraps >= 1, `the ship's world x wrapped ${wraps} time(s) at the seam`);
   check(maxJump < 4, `ship screen x never jumped (largest frame-to-frame change ${maxJump.toFixed(2)} px) and never left the pointer (${steady[steady.length - 1].sx.toFixed(1)})`);
   check(shot, 'a ring screenshot was taken mid-trip');
-  // A second frame with the seam in view: bring the wall down onto the screen, run on until the seam is mid-screen, centre the pointer.
+  // A second frame with the seam in view: bring the wall down onto the screen, run on until the seam is just right of the centre, then centre the pointer (the camera drifts on and the seam ends mid-screen).
   await page.evaluate(() => window.__mgbm.wall.setWallOffset(560));
   const t2 = Date.now();
   while (Date.now() - t2 < 30000) {
     const st = await state(page);
     const d = ((0 - (st.cameraX + 270)) % ringW + ringW * 1.5) % ringW - ringW / 2;   // seam relative to the view centre
-    if (Math.abs(d) < 25) break;
+    if (d > 80 && d < 220) break;   // the seam is still right of the centre: the camera drifts about 250 px while the ship eases back to the pointer (a +-25 px window was missed)
     await page.waitForTimeout(40);
   }
   await move(page, 270, 760);

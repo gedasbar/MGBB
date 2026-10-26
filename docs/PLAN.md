@@ -2,7 +2,7 @@
 
 The living plan for Mitosis Gun Builder: how we work, what the design is trying to be, what was decided and why, and what comes next. Any new planning chat or agent should read this first, then `CLAUDE.md` (current state of the code) and `DECISIONS.md` (numbered implementation decisions).
 
-Last updated: 2026-10-26, after chunk 17a (hull ladder).
+Last updated: 2026-10-26, after chunk 17-cleanup. `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
 
 ---
 
@@ -56,7 +56,7 @@ From the owner's playtests and audits, most important first:
 6. **Content difficulty.** Walls and the Frontier do not keep up with multiplier builds (the bot passed tier 100 with a Trident). Frontier HP grows only 1.5% per ring.
 7. **Early game.** A Dart with one Flat+ can pass up to tier 22 without buying anything. Owner finds it acceptable for now; the hull ladder adds purchase goals.
 8. **Homing, Orbit, Mine** gain nothing measurable from extra copies on the bench; they are uncapped, which is a trap in the Shop.
-9. **Code mess.** Two hull layout files, dead stub files from the original master prompt, failing e2e scripts that waste time on every run (see the cleanup chunk).
+9. ~~**Code mess.**~~ **Done (chunk 17-cleanup):** one hull layout file with a plain-language validator, dead stub files and dead exports removed, every e2e script passes, root and reports tidied, `docs/EDITING.md` for the data files you edit by hand. Biggest files still to split someday are listed in `reports/chunk17-cleanup/REPORT.md`.
 
 ---
 
@@ -82,7 +82,7 @@ The rules live in one table in code, so the owner or a prompt can change them. A
 
 Next, in order:
 
-1. **Cleanup chunk** (no behaviour change): one hull layout file for all 19 hulls with a documented legend, dead code removed, failing e2e scripts fixed or deleted, root and reports folders tidied, data files that the owner edits documented.
+1. ~~**Cleanup chunk**~~ (done, 17-cleanup; no behaviour change): one hull layout file for all 19 hulls with a documented legend, dead code removed, failing e2e scripts fixed or deleted, root and reports folders tidied, data files that the owner edits documented.
 2. **17b, interactions:** the trigger rules above, the pair audit, AoE + Fork both working, the AoE penalty shown in the estimate and the block info, splitter cap 15 and more turns with steeper copy prices, Homing/Orbit/Mine stacking decided (give copies a real effect or cap 1).
 3. **Hull redesign:** an idea sentence per hull (planning chat drafts, owner edits or redraws layouts), then layouts rebuilt. Owner may draw layouts directly in the data file.
 4. **Ship art:** concept sheet first, then real silhouettes for all 19 hulls.
