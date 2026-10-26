@@ -2,7 +2,7 @@ import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CONFIG } from '../config';
 import { CATEGORY_COLOR } from '../builder/draw';
 import { HULL_ORDER, SIZE_CLASSES, sizeClassOf } from '../data/hulls';
-import { HULL_ROWS } from '../game/gridUtils';
+import { HULL_ROWS } from '../data/hullLayouts';
 
 /**
  * Ship art: code-drawn, flat, static. A ship is data (`ShipArtDef`): nested sharp polygons in a unit box (x right, y down,

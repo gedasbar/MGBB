@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { HULL_ORDER, HULLS, SIZE_CLASSES, fireRateMul, hitRadiusOf, shotSpeedMul, sizeClassOf } from '../src/data/hulls';
-import { HULL_BUILDERS, HULL_INFO, HULL_ROWS } from '../src/game/gridUtils';
+import { HULL_BUILDERS, HULL_INFO } from '../src/game/gridUtils';
+import { HULL_ROWS } from '../src/data/hullLayouts';
+import { validateHullLayout } from '../src/data/hullValidate';
 import { buildPathGrid } from '../src/game/starter';
 import { standardBuild } from '../src/debug/hullBuilds';
 import { compile } from '../src/engine/compiler';
@@ -36,12 +38,8 @@ describe('hull ladder layouts', () => {
 
   it.each(LADDER)('%s: stats match the ladder and the layout is valid', (id, cells, ejectors, pulses, shot, size) => {
     const rows = HULL_ROWS[id];
-    const w = rows[0].length;
-    expect(rows.every(r => r.length === w)).toBe(true);
-    expect(count(rows, '_')).toBe(cells);
-    expect(count(rows, 'E')).toBe(ejectors);
-    expect(count(rows, 'G')).toBe(1);
-    expect(rows[rows.length - 1].includes('G')).toBe(true);                    // the generator is on the bottom edge
+    // plain-language messages, e.g. "Kestrel: needs 3 ejectors, found 2" (see src/data/hullValidate.ts)
+    expect(validateHullLayout(HULLS[id as keyof typeof HULLS].name, rows, { cells, ejectors }), 'layout problems').toEqual([]);
     expect(HULLS[id as keyof typeof HULLS].pulsesPerSec).toBe(pulses);
     expect(HULLS[id as keyof typeof HULLS].shotSpeed).toBe(shot);
     expect(sizeClassOf(id)).toBe(size);
@@ -60,20 +58,22 @@ describe('hull ladder layouts', () => {
     }
   });
 
-  it.each(LADDER.map(l => [l[0]]))('%s: every cell is reachable from the generator and no two hulls share a shape', (id) => {
+  it.each(LADDER.map(l => [l[0]]))('%s: no other hull has the same shape', (id) => {
     const rows = HULL_ROWS[id];
-    const h = rows.length, w = rows[0].length;
-    const seen = new Set<string>();
-    const stack: [number, number][] = [];
-    rows.forEach((r, y) => [...r].forEach((c, x) => { if (c === 'G') stack.push([x, y]); }));
-    while (stack.length) {
-      const [x, y] = stack.pop()!;
-      if (x < 0 || y < 0 || x >= w || y >= h || rows[y][x] === '.' || seen.has(`${x},${y}`)) continue;
-      seen.add(`${x},${y}`);
-      stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
-    }
-    expect(seen.size).toBe(rows.join('').replace(/\./g, '').length);
     for (const other of HULL_ORDER) if (other !== id) expect(HULL_ROWS[other].join('|')).not.toBe(rows.join('|'));
+  });
+
+  it('the validator explains mistakes in plain words', () => {
+    const hornet = HULL_ROWS.hornet;
+    expect(validateHullLayout('Hornet', hornet, { cells: 9, ejectors: 2 })).toEqual([]);
+    expect(validateHullLayout('Hornet', hornet, { cells: 9, ejectors: 3 })).toEqual(['Hornet: needs 3 ejectors, found 2']);
+    expect(validateHullLayout('Hornet', hornet, { cells: 10, ejectors: 2 })).toEqual(['Hornet: needs 10 buildable cells (_), found 9']);
+    const cut = hornet.map(r => r);
+    cut[3] = '__.__';                                                            // cuts the bottom row in two
+    expect(validateHullLayout('Hornet', cut)).toContain('Hornet: the cell at row 3, column 1 cannot be reached from G');
+    expect(validateHullLayout('Hornet', ['E', '_', 'x', 'G'])).toEqual(['Hornet: the character "x" at row 3, column 1 is not allowed; use only _ . G E']);
+    expect(validateHullLayout('Hornet', ['E', '_', 'G', '_'])).toContain('Hornet: the generator (G) is on row 3 but must be on the bottom row, row 4');
+    expect(validateHullLayout('Hornet', ['E', '_', '_', 'G', '.']).length).toBeGreaterThan(0);
   });
 
   it.each(LADDER.map(l => [l[0], l[2]] as [string, number]))('%s: every ejector can be fed by a plain straight-and-turn path', (id, ejectors) => {

@@ -1,5 +1,5 @@
 import { HULL_ORDER, HULLS, SizeClass } from '../data/hulls';
-import { HULL_ROWS } from '../game/gridUtils';
+import { HULL_ROWS } from '../data/hullLayouts';
 import { hullAffordable } from './paletteLogic';
 import { Rect } from './layout';
 import { fmtBig } from '../ui/format';

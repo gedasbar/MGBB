@@ -5,7 +5,7 @@ import { THEME } from '../ui/theme';
 import { fmtBig } from '../ui/format';
 import { CATEGORY_COLOR } from './draw';
 import { shipThumbnail, TextureMaker } from '../ui/shipArt';
-import { HULL_ROWS } from '../game/gridUtils';
+import { HULL_ROWS } from '../data/hullLayouts';
 import {
   hullBuyLabel, hullBuyRect, hullContentH, HULL_PANEL, HULL_TITLE_H, hullListRect, hullRowRects, hullRows, HullRow, hullSheetLines, hullSheetRect, hullSummary,
 } from './hullPickerLogic';
