@@ -21,9 +21,9 @@ export const LAYOUT = {
 export const MIN_TAP = 44;
 
 /** Margin kept around the hull when fitting. */
-export const FIT_MARGIN = 6;
+const FIT_MARGIN = 6;
 /** Largest cell size fitView will pick. */
-export const FIT_MAX_SCALE = 110;
+const FIT_MAX_SCALE = 110;
 
 /** Cell size in content units; the grid container is scaled by view.scale / BASE_CELL. */
 export const BASE_CELL = 64;

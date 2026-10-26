@@ -60,7 +60,7 @@ const EPS = 1e-6;
  * The wall as a set of targets for the shared hit pipeline: projectile position -> grid cell lookup,
  * no spatial hash. Only living blocks are ever returned.
  */
-export class BlockField implements TargetField {
+class BlockField implements TargetField {
   constructor(private w: WallWorld) {}
 
   private forEachIn(x0: number, y0: number, x1: number, y1: number, fn: (b: Block) => void) {

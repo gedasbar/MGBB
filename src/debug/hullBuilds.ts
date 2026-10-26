@@ -14,9 +14,9 @@ type Cell = [number, number];
 const DIRS: Cell[] = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // N, E, S, W
 
 /** Damage blocks of a hull by ladder index (0 = Dart): this many copies in all, alternating Flat+ and Percent x. */
-export const buildCopies = (index: number) => Math.min(20, 1 + index);
+const buildCopies = (index: number) => Math.min(20, 1 + index);
 /** Level of those blocks (both have levels): 1 at the Dart up to 10 at the top of the ladder. */
-export const buildLevel = (index: number) => Math.min(10, 1 + Math.floor(index / 2));
+const buildLevel = (index: number) => Math.min(10, 1 + Math.floor(index / 2));
 
 interface Route { cells: Cell[] }
 

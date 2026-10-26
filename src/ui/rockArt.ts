@@ -7,7 +7,7 @@ import { Mulberry32 } from '../rng';
  * (`EnemyArtDef`), the same idea as the ship art; the shapes are in unit radius and scaled by the enemy's size.
  * Flat fills and plain lines only: no gradients, no glow.
  */
-export type Pt = [number, number];
+type Pt = [number, number];
 
 export interface EnemyArtDef {
   id: string;
@@ -85,20 +85,20 @@ export const ENEMY_ART: Record<string, EnemyArtDef> = {
 };
 
 /** Armor frame and shield bar of a rock: the wall's marks (light-grey frame, cyan bar). */
-export const ARMOR_MARK = 0xd4d4d8;
-export const ARMOR_MARK_DIM = 0x55555a;
-export const SHIELD_MARK = 0x5fd4e8;
+const ARMOR_MARK = 0xd4d4d8;
+const ARMOR_MARK_DIM = 0x55555a;
+const SHIELD_MARK = 0x5fd4e8;
 /** Armor frame width in px when the armor is whole; Corrosion thins it down to ARMOR_MARK_MIN. */
-export const ARMOR_MARK_W = 3;
-export const ARMOR_MARK_MIN = 1;
+const ARMOR_MARK_W = 3;
+const ARMOR_MARK_MIN = 1;
 /** Shield bar height and its gap above the rock, in px. */
-export const SHIELD_BAR_H = 4;
-export const SHIELD_BAR_GAP = 6;
+const SHIELD_BAR_H = 4;
+const SHIELD_BAR_GAP = 6;
 
 export const enemyArt = (defId: string): EnemyArtDef => ENEMY_ART[defId] ?? ENEMY_ART.mitotic_rock;
 
 /** Seconds the cracks take to widen once the rock is nearly dead, and the split fragments' flight time. */
-export const WIDEN_TIME = 0.2;
+const WIDEN_TIME = 0.2;
 export const FRAGMENT_LIFE = 0.25;
 
 export interface RockShape {

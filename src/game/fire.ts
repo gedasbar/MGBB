@@ -236,14 +236,3 @@ export class Gun {
     }
   }
 }
-
-/**
- * Fire one stateless pulse from (shipX, shipY): one projectile per compiled ejector recipe. Kept for callers that have no
- * Gun; circuits with stateful blocks need a Gun.
- */
-export function firePulse(
-  pool: ProjectilePool, projSys: ProjectileSystem, recipes: EjectorRecipe[],
-  offsets: { x: number; y: number }[], shipX: number, shipY: number,
-) {
-  new Gun(pool, projSys, recipes, offsets).fire(shipX, shipY);
-}

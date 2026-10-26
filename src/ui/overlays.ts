@@ -11,9 +11,9 @@ import { LEGACY_KEY, STORAGE_KEY } from '../builder/persist';
 const W = CONFIG.VIEW.W;
 const H = CONFIG.VIEW.H;
 /** The pause button in the top-right corner of the fly screens. */
-export const PAUSE_BTN = { x: W - 46, y: 8, w: 38, h: 38 };
+const PAUSE_BTN = { x: W - 46, y: 8, w: 38, h: 38 };
 /** Volume buttons move the volume this much per tap. */
-export const VOLUME_STEP = 0.1;
+const VOLUME_STEP = 0.1;
 /** Taps this soon after the panel was closed are still treated as part of the closing tap (the screen below ignores them). */
 const CLOSE_GUARD_MS = 150;
 

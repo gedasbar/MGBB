@@ -35,7 +35,6 @@ export const wholeHp = (v: number) => Math.max(1, Math.round(v));
 export const blockHp = (tier: number) => wholeHp(BLOCK_HP_BASE * Math.pow(BLOCK_HP_GROWTH, Math.min(tier, BLOCK_HP_GROWTH_END) - 1));
 export const rewardPerBlock = (tier: number) => REWARD_BASE * Math.pow(REWARD_GROWTH, tier - 1);
 
-export const cellIndex = (level: { cols: number }, col: number, row: number) => row * level.cols + col;
 export const countBlocks = (level: LevelDef) => level.cells.reduce((n, c) => n + (c ? 1 : 0), 0);
 export const totalHp = (level: LevelDef) => level.cells.reduce((s, c) => s + (c ? c.hp : 0), 0);
 

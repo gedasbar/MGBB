@@ -2,7 +2,7 @@ import { CONFIG, HIT_RADIUS } from '../config';
 
 /** Columns of every wall and how many of them fit on screen. */
 export const WALL_COLS = 21;
-export const VISIBLE_COLS = 10;
+const VISIBLE_COLS = 10;
 
 /** One block cell in px: exactly 10 columns span the viewport width (54 px). */
 export const CELL = CONFIG.VIEW.W / VISIBLE_COLS;
@@ -68,8 +68,8 @@ export const WALL_ROWS_LAST = 41;
  * The first walls approach slower: EARLY_APPROACH_MUL x the default speed at tier 1, reaching the default at
  * EARLY_APPROACH_TIERS (chunk 14a: a Dart with a Flat+ can clear tier 1 slowly).
  */
-export const EARLY_APPROACH_MUL = 0.7;
-export const EARLY_APPROACH_TIERS = 10;
+const EARLY_APPROACH_MUL = 0.7;
+const EARLY_APPROACH_TIERS = 10;
 /** A shield pool absorbs damage before HP; it regenerates after SHIELD_REGEN_DELAY seconds without a hit. */
 export const SHIELD_REGEN_DELAY = 2;
 /** Share of the maximum shield restored per second while regenerating. */

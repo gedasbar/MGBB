@@ -4,7 +4,7 @@ import { LAYOUT } from './layout';
 import { UIButton } from './ui';
 import { THEME } from '../ui/theme';
 
-export const TAB_DEFS: { id: string; icon: TabIcon; label: string }[] = [
+const TAB_DEFS: { id: string; icon: TabIcon; label: string }[] = [
   { id: 'tabBuild', icon: 'build', label: 'Build' },
   { id: 'tabShop', icon: 'shop', label: 'Shop' },
   { id: 'tabCaptain', icon: 'captain', label: 'Captain' },

@@ -9,10 +9,10 @@ import { HULL_ROWS } from '../data/hullLayouts';
  * the nose at the top, (0.5, 0.5) the ship centre), the same language as the block plates (light grey edge, mid and dark
  * greys, dark core), plus two small accent-coloured pieces (engine bar, cockpit square). Adding a ship is adding a def.
  */
-export type Pt = [number, number];
-export type LayerRole = 'outer' | 'mid' | 'inner' | 'core';
+type Pt = [number, number];
+type LayerRole = 'outer' | 'mid' | 'inner' | 'core';
 
-export interface ShipLayer { points: Pt[]; role: LayerRole }
+interface ShipLayer { points: Pt[]; role: LayerRole }
 
 export interface ShipArtDef {
   id: string;
@@ -135,10 +135,10 @@ export function generateShipArt(id: string, rows: string[]): ShipArtDef {
 for (const id of HULL_ORDER) if (!SHIP_ART[id]) SHIP_ART[id] = generateShipArt(id, HULL_ROWS[id]);
 
 /** Grey ramp of the ships (same family as the block plates): light edge, mid greys, dark core; colour only in small pieces. */
-export const SHIP_EDGE = 0xd4d4d8;
-export const SHIP_MID = 0x8a8a90;
-export const SHIP_DARK = 0x55555a;
-export const SHIP_CORE = 0x26262a;
+const SHIP_EDGE = 0xd4d4d8;
+const SHIP_MID = 0x8a8a90;
+const SHIP_DARK = 0x55555a;
+const SHIP_CORE = 0x26262a;
 const ROLE_FILL: Record<LayerRole, number> = { outer: SHIP_EDGE, mid: SHIP_MID, inner: SHIP_DARK, core: SHIP_CORE };
 
 /** Visible size of a small ship in px at the 540 px wide viewport (the unit box is stretched to this); bigger hulls use their size class (data/hulls.ts). */
@@ -154,7 +154,7 @@ export function artSizeOf(id: string): { w: number; h: number } {
 const TEX_RES = 4;
 
 /** Draws a ship into a Graphics at origin (top-left of its box); `w` x `h` is the box in px. */
-export function drawShipArt(g: Graphics, def: ShipArtDef, w = artSizeOf(def.id).w, h = artSizeOf(def.id).h): Graphics {
+function drawShipArt(g: Graphics, def: ShipArtDef, w = artSizeOf(def.id).w, h = artSizeOf(def.id).h): Graphics {
   const kx = w * def.size;
   const ky = h * def.size;
   g.rect(0, 0, kx, ky).fill({ color: 0x000000, alpha: 0 });   // keeps the texture's bounds equal to the unit box, so the art centres on the ship

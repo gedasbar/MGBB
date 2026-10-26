@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------- effects
 
 /** What an option can do. Each type has exactly one hook (see docs/captains-design.md, section 2). */
-export type EffectType =
+type EffectType =
   | 'baseDamage' | 'damagePct' | 'fireRatePct' | 'projSpeedPct'
   | 'vsArmorPct' | 'vsShieldPct' | 'vsFragmentPct' | 'wallDamagePct'
   | 'creditPct' | 'wallCreditPct' | 'waveBonusPct' | 'passCreditsPct' | 'medalDoublePct'
@@ -25,8 +25,8 @@ export const HERO_LEVEL_BASE_DAMAGE = 0.5;
 /** Hero levels have no cap (chunk 16c-2); a stored level above this is treated as damage to the save, not as progress. */
 export const HERO_LEVEL_SANITY_MAX = 100_000;
 /** Medals to go from level n to n + 1 (n = 0 is level 0 to 1): round(HERO_COST_BASE x HERO_COST_RATIO^n), at least 1. */
-export const HERO_COST_BASE = 1;
-export const HERO_COST_RATIO = 1.2;
+const HERO_COST_BASE = 1;
+const HERO_COST_RATIO = 1.2;
 
 /** Tiers per captain and the options in each. */
 export const TIER_COUNT = 4;
@@ -129,7 +129,7 @@ const PCT = (v: number) => `${Math.round(v * 100)}%`;
 const SECONDS = (v: number) => `${v % 1 === 0 ? v : v.toFixed(1)} s`;
 
 /** One effect as the player reads it. Exact numbers, no rounding beyond whole percent. */
-export function describeEffect(ef: Effect): string {
+function describeEffect(ef: Effect): string {
   const v = ef.value;
   switch (ef.type) {
     case 'baseDamage': return `+${v} base damage`;

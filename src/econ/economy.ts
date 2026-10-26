@@ -4,11 +4,11 @@ import { BLOCK_ECONOMY, capOf, UPGRADE_GROWTH, UPGRADE_MUL } from '../data/block
 import { HULL_PRICES } from '../data/hulls';
 
 /** Seconds of survival per tier step inside one run. */
-export const TIER_SECONDS = 15;
+const TIER_SECONDS = 15;
 /** Tier-1 Mitotic Rock HP: the first rock dies in three Dart + Flat+ shots (2 damage). Chunk 14a: 250 -> 5 (HP / 50). */
-export const TIER1_ROCK_HP = 5;
+const TIER1_ROCK_HP = 5;
 /** Reward of a parent rock at tier 1 (3 in the brief; raised to 7 after balance-econ and a bot run showed ~43 credits per default-circuit run). */
-export const PARENT_REWARD = 7;
+const PARENT_REWARD = 7;
 /** The whole splitting family pays this multiple of what the parent alone would. */
 export const FAMILY_MULT = 1.1;
 /** Share of the family reward paid by each generation (index 0 = the parent). Sums to 1. */
@@ -16,11 +16,10 @@ export const GEN_SHARE = [0.4, 0.3, 0.18, 0.12];
 /** Bodies per generation of a binary-splitting rock. */
 export const GEN_BODIES = [1, 2, 4, 8];
 /** Hull damage of a leaking rock, as a share of max hull, before the size factor. */
-export const LEAK_BASE = 0.1;
+const LEAK_BASE = 0.1;
 /** Size factor by generation: parent large (1.5x), second generation medium (1x), the rest small (0.5x). */
-export const LEAK_SIZE_MUL = [1.5, 1, 0.5, 0.5];
+const LEAK_SIZE_MUL = [1.5, 1, 0.5, 0.5];
 
-export { UPGRADE_MUL, UPGRADE_GROWTH } from '../data/blockEconomy';
 
 /** Base (first copy) price of every block for sale: the table in data/blockEconomy.ts. */
 export const BASE_PRICE: Record<string, number> = {};

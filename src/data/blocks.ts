@@ -25,9 +25,9 @@ const jackpotProb = (l: number) => 0.04 + 0.01 * (l - 1);
 /** Gambler's Gate: 40% at level 1 to 50% at level 3 (chunk 16c-2; it was 50% to 60%). */
 export const gamblerProb = (l: number) => 0.4 + 0.05 * (l - 1);
 /** Percent x per copy: x1.5 at level 1 to x3 at level 10, geometric in the level (chunk 16c-2; it was 1 + 0.5 L). */
-export const PERCENT_MUL_L1 = 1.5;
-export const PERCENT_MUL_MAX = 3;
-export const PERCENT_MAX_LEVEL = 10;
+const PERCENT_MUL_L1 = 1.5;
+const PERCENT_MUL_MAX = 3;
+const PERCENT_MAX_LEVEL = 10;
 export const percentMul = (l: number) => PERCENT_MUL_L1 * Math.pow(PERCENT_MUL_MAX / PERCENT_MUL_L1, (l - 1) / (PERCENT_MAX_LEVEL - 1));
 
 /**
@@ -35,7 +35,7 @@ export const percentMul = (l: number) => PERCENT_MUL_L1 * Math.pow(PERCENT_MUL_M
  * empty cells, so the block currently does nothing; add the benefit here (it receives each
  * signal's packet) and flip `shown` on the Crossover entry.
  */
-export function crossoverBonus(_packet: Packet, _level: number): void {
+function crossoverBonus(_packet: Packet, _level: number): void {
   // intentionally empty: no benefit defined yet
 }
 
@@ -54,7 +54,7 @@ function modBlock(
 }
 
 /** Shop price bands of the chunk 9a blocks (the older blocks cost 40-450). */
-export const RARITY_PRICE: Record<Rarity, number> = { common: 150, uncommon: 500, rare: 800, epic: 1200 };
+const RARITY_PRICE: Record<Rarity, number> = { common: 150, uncommon: 500, rare: 800, epic: 1200 };
 
 /** Fields every chunk 9a block carries: rarity, its base price, five levels and a shop unlock. */
 function rare(rarity: Rarity) {
@@ -332,6 +332,3 @@ export function pickerBlocks(): BlockDef[] {
   return Object.values(BLOCKS).filter(b => b.shown);
 }
 
-export const CATEGORY_LABEL: Record<BlockCategory, string> = {
-  pathing: 'Pathing', damage: 'Damage', modifier: 'Modifiers', status: 'Status', mitosis: 'Mitosis', passive: 'Passive',
-};

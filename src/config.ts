@@ -2,8 +2,8 @@
 export const HIT_RADIUS = 8;
 
 /** Half the ship art's width (13 px at the 540 reference viewport). The ship's centre stays this far inside the screen sides. */
-export const SHIP_HALF_W_REF = 13;
-export const VIEW_W_REF = 540;
+const SHIP_HALF_W_REF = 13;
+const VIEW_W_REF = 540;
 
 /** Leftmost / rightmost ship-centre x so the whole ship stays on screen (scaled with the viewport). */
 export const shipHalfW = (viewW: number): number => SHIP_HALF_W_REF * (viewW / VIEW_W_REF);

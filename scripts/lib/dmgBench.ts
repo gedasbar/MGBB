@@ -21,7 +21,7 @@ import type { RunModifiers } from '../../src/captains/modifiers';
 
 /** 'spread' (chunk 16c-2) is not part of SCENARIOS / benchAll: a dense row of 30 small bodies, for the stacking area blocks (AoE) whose blast the tight cluster already covers. */
 export type Scenario = 'big' | 'cluster' | 'split' | 'spread';
-export const SCENARIOS: Scenario[] = ['big', 'cluster', 'split'];
+const SCENARIOS: Scenario[] = ['big', 'cluster', 'split'];
 
 const DT = 1 / 60;
 const TRACK_SPEED = 650;
@@ -32,7 +32,7 @@ const DISTANCES = [200, 450];
 const SECONDS_OF: Record<Scenario, number> = { big: 4, cluster: 0.75, split: 1.5, spread: 0.75 };
 /** HP of a whole split family as a multiple of its parent (1 + 2 x 0.55 + 4 x 0.55^2 + 8 x 0.55^3). */
 const SHARE = ENEMIES.mitotic_rock.split!.hpShare;
-export const FAMILY_HP = 1 + 2 * SHARE + 4 * SHARE ** 2 + 8 * SHARE ** 3;
+const FAMILY_HP = 1 + 2 * SHARE + 4 * SHARE ** 2 + 8 * SHARE ** 3;
 
 /** `hpMul` scales the target HP (default 1): with small numbers a body dies after a whole number of hits, so a stacking check averages several. */
 export interface BenchOpts { seconds?: number; seed?: number; modifiers?: RunModifiers; hpMul?: number }

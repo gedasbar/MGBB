@@ -15,12 +15,12 @@ export const COLORS = {
 export { CATEGORY_COLOR } from '../ui/theme';
 
 /** Pixi connects a new arc to the previous path point (the origin on a fresh path), so always start it explicitly. */
-export function arcPath(g: Graphics, x: number, y: number, r: number, a0: number, a1: number, anticlockwise = false) {
+function arcPath(g: Graphics, x: number, y: number, r: number, a0: number, a1: number, anticlockwise = false) {
   g.moveTo(x + Math.cos(a0) * r, y + Math.sin(a0) * r).arc(x, y, r, a0, a1, anticlockwise);
 }
 
 /** Diagonal hatching clipped to a rectangle. */
-export function hatch(g: Graphics, x: number, y: number, w: number, h: number, step: number, color: number, width: number, alpha = 1) {
+function hatch(g: Graphics, x: number, y: number, w: number, h: number, step: number, color: number, width: number, alpha = 1) {
   for (let c = step; c < w + h; c += step) {
     // line x + y = c, clipped to the rect
     const x0 = Math.max(0, c - h);
@@ -39,7 +39,7 @@ export function drawX(g: Graphics, cx: number, cy: number, r: number, color: num
 }
 
 /** Filled triangle pointing in direction angle (0 = right), tip at (x,y). */
-export function arrowHead(g: Graphics, x: number, y: number, angle: number, len: number, halfW: number, color: number) {
+function arrowHead(g: Graphics, x: number, y: number, angle: number, len: number, halfW: number, color: number) {
   const ca = Math.cos(angle);
   const sa = Math.sin(angle);
   const bx = x - ca * len;

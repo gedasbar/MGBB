@@ -3,9 +3,9 @@
  * sound can be tuned by editing numbers here. Peaks stay at or below 0.15 so nothing is loud at the default volume; the
  * character is crisp and geometric (square / triangle / short noise), with no reverb.
  */
-export type SoundWave = 'sine' | 'square' | 'triangle' | 'sawtooth' | 'noise';
+type SoundWave = 'sine' | 'square' | 'triangle' | 'sawtooth' | 'noise';
 
-export interface SoundPart {
+interface SoundPart {
   wave: SoundWave;
   /** Start and end frequency in Hz (the pitch glides exponentially). Ignored by noise, which is shaped by `filter`. */
   f0: number;
@@ -20,7 +20,7 @@ export interface SoundPart {
 }
 
 /** 0 = low (hit ticks, shots: dropped first), 1 = normal, 2 = protected (never rate limited, never dropped). */
-export type SoundPriority = 0 | 1 | 2;
+type SoundPriority = 0 | 1 | 2;
 
 export interface SoundDef {
   parts: SoundPart[];
@@ -41,7 +41,7 @@ export const SFX_BOOST = 1.8;
 export const PEAK_CAP = 0.27;
 export const PEAK_CAP_PROTECTED = 0.35;
 /** Hit sounds share this many plays per second. */
-export const HIT_RATE = 8;
+const HIT_RATE = 8;
 
 export const SOUND_IDS = [
   'shot', 'shotSoft', 'tick', 'rockHit', 'rockPop', 'split', 'blockDestroyed', 'armorPing', 'shieldHit', 'shieldBreak', 'chain', 'well',

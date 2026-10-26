@@ -10,8 +10,8 @@ export const UPGRADE_MUL = 2.0;
 export const UPGRADE_GROWTH = 2.2;
 
 /** Growth bands (price multiplier per copy already owned). */
-export const GROWTH_CHEAP = 1.15;
-export const GROWTH_NORMAL = 1.30;
+const GROWTH_CHEAP = 1.15;
+const GROWTH_NORMAL = 1.30;
 
 /** The only blocks with levels. Every other block has one level (`maxLevel` 1) and runs at `FIXED_LEVEL`. */
 export const UPGRADABLE: ReadonlySet<string> = new Set([

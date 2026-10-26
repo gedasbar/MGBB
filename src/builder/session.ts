@@ -16,7 +16,3 @@ export function getBuilderModel(): BuilderModel {
   if (!shared) shared = new BuilderModel(safeStorage(), undefined, getProgressStore());
   return shared;
 }
-
-export function resetBuilderModel(): void {
-  shared = null;
-}

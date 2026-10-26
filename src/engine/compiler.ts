@@ -33,9 +33,9 @@ export interface EjectorRecipe {
   packet: Packet;
 }
 
-export type SegmentKind = 'live' | 'dead-end' | 'loop-cut' | 'overlap';
+type SegmentKind = 'live' | 'dead-end' | 'loop-cut' | 'overlap';
 
-export interface CellRef {
+interface CellRef {
   x: number;
   y: number;
 }
@@ -58,7 +58,7 @@ export interface Segment {
 }
 
 /** What the projectile looks like after passing a cell (first signal through the cell). */
-export interface Ledger {
+interface Ledger {
   damage: number;
   /** Expected damage, counting chance blocks at their average. */
   expectedDamage: number;
@@ -114,7 +114,7 @@ const DELTA: Record<Dir, { dx: number; dy: number }> = {
 };
 const REL_ORDER: Record<Rel, number> = { L: 0, F: 1, R: 2 };
 
-export function cellLabel(x: number, y: number): string {
+function cellLabel(x: number, y: number): string {
   return `(${x + 1},${y + 1})`;
 }
 

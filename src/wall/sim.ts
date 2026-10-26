@@ -22,7 +22,7 @@ export interface WallSimResult {
 export const blockCost = (b: { hp: number; shield: number; armor: number }) => Math.max(0, b.shield) + Math.max(0, b.hp) * (1 + b.armor / 10);
 
 /** Total effective HP of the living blocks of a column: what a lane through it costs to carve. */
-export function columnCost(w: WallWorld, col: number): number {
+function columnCost(w: WallWorld, col: number): number {
   let sum = 0;
   for (let r = 0; r < w.level.rows; r++) {
     const b = w.blocks[r * w.level.cols + col];
@@ -32,7 +32,7 @@ export function columnCost(w: WallWorld, col: number): number {
 }
 
 /** Bottom edge (screen y) of the lowest living block of a column, or null if the column is empty. */
-export function columnBottom(w: WallWorld, col: number): number | null {
+function columnBottom(w: WallWorld, col: number): number | null {
   for (let r = w.level.rows - 1; r >= 0; r--) {
     if (w.blocks[r * w.level.cols + col]) return w.blockTop(r) + CELL;
   }
@@ -55,7 +55,7 @@ const moveX = (w: WallWorld, cur: number, target: number, dt: number) => {
  * it continuously, and stays just under the lowest live block of that lane, so it climbs the lane as the blocks die and
  * flies up it (at the boost speed, near the top of the screen) once the lane is clear. It never enters a live block.
  */
-export class CarveBot {
+class CarveBot {
   private lane = -1;
   private x = 0;
   private y = 0;
@@ -82,7 +82,7 @@ export class CarveBot {
  * Clear-all pilot: stays at the bottom of the screen and always aims at the column whose lowest block hangs lowest, so the
  * wall is eaten from the bottom up and nothing reaches the ship while it can be shot.
  */
-export class ClearAllBot {
+class ClearAllBot {
   private x = 0;
   private y = 0;
   private started = false;

@@ -28,7 +28,7 @@ export interface CaptainHolder { medals: number; captains: CaptainsState }
 
 export type CaptainResult = { ok: true; cost: number } | { ok: false; error: string };
 
-export function defaultHero(): HeroState {
+function defaultHero(): HeroState {
   return { level: 0, kills: 0, owned: [], active: {} };
 }
 

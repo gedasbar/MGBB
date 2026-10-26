@@ -12,7 +12,7 @@ export const delaySeconds = (l: number) => 0.1 * l;
 
 // ---- Damage
 /** Flat+: damage added per block level (chunk 14a: +1, the size of the basic shot; it was +100). */
-export const FLAT_PLUS_PER_LEVEL = 1;
+const FLAT_PLUS_PER_LEVEL = 1;
 export const flatPlusAdd = (l: number) => FLAT_PLUS_PER_LEVEL * l;
 export const OVERCLOCK_CAP = 1; // +100%
 /** Overclock: damage gained per consecutive packet (2% at level 1, +0.5% per level). */
@@ -20,7 +20,7 @@ export const overclockGain = (l: number) => 0.02 + 0.005 * (l - 1);
 /** Seconds without a packet after which the streak resets (the gun's own pulse period stretches it, see Gun). */
 export const OVERCLOCK_WINDOW = 1;
 /** Stats strip: Overclock is shown at its average over this many packets of an unbroken streak. */
-export const OVERCLOCK_AVG_PACKETS = 60;
+const OVERCLOCK_AVG_PACKETS = 60;
 /** The average multiplier of an unbroken streak over OVERCLOCK_AVG_PACKETS packets (packet n has streak n). */
 export function overclockAverage(l: number): number {
   const g = overclockGain(l);
@@ -113,7 +113,7 @@ export const routerBoth = (l: number) => 0.5 + 0.1 * (l - 1);
 
 // ---- Chunk 16c-2: shape blocks stack. Every copy on the signal path adds a step; the benefit falls off by itself.
 /** The j-th copy (j >= 2) of a size-type block (AoE, Boomerang range, Mine trigger) multiplies its size by 1 + STACK_GROWTH / j. */
-export const STACK_GROWTH = 0.25;
+const STACK_GROWTH = 0.25;
 /** Size factor of k copies: product of (1 + STACK_GROWTH / j) for j = 2..k (1 for one copy). */
 export function stackGrowth(k: number): number {
   let f = 1;
@@ -127,7 +127,7 @@ export function harmonic(k: number): number {
   return Math.max(1, h);
 }
 /** AoE damage factor of k copies: each extra copy deals this much of the one before. */
-export const AOE_STACK_DAMAGE = 0.95;
+const AOE_STACK_DAMAGE = 0.95;
 export const aoeStackDamage = (k: number) => Math.pow(AOE_STACK_DAMAGE, Math.max(0, k - 1));
 /** Fork on Impact: the j-th pair of forks deals this much of the pair before it. */
 export const FORK_PAIR_DAMAGE = 0.8;

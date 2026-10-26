@@ -159,7 +159,7 @@ function fmtDelta(n: number): string {
 
 export interface StatsDeltaLike { damagePerShot: number; projectilesPerPulse: number; pulsesPerSecond: number; estDps: number }
 
-/** Thin strip: Dmg/shot · Proj/pulse · Pulses/s · Est. DPS (chunk 16a: the warnings cell is gone; the warnings stay in the compiler for tests and the debug panel). */
+/** Thin strip: Dmg/shot · Proj/pulse · Pulses/s · Est. DPS. */
 /** Width of one cell of the stats strip: the four values share the screen width. */
 const STAT_COL_W = VIEW_W / 4;
 
@@ -228,26 +228,23 @@ export class InfoPanel {
   private panel = new Graphics();
   private title = makeText('', 20, THEME.text, { fontWeight: 'bold' });
   private body = makeText('', 15, THEME.text, { wordWrap: true, wordWrapWidth: VIEW_W - 64, lineHeight: 20 });
-  private warnings = makeText('', 14, THEME.warn, { wordWrap: true, wordWrapWidth: VIEW_W - 64, lineHeight: 19 });
 
   constructor() {
     this.container.visible = false;
-    this.container.addChild(this.dim, this.panel, this.title, this.body, this.warnings);
+    this.container.addChild(this.dim, this.panel, this.title, this.body);
   }
 
   get isOpen(): boolean { return this.container.visible; }
 
-  show(title: string, body: string, warnings: string[] = []) {
+  show(title: string, body: string) {
     this.title.text = title;
     this.body.text = body;
-    this.warnings.text = warnings.length ? `Warnings\n${warnings.map(w => `• ${w}`).join('\n')}` : '';
     const x = 16;
     const w = VIEW_W - 32;
     const y = 150;
     this.title.position.set(x + 16, y + 14);
     this.body.position.set(x + 16, y + 48);
-    this.warnings.position.set(x + 16, y + 48 + this.body.height + 14);
-    const h = 48 + this.body.height + (warnings.length ? this.warnings.height + 14 : 0) + 56;
+    const h = 48 + this.body.height + 56;
     this.dim.clear().rect(0, 0, VIEW_W, 960).fill({ color: THEME.dim, alpha: 0.55 });
     this.panel.clear().rect(x, y, w, h).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
     this.panel.rect(x + w - 112, y + h - 40, 96, 28).fill(THEME.buttonFill).stroke({ color: THEME.buttonLine, width: 1.5 });
@@ -264,5 +261,5 @@ export class InfoPanel {
 
   hide() { this.container.visible = false; }
 
-  get bodyText(): string { return this.body.text + '\n' + this.warnings.text; }
+  get bodyText(): string { return this.body.text; }
 }

@@ -1,9 +1,7 @@
 import { SfxEngine } from './engine';
 
-export { SfxEngine, VOICE_CAP } from './engine';
-export type { PlayOpts } from './engine';
-export { SOUNDS, SOUND_IDS } from './sounds';
-export type { SfxId } from './sounds';
+export { SfxEngine } from './engine';
+export { SOUND_IDS } from './sounds';
 
 /** The game's one sound engine. Silent until installAudioUnlock() has seen the first user gesture. */
 export const sfx = new SfxEngine();

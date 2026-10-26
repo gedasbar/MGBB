@@ -6,7 +6,6 @@ import { orientLegacyAuto } from '../engine/orient';
 import { STARTER_HULL } from '../data/hulls';
 
 export type SlotId = 'A' | 'B';
-export const SLOTS: SlotId[] = ['A', 'B'];
 
 /** A player-placed block. Fixed hull cells (void, generator, ejector) are never saved. */
 export interface BlockEntry {
@@ -18,7 +17,7 @@ export interface BlockEntry {
   rotation: Rotation;
 }
 
-export interface HullSave {
+interface HullSave {
   active: SlotId;
   slots: Record<SlotId, BlockEntry[]>;
 }
@@ -36,7 +35,7 @@ export const LEGACY_KEY = 'mgbm_grid';
 /** The hull of a fresh save: the free Dart with its one slot empty. */
 export const DEFAULT_HULL: string = STARTER_HULL;
 /** Hull of builds saved before the hull ladder, and of the old grid format. */
-export const LEGACY_HULL = 'shuttle';
+const LEGACY_HULL = 'shuttle';
 
 /** Default circuit for slot A of the Shuttle (0-indexed x,y): each block faces the way the signal reaches it (turn_l is entered heading east). */
 export const DEFAULT_SHUTTLE_A: BlockEntry[] = [
@@ -56,7 +55,7 @@ export function defaultSave(): SavedBuilder {
   };
 }
 
-export function hullGrid(hullId: string): Grid {
+function hullGrid(hullId: string): Grid {
   const make = HULL_BUILDERS[hullId];
   if (!make) throw new Error(`Unknown hull ${hullId}`);
   return make();
@@ -89,7 +88,7 @@ function isRotation(r: unknown): r is Rotation {
 }
 
 /** Where entries come from: 'v3' stores every orientation; 'v2' (builder saves and layouts before chunk 16a) has a `manual` flag and auto blocks; 'legacy' is the oldest grid format (compass rotations, all auto). */
-export type EntrySource = 'v3' | 'v2' | 'legacy';
+type EntrySource = 'v3' | 'v2' | 'legacy';
 
 /**
  * Validates untrusted entries against a hull. Anything unusable (unknown or unplaceable block,
@@ -97,7 +96,7 @@ export type EntrySource = 'v3' | 'v2' | 'legacy';
  * Blocks that were in auto mode (every block of a 'legacy' source, those without `manual: true` in a 'v2' one) get their
  * orientation worked out ONCE here, against the circuit as saved (orientLegacyAuto), and keep it from then on.
  */
-export function sanitizeEntries(raw: unknown, hull: Grid, source: EntrySource = 'v3'): BlockEntry[] {
+function sanitizeEntries(raw: unknown, hull: Grid, source: EntrySource = 'v3'): BlockEntry[] {
   const out: BlockEntry[] = [];
   const autoIdx: number[] = [];
   if (!Array.isArray(raw)) return out;
@@ -137,7 +136,7 @@ export function legacyCellType(t: unknown): 'empty' | 'void' | 'generator' | 'ej
 }
 
 /** Reads the whole old-format grid ({w,h,cells[]}) and keeps only what survives sanitising. */
-export function migrateLegacyGrid(raw: unknown, hull: Grid): BlockEntry[] {
+function migrateLegacyGrid(raw: unknown, hull: Grid): BlockEntry[] {
   const cells = (raw as { cells?: unknown } | null)?.cells;
   if (!Array.isArray(cells)) return [];
   const entries = cells
@@ -197,7 +196,7 @@ export function serializeBuilder(s: SavedBuilder): string {
 }
 
 /** Clipboard format for Copy / Paste layout. */
-export interface LayoutClip {
+interface LayoutClip {
   mgbm: 'layout';
   v: 3;
   hull: string;

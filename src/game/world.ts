@@ -4,13 +4,13 @@ import { MitosisSystem } from '../engine/mitosis';
 import { ProjectileSystem } from '../engine/projectiles';
 import { SpatialHash } from '../engine/spatialHash';
 import { compile, EjectorRecipe, Grid } from '../engine/compiler';
-import { Gun, PROJECTILE_SPEED, PX_PER_CELL, spawnOffsetsFor } from './fire';
+import { Gun, PX_PER_CELL, spawnOffsetsFor } from './fire';
 import { PointerState } from '../input';
 import { buildStarterGrid, ROCK_RADIUS } from './starter';
 import { leakDamage, rockHp, rockReward, tierOfTime, wholeRockHp } from '../econ/economy';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 import { fireRateMul, hitRadiusOf, shotSpeedMul } from '../data/hulls';
-import { SPECIES, speciesOf } from '../data/species';
+import { speciesOf } from '../data/species';
 import { ENEMIES } from '../data/enemies';
 import { EnemyField } from '../engine/targets';
 import { HIT_BURN, HIT_CLOUD } from '../engine/projectiles';
@@ -26,12 +26,10 @@ import { neutralModifiers, RunModifiers } from '../captains/modifiers';
 import { SECOND_CHANCE_INVULN } from '../captains/data';
 
 export const TOUCH_OFFSET_Y = -40; // finger sits below the ship on touch
-export { PROJECTILE_SPEED, PX_PER_CELL };
-export const CONTACT_DAMAGE = 10;
+export { PX_PER_CELL };
+const CONTACT_DAMAGE = 10;
 /** Hull of an unmodified ship. Leak damage always uses this base (a captain's extra hull does not make leaks hurt more). */
-export const BASE_HULL = 100;
-/** Rock fall speed (px/s). */
-export const ENEMY_SPEED = SPECIES.mitotic_rock.speed;
+const BASE_HULL = 100;
 /** A rock whose centre stays above the top edge this long is moved in at the edge. */
 export const ABOVE_SCREEN_MAX = 6;
 
