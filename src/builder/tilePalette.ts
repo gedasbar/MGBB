@@ -9,7 +9,6 @@ import {
   REMOVE_TILE, scrollToReveal, SheetButtonId, SheetContent, sheetButtonRects, TileBox, visibleTiles,
 } from './paletteLogic';
 
-export { REMOVE_TILE };
 export type { SheetButtonId };
 
 /** What a palette shows: the builder and the Shop each supply their own (ids per tab, counts, locks, sheet text). */

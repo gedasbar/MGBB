@@ -20,7 +20,7 @@ function darken(c: number, k: number): number {
 }
 
 /** Draws in glyph units: the glyph box is [-1,1] in both axes, y down, forward = -y. */
-export class Pen {
+class Pen {
   constructor(
     private g: Graphics,
     /** pixels per glyph unit */

@@ -1,9 +1,6 @@
 import { Grid, GridCell } from '../engine/compiler';
 import { HULL_ORDER, HULLS } from '../data/hulls';
-import {
-  BASTION_ROWS, CITADEL_ROWS, CORVETTE_ROWS, GALLEON_ROWS, HALBERD_ROWS, HORNET_ROWS, KESTREL_ROWS, LANCET_ROWS, LEVIATHAN_ROWS, MANTIS_ROWS,
-  SPIRE_ROWS, TRIDENT_ROWS, WISP_ROWS, ZENITH_ROWS,
-} from '../data/hullLayouts';
+import { HULL_ROWS } from '../data/hullLayouts';
 
 /**
  * Layout legend: `.` void, `_` empty buildable, `G` generator (faces up), `E` ejector (faces up).
@@ -28,64 +25,27 @@ export function parseLayout(rows: string[]): Grid {
   return { w, h, cells };
 }
 
-export const SHUTTLE_ROWS = [
-  '...........',
-  '....._..E..',
-  '.._______..',
-  '.._____._..',
-  '.._____._..',
-  '.._____._..',
-  '.._____._..',
-  '.._______..',
-  '.._______..',
-  '....._.....',
-  '.....G.....',
-];
-
-/** Dart: the free starter. Generator, ONE free cell, ejector, in a straight line. */
-export const DART_ROWS = ['E', '_', 'G'];
-/** Twin: two free cells in a line. */
-export const TWIN_ROWS = ['E', '_', '_', 'G'];
-/**
- * Prong: two ejectors side by side at the top, three free cells, the generator under the left one. A Splitter 3 on the
- * left cell and a Turn Left on the right one feed both prongs.
- */
-export const PRONG_ROWS = ['E.E', '___', 'G..'];
-
-export const FAN_ROWS = [
-  '.E..E..E.',
-  ...new Array(8).fill('_________'),
-  '....G....',
-];
-
 function withHull(id: string, rows: string[]): Grid {
   const g = parseLayout(rows);
   g.hullId = id;
   return g;
 }
 
-export const buildDartGrid = (): Grid => withHull('dart', DART_ROWS);
-export const buildTwinGrid = (): Grid => withHull('twin', TWIN_ROWS);
-export const buildProngGrid = (): Grid => withHull('prong', PRONG_ROWS);
+export const buildDartGrid = (): Grid => withHull('dart', HULL_ROWS.dart);
+export const buildTwinGrid = (): Grid => withHull('twin', HULL_ROWS.twin);
+export const buildProngGrid = (): Grid => withHull('prong', HULL_ROWS.prong);
 
 /** The 11x11 Shuttle hull with nothing placed. */
 export function buildShuttleGrid(): Grid {
-  return withHull('shuttle', SHUTTLE_ROWS);
+  return withHull('shuttle', HULL_ROWS.shuttle);
 }
 
 /** A wide test hull: a full 9x8 buildable area, generator at bottom-centre, three ejectors on the top edge. */
 export function buildFanGrid(): Grid {
-  return withHull('fan', FAN_ROWS);
+  return withHull('fan', HULL_ROWS.fan);
 }
 
 export interface HullInfo { id: string; name: string; desc: string }
-
-/** Layout rows of every hull, by id (the 17a hulls live in data/hullLayouts.ts). */
-export const HULL_ROWS: Record<string, string[]> = {
-  dart: DART_ROWS, twin: TWIN_ROWS, prong: PRONG_ROWS, wisp: WISP_ROWS, hornet: HORNET_ROWS, lancet: LANCET_ROWS, kestrel: KESTREL_ROWS,
-  mantis: MANTIS_ROWS, bastion: BASTION_ROWS, halberd: HALBERD_ROWS, corvette: CORVETTE_ROWS, trident: TRIDENT_ROWS, galleon: GALLEON_ROWS,
-  shuttle: SHUTTLE_ROWS, spire: SPIRE_ROWS, leviathan: LEVIATHAN_ROWS, fan: FAN_ROWS, citadel: CITADEL_ROWS, zenith: ZENITH_ROWS,
-};
 
 const DESC: Record<string, string> = {
   dart: 'The free starter: one free cell between generator and ejector. Slow gun.',

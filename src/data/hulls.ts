@@ -2,7 +2,7 @@ import { CONFIG, HIT_RADIUS } from '../config';
 
 /**
  * The hull ladder (chunk 17a, design in docs/hull-ladder.md): 19 hulls from the free Dart to the Zenith. Layouts live in
- * game/gridUtils.ts and data/hullLayouts.ts, silhouettes are generated from them in ui/shipArt.ts; this file holds the
+ * data/hullLayouts.ts, silhouettes are generated from them in ui/shipArt.ts; this file holds the
  * numbers: price, pulse rate, shot speed and size class. Order = price order = the order of the hull picker.
  */
 export const HULL_ORDER = [

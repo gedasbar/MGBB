@@ -10,8 +10,8 @@ export const UPGRADE_MUL = 2.0;
 export const UPGRADE_GROWTH = 2.2;
 
 /** Growth bands (price multiplier per copy already owned). */
-export const GROWTH_CHEAP = 1.15;
-export const GROWTH_NORMAL = 1.30;
+const GROWTH_CHEAP = 1.15;
+const GROWTH_NORMAL = 1.30;
 
 /** The only blocks with levels. Every other block has one level (`maxLevel` 1) and runs at `FIXED_LEVEL`. */
 export const UPGRADABLE: ReadonlySet<string> = new Set([
@@ -40,6 +40,16 @@ const one = (base: number): BlockEconomy => ({ cap: 1, base, growth: 1 });
 /** A stacking shape block: no cap, normal growth. */
 const stack = (base: number): BlockEconomy => ({ cap: null, base, growth: GROWTH_NORMAL });
 
+/**
+ * THE TABLE TO EDIT: one line per block shown in the Shop.
+ *   cap    = how many copies you can own (null = no limit). The Shop shows "owned / cap" and the Buy button reads "Max" at the cap.
+ *   base   = price in credits of the FIRST copy.
+ *   growth = how much the price multiplies for each copy you already own. Price of copy n = base x growth^(n-1).
+ *            1 means every copy costs the same; GROWTH_CHEAP = 1.15, GROWTH_NORMAL = 1.30 (or write a number such as 1.2).
+ * Shortcuts: one(base) = a block you can own once; stack(base) = no cap, normal growth.
+ * Example: { cap: 8, base: 30, growth: GROWTH_CHEAP } = up to 8 copies, the first costs 30, the second 35, the third 40 ...
+ * Every shown block needs a line (the unit tests complain if one is missing). How to edit: docs/EDITING.md.
+ */
 export const BLOCK_ECONOMY: Readonly<Record<string, BlockEconomy>> = {
   // Pathing
   turn_l: { cap: 8, base: 30, growth: GROWTH_CHEAP },

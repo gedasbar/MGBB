@@ -20,9 +20,9 @@ export interface GestureHandlers {
 }
 
 export const DRAG_SLOP = 10;
-export const DOUBLE_TAP_MS = 400;
-export const DOUBLE_TAP_DIST = 32;
-export const TAP_MAX_MS = 600;
+const DOUBLE_TAP_MS = 400;
+const DOUBLE_TAP_DIST = 32;
+const TAP_MAX_MS = 600;
 export const LONG_PRESS_MS = 450;
 
 interface Pt { x: number; y: number; sx: number; sy: number; t: number; dragging: boolean; drag: boolean; long: boolean; timer: ReturnType<typeof setTimeout> | null }

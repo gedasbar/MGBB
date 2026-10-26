@@ -1,15 +1,15 @@
 import { Graphics } from 'pixi.js';
 import { Segment } from '../engine/compiler';
 import { Dir } from '../engine/compilerTypes';
-import { arrowHead, COLORS, drawX } from './draw';
+import { COLORS, drawX } from './draw';
 import { BASE_CELL as S, EJECTOR_BASE_DIST, EMITTER_TIP_DIST } from './layout';
 
-export const DIR_VEC: Record<Dir, { x: number; y: number }> = {
+const DIR_VEC: Record<Dir, { x: number; y: number }> = {
   N: { x: 0, y: -1 }, E: { x: 1, y: 0 }, S: { x: 0, y: 1 }, W: { x: -1, y: 0 },
 };
 
 /** Content-space centre of a cell. */
-export function centre(x: number, y: number): { x: number; y: number } {
+function centre(x: number, y: number): { x: number; y: number } {
   return { x: (x + 0.5) * S, y: (y + 0.5) * S };
 }
 
@@ -143,10 +143,4 @@ export function drawFlow(g: Graphics, segments: Segment[], timeMs: number, hops:
     }
   }
   g.stroke({ color: 0xffe0e0, width: 2, alpha: 0.9 * dim, cap: 'round' });
-}
-
-/** Small direction chevrons used by the legend/help panel. */
-export function drawChevron(g: Graphics, x: number, y: number, dir: Dir, size: number, color: number) {
-  const ang = Math.atan2(DIR_VEC[dir].y, DIR_VEC[dir].x);
-  arrowHead(g, x, y, ang, size, size * 0.6, color);
 }

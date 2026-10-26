@@ -13,7 +13,7 @@ export const UNLOCK_RINGS = [10, 25, 50, 100] as const;
 export const UNLOCK_SECTORS: Exclude<Sector, 'C'>[] = ['N', 'E', 'S', 'W'];
 
 /** sector -> one block per UNLOCK_RINGS entry, in ring order. Every direction mixes categories; rarer blocks come later. */
-export const UNLOCK_BLOCKS: Record<Exclude<Sector, 'C'>, [string, string, string, string]> = {
+const UNLOCK_BLOCKS: Record<Exclude<Sector, 'C'>, [string, string, string, string]> = {
   N: ['random_router', 'cleaver', 'frostbite', 'chain_lightning'],
   E: ['overkill_spill', 'mine', 'capacitor', 'fission_catalyst'],
   S: ['static_charge', 'culling_bolt', 'orbit', 'executioner'],
@@ -51,9 +51,6 @@ export function reachBySector(f: FrontierSave): Reach {
   }
   return out;
 }
-
-/** The entries reached by a reach. */
-export const reachedEntries = (reach: Reach): UnlockEntry[] => UNLOCKS.filter(u => reach[u.sector] >= u.ring);
 
 /** Entries reached by `after` and not by `before`: what a change just unlocked (each fires once, per sector independently). */
 export function newlyReached(before: Reach, after: Reach): UnlockEntry[] {

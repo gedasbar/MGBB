@@ -19,7 +19,7 @@ import { fmtTime } from './RunSummaryScreen';
 import { THEME } from '../ui/theme';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 
-export const MAP_COLS = 5;
+const MAP_COLS = 5;
 const GRID_TOP = 52;
 const SHEET_Y = 744;
 const SHEET_H = LAYOUT.tabs.y - SHEET_Y;
@@ -36,7 +36,7 @@ const FACE_LOCKED = 0x1c1c1e;
 const NUM_LOCKED = 0x5c5c61;
 
 /** locked, open (not passed yet), passed (flown past the end, no Medal), cleared (every block destroyed, Medal). */
-export type TileState = 'locked' | 'open' | 'passed' | 'cleared';
+type TileState = 'locked' | 'open' | 'passed' | 'cleared';
 
 /** Screen-independent description of a tile, also exposed to the e2e hook. */
 export interface TileInfo { tier: number; state: TileState; spike: boolean; next: boolean }

@@ -1,4 +1,4 @@
-export type MoveBehavior = 'drift' | 'sine' | 'seek' | 'orbit' | 'skitter' | 'anchor' | 'chase-edge';
+type MoveBehavior = 'drift' | 'sine' | 'seek' | 'orbit' | 'skitter' | 'anchor' | 'chase-edge';
 
 export interface SplitRule {
   trigger: 'onDeath' | 'onHitThreshold' | 'onTimer' | 'onHitEvery';

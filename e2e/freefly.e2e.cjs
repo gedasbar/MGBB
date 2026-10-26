@@ -42,7 +42,7 @@ const statsNow = (page) => page.evaluate(() => { const n = window.__mgbmStats.nu
   const flatTile = await page.evaluate(() => window.__mgbm.buildScreen.picker.tileScreenRect('flat_plus'));
   await tap(page, ...centre(flatTile));
   await tap(page, ...centre(flatTile));
-  await tap(page, 516, 492);   // close the sheet
+  await tap(page, 270, 130);   // close the sheet
   b = await state(page);
   const placed = await page.evaluate(() => window.__mgbm.model.grid.cells.filter(c => c.blockId).map(c => c.blockId));
   check(JSON.stringify(placed) === '["flat_plus"]' && b.statsStrip[0].startsWith('2'), `Flat+ placed in the slot: ${placed}, Dmg/shot "${b.statsStrip[0]}"`);

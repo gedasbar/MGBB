@@ -41,7 +41,7 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const range = (r: [number, number], u: number) => lerp(r[0], r[1], u);
 
 /** Effective tier before rounding: MAP_BASE_TIER + ring * MAP_TIER_PER_RING + noise in ±MAP_TIER_NOISE. */
-export function effectiveTier(x: number, y: number, seed: number): number {
+function effectiveTier(x: number, y: number, seed: number): number {
   const r = ring(x, y);
   return Math.max(1, Math.round(MAP_BASE_TIER + r * MAP_TIER_PER_RING + (hash01(x, y, seed, S_TIER) * 2 - 1) * MAP_TIER_NOISE));
 }

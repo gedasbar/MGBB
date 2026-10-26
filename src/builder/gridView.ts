@@ -32,7 +32,7 @@ function localRect(g: Graphics, cx: number, cy: number, f: Dir, lx: number, ly: 
 }
 
 /** Ejector: a bullet whose pointed tip is the exit; the flat base faces the incoming line. About a 10% margin all round. */
-export function drawBullet(g: Graphics, cx: number, cy: number, w: number, f: Dir) {
+function drawBullet(g: Graphics, cx: number, cy: number, w: number, f: Dir) {
   const half = w * 0.4; // half length of the bullet
   const bw = w * 0.24; // half width
   const tipStart = -half * 0.2; // casing runs from the base (+half) up to here
@@ -46,7 +46,7 @@ export function drawBullet(g: Graphics, cx: number, cy: number, w: number, f: Di
 }
 
 /** Generator: three concentric squares (outer, middle, red core) and a flat emitter notch on the edge that faces the line. */
-export function drawReactor(g: Graphics, cx: number, cy: number, w: number, f: Dir) {
+function drawReactor(g: Graphics, cx: number, cy: number, w: number, f: Dir) {
   const o = w * 0.4;
   localRect(g, cx, cy, f, 0, 0, o, o, THEME.reactorOuter);
   localRect(g, cx, cy, f, 0, 0, o * 0.74, o * 0.74, THEME.hullDark);

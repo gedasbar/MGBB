@@ -36,7 +36,7 @@ const TOP = 52;
 const PANEL_Y = 704;
 const TABS_Y = LAYOUT.tabs.y;
 /** The map's screen rectangle (between the top bar and the panel). */
-export const FRONTIER_MAP: Rect = { x: 0, y: TOP, w: VIEW_W, h: PANEL_Y - TOP };
+const FRONTIER_MAP: Rect = { x: 0, y: TOP, w: VIEW_W, h: PANEL_Y - TOP };
 const MCX = FRONTIER_MAP.x + FRONTIER_MAP.w / 2;
 const MCY = FRONTIER_MAP.y + FRONTIER_MAP.h / 2;
 

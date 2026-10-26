@@ -26,8 +26,8 @@ const PLATE_H = LINES * LINE_H + PAD * 2;
 const GAME_W = 540;
 const GAME_H = 960;
 /** Width of the side panel's plate and the gap it keeps from the window edge and from the game. */
-export const SIDE_PANEL_W = 236;
-export const SIDE_GAP = 8;
+const SIDE_PANEL_W = 236;
+const SIDE_GAP = 8;
 /** The side panel is used when the blank column beside the game is at least this wide (plate + a gap on each side). */
 export const SIDE_MIN_BLANK = SIDE_PANEL_W + 2 * SIDE_GAP;
 
@@ -40,7 +40,7 @@ export function statsPlacement(winW: number, winH: number): StatsPlacement {
 }
 
 /** Whether the overlay starts visible: ?stats=1/0 in the URL, else the remembered choice, else on in dev and off in production. */
-export function initialStatsEnabled(): boolean {
+function initialStatsEnabled(): boolean {
   try {
     const q = new URLSearchParams(window.location.search).get('stats');
     if (q === '1' || q === '0') { save(q === '1'); return q === '1'; }

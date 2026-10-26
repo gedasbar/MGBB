@@ -5,18 +5,18 @@ import { fmtBig } from '../ui/format';
 /** Chunk 16b: the pure part of the block palette (layout math, filtering, badge and sheet text). No Pixi in here. */
 
 export const PALETTE_COLS = 5;
-export const PALETTE_GAP = 8;
+const PALETTE_GAP = 8;
 /** Tile height as a fraction of its width. */
-export const TILE_ASPECT = 0.9;
+const TILE_ASPECT = 0.9;
 /** Height of the sheet buttons: 44 px at the 360 px phone width (game px x 360 / 540). */
-export const SHEET_BUTTON_H = 66;
-export const PHONE_CSS_W = 360;
+const SHEET_BUTTON_H = 66;
+const PHONE_CSS_W = 360;
 export const MIN_TOUCH_CSS = 44;
 export const INFO_SHEET_H = 200;
 /** Info sheet height when it has no buttons (the builder: a second tap on the tile places). */
 export const INFO_SHEET_NO_BUTTONS_H = 120;
 /** Largest count the badge prints exactly. */
-export const BADGE_MAX = 99;
+const BADGE_MAX = 99;
 export const REMOVE_TILE = '__remove';
 
 /** Palette order: by category, then the data order within a category. */
@@ -108,7 +108,7 @@ export interface SheetInput {
   showFree?: boolean;
 }
 
-export interface SheetButton { label: string; enabled: boolean }
+interface SheetButton { label: string; enabled: boolean }
 
 export interface SheetContent {
   title: string;

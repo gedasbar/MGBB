@@ -174,7 +174,7 @@ export function nextTier(p: Progress): number {
 /** The Frontier opens once campaign tier MAP_UNLOCK_TIER is passed. */
 export const isFrontierUnlocked = (p: Progress) => isPassed(p, MAP_UNLOCK_TIER);
 
-export interface SquareRunResult {
+interface SquareRunResult {
   x: number;
   y: number;
   destroyed: number;
@@ -191,7 +191,7 @@ export interface SquareRunResult {
  * (pass / clear) and its Medal on the first clear of a medal square. A run on a square that cannot be played books the
  * credits only (it never happens through the UI).
  */
-export function applyFrontierRun(p: Progress, run: SquareRunResult): SquareRunOutcome {
+function applyFrontierRun(p: Progress, run: SquareRunResult): SquareRunOutcome {
   const cleared = run.destroyed >= run.total;
   return applyFrontierOutcome(p, { ...run, cleared, passed: cleared || !!run.passed });
 }
@@ -200,7 +200,7 @@ export function applyFrontierRun(p: Progress, run: SquareRunResult): SquareRunOu
  * Books any Frontier run by its outcome (a wall run above, or a Free Fly encounter): credits and kills as usual, then the
  * square's state and the first-clear Medal. Free Fly records (best wave / time) are not touched.
  */
-export function applyFrontierOutcome(p: Progress, run: { x: number; y: number; credits: number; kills: number; cleared: boolean; passed: boolean; medalDouble?: number; rand?: () => number }): SquareRunOutcome {
+function applyFrontierOutcome(p: Progress, run: { x: number; y: number; credits: number; kills: number; cleared: boolean; passed: boolean; medalDouble?: number; rand?: () => number }): SquareRunOutcome {
   p.credits += Math.floor(run.credits);
   p.totalKills += run.kills;
   p.runs++;
@@ -210,7 +210,7 @@ export function applyFrontierOutcome(p: Progress, run: { x: number; y: number; c
 }
 
 /** The encounter outcome as a square result: cleared fills, passed and cleared both unlock, failed changes nothing. */
-export const outcomeFlags = (o: EncounterOutcome) => ({ cleared: o === 'cleared', passed: o !== 'failed' });
+const outcomeFlags = (o: EncounterOutcome) => ({ cleared: o === 'cleared', passed: o !== 'failed' });
 
 /** A shop block that is gated by a directional unlock the player has not reached (and owns no copy of). */
 export function blockLockReason(p: Progress, id: string, reach: Reach = reachBySector(p.frontier)): string | null {

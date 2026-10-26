@@ -8,9 +8,9 @@ import { Mulberry32 } from '../rng';
  * TilingSprite, so the per-frame cost is moving a handful of tile offsets. Everything is kept low contrast so ships,
  * blocks and rocks always stand out (see `backgroundMaxLuminance` and its test).
  */
-export type LayerKind = 'stars' | 'rocks';
+type LayerKind = 'stars' | 'rocks';
 
-export interface BgLayerDef {
+interface BgLayerDef {
   kind: LayerKind;
   /** Stars: dots per tile. Rocks: masses per tile. */
   density: number;
@@ -29,7 +29,7 @@ export interface BackgroundDef {
 }
 
 /** Edge of the repeating tile in px. */
-export const TILE = 512;
+const TILE = 512;
 
 const galaxy = (id: string, base: number, tint: number, dense = 1): BackgroundDef => ({
   id, baseColor: base,
@@ -70,9 +70,9 @@ export function backgroundForTier(tier: number, isSpike: boolean): string {
 }
 
 /** Free Fly: Galaxy, then every FREE_FLY_THEME_SECONDS the next of these, repeating. */
-export const FREE_FLY_THEMES = ['galaxy', 'cave_blue', 'galaxy_violet', 'cave_brown'];
-export const FREE_FLY_THEME_SECONDS = 180;
-export const CROSSFADE_SECONDS = 3;
+const FREE_FLY_THEMES = ['galaxy', 'cave_blue', 'galaxy_violet', 'cave_brown'];
+const FREE_FLY_THEME_SECONDS = 180;
+const CROSSFADE_SECONDS = 3;
 export function freeFlyThemeAt(seconds: number): string {
   return FREE_FLY_THEMES[Math.floor(Math.max(0, seconds) / FREE_FLY_THEME_SECONDS) % FREE_FLY_THEMES.length];
 }

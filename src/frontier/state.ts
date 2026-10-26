@@ -3,7 +3,7 @@ import { FRONTIER_SEED } from './constants';
 import { getWorld, NEIGHBOURS, parseKey, sqKey } from './world';
 
 /** Stored per square: 1 = passed, 2 = cleared. Squares never played are absent (sparse). */
-export const SQ_PASSED = 1;
+const SQ_PASSED = 1;
 export const SQ_CLEARED = 2;
 
 /** The Frontier part of the save (v7). */

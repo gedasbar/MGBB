@@ -1,5 +1,5 @@
 import { HULL_ORDER, HULLS, SizeClass } from '../data/hulls';
-import { HULL_ROWS } from '../game/gridUtils';
+import { HULL_ROWS } from '../data/hullLayouts';
 import { hullAffordable } from './paletteLogic';
 import { Rect } from './layout';
 import { fmtBig } from '../ui/format';
@@ -72,9 +72,9 @@ export function hullBuyLabel(s: HullStatLine, credits: number): { label: string;
 /** The overlay: a panel with the list, and below it the info sheet while an unowned hull is selected. */
 export const HULL_PANEL: Rect = { x: 16, y: 110, w: 508, h: 740 };
 export const HULL_TITLE_H = 54;
-export const HULL_ROW_H = 76;
-export const HULL_ROW_GAP = 8;
-export const HULL_SHEET_H = 290;
+const HULL_ROW_H = 76;
+const HULL_ROW_GAP = 8;
+const HULL_SHEET_H = 290;
 
 export function hullListRect(sheetOpen: boolean): Rect {
   const p = HULL_PANEL;

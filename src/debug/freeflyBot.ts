@@ -4,7 +4,7 @@ import type { World } from '../game/world';
 import { PROJECTILE_SPEED } from '../game/fire';
 
 /** Tuning of the balance bot (it stands in for a decent player, not a perfect one). */
-export const BOT = {
+const BOT = {
   /** Height the ship flies at (px from the top). */
   Y: 840,
   /** Top speed of the ship in px/s (a finger, not a teleport). */
@@ -22,7 +22,7 @@ export const BOT = {
  * otherwise lines up under the body closest to leaking (leading it for the shot's travel time). The gun fires on its own.
  * No randomness: the same world gives the same moves.
  */
-export class FreeFlyBot {
+class FreeFlyBot {
   readonly pointer: PointerState = { x: CONFIG.VIEW.W / 2, y: BOT.Y, active: false, type: 'mouse', seen: true };
 
   step(w: World, dt: number) {

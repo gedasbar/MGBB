@@ -9,12 +9,12 @@ import type { SquareState } from './state';
 
 /** Locked: just above the background (#1c1c1e), the inner mark barely visible. */
 export const LOCKED_PLATE = 0x2b2b2e;
-export const LOCKED_INNER = 0x232326;
+const LOCKED_INNER = 0x232326;
 /** Available (and passed): a clearly lighter plate with the dark inner mark. */
 export const AVAIL_PLATE = 0x5e5e64;
-export const INNER = 0x26262a;
+const INNER = 0x26262a;
 
-export type InnerShape = 'square' | 'round' | 'dot';
+type InnerShape = 'square' | 'round' | 'dot';
 
 export interface TileLook {
   /** Outline colour drawn around the plate (passed), or null. */

@@ -1,8 +1,7 @@
 export type Dir = 'N' | 'E' | 'S' | 'W';
 export const DIRS: Dir[] = ['N', 'E', 'S', 'W'];
-export const DIR_OPPOSITE: Record<Dir, Dir> = { N: 'S', E: 'W', S: 'N', W: 'E' };
 
-export function rotateDir(d: Dir, steps: number): Dir {
+function rotateDir(d: Dir, steps: number): Dir {
   const idx = DIRS.indexOf(d);
   return DIRS[(((idx + steps) % 4) + 4) % 4] as Dir;
 }
@@ -47,7 +46,7 @@ export interface ChanceGate {
 }
 
 /** Damage operations, kept in path order so the order of blocks matters. */
-export type DamageOp =
+type DamageOp =
   | { t: 'add'; v: number }
   | { t: 'mul'; v: number }
   | { t: 'gate'; gate: ChanceGate }

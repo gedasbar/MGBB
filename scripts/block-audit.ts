@@ -48,7 +48,7 @@ const FLY: Record<string, string> = {
   fork_impact: 'hiddenBlocks: fork_impact: fly (2 copies at 50% / 0.6x, +/-35 deg, no second fork)',
 };
 
-// Chunk 9a blocks: one parameterized table in tests/blocks9a.test.ts covers compile data, Free Fly and the real Wall loop.
+// Chunk 9a blocks: one parameterized table in tests/newBlocksPathingDamage.test.ts covers compile data, Free Fly and the real Wall loop.
 for (const id of ['alternator', 'delay_line', 'overclock', 'capacitor', 'executioner', 'chain_lightning', 'boomerang', 'orbit', 'mine', 'ignite', 'corrosion', 'frostbite']) {
   COMPILES[id] = `blocks9a: ${id} is a placeable shop block with levels, rarity, price and rule text`;
   FLY[id] = `blocks9a: ${id} does what its inspector says (Free Fly / shared pipeline) + takes effect in the Wall`;

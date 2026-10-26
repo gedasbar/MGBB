@@ -79,7 +79,7 @@ Old prices are frozen in `src/econ/legacyPrices.ts` for this. Hero levels are ke
 ## Results
 
 ### Tests
-Typecheck clean; 568 unit tests pass (526 before, 42 new in `tests/economy16c.test.ts`, about 25 old ones adapted because they hard-coded the old numbers). Full e2e on the new code: the same five scripts fail in the same way as at baseline (`builder` 2, `campaign` 4, `chunk1` 2, `frontier15a` 1 at 34 fps, `economy` exit 2); the only NEW failure was `shop16b` (it assumed Flat+ has no cap and bought a 21st copy), fixed in the script (it starts from 5 copies). New `economy16c` passes 12 of 12. After merging `origin/main` (the 5-column palette) `shop16b`, `economy16c`, `builder-extra`, `builder` and `chunk1` were rerun with the same results.
+Typecheck clean; 568 unit tests pass (526 before, 42 new in `tests/blockEconomy.test.ts`, about 25 old ones adapted because they hard-coded the old numbers). Full e2e on the new code: the same five scripts fail in the same way as at baseline (`builder` 2, `campaign` 4, `chunk1` 2, `frontier15a` 1 at 34 fps, `economy` exit 2); the only NEW failure was `shop16b` (it assumed Flat+ has no cap and bought a 21st copy), fixed in the script (it starts from 5 copies). New `economy16c` passes 12 of 12. After merging `origin/main` (the 5-column palette) `shop16b`, `economy16c`, `builder-extra`, `builder` and `chunk1` were rerun with the same results.
 
 Mutation checks (broken on a scratch copy, tests run, restored; log in `reports/chunk16c2/mutation-check.txt`): Percent x top x3 to x4, buyCopy ignoring the cap, Piercing copies not adding to the divisor, Shield-Breaker boosting nothing on a shield, `mulSafe` as a plain multiply, migration refunding one level short, AoE growth not shrinking, the `fmtBig` zero-stripping bug back, Fork pairs all equal, Gambler staying 50%: **all 10 killed** by at least one test.
 
@@ -116,7 +116,7 @@ Shape blocks stacking, HP/s in the block's own scenario with 0 to 6 copies (48 s
 Honest notes: Homing, Orbit and Mine are flat on the bench because its targets hover and have no armor. AoE copies beyond about the 8th would start to lose DPS (x0.95 per copy against a radius gain that keeps shrinking). Chain Lightning gains stay positive until the targets run out.
 
 ### Frame rate and engine cost with a heavy stacked build
-Browser (headless Chromium, software renderer, `e2e/economy16c.e2e.cjs`, Free Fly wave 3, the 51 straight cells of the Fan snake filled with 17 Fork, 17 Piercing and 17 Bouncing): **60.3 fps, p95 frame 16.7 ms, peak 182 projectiles in the air**, against 60.3 fps, p95 16.8 ms and peak 6 for the plain build (Flat+, Percent x). The headless page is capped at 60 fps, so this shows the load does not pull it below 60, not how much headroom there is.
+Browser (headless Chromium, software renderer, `e2e/block-economy.e2e.cjs`, Free Fly wave 3, the 51 straight cells of the Fan snake filled with 17 Fork, 17 Piercing and 17 Bouncing): **60.3 fps, p95 frame 16.7 ms, peak 182 projectiles in the air**, against 60.3 fps, p95 16.8 ms and peak 6 for the plain build (Flat+, Percent x). The headless page is capped at 60 fps, so this shows the load does not pull it below 60, not how much headroom there is.
 
 Engine only (`scripts/perf-stack.ts`, wave 25, 30 s, pool limit 4000): plain 0.04 ms per update; Fork x7 0.04 ms (peak 59 projectiles); the absurd Fork x51 line 0.12 ms mean, 0.27 ms p99, 0.62 ms max, peak 407 projectiles (a tenth of the pool); Piercing, Chain and AoE x51 0.04 ms. Full table: `reports/chunk16c2/perf-stack.md`.
 

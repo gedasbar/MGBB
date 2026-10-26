@@ -8,13 +8,13 @@ export const SPIKE_HP_MUL = 1.6;
 export const ARMOR_START = 11;
 export const SHIELD_START = 21;
 /** Share of blocks armored / shielded at the start tier and at tier 100. */
-export const ARMOR_FRAC: [number, number] = [0.05, 0.4];
-export const SHIELD_FRAC: [number, number] = [0.05, 0.4];
+const ARMOR_FRAC: [number, number] = [0.05, 0.4];
+const SHIELD_FRAC: [number, number] = [0.05, 0.4];
 export const MIN_SPIKES = 8;
 export const MAX_SPIKES = 16;
-export const FIRST_SPIKE_TIER = 6;
+const FIRST_SPIKE_TIER = 6;
 /** No column may hold fewer blocks than this share of the median column (keeps every lane a real cost). */
-export const MIN_COLUMN_SHARE = 0.3;
+const MIN_COLUMN_SHARE = 0.3;
 
 /** Armor value of a block (the engine halves direct damage at 10) and the shield pool as a share of HP, by tier. */
 const armorValue = (tier: number) => (tier >= 60 ? 20 : 10);
@@ -68,7 +68,7 @@ const spikeSet: Set<number> = (() => {
 })();
 
 export const isSpike = (tier: number) => spikeSet.has(tier);
-export const isMilestone = (tier: number) => tier % 10 === 0 && tier >= 10 && tier <= MAX_TIER;
+const isMilestone = (tier: number) => tier % 10 === 0 && tier >= 10 && tier <= MAX_TIER;
 
 /** Template of every tier, built in order so that no template appears three tiers in a row. */
 const templateIndex: number[] = (() => {
@@ -89,7 +89,7 @@ export const shieldFraction = (tier: number) => (tier < SHIELD_START ? 0 : lerp(
 /** Number of blocks in the tier's wall: a solid wall of the tier's rows minus a few gaps, whatever the shape. */
 export const blocksForTier = (tier: number) => blocksForRows(rowsForTier(tier));
 /** Blocks of a wall of `rows` rows: the solid wall minus WALL_GAPS. */
-export const WALL_GAPS = 6;
+const WALL_GAPS = 6;
 export const blocksForRows = (rows: number) => WALL_COLS * rows - WALL_GAPS;
 
 /** Blocks ordered so that the first `n` of them are the ones a mode picks (front = nearest the player). */
@@ -135,7 +135,7 @@ export interface WallSpec {
 }
 
 /** The campaign tier's spec: exactly the numbers generateLevel always used. */
-export function campaignSpec(t: number): WallSpec {
+function campaignSpec(t: number): WallSpec {
   const ms = isMilestone(t) ? MILESTONES[t] : undefined;
   const spike = isSpike(t);
   return {

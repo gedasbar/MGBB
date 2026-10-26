@@ -73,7 +73,7 @@ function lerpColor(a: number, b: number, t: number): number {
 }
 
 /** Side of the green square for a block of `hpFrac` HP left (exported for tests and the e2e hook). */
-export function innerSize(hpFrac: number, armored: boolean): number {
+function innerSize(hpFrac: number, armored: boolean): number {
   const wellW = CELL - 2 * GAP - 2 * (armored ? FRAME_W_ARMOR : FRAME_W);
   const max = wellW - 2 * PAD;
   return Math.max(MIN_INNER, Math.round(max * Math.max(0, Math.min(1, hpFrac))));
