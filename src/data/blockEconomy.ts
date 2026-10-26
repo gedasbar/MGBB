@@ -10,7 +10,6 @@ export const UPGRADE_MUL = 2.0;
 export const UPGRADE_GROWTH = 2.2;
 
 /** Growth bands (price multiplier per copy already owned). */
-const GROWTH_CHEAP = 1.15;
 const GROWTH_NORMAL = 1.30;
 
 /** The only blocks with levels. Every other block has one level (`maxLevel` 1) and runs at `FIXED_LEVEL`. */
@@ -45,17 +44,17 @@ const stack = (base: number): BlockEconomy => ({ cap: null, base, growth: GROWTH
  *   cap    = how many copies you can own (null = no limit). The Shop shows "owned / cap" and the Buy button reads "Max" at the cap.
  *   base   = price in credits of the FIRST copy.
  *   growth = how much the price multiplies for each copy you already own. Price of copy n = base x growth^(n-1).
- *            1 means every copy costs the same; GROWTH_CHEAP = 1.15, GROWTH_NORMAL = 1.30 (or write a number such as 1.2).
+ *            1 means every copy costs the same; GROWTH_NORMAL = 1.30 (or write a number such as 1.2).
  * Shortcuts: one(base) = a block you can own once; stack(base) = no cap, normal growth.
- * Example: { cap: 8, base: 30, growth: GROWTH_CHEAP } = up to 8 copies, the first costs 30, the second 35, the third 40 ...
+ * Example: { cap: 20, base: 30, growth: 1.2 } = up to 20 copies, the first costs 30, the second 36, the third 43 ...
  * Every shown block needs a line (the unit tests complain if one is missing). How to edit: docs/EDITING.md.
  */
 export const BLOCK_ECONOMY: Readonly<Record<string, BlockEconomy>> = {
   // Pathing
-  turn_l: { cap: 8, base: 30, growth: GROWTH_CHEAP },
-  turn_r: { cap: 8, base: 30, growth: GROWTH_CHEAP },
-  splitter_2: { cap: 2, base: 120, growth: GROWTH_CHEAP },
-  splitter_3: one(700),
+  turn_l: { cap: 20, base: 30, growth: 1.2 },
+  turn_r: { cap: 20, base: 30, growth: 1.2 },
+  splitter_2: { cap: 15, base: 120, growth: 1.35 },
+  splitter_3: { cap: 15, base: 700, growth: 1.45 },
   alternator: one(1600),
   random_router: one(1000),
   delay_line: one(1000),

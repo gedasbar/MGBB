@@ -407,10 +407,10 @@ export class World {
       // A Bouncing shot with bounces left reflects off the screen edges (no damage); one that carries the block cannot fly for ever.
       if (pool.bounces[i] >= 0) {
         this.projSys.edgeBounce(i, 0, VW, 0, CONFIG.VIEW.H);
-        if (pool.age[i] > PROJECTILE_MAX_AGE) { pool.free(i); continue; }
+        if (pool.age[i] > PROJECTILE_MAX_AGE) { this.projSys.retire(i); continue; }
       }
       if (pool.x[i] < -50 || pool.x[i] > VW + 50 || pool.y[i] < -50 || pool.y[i] > CONFIG.VIEW.H + 50) {
-        pool.free(i);
+        this.projSys.retire(i);
       }
     }
 

@@ -10,9 +10,10 @@ import {
   orbitTime, ORBIT_OPEN, ORBIT_RADIUS, ORBIT_REHIT,
   bounceCount, BOUNCE_SPREAD_DEG, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct,
   FRAGMENT_GENERATION, residueFrac, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac,
-  WELL_TIME, wellPull, stackGrowth, harmonic, aoeStackDamage, FORK_PAIR_DAMAGE, MAX_BOUNCES, CHAIN_STACK_FALL,
+  WELL_TIME, wellPull, stackGrowth, homingRange, HOMING_RANGE_BASE, mineExtra, MINE_SPREAD, orbitPassTime, harmonic, aoeStackDamage, FORK_PAIR_DAMAGE, MAX_BOUNCES, CHAIN_STACK_FALL,
 } from './effects';
 import { RING } from './pools';
+import { TRIGGERS, triggerCarried, triggerDue } from './triggers';
 import { wrapDx } from './wrap';
 
 export interface EnemyEntity extends EnemyStats {
@@ -110,6 +111,11 @@ export interface EffectCounters {
   cauterizeMarks: number;
   fissionMarks: number;
   spillMarks: number;
+  // Chunk 17b: what the shape blocks did (the interaction audit counts them)
+  aoeBlasts: number;
+  forks: number;
+  pierceHits: number;
+  homingSteers: number;
 }
 
 /** Base hit radius of a projectile (scaled by the pool's size). */
@@ -117,7 +123,7 @@ export const PROJECTILE_RADIUS = 10;
 /** Steering constants of the path modifiers (rates are degrees per second at block level 1 and scale with level). */
 export const CURVE_RATE_DEG = 90;
 export const HOMING_RATE_DEG = 180;
-export const HOMING_RANGE = 400;
+export const HOMING_RANGE = HOMING_RANGE_BASE;
 /** Total opening angle of the homing cone, centred on the heading. */
 export const HOMING_CONE_DEG = 60;
 export const RANDOM_CURVE_MAX_DEG = 120;
@@ -184,7 +190,7 @@ export class ProjectileSystem {
     chainJumps: 0, boomerangReturns: 0, orbitLaunches: 0, mineDetonations: 0, mineExpired: 0, igniteApplied: 0, burnTicks: 0,
     corrosionStrips: 0, freezeApplied: 0, frozenBonusHits: 0, executionerHits: 0,
     bounces: 0, edgeBounces: 0, cleaverHits: 0, cullingHits: 0, residueClouds: 0, residueTicks: 0, wellsMade: 0, staticPulses: 0,
-    cauterizeMarks: 0, fissionMarks: 0, spillMarks: 0,
+    cauterizeMarks: 0, fissionMarks: 0, spillMarks: 0, aoeBlasts: 0, forks: 0, pierceHits: 0, homingSteers: 0,
   };
 
   /** Residue Seed clouds (a ring): position, seconds left, damage per tick, seconds since the last tick. Drawn by the screens. */
@@ -298,7 +304,7 @@ export class ProjectileSystem {
     if (ph === PHASE_ORBIT) {
       pool.s2[i] += dt;
       const t = pool.s2[i];
-      if (t >= orbitTime(mi.orbit)) {
+      if (t >= orbitTime(mi.orbit) + (this.stk.orbit - 1) * orbitPassTime(speed)) {
         const a = pool.s1[i];
         pool.vx[i] = Math.cos(a) * speed;
         pool.vy[i] = Math.sin(a) * speed;
@@ -340,6 +346,19 @@ export class ProjectileSystem {
         const k = step > 0 ? (dist - pool.s1[i]) / step : 0;
         pool.vx[i] *= k;
         pool.vy[i] *= k;
+        // Every extra Mine copy lays one more mine beside this one (they wait, and detonate, on their own).
+        const hx = pool.vx[i], hy = pool.vy[i];
+        const hl = Math.hypot(hx, hy) || 1;
+        const endX = pool.x[i] + hx * dt * k, endY = pool.y[i] + hy * dt * k;
+        const extra = mineExtra(this.stk.mine);
+        for (let e = 1; e <= extra; e++) {
+          const side = (e % 2 ? 1 : -1) * Math.ceil(e / 2) * MINE_SPREAD;
+          const m = pool.spawn(endX + (-hy / hl) * side, endY + (hx / hl) * side, 0, 0, pool.damage[i], pool.pure[i], pool.modIndex[i]);
+          if (m < 0) break;
+          pool.phase[m] = PHASE_MINE_WAIT;
+          pool.size[m] = MINE_SIZE * stackGrowth(this.stk.mine);
+          pool.s2[m] = 0;
+        }
         pool.s1[i] = dist;
         pool.s2[i] = 0;
         pool.size[i] = MINE_SIZE * stackGrowth(this.stk.mine);
@@ -398,10 +417,11 @@ export class ProjectileSystem {
         const vx = pool.vx[i];
         const vy = pool.vy[i];
         const heading = Math.atan2(vy, vx);
-        let best = HOMING_RANGE * HOMING_RANGE;
+        const range = homingRange(homingK);
+        let best = range * range;
         let bestDiff = 0;
         let found = false;
-        if (field) field.collectNear(pool.x[i], pool.y[i], HOMING_RANGE, near);
+        if (field) field.collectNear(pool.x[i], pool.y[i], range, near);
         for (const e of field ? near : (targets as EnemyEntity[])) {
           if (e.hp <= 0) continue;
           const dx = this.wrapW > 0 ? wrapDx(e.x, pool.x[i], this.wrapW) : e.x - pool.x[i];
@@ -417,6 +437,7 @@ export class ProjectileSystem {
         if (found) {
           const maxStep = HOMING_RATE_DEG * (homing.level ?? 1) * hFactor * RAD * dt;
           rotate += Math.max(-maxStep, Math.min(maxStep, bestDiff));
+          this.fx.homingSteers++;
         }
       }
       if (rotate !== 0) {
@@ -438,6 +459,7 @@ export class ProjectileSystem {
   /** The one hit pipeline: every projectile against any set of targets (rocks or wall blocks). */
   processField(field: TargetField, tier: number) {
     const blast = this.blast;
+    this.flushExitBlasts(field, tier);
     for (let i = 0; i < this.pool.max; i++) {
       if (!this.pool.active[i]) continue;
 
@@ -473,61 +495,140 @@ export class ProjectileSystem {
       }
       if (!target) continue;
       if (phase === PHASE_MINE_WAIT) this.fx.mineDetonations++;
-      if (mi.gravity) this.addWell(px, py, mi.gravity);
 
-      if (aoeMod) {
-        const radius = (aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1)) * stackGrowth(this.stk.aoeCircle);
-        const blastDamage = damage * aoeStackDamage(this.stk.aoeCircle);
-        field.collectCircle(px, py, radius, blast);
-        for (const ce of blast) {
-          if (ce.hp <= 0) continue;
-          this.strike(ce, blastDamage, pure, tier, armorPierce, isShieldBreaker, mi, ce.x, ce.y, HIT_NORMAL);
-        }
-        if (mi.chain) this.chain(field, target, damage, pure, tier, armorPierce, isShieldBreaker, mi);
-        this.pool.free(i); // AoE detonates
-      } else if (rectMod) {
-        // Detonates as a horizontal bar centred on the hit: full damage once to every target it overlaps.
-        const grow = stackGrowth(this.stk.aoeRect);
-        const { w, h } = aoeRectSize(rectMod.level ?? 1);
-        const blastDamage = damage * aoeStackDamage(this.stk.aoeRect);
-        field.collectRect(px, py, w * grow, h * grow, blast);
-        for (const ce of blast) {
-          if (ce.hp <= 0) continue;
-          this.strike(ce, blastDamage, pure, tier, armorPierce, isShieldBreaker, mi, ce.x, ce.y, HIT_NORMAL);
-        }
-        if (mi.chain) this.chain(field, target, damage, pure, tier, armorPierce, isShieldBreaker, mi);
-        this.pool.free(i);
+      // ---- 1. the direct hit (every hit)
+      const pool = this.pool;
+      const isCopy = pool.copy[i] === 1;
+      const first = pool.hits[i] === 0;
+      if (first) pool.firstDamage[i] = damage;
+      if (pool.hits[i] < 255) pool.hits[i]++;
+      // A stacked AoE costs the whole shot 5% damage per extra copy (direct hit and blast alike, so the builder's estimate can show it).
+      const aoeFactor = isCopy ? 1 : aoeMod ? aoeStackDamage(this.stk.aoeCircle) : rectMod ? aoeStackDamage(this.stk.aoeRect) : 1;
+      const res = this.strike(target, damage * aoeFactor, pure, tier, armorPierce, isShieldBreaker, mi, px, py, HIT_NORMAL);
+
+      // ---- 2. what happens to the shot: does this hit use it up? (decided here, carried out in step 4)
+      const aoeAny = aoeMod || rectMod;
+      const keepsFlying = phase === PHASE_ORBIT || phase === PHASE_BOOM_OUT || phase === PHASE_BOOM_BACK;
+      let ended = false;
+      let pierceDamage = 0; // the shot's damage after this hit when it pierces
+      let bounceOnPierceEnd = false;
+      if (keepsFlying) {
+        // Orbit and Boomerang shots never end by a hit; with an AoE block they explode on the first hit instead (docs/interactions.md).
+        ended = !!aoeAny && TRIGGERS.aoe.fires === 'shot_end' && triggerCarried(TRIGGERS.aoe, isCopy);
+      } else if (isPiercing) {
+        // Chunk 14a: a piercing shot passes through what it hit and cannot hit it again. Each extra Piercing block adds one pierce:
+        // a hit costs 1 / (level + extra copies) of the damage dealt.
+        const drop = Math.max(damage * 0.1, res.hpDamage) * pierceCostMul((pierceMod!.level ?? 1) + this.stk.pierce - 1);
+        // An infinite shot never runs out (Infinity - Infinity would be NaN).
+        pierceDamage = Number.isFinite(drop) && Number.isFinite(damage) ? damage - drop : damage;
+        // Piercing first; a Bouncing block turns the shot that Piercing would have used up into a bounce, at full damage.
+        bounceOnPierceEnd = pierceDamage <= 0 && !!bounceMod && this.bouncesLeft(i, bounceMod.level ?? 1) > 0;
+        ended = pierceDamage <= 0 && !bounceOnPierceEnd;
+      } else if (bounceMod && this.bouncesLeft(i, bounceMod.level ?? 1) > 0) {
+        ended = false;
       } else {
-        // Normal hit
-        const res = this.strike(target, damage, pure, tier, armorPierce, isShieldBreaker, mi, px, py, HIT_NORMAL);
-        if (mi.chain) this.chain(field, target, damage, pure, tier, armorPierce, isShieldBreaker, mi);
+        ended = true;
+      }
 
-        if (forkMod && !this.pool.copy[i]) this.fork(i, target.id, forkMod.level ?? 1, this.stk.fork);
-
-        if (phase === PHASE_ORBIT) {
-          this.ringAdd(i, target.id); // orbiting: hits, and keeps going
-        } else if (phase === PHASE_BOOM_OUT || phase === PHASE_BOOM_BACK) {
-          this.pool.skipId[i] = target.id; // a boomerang flies on through what it hit; each leg hits a target once
-        } else if (isPiercing) {
-          // Chunk 14a: a piercing shot passes through what it hit and cannot hit it again (it used to hit the same body every
-          // frame while inside it, which made Piercing L2+ a hidden damage multiplier on big targets and wall blocks).
-          this.pool.skipId[i] = target.id;
-          const damageSpent = res.hpDamage; // actual hp taken
-          // Each extra Piercing block adds one pierce: a hit costs 1 / (level + extra copies) of the damage dealt.
-          const drop = Math.max(damage * 0.1, damageSpent) * pierceCostMul((pierceMod!.level ?? 1) + this.stk.pierce - 1);
-          // An infinite shot never runs out (Infinity - Infinity would be NaN).
-          if (Number.isFinite(drop) && Number.isFinite(this.pool.damage[i])) this.pool.damage[i] -= drop;
-          if (this.pool.damage[i] <= 0) {
-            // Piercing first; a Bouncing block turns the shot that Piercing would have used up into a bounce, at full damage.
-            if (bounceMod && this.bouncesLeft(i, bounceMod.level ?? 1) > 0) { this.pool.damage[i] = damage; this.bounce(i, field, target, px, py, hitR); }
-            else this.pool.free(i);
-          }
-        } else if (bounceMod && this.bouncesLeft(i, bounceMod.level ?? 1) > 0) {
-          this.bounce(i, field, target, px, py, hitR); // ricochet off whatever it hit, full damage kept
+      // ---- 3. the effects with a trigger (engine/triggers.ts); a fork copy only has what the table lets it carry
+      if (mi.gravity && triggerCarried(TRIGGERS.gravityWell, isCopy) && triggerDue(TRIGGERS.gravityWell, first, ended)) this.addWell(px, py, mi.gravity);
+      if (forkMod && triggerCarried(TRIGGERS.fork, isCopy) && triggerDue(TRIGGERS.fork, first, ended)) this.fork(i, target.id, forkMod.level ?? 1, this.stk.fork, damage);
+      if (mi.chain && triggerCarried(TRIGGERS.chain, isCopy) && pool.chains[i] < (TRIGGERS.chain.maxPerShot ?? 255) && triggerDue(TRIGGERS.chain, first, ended)) {
+        pool.chains[i]++;
+        this.chain(field, target, damage, pure, tier, armorPierce, isShieldBreaker, mi);
+      }
+      if (aoeAny && triggerCarried(TRIGGERS.aoe, isCopy) && TRIGGERS.aoe.fires === 'shot_end' && !ended) {
+        // The shot flies on: the blast is owed where it last hit, and comes when it leaves play (retire()).
+        pool.aoePending[i] = 1;
+        pool.lastX[i] = px;
+        pool.lastY[i] = py;
+      }
+      if (aoeAny && triggerCarried(TRIGGERS.aoe, isCopy) && triggerDue(TRIGGERS.aoe, first, ended)) {
+        // The target of this hit took the direct hit; everything else in the area takes the blast (a stacked AoE: x0.95 per extra copy).
+        this.fx.aoeBlasts++;
+        if (aoeMod) {
+          const radius = (aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1)) * stackGrowth(this.stk.aoeCircle);
+          field.collectCircle(px, py, radius, blast);
+          this.blastOthers(blast, target, pool.firstDamage[i] * aoeFactor, pure, tier, armorPierce, isShieldBreaker, mi);
         } else {
-          this.pool.free(i); // Destroy on hit
+          // A horizontal bar centred on the hit.
+          const grow = stackGrowth(this.stk.aoeRect);
+          const { w, h } = aoeRectSize(rectMod!.level ?? 1);
+          field.collectRect(px, py, w * grow, h * grow, blast);
+          this.blastOthers(blast, target, pool.firstDamage[i] * aoeFactor, pure, tier, armorPierce, isShieldBreaker, mi);
         }
       }
+
+      // ---- 4. carry out the shot's movement
+      if (ended) { pool.free(i); continue; }
+      if (phase === PHASE_ORBIT) {
+        this.ringAdd(i, target.id); // orbiting: hits, and keeps going
+      } else if (phase === PHASE_BOOM_OUT || phase === PHASE_BOOM_BACK) {
+        pool.skipId[i] = target.id; // a boomerang flies on through what it hit; each leg hits a target once
+      } else if (isPiercing) {
+        pool.skipId[i] = target.id;
+        this.fx.pierceHits++;
+        if (bounceOnPierceEnd) { pool.damage[i] = damage; this.bounce(i, field, target, px, py, hitR); }
+        else pool.damage[i] = pierceDamage;
+      } else {
+        this.bounce(i, field, target, px, py, hitR); // ricochet off whatever it hit, full damage kept
+      }
+    }
+  }
+
+  /** AoE blasts owed by shots that left play after hitting (retire()): x, y, damage, pure, modifier list, the target not to hit again. */
+  private exitBlasts: { x: number; y: number; dmg: number; pure: number; mod: number; skip: number }[] = [];
+
+  /**
+   * A shot leaves play without being used up by a hit (flew off the screen, too old): frees it. If an AoE blast is still owed
+   * (it pierced or bounced and the blast waits for the shot's end) the blast goes off where the shot last hit, in the next hit step.
+   */
+  retire(i: number) {
+    const pool = this.pool;
+    if (pool.active[i] && pool.aoePending[i]) {
+      const mods = this.modsOf(i);
+      const circle = mods.filter(m => m.type === 'aoe_circle').length;
+      const rect = mods.filter(m => m.type === 'aoe_rect').length;
+      const f = circle ? aoeStackDamage(circle) : aoeStackDamage(rect);
+      this.exitBlasts.push({ x: pool.lastX[i], y: pool.lastY[i], dmg: pool.firstDamage[i] * f, pure: pool.pure[i], mod: pool.modIndex[i], skip: pool.skipId[i] });
+    }
+    pool.free(i);
+  }
+
+  private flushExitBlasts(field: TargetField, tier: number) {
+    const list = this.exitBlasts;
+    for (const b of list) {
+      const mods = this.modifiersTable[b.mod] || [];
+      const mi = this.scan(mods);
+      const aoeMod = mods.find(m => m.type === 'aoe_circle');
+      const rectMod = mods.find(m => m.type === 'aoe_rect');
+      const apMod = mods.find(m => m.type === 'armor_piercer');
+      const sbMod = mods.find(m => m.type === 'shield_breaker');
+      const armorPierce = apMod ? armorPierceMul(apMod.level ?? 1) : 0;
+      const shieldBreaker = sbMod ? shieldBreakMul(sbMod.level ?? 1) : false;
+      this.fx.aoeBlasts++;
+      if (aoeMod) field.collectCircle(b.x, b.y, (aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1)) * stackGrowth(this.stk.aoeCircle), this.blast);
+      else if (rectMod) {
+        const grow = stackGrowth(this.stk.aoeRect);
+        const { w, h } = aoeRectSize(rectMod.level ?? 1);
+        field.collectRect(b.x, b.y, w * grow, h * grow, this.blast);
+      } else continue;
+      for (const ce of this.blast) {
+        if (ce.id === b.skip || ce.hp <= 0) continue;
+        this.strike(ce, b.dmg, b.pure, tier, armorPierce, shieldBreaker, mi, ce.x, ce.y, HIT_NORMAL);
+      }
+    }
+    list.length = 0;
+  }
+
+  /** The blast of an AoE: every living target in the list except the one that took the direct hit. */
+  private blastOthers(
+    list: EnemyEntity[], skip: EnemyEntity, dmg: number, pure: number, tier: number, armorPierce: number,
+    shieldBreaker: number | boolean, mi: EffectLevels,
+  ) {
+    for (const ce of list) {
+      if (ce === skip || ce.hp <= 0) continue;
+      this.strike(ce, dmg, pure, tier, armorPierce, shieldBreaker, mi, ce.x, ce.y, HIT_NORMAL);
     }
   }
 
@@ -868,12 +969,13 @@ export class ProjectileSystem {
    * Pairs of copies at a fraction of the damage and 0.6x size, +/- 35 degrees x j off the heading for the j-th pair (one pair per Fork
    * block on the path; each pair deals 0.8 of the one before). They cannot fork again, and the pool's limit stops the spawns.
    */
-  private fork(i: number, enemyId: number, level: number, pairs: number) {
+  private fork(i: number, enemyId: number, level: number, pairs: number, shotDamage: number) {
     const pool = this.pool;
+    this.fx.forks++;
     const speed = Math.hypot(pool.vx[i], pool.vy[i]);
     const heading = Math.atan2(pool.vy[i], pool.vx[i]);
     for (let j = 1; j <= pairs; j++) {
-      const dmg = pool.damage[i] * forkDamageFrac(level) * Math.pow(FORK_PAIR_DAMAGE, j - 1);
+      const dmg = shotDamage * forkDamageFrac(level) * Math.pow(FORK_PAIR_DAMAGE, j - 1);
       for (const sign of [-1, 1]) {
         const a = heading + sign * Math.min(FORK_ANGLE_DEG * j, 85) * RAD;
         const k = pool.spawn(pool.x[i], pool.y[i], Math.cos(a) * speed, Math.sin(a) * speed, dmg, pool.pure[i], pool.modIndex[i]);
