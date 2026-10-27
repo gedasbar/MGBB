@@ -110,10 +110,9 @@ describe('proposed curves (not wired into the game)', () => {
   it('leave the first 30 tiers exactly as they are (small numbers early)', () => {
     for (let t = 1; t <= 30; t++) expect(proposedBlockHp(t)).toBe(blockHp(t));
   });
-  it('keep growing to tier 100 and are whole numbers', () => {
+  it('are what 18b put into the game (campaign curve)', () => {
     let last = 0;
-    for (let t = 30; t <= 100; t++) { const hp = proposedBlockHp(t); expect(hp).toBeGreaterThanOrEqual(last); expect(Number.isInteger(hp)).toBe(true); last = hp; }
-    expect(proposedBlockHp(100)).toBeGreaterThan(blockHp(100) * 10);
+    for (let t = 1; t <= 100; t++) { const hp = proposedBlockHp(t); expect(hp).toBe(blockHp(t)); expect(hp).toBeGreaterThanOrEqual(last); last = hp; }
   });
   it('the Frontier curve joins the campaign curve at the end of the campaign, and Free Fly is unchanged up to the first changed wave', () => {
     expect(proposedRingHp(PROPOSED.frontierPastRing)).toBeCloseTo(proposedBlockHp(100), 0);

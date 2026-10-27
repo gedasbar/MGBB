@@ -1,0 +1,2 @@
+{"position":"tier 75","buyer":"casual","hero":17,"hull":"halberd","copies":10,"level":9,"fam":"std","est":9755.689581987372,"waves":[22,22]}
+{"position":"tier 75","buyer":"builder","hero":17,"hull":"halberd","copies":10,"level":10,"fam":"mult","est":136687.5,"waves":[35,35]}

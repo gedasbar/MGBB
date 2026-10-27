@@ -4,7 +4,7 @@ import { BLOCK_ECONOMY, capOf, UPGRADE_GROWTH, UPGRADE_MUL } from '../data/block
 import { HULL_PRICES } from '../data/hulls';
 
 /** Seconds of survival per tier step inside one run. */
-const TIER_SECONDS = 15;
+export const TIER_SECONDS = 15;
 /** Tier-1 Mitotic Rock HP: the first rock dies in three Dart + Flat+ shots (2 damage). Chunk 14a: 250 -> 5 (HP / 50). */
 const TIER1_ROCK_HP = 5;
 /** Reward of a parent rock at tier 1 (3 in the brief; raised to 7 after balance-econ and a bot run showed ~43 credits per default-circuit run). */
