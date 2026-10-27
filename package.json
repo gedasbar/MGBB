@@ -20,7 +20,8 @@
     "balance-captains": "vite-node scripts/balance-captains.ts",
     "balance-damage": "vite-node scripts/balance-damage.ts",
     "balance-frontier": "vite-node scripts/balance-frontier.ts",
-    "economy-audit": "vite-node scripts/economy-audit.ts"
+    "economy-audit": "vite-node scripts/economy-audit.ts",
+    "interaction-audit": "vite-node scripts/interaction-audit.ts"
   },
   "devDependencies": {
     "@vitest/ui": "^2.1.2",

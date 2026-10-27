@@ -6,7 +6,7 @@ import {
   CORROSION_STEP, delaySeconds, executionerMul, EXECUTIONER_BELOW, frostBonus, frostSlow, frostTime, igniteFrac, IGNITE_TIME,
   mineDistance, MINE_WAIT, orbitTime, ORBIT_RADIUS, ORBIT_REHIT, overclockAverage, overclockGain, OVERCLOCK_CAP, OVERCLOCK_WINDOW,
   bounceCount, flatPlusAdd, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct, fissionCooldown, residueFrac,
-  RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, routerBoth, SPILL_CHAIN_DEPTH, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac, WELL_RADIUS, WELL_TIME, wellPull,
+  CHAIN_ARCS_PER_SHOT, MINE_EXTRA_MAX, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, routerBoth, SPILL_CHAIN_DEPTH, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac, WELL_RADIUS, WELL_TIME, wellPull,
 } from '../engine/effects';
 
 export const BLOCKS: Record<string, BlockDef> = {};
@@ -241,14 +241,27 @@ function levelMod(id: string, name: string, maxLevel: number, mod: Modifier, des
   });
 }
 
+/** The line every stacking shape block ends with: what one more copy on the signal path does (checked by tests/interactions.test.ts). */
+export const MORE: Record<string, string> = {
+  piercing: 'Each extra copy: one more pierce.',
+  bouncing: 'Each extra copy: one more bounce.',
+  aoe: 'Each extra copy: bigger area, -5% damage.',
+  chain: 'Each extra copy: one more jump in every chain (each added jump weaker).',
+  homing: 'Each extra copy: sharper turn, wider cone, longer seek range.',
+  fork: 'Each extra copy: one more pair of copies (each pair 20% weaker).',
+  boomerang: 'Each extra copy: longer range.',
+  orbit: 'Each extra copy: one more full pass round the ship.',
+  mine: `Each extra copy: a bigger mine, and one more mine beside it (up to ${MINE_EXTRA_MAX} extra).`,
+};
+
 levelMod('piercing', 'Piercing', 5, { type: 'piercing' },
   (l) => l === 1
-    ? 'Projectiles pass through enemies. Each hit costs the projectile the damage it dealt (at least 10% of its damage).'
-    : `Projectiles pass through enemies. Each hit costs the projectile 1/${l} of the damage it dealt (at least ${Math.round(10 / l * 10) / 10}% of its damage).`);
+    ? `Projectiles pass through enemies. Each hit costs the projectile the damage it dealt (at least 10% of its damage). ${MORE.piercing}`
+    : `Projectiles pass through enemies. Each hit costs the projectile 1/${l} of the damage it dealt (at least ${Math.round(10 / l * 10) / 10}% of its damage). ${MORE.piercing}`);
 levelMod('bouncing', 'Bouncing', 5, { type: 'bouncing' },
-  (l) => `Bounces off the first ${bounceCount(l)} things it hits instead of stopping. Keeps full damage.`);
+  (l) => `Bounces off the first ${bounceCount(l)} things it hits instead of stopping. Keeps full damage. ${MORE.bouncing}`);
 levelMod('aoe_circle', 'AoE - Circle', 5, { type: 'aoe_circle' },
-  (l) => `Projectiles explode on impact, hitting every enemy within ${aoeCircleRadius(l)} units for full damage.`);
+  (l) => `Projectiles explode once, where the shot ends (a Piercing or Bouncing shot travels on first), hitting every enemy within ${aoeCircleRadius(l)} units. ${MORE.aoe}`);
 levelMod('shield_breaker', 'Shield-Breaker', 3, { type: 'shield_breaker' },
   (l) => `Damage dealt to a shield ×${shieldBreakMul(l)}, and shields take double on top of that. Hits on armor and HP are unchanged.`);
 register({
@@ -265,15 +278,15 @@ function newMod(id: string, name: string, category: BlockCategory, rarity: Rarit
   });
 }
 newMod('boomerang', 'Boomerang', 'modifier', 'uncommon', 'boomerang',
-  (l) => `Flies up to ${boomerangRange(l)} px, returns to the ship and hits on both legs, then disappears at the ship.`);
+  (l) => `Flies up to ${boomerangRange(l)} px, returns to the ship and hits on both legs, then disappears at the ship. ${MORE.boomerang}`);
 newMod('orbit', 'Orbit', 'modifier', 'rare', 'orbit',
-  (l) => `Circles the ship at ${ORBIT_RADIUS} px for ${orbitTime(l)} s, then launches in its original direction. Can hit while orbiting, the same target at most once per ${ORBIT_REHIT} s.`);
+  (l) => `Circles the ship at ${ORBIT_RADIUS} px for ${orbitTime(l)} s, then launches in its original direction. Can hit while orbiting, the same target at most once per ${ORBIT_REHIT} s. ${MORE.orbit}`);
 newMod('chain_lightning', 'Chain Lightning', 'modifier', 'epic', 'chain_lightning',
-  (l) => `On a hit, jumps to up to ${chainJumps(l)} more targets within ${CHAIN_RANGE} px for ${pct(CHAIN_FRAC)}% damage each, drawing a short arc (${CHAIN_ARC_LIFE} s). In the Wall it jumps to nearby blocks.`);
+  (l) => `On a hit, jumps to up to ${chainJumps(l)} more targets within ${CHAIN_RANGE} px for ${pct(CHAIN_FRAC)}% damage each, drawing a short arc (${CHAIN_ARC_LIFE} s). At most ${CHAIN_ARCS_PER_SHOT} chains per shot. In the Wall it jumps to nearby blocks. ${MORE.chain}`);
 newMod('mine', 'Mine', 'modifier', 'uncommon', 'mine',
-  (l) => `Stops after ${mineDistance(l)} px and waits up to ${MINE_WAIT} s; detonates for its full damage when something touches it. In the Wall it stays where it is and the wall runs into it.`);
+  (l) => `Stops after ${mineDistance(l)} px and waits up to ${MINE_WAIT} s; detonates for its full damage when something touches it. In the Wall it stays where it is and the wall runs into it. ${MORE.mine}`);
 newMod('gravity_well', 'Gravity Well', 'modifier', 'rare', 'gravity_well',
-  (l) => `On impact, pulls rocks within ${WELL_RADIUS} px toward the impact point at ${wellPull(l)} px/s for ${WELL_TIME} s. Free Fly rocks only.`);
+  (l) => `On the first impact of a shot, pulls rocks within ${WELL_RADIUS} px toward the impact point at ${wellPull(l)} px/s for ${WELL_TIME} s. Free Fly rocks only.`);
 modBlock('magnetized', 'Magnetized', 'modifier', 1, { type: 'magnetized' }, 'Projectiles are magnetised.');
 
 levelMod('curving_right', 'Curving Right', 3, { type: 'curve', dir: 'right' },
@@ -281,11 +294,11 @@ levelMod('curving_right', 'Curving Right', 3, { type: 'curve', dir: 'right' },
 levelMod('random_curve', 'Random Curve', 3, { type: 'random_curve' },
   (l) => `Projectiles weave on smooth random steering, turning at most ${randomCurveMaxDeg(l)}° per second.`);
 levelMod('homing', 'Homing', 5, { type: 'homing' },
-  (l) => `Projectiles steer at ${HOMING_RATE_DEG * l}° per second toward the nearest enemy within ${HOMING_RANGE} px and a ${HOMING_CONE_DEG}° cone ahead. With no target they fly straight.`);
+  (l) => `Projectiles steer at ${HOMING_RATE_DEG * l}° per second toward the nearest enemy within ${HOMING_RANGE} px and a ${HOMING_CONE_DEG}° cone ahead. With no target they fly straight. ${MORE.homing}`);
 levelMod('aoe_rect', 'AoE - Rectangle', 5, { type: 'aoe_rect' },
-  (l) => { const r = aoeRectSize(l); return `Projectiles detonate on impact as a horizontal bar ${r.w} px wide and ${r.h} px tall, hitting every enemy it overlaps once for full damage.`; });
+  (l) => { const r = aoeRectSize(l); return `Projectiles detonate once, where the shot ends (a Piercing or Bouncing shot travels on first), as a horizontal bar ${r.w} px wide and ${r.h} px tall, hitting every enemy it overlaps. ${MORE.aoe}`; });
 levelMod('fork_impact', 'Fork on Impact', 3, { type: 'fork_impact' },
-  (l) => `On a hit, spawns 2 copies at ${Math.round(forkDamageFrac(l) * 100)}% damage and 0.6× size, flying ±${FORK_ANGLE_DEG}° off the heading. Copies cannot fork again.`);
+  (l) => `On the first hit, spawns 2 copies at ${Math.round(forkDamageFrac(l) * 100)}% damage and 0.6× size, flying ±${FORK_ANGLE_DEG}° off the heading; the shot goes on. Copies carry status effects only (no blast, fork or chain). ${MORE.fork}`);
 levelMod('armor_piercer', 'Armor-Piercer Tip', 3, { type: 'armor_piercer' },
   (l) => `Deals ×${armorPierceMul(l)} damage to enemies that have armor. No effect on unarmored enemies.`);
 

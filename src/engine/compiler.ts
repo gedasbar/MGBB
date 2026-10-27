@@ -4,6 +4,7 @@ import { fireRateMul } from '../data/hulls';
 import {
   clonePacket, Dir, DIRS, GENERATOR_BASE_DAMAGE, emitRate, evalDamage, newPacket, Packet, powerLevel, Rel, relToDir, Rotation, rotationToDir,
 } from './compilerTypes';
+import { aoeEstimateMul } from './effects';
 
 export interface GridCell {
   x: number;
@@ -309,7 +310,7 @@ export function compile(grid: Grid, opts: CompileOptions = {}): CompiledShip {
     const rate = er.pulse * er.branch;
     rateSum += rate;
     dmgSum += rate * r.packet.damage;
-    ev += rate * evalDamage(r.packet);
+    ev += rate * evalDamage(r.packet) * aoeEstimateMul(r.packet.mods);
     if (er.pulse > pulseShare) pulseShare = er.pulse;
   }
   const pps = basePps * (recipes.length ? pulseShare : 1);

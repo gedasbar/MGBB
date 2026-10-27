@@ -2,7 +2,7 @@
 
 The living plan for Mitosis Gun Builder: how we work, what the design is trying to be, what was decided and why, and what comes next. Any new planning chat or agent should read this first, then `CLAUDE.md` (current state of the code) and `DECISIONS.md` (numbered implementation decisions).
 
-Last updated: 2026-10-26, after chunk 17-cleanup. `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
+Last updated: 2026-10-26, after chunk 17b (block interactions). `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
 
 ---
 
@@ -48,19 +48,19 @@ Last updated: 2026-10-26, after chunk 17-cleanup. `docs/archive/SPEC.md` is the 
 
 From the owner's playtests and audits, most important first:
 
-1. **Interactions cancel each other.** Example: an AoE shot explodes on its first hit, so Fork on Impact never triggers. More pairs are likely broken. Planned fix: per-effect trigger rules (section 5) plus an automated pair audit.
-2. **AoE stacking penalty is invisible.** The engine applies x0.95 per extra AoE copy (`aoeStackDamage` in `src/engine/effects.ts`), but the builder's damage estimate and the block text do not show it, so it looks missing.
+1. ~~**Interactions cancel each other.**~~ **Mostly done (17b):** the trigger table is in (`src/engine/triggers.ts`, `docs/interactions.md`) and the pair audit exists. AoE + Fork now both happen; 29 pairs are still flagged with reasons in `docs/interaction-audit.md` (the blast now waits for the end of a piercing/bouncing line; Boomerang and Orbit; bench artefacts). Original text: Example: an AoE shot explodes on its first hit, so Fork on Impact never triggers. More pairs are likely broken. Planned fix: per-effect trigger rules (section 5) plus an automated pair audit.
+2. ~~**AoE stacking penalty is invisible.**~~ **Done (17b):** the estimate and the block text show it. Original text: The engine applies x0.95 per extra AoE copy (`aoeStackDamage` in `src/engine/effects.ts`), but the builder's damage estimate and the block text do not show it, so it looks missing.
 3. **Hull layouts have no soul.** The 14 new layouts are shapes without a design intent; there is no "best route" or puzzle idea. Each hull needs an idea sentence and a layout drawn to serve it (bottlenecks, corridors, chambers, far-apart ejectors, pockets).
 4. **Hull art is just the layout.** The newer hulls' art is generated from the grid. Needs real silhouettes (after an approved concept sheet).
-5. **Caps too tight for big hulls.** Splitters (2 and 1) and turns (8) were capped when hulls had at most 3 ejectors. Owner wants splitters capped at 15 with a steeper price per copy, and more turns.
+5. ~~**Caps too tight for big hulls.**~~ **Done (17b):** Splitters 15 (growth 1.35 / 1.45), Turns 20 (growth 1.20). Original text: Splitters (2 and 1) and turns (8) were capped when hulls had at most 3 ejectors. Owner wants splitters capped at 15 with a steeper price per copy, and more turns.
 6. **Content difficulty.** Walls and the Frontier do not keep up with multiplier builds (the bot passed tier 100 with a Trident). Frontier HP grows only 1.5% per ring.
 7. **Early game.** A Dart with one Flat+ can pass up to tier 22 without buying anything. Owner finds it acceptable for now; the hull ladder adds purchase goals.
-8. **Homing, Orbit, Mine** gain nothing measurable from extra copies on the bench; they are uncapped, which is a trap in the Shop.
+8. ~~**Homing, Orbit, Mine**~~ **Done (17b):** a copy now gives a longer seek range, one more orbit pass, one more mine (up to 3 extra). Original text: they gain nothing measurable from extra copies on the bench; they are uncapped, which is a trap in the Shop.
 9. ~~**Code mess.**~~ **Done (chunk 17-cleanup):** one hull layout file with a plain-language validator, dead stub files and dead exports removed, every e2e script passes, root and reports tidied, `docs/EDITING.md` for the data files you edit by hand. Biggest files still to split someday are listed in `reports/chunk17-cleanup/REPORT.md`.
 
 ---
 
-## 5. Interaction rules (draft, owner agreed in principle)
+## 5. Interaction rules (BUILT in 17b: `docs/interactions.md`, the table is `TRIGGERS` in `src/engine/triggers.ts`; the text below is the original draft)
 
 Principle: every effect says WHEN it fires. "Everything triggers on every hit" is wrong (AoE on every pierce hit would dig a tunnel along the flight path).
 
@@ -83,7 +83,7 @@ The rules live in one table in code, so the owner or a prompt can change them. A
 Next, in order:
 
 1. ~~**Cleanup chunk**~~ (done, 17-cleanup; no behaviour change): one hull layout file for all 19 hulls with a documented legend, dead code removed, failing e2e scripts fixed or deleted, root and reports folders tidied, data files that the owner edits documented.
-2. **17b, interactions:** the trigger rules above, the pair audit, AoE + Fork both working, the AoE penalty shown in the estimate and the block info, splitter cap 15 and more turns with steeper copy prices, Homing/Orbit/Mine stacking decided (give copies a real effect or cap 1).
+2. ~~**17b, interactions:**~~ (done) the trigger rules above, the pair audit, AoE + Fork both working, the AoE penalty shown in the estimate and the block info, splitter cap 15 and more turns with steeper copy prices, Homing/Orbit/Mine stacking decided (give copies a real effect or cap 1).
 3. **Hull redesign:** an idea sentence per hull (planning chat drafts, owner edits or redraws layouts), then layouts rebuilt. Owner may draw layouts directly in the data file.
 4. **Ship art:** concept sheet first, then real silhouettes for all 19 hulls.
 5. **Content difficulty:** audit first (needed vs attainable damage by tier and ring), then faster HP growth late in the campaign and the Frontier.

@@ -41,6 +41,15 @@ export class ProjectilePool {
   ringN: Uint8Array;
   /** Bouncing: bounces left (-1 = the projectile has no Bouncing block). */
   bounces: Int8Array;
+  /** Chunk 17b: hits so far (saturates at 255) and Chain Lightning chains fired, for the trigger table. */
+  hits: Uint8Array;
+  chains: Uint8Array;
+  /** 1 = an AoE blast is still owed where the shot last hit (it flew on; the blast comes when it leaves play: ProjectileSystem.retire). */
+  aoePending: Uint8Array;
+  /** The shot's damage at its first hit: an AoE blast owed to the end of a piercing shot keeps it (piercing only pays for the direct hits). */
+  firstDamage: Float64Array;
+  lastX: Float32Array;
+  lastY: Float32Array;
 
   constructor(max: number = CONFIG.CAPS.PROJECTILES) {
     this.max = max;
@@ -68,6 +77,12 @@ export class ProjectilePool {
     this.ringT = new Float32Array(max * RING);
     this.ringN = new Uint8Array(max);
     this.bounces = new Int8Array(max).fill(-1);
+    this.hits = new Uint8Array(max);
+    this.chains = new Uint8Array(max);
+    this.aoePending = new Uint8Array(max);
+    this.firstDamage = new Float64Array(max);
+    this.lastX = new Float32Array(max);
+    this.lastY = new Float32Array(max);
   }
 
   spawn(x: number, y: number, vx: number, vy: number, damage: number, pure: number = 0, modIndex: number = 0): number {
@@ -95,6 +110,9 @@ export class ProjectilePool {
         this.s3[i] = 0;
         this.ringN[i] = 0;
         this.bounces[i] = -1;
+        this.hits[i] = 0;
+        this.chains[i] = 0;
+        this.aoePending[i] = 0;
         this.count++;
         return i;
       }

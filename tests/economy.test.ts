@@ -25,7 +25,7 @@ const withCredits = (n: number): Progress => ({ ...defaultProgress(), credits: n
 describe('pricing formulas', () => {
   const cases: [string, number, number][] = [
     // id, owned count, expected copy price = round(base * growth^owned) (family B, chunk 16c-2)
-    ['turn_l', 0, 30], ['turn_l', 2, 40], ['flat_plus', 1, 72], ['splitter_2', 0, 120], ['splitter_2', 3, 183], ['fork_impact', 0, 900], ['percent_mult', 9, 1060],
+    ['turn_l', 0, 30], ['turn_l', 2, 43], ['flat_plus', 1, 72], ['splitter_2', 0, 120], ['splitter_2', 3, 295], ['splitter_3', 2, 1472], ['fork_impact', 0, 900], ['percent_mult', 9, 1060],
   ];
   it.each(cases)('copy price of %s with %i owned is %i', (id, owned, price) => {
     expect(copyPrice(id, owned)).toBe(price);
@@ -49,15 +49,15 @@ describe('pricing formulas', () => {
 
 describe('purchases', () => {
   it('buyCopy: insufficient funds rejected, exact funds accepted, counts and credits correct', () => {
-    const p = withCredits(39);
+    const p = withCredits(42);
     expect(buyCopy(p, 'turn_l')).toMatchObject({ ok: false });
-    expect(p.credits).toBe(39);
+    expect(p.credits).toBe(42);
     expect(p.owned.turn_l).toBe(2);
-    p.credits = 40;
-    expect(buyCopy(p, 'turn_l')).toEqual({ ok: true, price: 40 });
+    p.credits = 43;
+    expect(buyCopy(p, 'turn_l')).toEqual({ ok: true, price: 43 });
     expect(p.credits).toBe(0);
     expect(p.owned.turn_l).toBe(3);
-    expect(copyPrice('turn_l', p.owned.turn_l)).toBe(46); // price follows the new owned count
+    expect(copyPrice('turn_l', p.owned.turn_l)).toBe(52); // price follows the new owned count
   });
   it('buyUpgrade: exact funds accepted, one level per purchase, MAX rejected', () => {
     const p = withCredits(119);

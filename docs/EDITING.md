@@ -37,7 +37,7 @@ One line per block; the comment above the table explains each column:
 - `base`: price of the first copy.
 - `growth`: the price multiplies by this for each copy you already own (copy n costs `base x growth^(n-1)`).
 
-Example: `turn_l: { cap: 8, base: 30, growth: GROWTH_CHEAP }`. Change `cap: 8` to `cap: 12` to allow 12 turns. Upgrade prices of the eight upgradable blocks are derived from `base` (see the top of the file).
+Example: `turn_l: { cap: 20, base: 30, growth: 1.2 }`. Change `cap: 20` to `cap: 30` to allow 30 turns. Upgrade prices of the eight upgradable blocks are derived from `base` (see the top of the file).
 
 ## What an error looks like
 

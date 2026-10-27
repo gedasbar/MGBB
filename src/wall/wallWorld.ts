@@ -453,11 +453,11 @@ export class WallWorld {
           this.projSys.fx.bounces++;
           this.projSys.fx.edgeBounces++;
         } else {
-          pool.free(i);
+          this.projSys.retire(i);
           continue;
         }
       }
-      if (pool.y[i] < wallTop || pool.y[i] > VIEW_H + 50 || pool.age[i] > PROJECTILE_MAX_AGE) pool.free(i);
+      if (pool.y[i] < wallTop || pool.y[i] > VIEW_H + 50 || pool.age[i] > PROJECTILE_MAX_AGE) this.projSys.retire(i);
     }
 
     // --- Burn ticks, freeze timers, arc lifetimes (blocks die inside the hit callback)

@@ -91,8 +91,8 @@ describe('upgrades and single levels (step 2)', () => {
 describe('copy caps and prices (step 4)', () => {
   it('the caps the owner listed', () => {
     const caps: Record<string, number> = {
-      percent_mult: 10, flat_plus: 10, lucky_strike: 6, jackpot: 6, gamblers_gate: 4, overclock: 3, turn_l: 8, turn_r: 8, splitter_2: 2,
-      splitter_3: 1, alternator: 1, random_router: 1, capacitor: 1,
+      percent_mult: 10, flat_plus: 10, lucky_strike: 6, jackpot: 6, gamblers_gate: 4, overclock: 3, turn_l: 20, turn_r: 20, splitter_2: 15,
+      splitter_3: 15, alternator: 1, random_router: 1, capacitor: 1,
       ignite: 1, frostbite: 1, corrosion: 1, static_charge: 1, fission_catalyst: 1, cauterize: 1, cleaver: 1, culling_bolt: 1, residue_seed: 1, overkill_spill: 1,
       curving_right: 1, random_curve: 1,
     };
@@ -132,11 +132,11 @@ describe('copy caps and prices (step 4)', () => {
     const builder = sheetContent({ id: 'x', name: 'X', desc: '', owned: 4, available: 1, level: 1, maxLevel: 1, credits: 0, copyPrice: 1, upgradePrice: 1, lock: null, cap: 8, showFree: true });
     expect(builder.ownedLine).toBe('Owned 4 / 8 · free 1');
   });
-  it('family B: the n-th Percent x costs round(100 x 1.30^(n-1)); cheap blocks grow 1.15; upgrades keep base x 2 x 2.2^(L-1)', () => {
+  it('family B: the n-th Percent x costs round(100 x 1.30^(n-1)); Turn grows 1.20, Splitter 2 1.35, Splitter 3 1.45 (17b); upgrades keep base x 2 x 2.2^(L-1)', () => {
     expect([0, 1, 2, 4, 9].map(o => copyPrice('percent_mult', o))).toEqual([100, 130, 169, 286, 1060]);
-    expect([0, 1, 2, 7].map(o => copyPrice('turn_l', o))).toEqual([30, 35, 40, 80]);
-    expect([0, 1].map(o => copyPrice('splitter_2', o))).toEqual([120, 138]);
-    expect(copyPrice('splitter_3', 0)).toBe(700);
+    expect([0, 1, 2, 7].map(o => copyPrice('turn_l', o))).toEqual([30, 36, 43, 107]);
+    expect([0, 1].map(o => copyPrice('splitter_2', o))).toEqual([120, 162]);
+    expect([0, 1].map(o => copyPrice('splitter_3', o))).toEqual([700, 1015]);
     expect(upgradePrice('percent_mult', 1)).toBe(200);
     expect(upgradePrice('percent_mult', 2)).toBe(440);
     expect(upgradePrice('percent_mult', 3)).toBe(968);
@@ -491,17 +491,17 @@ describe('save version 8: upgrades and copies over the caps are refunded (step 8
     expect(p.notice).toMatch(/^Economy update: .* credits refunded \(6 upgrade levels removed\)\.$/);
   });
   it('refunds copies over a new cap at the old copy price of each copy and sets owned to the cap', () => {
-    const raw = { version: 7, credits: 0, owned: { turn_l: 12, splitter_3: 3, splitter_2: 2, flat_plus: 12, percent_mult: 10, alternator: 2 }, levels: {} };
+    const raw = { version: 7, credits: 0, owned: { turn_l: 25, splitter_3: 20, splitter_2: 17, flat_plus: 12, percent_mult: 10, alternator: 2 }, levels: {} };
     const p = loadProgress(JSON.stringify(raw));
-    expect(p.owned.turn_l).toBe(8);
-    expect(p.owned.splitter_3).toBe(1);
-    expect(p.owned.splitter_2).toBe(2); // at the cap
+    expect(p.owned.turn_l).toBe(20);
+    expect(p.owned.splitter_3).toBe(15);
+    expect(p.owned.splitter_2).toBe(15);
     expect(p.owned.flat_plus).toBe(10);
     expect(p.owned.percent_mult).toBe(10);
     expect(p.owned.alternator).toBe(1);
-    const expected = sumCopies('turn_l', 8, 12) + sumCopies('splitter_3', 1, 3) + sumCopies('flat_plus', 10, 12) + sumCopies('alternator', 1, 2);
+    const expected = sumCopies('turn_l', 20, 25) + sumCopies('splitter_3', 15, 20) + sumCopies('splitter_2', 15, 17) + sumCopies('flat_plus', 10, 12) + sumCopies('alternator', 1, 2);
     expect(p.credits).toBe(expected);
-    expect(p.notice).toMatch(/9 copies over the new limits/);
+    expect(p.notice).toMatch(/15 copies over the new limits/);
   });
   it('the one-time notice is taken once, the migration does not run twice, and a v8 save is left alone', () => {
     const st = mem({ 'mgbm.progress.v1': JSON.stringify({ version: 7, credits: 5, owned: { turn_l: 10 }, levels: { piercing: 3 } }) });
@@ -526,21 +526,21 @@ describe('save version 8: upgrades and copies over the caps are refunded (step 8
     expect(loadProgress(JSON.stringify(raw)).captains.heroes.cadet.level).toBe(10);
   });
   it('saved circuits that place more copies than are now owned lose the extra ones, last placed first, and report how many', () => {
-    // 10 Turn Left placed on a Fan, the save (v7) owned 12; after the migration 8 are owned
+    // 22 Turn Left placed on a Fan, the save (v7) owned 25; after the migration 20 are owned
     const fan = HULL_BUILDERS.fan();
     const cells: { x: number; y: number; blockId: string; level: number; rotation: number }[] = [];
-    for (let k = 0; k < 10; k++) cells.push({ x: k % 9, y: 2 + Math.floor(k / 9), blockId: 'turn_l', level: 1, rotation: 0 });
+    for (let k = 0; k < 22; k++) cells.push({ x: k % 9, y: 2 + Math.floor(k / 9), blockId: 'turn_l', level: 1, rotation: 0 });
     void fan;
     const st = mem({
-      'mgbm.progress.v1': JSON.stringify({ version: 7, credits: 0, owned: { turn_l: 12 }, levels: {}, ownedHulls: ['dart', 'fan'] }),
+      'mgbm.progress.v1': JSON.stringify({ version: 7, credits: 0, owned: { turn_l: 25 }, levels: {}, ownedHulls: ['dart', 'fan'] }),
       'mgbm.builder.v3': JSON.stringify({ version: 3, hull: 'fan', hulls: { fan: { active: 'A', slots: { A: cells, B: [] } } } }),
     });
     const m = new BuilderModel(st, 'fan');
-    expect(m.store.data.owned.turn_l).toBe(8);
+    expect(m.store.data.owned.turn_l).toBe(20);
     let placed = 0;
     for (const c of m.grid.cells) if (c.blockId === 'turn_l') placed++;
-    expect(placed + m.trimmed).toBeLessThanOrEqual(10);
-    expect(placed).toBeLessThanOrEqual(8);
+    expect(placed + m.trimmed).toBeLessThanOrEqual(22);
+    expect(placed).toBeLessThanOrEqual(20);
   });
 });
 

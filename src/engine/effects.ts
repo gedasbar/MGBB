@@ -53,6 +53,15 @@ export const orbitTime = (l: number) => 1 + 0.25 * (l - 1);
 export const ORBIT_REHIT = 0.3;
 /** Seconds the orbit radius takes to open from the ship to ORBIT_RADIUS. */
 export const ORBIT_OPEN = 0.12;
+/** Mine: every extra copy lays one more mine beside the first when it stops (up to MINE_EXTRA_MAX extra), MINE_SPREAD px apart. */
+export const MINE_EXTRA_MAX = 3;
+export const MINE_SPREAD = 36;
+export const mineExtra = (copies: number) => Math.min(MINE_EXTRA_MAX, Math.max(0, copies - 1));
+/** Homing: seek range in px; every extra copy stretches it by the same shrinking factor as the size blocks (stackGrowth). */
+export const HOMING_RANGE_BASE = 400;
+export const homingRange = (copies: number) => HOMING_RANGE_BASE * stackGrowth(copies);
+/** Orbit: every extra copy adds one more full pass round the ship, which takes 2 pi r / speed seconds. */
+export const orbitPassTime = (speed: number) => (2 * Math.PI * ORBIT_RADIUS) / Math.max(1, speed);
 export const mineDistance = (l: number) => 220 + 40 * (l - 1);
 export const MINE_WAIT = 12;
 export const MINE_SIZE = 1.3;
@@ -129,9 +138,19 @@ export function harmonic(k: number): number {
 /** AoE damage factor of k copies: each extra copy deals this much of the one before. */
 const AOE_STACK_DAMAGE = 0.95;
 export const aoeStackDamage = (k: number) => Math.pow(AOE_STACK_DAMAGE, Math.max(0, k - 1));
+/** The estimate's factor for the AoE penalty of a shot's modifier list (a Circle wins over a Rectangle, as in the hit pipeline). */
+export function aoeEstimateMul(mods: { type: string }[]): number {
+  let circle = 0, rect = 0;
+  for (const m of mods) { if (m.type === 'aoe_circle') circle++; else if (m.type === 'aoe_rect') rect++; }
+  return circle ? aoeStackDamage(circle) : rect ? aoeStackDamage(rect) : 1;
+}
 /** Fork on Impact: the j-th pair of forks deals this much of the pair before it. */
 export const FORK_PAIR_DAMAGE = 0.8;
 /** Most bounces a projectile can hold (the pool stores them in an Int8Array). */
 export const MAX_BOUNCES = 127;
 /** Chain Lightning: the e-th jump added by an extra copy deals CHAIN_STACK_FALL^e of a normal jump (the jumps of one block stay at 70% each, as before). */
 export const CHAIN_STACK_FALL = 0.85;
+
+// ---- Chunk 17b: the trigger table (engine/triggers.ts)
+/** Chain Lightning fires on every hit of a shot, but at most this many chains per shot. */
+export const CHAIN_ARCS_PER_SHOT = 3;
