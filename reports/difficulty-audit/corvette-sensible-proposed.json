@@ -1,0 +1,18 @@
+{
+ "desc": "6 dmg blocks L6",
+ "kind": "sensible",
+ "hull": "corvette",
+ "copies": 6,
+ "level": 6,
+ "cost": 33734,
+ "est": 309.0676696851682,
+ "tierPass": 79,
+ "tierPassFail": "80 The Funnel",
+ "tierClear": 29,
+ "ringPass": 100,
+ "ringClear": 5,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 323.4253521126761,
+ "needClearAtReach": 573.1194833153928
+}

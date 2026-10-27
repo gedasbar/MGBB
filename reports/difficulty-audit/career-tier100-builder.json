@@ -1,0 +1,18 @@
+{
+ "desc": "2 Flat+ L10 + 10 Percent x L10",
+ "kind": "builder",
+ "hull": "leviathan",
+ "copies": 12,
+ "level": 10,
+ "cost": 656792,
+ "est": 573804,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 100,
+ "ringPass": 700,
+ "ringClear": 250,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 11015.044133476857
+}

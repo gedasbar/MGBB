@@ -1,0 +1,24 @@
+{
+ "desc": "2 Flat+ L3 + 3 Percent x L3",
+ "kind": "tuned",
+ "hull": "lancet",
+ "copies": 5,
+ "level": 3,
+ "cost": 3195,
+ "est": 187.51174926374358,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 24,
+ "ringPass": 100,
+ "ringClear": 0,
+ "ffWaves": [
+  13,
+  13
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 279.61894510226045
+}

@@ -1,0 +1,18 @@
+{
+ "desc": "11 dmg blocks L8",
+ "kind": "sensible",
+ "hull": "spire",
+ "copies": 11,
+ "level": 8,
+ "cost": 258580,
+ "est": 512.5097280323383,
+ "tierPass": 80,
+ "tierPassFail": "81 Stairs",
+ "tierClear": 31,
+ "ringPass": 150,
+ "ringClear": 10,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 358.434250764526,
+ "needClearAtReach": 793.5177610333692
+}

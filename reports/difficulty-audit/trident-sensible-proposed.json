@@ -1,0 +1,18 @@
+{
+ "desc": "12 dmg blocks L6",
+ "kind": "sensible",
+ "hull": "trident",
+ "copies": 12,
+ "level": 6,
+ "cost": 48988,
+ "est": 425.2454298502923,
+ "tierPass": 79,
+ "tierPassFail": "80 The Funnel",
+ "tierClear": 31,
+ "ringPass": 100,
+ "ringClear": 10,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 323.4253521126761,
+ "needClearAtReach": 793.5177610333692
+}

@@ -1,0 +1,24 @@
+{
+ "desc": "12 dmg blocks L6",
+ "kind": "sensible",
+ "hull": "trident",
+ "copies": 12,
+ "level": 6,
+ "cost": 48988,
+ "est": 425.2454298502923,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 31,
+ "ringPass": 150,
+ "ringClear": 10,
+ "ffWaves": [
+  15,
+  14
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 793.5177610333692
+}

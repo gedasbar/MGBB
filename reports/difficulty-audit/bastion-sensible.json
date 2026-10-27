@@ -1,0 +1,24 @@
+{
+ "desc": "5 dmg blocks L5",
+ "kind": "sensible",
+ "hull": "bastion",
+ "copies": 5,
+ "level": 5,
+ "cost": 13355,
+ "est": 40.16474000104626,
+ "tierPass": 53,
+ "tierPassFail": "54 Slab",
+ "tierClear": 12,
+ "ringPass": 100,
+ "ringClear": 0,
+ "ffWaves": [
+  9,
+  9
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 42.034047226798464,
+ "needClearAtReach": 38.286329386437025
+}

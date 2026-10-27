@@ -1,0 +1,18 @@
+{
+ "desc": "19 dmg blocks L10",
+ "kind": "sensible",
+ "hull": "zenith",
+ "copies": 19,
+ "level": 10,
+ "cost": 1627157,
+ "est": 5124,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 53,
+ "ringPass": 1000,
+ "ringClear": 100,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 3221.0893433799783
+}

@@ -1,0 +1,24 @@
+{
+ "desc": "11 dmg blocks L7",
+ "kind": "sensible",
+ "hull": "galleon",
+ "copies": 11,
+ "level": 7,
+ "cost": 90194,
+ "est": 347.53252270609505,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 27,
+ "ringPass": 150,
+ "ringClear": 5,
+ "ffWaves": [
+  13,
+  14
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 446.00215285252955
+}

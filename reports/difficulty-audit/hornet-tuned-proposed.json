@@ -1,0 +1,18 @@
+{
+ "desc": "3 Flat+ L1 + 2 Percent x L1",
+ "kind": "tuned",
+ "hull": "hornet",
+ "copies": 5,
+ "level": 1,
+ "cost": 2188,
+ "est": 22.5,
+ "tierPass": 45,
+ "tierPassFail": "46 Arrow",
+ "tierClear": 7,
+ "ringPass": 50,
+ "ringClear": 0,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 123.03066271018793,
+ "needClearAtReach": 12.090419806243274
+}

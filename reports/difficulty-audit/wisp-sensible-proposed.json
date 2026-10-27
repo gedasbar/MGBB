@@ -1,0 +1,18 @@
+{
+ "desc": "4 dmg blocks L2",
+ "kind": "sensible",
+ "hull": "wisp",
+ "copies": 4,
+ "level": 2,
+ "cost": 1322,
+ "est": 33.342750701447116,
+ "tierPass": 45,
+ "tierPassFail": "46 Arrow",
+ "tierClear": 12,
+ "ringPass": 75,
+ "ringClear": 0,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 123.03066271018793,
+ "needClearAtReach": 38.286329386437025
+}

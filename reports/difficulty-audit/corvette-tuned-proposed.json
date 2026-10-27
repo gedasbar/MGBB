@@ -1,0 +1,18 @@
+{
+ "desc": "1 Flat+ L6 + 5 Percent x L6",
+ "kind": "tuned",
+ "hull": "corvette",
+ "copies": 6,
+ "level": 6,
+ "cost": 34082,
+ "est": 490.6196166627228,
+ "tierPass": 79,
+ "tierPassFail": "80 The Funnel",
+ "tierClear": 31,
+ "ringPass": 150,
+ "ringClear": 10,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 323.4253521126761,
+ "needClearAtReach": 793.5177610333692
+}
