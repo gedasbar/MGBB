@@ -1,18 +1,18 @@
 {
- "desc": "1 Flat+ L3 + 8 Percent x L10",
+ "desc": "1 Flat+ L10 + 9 Percent x L10",
  "kind": "builder",
- "hull": "shuttle",
- "copies": 9,
+ "hull": "halberd",
+ "copies": 10,
  "level": 10,
- "cost": 299815,
- "est": 131220,
+ "cost": 336574,
+ "est": 120285,
  "tierPass": 100,
  "tierPassFail": "none",
- "tierClear": 53,
- "ringPass": 600,
- "ringClear": 100,
+ "tierClear": 100,
+ "ringPass": 450,
+ "ringClear": 250,
  "ffWaves": [],
  "ffDied": [],
- "needPassAtReach": 342.3106457242583,
- "needClearAtReach": 3221.0893433799783
+ "needPassAtReach": 6293.678883071553,
+ "needClearAtReach": 202521.1646932185
 }

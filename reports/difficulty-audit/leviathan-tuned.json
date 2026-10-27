@@ -8,17 +8,17 @@
  "est": 573804,
  "tierPass": 100,
  "tierPassFail": "none",
- "tierClear": 100,
- "ringPass": 700,
+ "tierClear": 90,
+ "ringPass": 500,
  "ringClear": 250,
  "ffWaves": [
-  31,
-  32
+  45,
+  45
  ],
  "ffDied": [
   true,
   true
  ],
- "needPassAtReach": 342.3106457242583,
- "needClearAtReach": 11015.044133476857
+ "needPassAtReach": 6293.678883071553,
+ "needClearAtReach": 90869.2443487621
 }

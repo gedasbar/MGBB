@@ -1,0 +1,24 @@
+{
+ "desc": "1 dmg blocks L1",
+ "kind": "tuned",
+ "hull": "twin",
+ "copies": 1,
+ "level": 1,
+ "cost": 70,
+ "est": 5,
+ "tierPass": 22,
+ "tierPassFail": "23 Slab",
+ "tierClear": 2,
+ "ringPass": 0,
+ "ringClear": 0,
+ "ffWaves": [
+  5,
+  5
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 4.777385159010601,
+ "needClearAtReach": 3.201722282023681
+}

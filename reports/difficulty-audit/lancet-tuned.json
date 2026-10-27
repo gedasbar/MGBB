@@ -6,8 +6,8 @@
  "level": 3,
  "cost": 3195,
  "est": 187.51174926374358,
- "tierPass": 100,
- "tierPassFail": "none",
+ "tierPass": 70,
+ "tierPassFail": "71 Checker",
  "tierClear": 24,
  "ringPass": 100,
  "ringClear": 0,
@@ -19,6 +19,6 @@
   true,
   true
  ],
- "needPassAtReach": 342.3106457242583,
+ "needPassAtReach": 488.82011605415863,
  "needClearAtReach": 279.61894510226045
 }

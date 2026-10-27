@@ -1,0 +1,24 @@
+{
+ "desc": "2 Flat+ L2 + 2 Percent x L2",
+ "kind": "tuned",
+ "hull": "wisp",
+ "copies": 4,
+ "level": 2,
+ "cost": 1322,
+ "est": 39.37035508569394,
+ "tierPass": 53,
+ "tierPassFail": "54 Slab",
+ "tierClear": 12,
+ "ringPass": 100,
+ "ringClear": 0,
+ "ffWaves": [
+  10,
+  9
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 42.034047226798464,
+ "needClearAtReach": 38.286329386437025
+}

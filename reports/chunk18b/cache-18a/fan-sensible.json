@@ -1,0 +1,24 @@
+{
+ "desc": "17 dmg blocks L9",
+ "kind": "sensible",
+ "hull": "fan",
+ "copies": 17,
+ "level": 9,
+ "cost": 650342,
+ "est": 2914.4784776226347,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 63,
+ "ringPass": 350,
+ "ringClear": 100,
+ "ffWaves": [
+  19,
+  18
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 5041.481162540365
+}

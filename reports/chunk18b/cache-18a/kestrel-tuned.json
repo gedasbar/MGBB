@@ -1,0 +1,24 @@
+{
+ "desc": "3 Flat+ L3 + 4 Percent x L3",
+ "kind": "tuned",
+ "hull": "kestrel",
+ "copies": 7,
+ "level": 3,
+ "cost": 5101,
+ "est": 55.77376663349568,
+ "tierPass": 53,
+ "tierPassFail": "54 Slab",
+ "tierClear": 13,
+ "ringPass": 100,
+ "ringClear": 0,
+ "ffWaves": [
+  11,
+  11
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 42.034047226798464,
+ "needClearAtReach": 43.072120559741656
+}

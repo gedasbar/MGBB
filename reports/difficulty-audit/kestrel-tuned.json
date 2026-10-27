@@ -9,7 +9,7 @@
  "tierPass": 53,
  "tierPassFail": "54 Slab",
  "tierClear": 13,
- "ringPass": 100,
+ "ringPass": 50,
  "ringClear": 0,
  "ffWaves": [
   11,
@@ -19,6 +19,6 @@
   true,
   true
  ],
- "needPassAtReach": 42.034047226798464,
+ "needPassAtReach": 64.19330038440418,
  "needClearAtReach": 43.072120559741656
 }

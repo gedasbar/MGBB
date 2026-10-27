@@ -9,7 +9,7 @@
  "tierPass": 100,
  "tierPassFail": "none",
  "tierClear": 53,
- "ringPass": 350,
+ "ringPass": 300,
  "ringClear": 100,
  "ffWaves": [
   21,
@@ -19,6 +19,6 @@
   true,
   true
  ],
- "needPassAtReach": 342.3106457242583,
- "needClearAtReach": 3221.0893433799783
+ "needPassAtReach": 6293.678883071553,
+ "needClearAtReach": 4920.437029063509
 }

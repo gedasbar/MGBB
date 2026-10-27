@@ -6,10 +6,10 @@
  "level": 7,
  "cost": 90194,
  "est": 347.53252270609505,
- "tierPass": 100,
- "tierPassFail": "none",
+ "tierPass": 79,
+ "tierPassFail": "80 The Funnel",
  "tierClear": 27,
- "ringPass": 150,
+ "ringPass": 100,
  "ringClear": 5,
  "ffWaves": [
   13,
@@ -19,6 +19,6 @@
   true,
   true
  ],
- "needPassAtReach": 342.3106457242583,
+ "needPassAtReach": 2030.1971830985917,
  "needClearAtReach": 446.00215285252955
 }

@@ -6,11 +6,11 @@
  "level": 5,
  "cost": 18972,
  "est": 1296.8704629118524,
- "tierPass": 100,
- "tierPassFail": "none",
- "tierClear": 39,
- "ringPass": 300,
- "ringClear": 100,
+ "tierPass": 97,
+ "tierPassFail": "98 Stairs",
+ "tierClear": 46,
+ "ringPass": 200,
+ "ringClear": 50,
  "ffWaves": [
   17,
   17
@@ -19,6 +19,6 @@
   true,
   true
  ],
- "needPassAtReach": 342.3106457242583,
- "needClearAtReach": 2348.2282023681378
+ "needPassAtReach": 3704.414733969986,
+ "needClearAtReach": 2797.224973089343
 }

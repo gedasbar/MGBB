@@ -1,0 +1,18 @@
+{
+ "desc": "10 dmg blocks L9",
+ "kind": "casual",
+ "hull": "halberd",
+ "copies": 10,
+ "level": 9,
+ "cost": 159060,
+ "est": 6173.490176052073,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 100,
+ "ringPass": 350,
+ "ringClear": 150,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 11015.044133476857
+}
