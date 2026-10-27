@@ -445,3 +445,108 @@ Small numbers. Tiers 1-30 are identical (HP 2 at tier 1, 6 at tier 10, 69 at tie
 - **Frontier rings:** three axis squares per ring, majority rule, a coarse ladder (rings between ladder steps are interpolated by eye); the proposal's bots scale HP of today's squares, so noise and spikes stay.
 - **The proposed walls** are copies of today's walls with HP and shields multiplied and rounded, not walls the generator built; nothing was played in the browser, no e2e, no screenshots.
 - **Unit tests and mutation checks:** `tests/difficultyModel.test.ts` (16 tests) covers the arithmetic (needs, credits, Medals, prices, families, proposal joins). Four mutations were made and killed: pass uses the dearest column instead of the cheapest; upgrade prices left out of the circuit cost; the first-30-tiers curve changed; the builder-family filter and the Frontier Medals removed. The tables themselves are measurements, not tested.
+
+## 9. After 18b: the proposal in the game
+
+Chunk 18b (owner decisions: blend player, passing stays the campaign's safety net, HP first, Free Fly slowed, coverage accepted) put sections E and 6.2 into the game with one deliberate exception, the Frontier past ring 250. All numbers below are from the bots again (`FORCE=1 npm run difficulty-audit`, the 18a cache is kept in `reports/chunk18b/cache-18a/`). Full tables: `docs/difficulty-audit-tables.md` section F; the sections above (A to E) describe the 18a state and the proposal.
+
+What changed: campaign block HP as before to tier 30, then x1.06 / x1.065 / x1.0525 a tier (tier 100: 3.4K; `BLOCK_HP_SEGMENTS`); Free Fly total growth per wave x1.19 / x1.08 / x1.06 after wave 20 (`WAVE_SLOW_GROWTH`; the wave multiplier divides out the tier step the clock adds); Frontier block HP = the campaign curve at the ring's effective tier to ring 250, then x1.018 a ring (`FRONTIER_LATE_GROWTH`), and Frontier walls build with a cheapest column of at least `MAP_MIN_COLUMN_SHARE` = 1.0 of the median (the campaign keeps 0.3); the hull picker shows a trait line (one ejector: single lane, three or more: wide coverage). The audit's builder buyer now ranks hulls by estimate x a coverage weight (1 ejector 0.1, 2 ejectors 0.4), so it no longer picks the one-ejector Shuttle at tier 75.
+
+### 9.1 Frontier targets (`scripts/frontier-reach.ts`, hero 19 builds of tier 100)
+
+| build | 18a walls: ring passed / cleared | 18b: ring passed / cleared | target |
+|---|---|---|---|
+| builder (Leviathan, 2 Flat+ L10 + 10 Percent x L10) | 700 / 250 | 550 / 250 | pass 500-700, clear 250-300 |
+| casual (Leviathan, 12 damage blocks L10) | 500 / 150 | 350 / 100 | pass about 300, clear 100-150 |
+| anything at ring 1000 | builder passes | builder 0 of 3 squares, casual 0 | nothing passes 1000 |
+
+Tuning log (builder pass / casual pass): late growth x1.008 and share 0.8: 800 / 600; x1.0125, share 1.0: 700 / 400; x1.015: 650 / 400; **x1.018: 550 / 350**. The audit's own x1.001 was not tried: it was rejected in the brief (it lets a builder pass ring 2000).
+
+### 9.2 Bots on the 18a walls -> on the walls as they are now
+
+| hull | build | est. DPS | tier passed | tier cleared | ring passed | ring cleared | FF waves |
+|---|---|---|---|---|---|---|---|
+| Dart | sensible | 4.0 | 19 -> 19 | 2 -> 2 | 0 -> 0 | 0 -> 0 | 5/5 -> 5/5 |
+| Twin | sensible | 7.5 | 29 -> 29 | 5 -> 5 | 10 -> 5 | 0 -> 0 | 7/7 -> 7/7 |
+| Twin | tuned | 5.0 | 22 -> 22 | 2 -> 2 | 0 -> 0 | 0 -> 0 | 5/5 -> 5/5 |
+| Prong | sensible | 16 | 34 -> 34 | 7 -> 7 | 75 -> 5 | 0 -> 0 | 8/8 -> 8/8 |
+| Wisp | sensible | 33 | 53 -> 45 | 12 -> 12 | 100 -> 25 | 0 -> 0 | 9/9 -> 9/9 |
+| Wisp | tuned | 39 | 53 -> 52 | 12 -> 12 | 100 -> 50 | 0 -> 0 | 10/9 -> 10/9 |
+| Hornet | sensible | 44 | 53 -> 52 | 12 -> 12 | 100 -> 50 | 0 -> 0 | 10/10 -> 10/10 |
+| Hornet | tuned | 23 | 34 -> 45 | 7 -> 7 | 75 -> 25 | 0 -> 0 | 8/9 -> 8/9 |
+| Lancet | sensible | 102 | 53 -> 53 | 15 -> 15 | 100 -> 100 | 0 -> 0 | 11/12 -> 11/12 |
+| Lancet | tuned | 188 | 100 -> 70 | 24 -> 24 | 100 -> 100 | 0 -> 0 | 13/13 -> 13/13 |
+| Kestrel | sensible | 63 | 53 -> 53 | 13 -> 13 | 100 -> 100 | 0 -> 0 | 11/11 -> 11/11 |
+| Kestrel | tuned | 56 | 53 -> 53 | 13 -> 13 | 100 -> 50 | 0 -> 0 | 11/11 -> 11/11 |
+| Mantis | sensible | 451 | 100 -> 79 | 29 -> 29 | 150 -> 100 | 5 -> 5 | 14/14 -> 14/14 |
+| Mantis | tuned | 1.38K | 100 -> 100 | 31 -> 31 | 300 -> 200 | 5 -> 5 | 17/17 -> 17/17 |
+| Bastion | sensible | 40 | 53 -> 52 | 12 -> 12 | 100 -> 50 | 0 -> 0 | 9/9 -> 9/9 |
+| Bastion | tuned | 48 | 53 -> 52 | 13 -> 13 | 100 -> 50 | 0 -> 0 | 10/11 -> 10/11 |
+| Halberd | sensible | 1.3K | 100 -> 97 | 39 -> 46 | 300 -> 200 | 100 -> 50 | 17/17 -> 17/17 |
+| Halberd | tuned | 5.26K | 100 -> 100 | 99 -> 53 | 350 -> 300 | 100 -> 100 | 21/21 -> 21/21 |
+| Corvette | sensible | 309 | 100 -> 79 | 29 -> 29 | 150 -> 100 | 10 -> 5 | 14/14 -> 14/14 |
+| Corvette | tuned | 491 | 100 -> 79 | 31 -> 31 | 250 -> 150 | 25 -> 5 | 15/15 -> 15/15 |
+| Trident | sensible | 425 | 100 -> 79 | 31 -> 31 | 150 -> 100 | 10 -> 5 | 15/14 -> 15/14 |
+| Trident | tuned | 1.11K | 100 -> 97 | 39 -> 46 | 300 -> 200 | 75 -> 50 | 17/17 -> 17/17 |
+| Galleon | sensible | 348 | 100 -> 79 | 27 -> 27 | 150 -> 100 | 5 -> 5 | 13/14 -> 13/14 |
+| Galleon | tuned | 946 | 100 -> 90 | 39 -> 36 | 250 -> 150 | 50 -> 25 | 15/17 -> 15/17 |
+| Shuttle | sensible | 2.08K | 100 -> 100 | 53 -> 51 | 300 -> 200 | 100 -> 50 | 18/18 -> 18/18 |
+| Shuttle | tuned | 86.1K | 100 -> 100 | 53 -> 53 | 500 -> 400 | 100 -> 100 | 26/27 -> 32/32 |
+| Spire | sensible | 513 | 100 -> 80 | 31 -> 31 | 250 -> 150 | 25 -> 10 | 15/14 -> 15/14 |
+| Spire | tuned | 1.03K | 100 -> 90 | 39 -> 36 | 300 -> 200 | 50 -> 25 | 16/17 -> 16/17 |
+| Leviathan | sensible | 7.58K | 100 -> 100 | 53 -> 53 | 350 -> 300 | 100 -> 100 | 21/21 -> 21/21 |
+| Leviathan | tuned | 574K | 100 -> 100 | 100 -> 90 | 700 -> 500 | 250 -> 250 | 31/32 -> 45/45 |
+| Fan | sensible | 2.91K | 100 -> 100 | 63 -> 53 | 350 -> 250 | 100 -> 100 | 19/18 -> 19/18 |
+| Fan | tuned | 5.94K | 100 -> 100 | 99 -> 53 | 350 -> 300 | 100 -> 100 | 21/21 -> 21/21 |
+| Citadel | sensible | 2.78K | 100 -> 100 | 63 -> 53 | 350 -> 250 | 100 -> 100 | 19/18 -> 19/18 |
+| Citadel | tuned | 4.46K | 100 -> 100 | 78 -> 53 | 350 -> 300 | 100 -> 100 | 20/20 -> 20/20 |
+| Zenith | sensible | 5.12K | 100 -> 100 | 100 -> 53 | 350 -> 300 | 100 -> 100 | 21/21 -> 21/21 |
+| Zenith | tuned | 10.6K | 100 -> 100 | 100 -> 69 | 400 -> 350 | 150 -> 100 | 22/22 -> 22/22 |
+
+Career-matched builds (hero level included):
+
+| position | buyer | build | est. DPS | tier passed | tier cleared | ring passed | ring cleared |
+|---|---|---|---|---|---|---|---|
+| tier 10 | casual | Twin, 2 dmg blocks L2 | 24 | 34 -> 45 | 9 -> 9 | 75 -> 25 | 0 -> 0 |
+| tier 10 | builder | Twin, 2 dmg blocks L2 | 24 | 34 -> 45 | 9 -> 9 | 75 -> 25 | 0 -> 0 |
+| tier 20 | casual | Lancet, 5 dmg blocks L2 | 125 | 100 -> 53 | 21 -> 21 | 100 -> 100 | 0 -> 0 |
+| tier 20 | builder | Hornet, 1 Flat+ L1 + 5 Percent x L2 | 121 | 100 -> 53 | 27 -> 18 | 150 -> 100 | 5 -> 0 |
+| tier 30 | casual | Mantis, 8 dmg blocks L4 | 731 | 100 -> 90 | 31 -> 31 | 250 -> 150 | 5 -> 5 |
+| tier 30 | builder | Mantis, 1 Flat+ L3 + 7 Percent x L4 | 3.27K | 100 -> 100 | 31 -> 31 | 350 -> 250 | 5 -> 5 |
+| tier 40 | casual | Mantis, 8 dmg blocks L6 | 1.7K | 100 -> 100 | 31 -> 31 | 300 -> 200 | 5 -> 5 |
+| tier 40 | builder | Halberd, 1 Flat+ L3 + 8 Percent x L5 | 6.83K | 100 -> 100 | 31 -> 63 | 400 -> 300 | 5 -> 100 |
+| tier 50 | casual | Halberd, 10 dmg blocks L6 | 3.27K | 100 -> 100 | 53 -> 53 | 350 -> 250 | 100 -> 100 |
+| tier 50 | builder | Halberd, 1 Flat+ L3 + 9 Percent x L7 | 27.5K | 100 -> 100 | 100 -> 81 | 500 -> 350 | 250 -> 100 |
+| tier 60 | casual | Halberd, 10 dmg blocks L8 | 6.77K | 100 -> 100 | 100 -> 53 | 150 -> 300 | 100 -> 100 |
+| tier 60 | builder | Halberd, 1 Flat+ L8 + 9 Percent x L8 | 67.5K | 100 -> 100 | 100 -> 99 | 500 -> 400 | 250 -> 250 |
+| tier 75 | casual | Halberd, 10 dmg blocks L9 | 9.76K | 100 -> 100 | 100 -> 63 | 350 -> 350 | 150 -> 100 |
+| tier 75 | builder | Halberd, 1 Flat+ L3 + 9 Percent x L10 | 137K | 100 -> 100 | 53 -> 99 | 600 -> 450 | 100 -> 250 |
+| tier 100 | casual | Leviathan, 12 dmg blocks L10 | 28.4K | 100 -> 100 | 100 -> 78 | 500 -> 350 | 150 -> 100 |
+| tier 100 | builder | Leviathan, 2 Flat+ L10 + 10 Percent x L10 | 833K | 100 -> 100 | 100 -> 99 | 700 -> 500 | 250 -> 250 |
+| ring 50 | casual | Mantis, 8 dmg blocks L6 | 1.7K | 100 -> 100 | 31 -> 31 | 300 -> 200 | 5 -> 5 |
+| ring 50 | builder | Halberd, 1 Flat+ L3 + 8 Percent x L5 | 6.83K | 100 -> 100 | 31 -> 63 | 400 -> 300 | 5 -> 100 |
+| ring 100 | casual | Halberd, 10 dmg blocks L7 | 4.78K | 100 -> 100 | 82 -> 53 | 350 -> 300 | 100 -> 100 |
+| ring 100 | builder | Halberd, 1 Flat+ L3 + 9 Percent x L8 | 47.6K | 100 -> 100 | 100 -> 87 | 500 -> 400 | 250 -> 200 |
+| ring 200 | casual | Halberd, 10 dmg blocks L10 | 14K | 100 -> 100 | 100 -> 78 | 400 -> 350 | 150 -> 100 |
+| ring 200 | builder | Halberd, 1 Flat+ L10 + 9 Percent x L10 | 219K | 100 -> 100 | 53 -> 100 | 600 -> 450 | 100 -> 250 |
+| ring 400 | casual | Leviathan, 12 dmg blocks L10 | 28.9K | 100 -> 100 | 100 -> 78 | 500 -> 350 | 150 -> 100 |
+| ring 400 | builder | Leviathan, 2 Flat+ L10 + 10 Percent x L10 | 847K | 100 -> 100 | 100 -> 99 | 700 -> 500 | 250 -> 250 |
+
+Reading. Campaign: tiers 1-30 are identical, a casual buyer standing at tier 60-100 now clears 53-78 instead of 100 and still passes every tier; a builder at tier 60-100 clears 99 (tier 100's Last Wall is the one nothing in the model clears), tier 50 builder 81. The "tier passed" column of the campaign mostly stays 100 for Shuttle-or-later builds, as decided (safety net). Hull-by-hull the sensible Zenith clears 53 instead of 100, the Leviathan builder 90 instead of 100. Frontier: ring pass and clear ranges came down 50-150 rings across the board; the Frontier ladder is coarse, `frontier-reach` has the exact numbers above. Free Fly: see 9.3.
+
+### 9.3 Free Fly bot on the career-matched builds (`scripts/ff-career.ts`, waves reached, two seeds)
+
+| position | buyer | build | 18a rules | 18b rules |
+|---|---|---|---|---|
+| tier 20 | casual | Lancet 5 blocks L2 | 12 / 12 | 12 / 12 |
+| tier 20 | builder | Hornet, 6 blocks L2 | 11 / 12 | 11 / 12 |
+| tier 30 | casual | Mantis 8 blocks L4 | 15 / 15 | 15 / 15 |
+| tier 30 | builder | Mantis, 8 blocks (multiplier) | 19 / 19 | 19 / 19 |
+| tier 50 | casual | Halberd 10 blocks L6 | 19 / 19 | 19 / 19 |
+| tier 50 | builder | Halberd, 10 blocks L7 (multiplier) | 24 / 24 | 25 / 25 |
+| tier 75 | casual | Halberd 10 blocks L9 | 22 / 22 | 22 / 22 |
+| tier 75 | builder | Halberd, 10 blocks L10 (multiplier) | 28 / 28 | 35 / 35 |
+| tier 100 | casual | Leviathan 12 blocks L10 | 24 / 24 | 25 / 25 |
+| tier 100 | builder | Leviathan, 12 blocks L10 (multiplier) | 33 / 32 | **45 / 45** |
+
+Target: best builder reaches wave 40, wave 50 needs a top build; the casual Leviathan stops around 20-25. Result: the casual Leviathan 25 (on target), the best model builder **45** (above the wave-40 target, below 50; the Frontier's Free Fly squares are capped at wave equivalent 30 and are not affected beyond it). The constants are the brief's; landing on wave 40 would need a steeper tail after wave 30 (not tried).
