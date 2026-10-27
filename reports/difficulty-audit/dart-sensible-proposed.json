@@ -1,0 +1,18 @@
+{
+ "desc": "1 Flat+ L1",
+ "kind": "sensible",
+ "hull": "dart",
+ "copies": 1,
+ "level": 1,
+ "cost": 0,
+ "est": 4,
+ "tierPass": 19,
+ "tierPassFail": "20 Bands",
+ "tierClear": 2,
+ "ringPass": 0,
+ "ringClear": 0,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 9.6,
+ "needClearAtReach": 3.201722282023681
+}

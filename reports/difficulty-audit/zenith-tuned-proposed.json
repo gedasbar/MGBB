@@ -1,0 +1,18 @@
+{
+ "desc": "20 dmg blocks L10",
+ "kind": "tuned",
+ "hull": "zenith",
+ "copies": 20,
+ "level": 10,
+ "cost": 1628217,
+ "est": 10620,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 69,
+ "ringPass": 2000,
+ "ringClear": 100,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 5649.1367061356295
+}

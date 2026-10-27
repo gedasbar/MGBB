@@ -1,0 +1,18 @@
+{
+ "desc": "1 dmg blocks L2",
+ "kind": "sensible",
+ "hull": "prong",
+ "copies": 1,
+ "level": 2,
+ "cost": 1170,
+ "est": 16,
+ "tierPass": 34,
+ "tierPassFail": "35 Arrow",
+ "tierClear": 7,
+ "ringPass": 50,
+ "ringClear": 0,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 188.89156626506025,
+ "needClearAtReach": 12.090419806243274
+}

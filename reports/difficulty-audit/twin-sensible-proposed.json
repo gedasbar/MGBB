@@ -1,0 +1,18 @@
+{
+ "desc": "2 dmg blocks L1",
+ "kind": "sensible",
+ "hull": "twin",
+ "copies": 2,
+ "level": 1,
+ "cost": 170,
+ "est": 7.5,
+ "tierPass": 29,
+ "tierPassFail": "30 Diamond",
+ "tierClear": 5,
+ "ringPass": 5,
+ "ringClear": 0,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 6.4471544715447155,
+ "needClearAtReach": 6.92680301399354
+}

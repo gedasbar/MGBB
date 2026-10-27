@@ -1,0 +1,24 @@
+{
+ "desc": "9 dmg blocks L7",
+ "kind": "sensible",
+ "hull": "shuttle",
+ "copies": 9,
+ "level": 7,
+ "cost": 126973,
+ "est": 2075.070972681014,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 53,
+ "ringPass": 300,
+ "ringClear": 100,
+ "ffWaves": [
+  18,
+  18
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 3221.0893433799783
+}

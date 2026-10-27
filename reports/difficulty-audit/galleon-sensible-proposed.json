@@ -1,0 +1,18 @@
+{
+ "desc": "11 dmg blocks L7",
+ "kind": "sensible",
+ "hull": "galleon",
+ "copies": 11,
+ "level": 7,
+ "cost": 90194,
+ "est": 347.53252270609505,
+ "tierPass": 79,
+ "tierPassFail": "80 The Funnel",
+ "tierClear": 27,
+ "ringPass": 100,
+ "ringClear": 5,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 323.4253521126761,
+ "needClearAtReach": 446.00215285252955
+}

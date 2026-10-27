@@ -1,0 +1,18 @@
+{
+ "desc": "1 Flat+ L3 + 8 Percent x L10",
+ "kind": "builder",
+ "hull": "shuttle",
+ "copies": 9,
+ "level": 10,
+ "cost": 299815,
+ "est": 131220,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 53,
+ "ringPass": 2000,
+ "ringClear": 100,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 3221.0893433799783
+}

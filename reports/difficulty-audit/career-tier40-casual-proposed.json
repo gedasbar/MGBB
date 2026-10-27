@@ -1,0 +1,18 @@
+{
+ "desc": "8 dmg blocks L6",
+ "kind": "casual",
+ "hull": "mantis",
+ "copies": 8,
+ "level": 6,
+ "cost": 18258,
+ "est": 1088.137829380797,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 31,
+ "ringPass": 350,
+ "ringClear": 5,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 793.5177610333692
+}

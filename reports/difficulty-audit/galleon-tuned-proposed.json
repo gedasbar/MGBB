@@ -1,0 +1,18 @@
+{
+ "desc": "1 Flat+ L7 + 10 Percent x L7",
+ "kind": "tuned",
+ "hull": "galleon",
+ "copies": 11,
+ "level": 7,
+ "cost": 93016,
+ "est": 946.3179408376964,
+ "tierPass": 90,
+ "tierPassFail": "91 Slab",
+ "tierClear": 36,
+ "ringPass": 150,
+ "ringClear": 25,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 225.46097201767307,
+ "needClearAtReach": 1706.7642626480085
+}

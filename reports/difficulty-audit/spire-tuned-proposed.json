@@ -1,0 +1,18 @@
+{
+ "desc": "1 Flat+ L9 + 10 Percent x L9",
+ "kind": "tuned",
+ "hull": "spire",
+ "copies": 11,
+ "level": 9,
+ "cost": 341221,
+ "est": 1033.3865610405373,
+ "tierPass": 90,
+ "tierPassFail": "91 Slab",
+ "tierClear": 36,
+ "ringPass": 200,
+ "ringClear": 25,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 225.46097201767307,
+ "needClearAtReach": 1706.7642626480085
+}

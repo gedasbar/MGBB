@@ -1,0 +1,18 @@
+{
+ "desc": "12 dmg blocks L10",
+ "kind": "casual",
+ "hull": "leviathan",
+ "copies": 12,
+ "level": 10,
+ "cost": 654269,
+ "est": 17756,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 78,
+ "ringPass": 2000,
+ "ringClear": 100,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 6823.250807319698
+}

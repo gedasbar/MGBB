@@ -1,0 +1,18 @@
+{
+ "desc": "3 Flat+ L10 + 10 Percent x L10",
+ "kind": "tuned",
+ "hull": "fan",
+ "copies": 13,
+ "level": 10,
+ "cost": 826792,
+ "est": 5940,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 53,
+ "ringPass": 1000,
+ "ringClear": 100,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 3221.0893433799783
+}

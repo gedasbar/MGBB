@@ -1,0 +1,18 @@
+{
+ "desc": "8 dmg blocks L4",
+ "kind": "casual",
+ "hull": "mantis",
+ "copies": 8,
+ "level": 4,
+ "cost": 7354,
+ "est": 450.5185556720439,
+ "tierPass": 90,
+ "tierPassFail": "91 Slab",
+ "tierClear": 31,
+ "ringPass": 150,
+ "ringClear": 5,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 225.46097201767307,
+ "needClearAtReach": 793.5177610333692
+}

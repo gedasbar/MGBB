@@ -1,0 +1,18 @@
+{
+ "desc": "8 dmg blocks L4",
+ "kind": "sensible",
+ "hull": "mantis",
+ "copies": 8,
+ "level": 4,
+ "cost": 7354,
+ "est": 450.5185556720439,
+ "tierPass": 79,
+ "tierPassFail": "80 The Funnel",
+ "tierClear": 29,
+ "ringPass": 150,
+ "ringClear": 5,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 323.4253521126761,
+ "needClearAtReach": 573.1194833153928
+}

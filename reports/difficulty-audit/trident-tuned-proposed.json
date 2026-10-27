@@ -1,0 +1,18 @@
+{
+ "desc": "20 dmg blocks L6",
+ "kind": "tuned",
+ "hull": "trident",
+ "copies": 20,
+ "level": 6,
+ "cost": 52936,
+ "est": 1113.2670756265238,
+ "tierPass": 97,
+ "tierPassFail": "98 Stairs",
+ "tierClear": 46,
+ "ringPass": 300,
+ "ringClear": 50,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 234.95770804911322,
+ "needClearAtReach": 2842.5920344456404
+}

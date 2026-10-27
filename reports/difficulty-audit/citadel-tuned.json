@@ -1,0 +1,24 @@
+{
+ "desc": "3 Flat+ L10 + 10 Percent x L10",
+ "kind": "tuned",
+ "hull": "citadel",
+ "copies": 13,
+ "level": 10,
+ "cost": 1146792,
+ "est": 4455,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 78,
+ "ringPass": 350,
+ "ringClear": 100,
+ "ffWaves": [
+  20,
+  20
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 6823.250807319698
+}
