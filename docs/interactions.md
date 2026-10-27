@@ -42,10 +42,27 @@ Rules in words:
 - Fork copies are plain: they keep the movement blocks (Piercing, Bouncing, Homing, curves) and every status/Mitosis effect, but no AoE, no Fork, no Chain. Nothing cascades.
 - Chain arcs carry statuses/Mitosis effects only (as before).
 
-## 3. Deviations and choices
+## 3. Deviations and choices (what the code does)
 
-- **Boomerang and Orbit with AoE:** these shots do not end by hitting (they come back to the ship or circle it), so "when the shot ends" would never happen. They explode on the first hit and end (as today). This is written in the table as `endsOnFirstHit` for those shapes.
-- **A shot that flies off the screen** after piercing without being used up does not blast (nothing marks "the last hit" from the outside). Piercing Level 1 uses the shot up at the first target that has as much HP as the damage, so in practice the blast comes.
-- **Target of a stacked blast:** the target of the ending hit takes the direct hit at full damage and the other targets take the blast damage `damage x 0.95^(copies-1)`. The builder's estimate counts the blast factor (step 4).
+- **Boomerang and Orbit with AoE:** these shots do not end by hitting (they come back to the ship or circle it), so "when the shot ends" would never happen. They explode on the first hit and end (as today). In the code this is the `keepsFlying` case in `processField`.
+- **A shot that flies off the screen** (or gets too old) after piercing or bouncing without being used up: the blast it still owes goes off where the shot LAST HIT, in the next hit step (`ProjectileSystem.retire`, called by `World` and `WallWorld` where they used to free the shot). So a Piercing shot always makes its blast. The blast uses the damage the shot had at its first hit (piercing only pays for the direct hits).
+- **The AoE penalty is the whole shot's:** `x0.95` per extra AoE copy applies to the direct hit and the blast alike (the old rule: the blast replaced the direct hit and had the factor). The target of the last hit takes the direct hit (with the factor), the blast goes to everything else in the area. The builder's estimate counts the factor (`aoeEstimateMul`).
 - **Gravity Well:** changed from every hit to the first hit (principle: spawning = once). Residue Seed stays per kill: the kill is a one-time event and the cloud is capped by the target's HP.
-- **Fork copies and AoE:** a Fork + AoE shot used to blast only; now it forks on the first hit and blasts at its end, and the copies are plain.
+- **Fork copies keep the movement blocks** (Piercing, Bouncing, Homing, curves) and every status/Mitosis effect; only AoE, Fork and Chain are dropped (`fragments: false` in the table).
+- **Chain arcs:** `maxPerShot` counts chains (one chain = up to `chainJumps` jumps from one hit), not single jumps.
+- **Stacking blocks' copies (step 5):**
+  - Homing: besides the sharper turn and wider cone it already had, each copy stretches the seek range by `stackGrowth` (400 px for one copy).
+  - Orbit: each extra copy adds one full pass round the ship (`2 pi r / speed` seconds, about 0.63 s at the usual shot speed) before the launch; the re-hit speed-up stays.
+  - Mine: each extra copy lays one more mine beside the first when it stops, 36 px apart, up to 3 extra (`MINE_EXTRA_MAX`); the bigger trigger stays. The cap of 3 keeps the pool safe (a mine waits 12 s). Extra mines are full shots (they carry the line's effects).
+  - No stacking block's cap changed.
+- **Not changed:** statuses, Executioner, Cleaver, Culling Bolt, the Mitosis marks and Residue Seed fire on every hit exactly as before.
+
+## 4. The audit (docs/interaction-audit.md, before: docs/interaction-audit-before.md)
+
+24 blocks, 552 ordered pairs. A pair is compared with the better block alone; blocks that cost damage on their own (Orbit, Mine, the curves, Cleaver) are compared with themselves alone. Before and after both read 494 OK, 58 CANCELS, 0 EXPLODES, but they are not the same 58:
+
+- **Fixed:** AoE + Fork on Impact (both orders, Circle and Rectangle): Fork never happened, now it does.
+- **Improved, still flagged:** Piercing + AoE and Bouncing + AoE no longer lose an effect ("Piercing never happens" is gone) but come out at 80-92% of AoE alone: the blast now waits for the end of the line instead of the first hit, which is the best place in a tight cluster. By design of the rule.
+- **New in the list:** Bouncing + AoE Circle (84%) and Fork + Boomerang (85%) crossed the 95% line.
+- **Remaining by design:** Boomerang with Piercing, Bouncing (it already passes through everything), Mine (both replace the flight path), AoE (the blast ends the boomerang on its first hit), Homing, Fork.
+- **Remaining, bench artefacts:** pairs with Orbit or the curves. An Orbit shot always leaves from the same point 33 px beside the ship's axis, so in the tight cluster bench it never hits and nothing it carries can happen; curved shots miss low-HP targets so Executioner never fires. Overkill Spill + Residue Seed (83%) and Fork + Spill (90%) are kill-timing noise of the splitting-rock bench.

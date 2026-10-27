@@ -115,7 +115,7 @@ async function fly(page, plan, wave) {
   await page.evaluate(() => {
     const s = window.__mgbm.shopScreen;
     s.store.data.credits = 1e7;
-    s.store.data.owned.turn_l = 8;
+    s.store.data.owned.turn_l = 20;
     s.store.data.owned.percent_mult = 3;
     s.store.data.owned.piercing = 2;
     s.store.commit();
@@ -129,11 +129,11 @@ async function fly(page, plan, wave) {
   await tapTile('turn_l');
   let row = await shopRow(page, 'turn_l');
   let content = await page.evaluate(() => { const c = window.__mgbm.shopScreen.palette.content; return c && { owned: c.ownedLine, level: c.levelLine, buy: c.buy, upgrade: c.upgrade }; });
-  check(content && content.owned === 'Owned 8 / 8', `Turn Left at its cap reads "${content && content.owned}"`);
+  check(content && content.owned === 'Owned 20 / 20', `Turn Left at its cap reads "${content && content.owned}"`);
   check(content && content.buy && content.buy.label === 'Max' && content.buy.enabled === false, `Buy reads "${content && content.buy && content.buy.label}" and is disabled`);
   check(content && content.level === '' && content.upgrade === null, 'Turn Left has no level line and no Upgrade button');
   const bought = await page.evaluate(() => { const b = window.__mgbm.shopScreen.store.buyCopy('turn_l'); return b; });
-  check(bought.ok === false && (await page.evaluate(() => window.__mgbm.shopScreen.store.data.owned.turn_l)) === 8, `a ninth Turn Left cannot be bought ("${bought.error}")`);
+  check(bought.ok === false && (await page.evaluate(() => window.__mgbm.shopScreen.store.data.owned.turn_l)) === 20, `a 21st Turn Left cannot be bought ("${bought.error}")`);
   const shotMax = await canvasShot(page);
 
   // ---- Shop: a block with upgrades below its cap, and a stacking block without a cap
