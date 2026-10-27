@@ -2,7 +2,7 @@
 // script scales the measured needs by (proposed HP / today's HP) to show what the ratio tables would look like. Needed DPS is linear
 // in block HP (effective HP = shield + HP x armor weight, all proportional to HP), so the scaling is exact up to rounding of whole numbers.
 import { blockHp } from '../../src/wall/level';
-import { MAP_BASE_TIER, MAP_HP_GROWTH, MAP_TIER_PER_RING } from '../../src/frontier/constants';
+import { MAP_BASE_TIER, MAP_TIER_PER_RING } from '../../src/frontier/constants';
 import { rockHp, tierOfTime } from '../../src/econ/economy';
 import { waveHpMul, WAVE_TIME } from '../../src/data/waves';
 import { fmtBig } from '../../src/ui/format';
@@ -45,7 +45,8 @@ export function proposedBlockHp(tier: number): number {
   }
   return Math.max(1, Math.round(hp));
 }
-export const currentRingHp = (ring: number) => blockHp(MAP_BASE_TIER) * Math.pow(MAP_HP_GROWTH, ring);
+/** The Frontier's HP before chunk 18b (x1.015 a ring); kept so the 18a proposal tables can still be printed. */
+export const currentRingHp = (ring: number) => blockHp(MAP_BASE_TIER) * Math.pow(1.015, ring);
 export function proposedRingHp(ring: number): number {
   const e = MAP_BASE_TIER + ring * MAP_TIER_PER_RING;
   if (ring <= PROPOSED.frontierPastRing) return proposedBlockHp(e);
