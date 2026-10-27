@@ -1,7 +1,7 @@
 // Chunk 18a: the difficulty audit's model (scripts/lib/difficultyModel.ts, difficultyProposal.ts). These test the arithmetic the
 // audit's tables stand on; the tables themselves are measurements (npm run difficulty-audit).
 import { describe, expect, it } from 'vitest';
-import { bestOwned, budgetAt, buildCatalogue, campaignNeeds, flyNeeds, gridCost, heroLevelFor, incomeAt, medalsAt, ratioText, wallNeeds } from '../scripts/lib/difficultyModel';
+import { bestOwned, budgetAt, coverageOf, ejectorsOf, scoreOf, buildCatalogue, campaignNeeds, flyNeeds, gridCost, heroLevelFor, incomeAt, medalsAt, ratioText, wallNeeds } from '../scripts/lib/difficultyModel';
 import { currentFlyHp, currentRingHp, proposedBlockHp, proposedFlyHp, proposedRingHp, referenceDps, PROPOSED } from '../scripts/lib/difficultyProposal';
 import { standardBuild } from '../src/debug/hullBuilds';
 import { buildDartStarterGrid } from '../src/game/starter';
@@ -66,14 +66,27 @@ describe('what a buyer owns', () => {
       const o = bestOwned(budget);
       expect(o).not.toBeNull();
       expect(o!.cost).toBeLessThanOrEqual(budget);
-      expect(o!.est).toBeGreaterThanOrEqual(last);
-      last = o!.est;
+      expect(scoreOf(o!)).toBeGreaterThanOrEqual(last);
+      last = scoreOf(o!);
     }
   });
   it('the builder family is at least as strong as the casual family, and strictly stronger with money', () => {
-    expect(bestOwned(2e5)!.est).toBeGreaterThanOrEqual(bestOwned(2e5, 0, 'std')!.est);
-    expect(bestOwned(2e5)!.est).toBeGreaterThan(2 * bestOwned(2e5, 0, 'std')!.est);
+    expect(scoreOf(bestOwned(2e5)!)).toBeGreaterThanOrEqual(scoreOf(bestOwned(2e5, 0, 'std')!));
+    expect(scoreOf(bestOwned(2e5)!)).toBeGreaterThan(2 * scoreOf(bestOwned(2e5, 0, 'std')!));
     expect(buildCatalogue().some(e => e.fam === 'mult')).toBe(true);
+  });
+});
+
+describe('coverage weight (18b)', () => {
+  it('counts ejectors and weighs one-ejector hulls down', () => {
+    expect(ejectorsOf('shuttle')).toBe(1);
+    expect(ejectorsOf('halberd')).toBe(3);
+    expect(coverageOf('shuttle')).toBeLessThan(coverageOf('corvette'));
+    expect(coverageOf('corvette')).toBeLessThan(coverageOf('halberd'));
+    expect(coverageOf('halberd')).toBe(1);
+  });
+  it('the builder no longer picks a one-ejector hull at tier 75 money', () => {
+    expect(ejectorsOf(bestOwned(220_000)!.hull)).toBeGreaterThan(1);
   });
 });
 

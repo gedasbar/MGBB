@@ -44,8 +44,12 @@ describe('Wall data model', () => {
   it('block HP is 2 at tier 1 (a Dart + Flat+ shot of 2 kills it), grows 13% per tier until tier 38 and is a whole number; reward formula', () => {
     expect(blockHp(1)).toBe(2);
     expect(blockHp(11)).toBe(Math.round(2 * Math.pow(1.13, 10)));
-    expect(blockHp(38)).toBe(Math.round(2 * Math.pow(1.13, 37)));
-    expect(blockHp(100)).toBe(blockHp(38));
+    for (let t = 1; t <= 30; t++) expect(blockHp(t)).toBe(Math.round(2 * Math.pow(1.13, t - 1))); // tiers 1-30 never change (18b)
+    expect(blockHp(31)).toBe(Math.round(2 * Math.pow(1.13, 29) * 1.06));
+    expect(blockHp(40)).toBe(Math.round(2 * Math.pow(1.13, 29) * Math.pow(1.06, 10)));
+    expect(blockHp(60)).toBe(Math.round(2 * Math.pow(1.13, 29) * Math.pow(1.06, 10) * Math.pow(1.065, 20)));
+    expect(blockHp(100)).toBe(Math.round(2 * Math.pow(1.13, 29) * Math.pow(1.06, 10) * Math.pow(1.065, 20) * Math.pow(1.0525, 40)));
+    expect(blockHp(150)).toBe(blockHp(100));
     for (let t = 1; t <= 100; t++) expect(Number.isInteger(blockHp(t))).toBe(true);
     expect(rewardPerBlock(1)).toBeCloseTo(0.4, 9);
     expect(rewardPerBlock(21)).toBeCloseTo(0.4 * Math.pow(1.05, 20), 9);
