@@ -1,6 +1,6 @@
 import { Mulberry32 } from '../rng';
 import {
-  BLOCK_HP_BASE, BLOCK_HP_GROWTH, BLOCK_HP_GROWTH_END, DEFAULT_APPROACH_SPEED, WALL_ROWS_FIRST, WALL_ROWS_LAST, REWARD_BASE, REWARD_GROWTH, TEST_ARMOR, TEST_SHIELD_OF_HP, WALL_COLS,
+  BLOCK_HP_BASE, BLOCK_HP_FIRST_END, BLOCK_HP_GROWTH, BLOCK_HP_SEGMENTS, DEFAULT_APPROACH_SPEED, WALL_ROWS_FIRST, WALL_ROWS_LAST, REWARD_BASE, REWARD_GROWTH, TEST_ARMOR, TEST_SHIELD_OF_HP, WALL_COLS,
 } from './constants';
 
 /** One block of a wall. `armor` uses the engine's armor formula (0 = none); `shield` is a pool absorbed before HP. */
@@ -32,7 +32,19 @@ export interface LevelDef {
 export const rowsForTier = (tier: number) => Math.round(WALL_ROWS_FIRST + ((tier - 1) * (WALL_ROWS_LAST - WALL_ROWS_FIRST)) / 99);
 /** HP are whole numbers, at least 1 (chunk 14a). */
 export const wholeHp = (v: number) => Math.max(1, Math.round(v));
-export const blockHp = (tier: number) => wholeHp(BLOCK_HP_BASE * Math.pow(BLOCK_HP_GROWTH, Math.min(tier, BLOCK_HP_GROWTH_END) - 1));
+/** Block HP before rounding at a (possibly fractional) tier: the Frontier reads it at a ring's effective tier. Flat after the last segment. */
+export function blockHpFloat(tier: number): number {
+  const last = BLOCK_HP_SEGMENTS[BLOCK_HP_SEGMENTS.length - 1][0];
+  const t = Math.min(Math.max(1, tier), last);
+  let hp = BLOCK_HP_BASE * Math.pow(BLOCK_HP_GROWTH, Math.min(t, BLOCK_HP_FIRST_END) - 1);
+  let from = BLOCK_HP_FIRST_END;
+  for (const [to, growth] of BLOCK_HP_SEGMENTS) {
+    if (t > from) hp *= Math.pow(growth, Math.min(t, to) - from);
+    from = to;
+  }
+  return hp;
+}
+export const blockHp = (tier: number) => wholeHp(blockHpFloat(tier));
 export const rewardPerBlock = (tier: number) => REWARD_BASE * Math.pow(REWARD_GROWTH, tier - 1);
 
 export const countBlocks = (level: LevelDef) => level.cells.reduce((n, c) => n + (c ? 1 : 0), 0);

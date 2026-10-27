@@ -1,0 +1,2 @@
+{"position":"tier 100","buyer":"casual","hero":19,"hull":"leviathan","copies":12,"level":10,"fam":"std","est":28358,"waves":[24,24]}
+{"position":"tier 100","buyer":"builder","hero":19,"hull":"leviathan","copies":12,"level":10,"fam":"mult","est":833382,"waves":[33,32]}

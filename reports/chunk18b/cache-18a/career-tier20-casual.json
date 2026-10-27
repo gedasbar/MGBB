@@ -1,0 +1,18 @@
+{
+ "desc": "5 dmg blocks L2",
+ "kind": "casual",
+ "hull": "lancet",
+ "copies": 5,
+ "level": 2,
+ "cost": 2408,
+ "est": 65.57125116907854,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 21,
+ "ringPass": 100,
+ "ringClear": 0,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 161.4015069967707
+}

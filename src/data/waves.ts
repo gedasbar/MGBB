@@ -1,3 +1,6 @@
+import { CONFIG } from '../config';
+import { TIER_SECONDS } from '../econ/economy';
+
 /** Free Fly wave director and reward constants (chunk 10a). See docs/freefly-design.md. */
 
 /** Seconds per wave; the next wave starts on the timer whether or not this one is cleared. */
@@ -45,7 +48,23 @@ export const freeFlyRewardTier = (tier: number) => 1 + (tier - 1) * FREEFLY_REWA
 const WAVE_BONUS = 10;
 
 export const waveBudget = (wave: number) => BUDGET_BASE + BUDGET_STEP * (Math.max(1, wave) - 1);
-export const waveHpMul = (wave: number) => Math.pow(WAVE_HP_GROWTH, Math.max(1, wave) - 1);
+/**
+ * Chunk 18b (docs/difficulty-audit.md, section E): from wave WAVE_SLOW_FROM on the TOTAL HP growth per wave (this multiplier
+ * times the tier step that 40 s bring) is WAVE_SLOW_GROWTH: x1.19 up to wave 30, x1.08 up to 40, x1.06 after (today's total is about
+ * x1.44). The last entry repeats. The Frontier's Free Fly squares use the same multiplier through their wave equivalent.
+ */
+export const WAVE_SLOW_FROM = 20;
+export const WAVE_SLOW_GROWTH: readonly (readonly [number, number])[] = [[30, 1.19], [40, 1.08], [50, 1.06]];
+/** HP factor the tier gains in one wave's time. */
+export const tierStepPerWave = () => Math.pow(CONFIG.ECON.TIER_HP_GROWTH, WAVE_TIME / TIER_SECONDS);
+/** Total growth of wave `wave` over wave `wave - 1` from WAVE_SLOW_FROM on (tier step included). */
+export const slowWaveGrowth = (wave: number) => (WAVE_SLOW_GROWTH.find(([to]) => wave <= to) ?? WAVE_SLOW_GROWTH[WAVE_SLOW_GROWTH.length - 1])[1];
+export function waveHpMul(wave: number): number {
+  const w = Math.max(1, wave);
+  let mul = Math.pow(WAVE_HP_GROWTH, Math.min(w, WAVE_SLOW_FROM) - 1);
+  for (let k = WAVE_SLOW_FROM + 1; k <= w; k++) mul *= slowWaveGrowth(k) / tierStepPerWave();
+  return mul;
+}
 const isSpecialWave = (wave: number) => wave % SPECIAL_EVERY === 0;
 export type SpecialKind = 'swarm' | 'mothers' | null;
 export const specialKind = (wave: number): SpecialKind =>

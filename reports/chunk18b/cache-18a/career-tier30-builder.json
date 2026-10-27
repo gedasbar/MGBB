@@ -1,0 +1,18 @@
+{
+ "desc": "1 Flat+ L3 + 7 Percent x L4",
+ "kind": "builder",
+ "hull": "mantis",
+ "copies": 8,
+ "level": 4,
+ "cost": 7651,
+ "est": 1377.7236680600433,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 31,
+ "ringPass": 350,
+ "ringClear": 5,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 793.5177610333692
+}

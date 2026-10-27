@@ -1,0 +1,30 @@
+[
+ {
+  "position": "tier 30",
+  "buyer": "casual",
+  "hero": 11,
+  "hull": "mantis",
+  "copies": 8,
+  "level": 4,
+  "fam": "std",
+  "est": 731.1659695361269,
+  "waves": [
+   15,
+   15
+  ]
+ },
+ {
+  "position": "tier 30",
+  "buyer": "builder",
+  "hero": 11,
+  "hull": "mantis",
+  "copies": 8,
+  "level": 4,
+  "fam": "mult",
+  "est": 3272.093711642604,
+  "waves": [
+   19,
+   19
+  ]
+ }
+]

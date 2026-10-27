@@ -15,6 +15,8 @@ import { rng } from '../src/rng';
 import { SPECIES } from '../src/data/species';
 import { ENEMIES } from '../src/data/enemies';
 import { blockLockReason, buyCopy, buyUpgrade, defaultProgress, loadProgress, ProgressStore, PROGRESS_VERSION, serializeProgress } from '../src/econ/progress';
+import { tierStepPerWave, waveHpMul, WAVE_TIME } from '../src/data/waves';
+import { rockHp, tierOfTime } from '../src/econ/economy';
 
 const SEED = FRONTIER_SEED;
 const W = new FrontierWorld(SEED);
@@ -131,7 +133,7 @@ describe('Free Fly squares: encounter', () => {
   });
 });
 
-describe('Normal Free Fly is unchanged (waves 1-30)', () => {
+describe('Normal Free Fly is unchanged (waves 1-20; 18b slows it after 20)', () => {
   // Hashes taken on main before chunk 15b touched World (scratch script, same code as below).
   it('director plans', () => {
     const plans: unknown[] = [];
@@ -140,7 +142,7 @@ describe('Normal Free Fly is unchanged (waves 1-30)', () => {
   });
   it('enemy stats of a real World 10 s into each wave', () => {
     const stats: unknown[] = [];
-    for (let w = 1; w <= 30; w++) {
+    for (let w = 1; w <= 20; w++) {
       rng.reset(1);
       const world = new World({ seed: 777, startWave: w });
       world.god = true;
@@ -148,10 +150,24 @@ describe('Normal Free Fly is unchanged (waves 1-30)', () => {
       for (let i = 0; i < 600; i++) world.update(1 / 60, p);
       stats.push({ w, wave: world.wave, tier: world.tier, kills: world.kills, credits: world.creditsExact, e: world.mitosis.enemies.map(e => [e.defId, e.generation, e.hp, e.maxHp, e.armor, e.shield, e.maxShield, e.radius, Math.round(e.x * 100), Math.round(e.y * 100)]) });
     }
-    expect(fnv(JSON.stringify(stats))).toBe('09979b64a71089a9');
+    expect(fnv(JSON.stringify(stats))).toBe('d1f7ba514aba7972');
   });
   it('species and enemy data', () => {
     expect(fnv(JSON.stringify([SPECIES, ENEMIES]))).toBe('f74a8445869d7bb8');
+  });
+});
+
+describe('Free Fly HP growth (18b)', () => {
+  it('waves 1-20 keep 1.25 per wave, then the total growth per wave (tier step included) is 1.19 / 1.08 / 1.06', () => {
+    for (let w = 1; w <= 20; w++) expect(waveHpMul(w)).toBeCloseTo(Math.pow(1.25, w - 1), 9);
+    const total = (w: number) => (waveHpMul(w) / waveHpMul(w - 1)) * tierStepPerWave();
+    for (const [w, g] of [[21, 1.19], [30, 1.19], [31, 1.08], [40, 1.08], [41, 1.06], [50, 1.06], [80, 1.06]] as const) expect(total(w)).toBeCloseTo(g, 9);
+  });
+  it('rock HP at the start of wave 50 is far below the old curve', () => {
+    const hp = (w: number) => rockHp(tierOfTime((w - 1) * WAVE_TIME)) * waveHpMul(w);
+    expect(hp(20)).toBeGreaterThan(5000);
+    expect(hp(50)).toBeLessThan(2e5);
+    expect(hp(50)).toBeGreaterThan(5e4);
   });
 });
 

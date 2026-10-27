@@ -9,7 +9,8 @@
 // B) needed vs owned: DPS to pass / clear, toughest block, owned DPS, ratios (trivial > 5x, impossible < 0.5x).
 // C) how far each hull's build gets (bots, real engine).
 // D) levers other than HP.
-// E) proposed curves and the same ratio tables with them.
+// E) the 18a proposal (implemented in 18b: PART=e prints it again; its 'proposed' bot caches belong to the 18a walls).
+// F) after 18b: the bot tables of the 18a walls (reports/chunk18b/cache-18a) against the walls as they are now.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { standardBuild } from '../src/debug/hullBuilds';
 import { buildDartStarterGrid } from '../src/game/starter';
@@ -31,7 +32,7 @@ import {
 } from './lib/difficultyModel';
 import { currentRingHp, proposalParts, proposedBlockHp, proposedRingHp } from './lib/difficultyProposal';
 
-const PARTS = new Set((process.env.PART ?? 'a,b,c,d,e').split(','));
+const PARTS = new Set((process.env.PART ?? 'a,b,c,d,f').split(','));
 const OUT = process.env.OUT ?? 'docs/difficulty-audit-tables.md';
 const CACHE = 'reports/difficulty-audit';
 const FF_LIMIT = Number(process.env.FF_LIMIT ?? 2400);
@@ -328,11 +329,33 @@ function partE() {
   }));
 }
 
-// BOTS_ONLY=1 HULLS=<ids>: fly (or read from the cache) the bots of those hulls in both modes, print nothing else (parallel shells).
-if (process.env.BOTS_ONLY) { botResults('current'); botResults('proposed'); careerBots('current'); careerBots('proposed'); process.exit(0); }
+/** Chunk 18b: the bot tables of the 18a walls (cache copied to reports/chunk18b/cache-18a before the change) against the walls as they are now. */
+function partF() {
+  const OLD = 'reports/chunk18b/cache-18a';
+  const old = (file: string): BotResult | null => (existsSync(`${OLD}/${file}`) ? JSON.parse(readFileSync(`${OLD}/${file}`, 'utf8')) : null);
+  const pair = (a: number | undefined, b: number) => `${a ?? '?'} -> ${b}`;
+  out('## F. After 18b: bots on the 18a walls -> on the walls as they are now\n');
+  out('Block HP curve of the campaign (flat from tier 38 -> growing to tier 100), the Frontier (x1.015 a ring -> the campaign curve to ring 250, then x1.018 a ring, plus the cheapest-column rule), Free Fly after wave 20. Cells read 18a -> now. The builder buyer now ranks hulls with the coverage weight, so its career builds can differ from 18a.\n');
+  const res = botResults('current');
+  table(['hull', 'build', 'est. DPS', 'tier passed', 'tier cleared', 'ring passed', 'ring cleared', 'FF waves'], res.map(r => {
+    const o = old(`${r.hull}-${r.kind}.json`);
+    return [hullName(r.hull), r.kind, f1(r.est), pair(o?.tierPass, r.tierPass), pair(o?.tierClear, r.tierClear), pair(o?.ringPass, r.ringPass), pair(o?.ringClear, r.ringClear), `${o ? o.ffWaves.join('/') : '?'} -> ${r.ffWaves.join('/')}`];
+  }));
+  out('Career-matched builds (hero level included):\n');
+  const cr = careerBots('current');
+  table(['position', 'buyer', 'build', 'est. DPS', 'tier passed', 'tier cleared', 'ring passed', 'ring cleared'], cr.map(c => {
+    const o = old(`career-${c.p.label.replace(' ', '')}-${c.fam}.json`);
+    return [c.p.label, c.fam, buildText(c.entry), f1(c.entry.est), pair(o?.tierPass, c.r.tierPass), pair(o?.tierClear, c.r.tierClear), pair(o?.ringPass, c.r.ringPass), pair(o?.ringClear, c.r.ringClear)];
+  }));
+  out('Owned / needed on the new curves (hero level included; the tables of section B above are the same arithmetic on the new walls).\n');
+}
+
+// BOTS_ONLY=1 HULLS=<ids> and/or CAREER=<position>: fly (or read from the cache) the bots of those hulls in both modes, print nothing else (parallel shells).
+if (process.env.BOTS_ONLY) { if (process.env.HULLS) botResults('current'); if (process.env.CAREER) careerBots('current'); process.exit(0); }
 if (PARTS.has('a')) partA();
 if (PARTS.has('b')) partB();
 if (PARTS.has('c')) partC();
 if (PARTS.has('d')) partD();
 if (PARTS.has('e')) partE();
+if (PARTS.has('f')) partF();
 if (!process.env.NO_WRITE) writeFileSync(OUT, lines.join('\n') + '\n');

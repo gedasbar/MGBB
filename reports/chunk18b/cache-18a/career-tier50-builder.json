@@ -1,0 +1,18 @@
+{
+ "desc": "1 Flat+ L3 + 9 Percent x L7",
+ "kind": "builder",
+ "hull": "halberd",
+ "copies": 10,
+ "level": 7,
+ "cost": 34016,
+ "est": 9581.469150981673,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 100,
+ "ringPass": 500,
+ "ringClear": 250,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 11015.044133476857
+}

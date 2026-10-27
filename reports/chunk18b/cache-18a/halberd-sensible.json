@@ -1,0 +1,24 @@
+{
+ "desc": "10 dmg blocks L5",
+ "kind": "sensible",
+ "hull": "halberd",
+ "copies": 10,
+ "level": 5,
+ "cost": 18972,
+ "est": 1296.8704629118524,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 39,
+ "ringPass": 300,
+ "ringClear": 100,
+ "ffWaves": [
+  17,
+  17
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 2348.2282023681378
+}

@@ -171,7 +171,7 @@ describe('Frontier square levels', () => {
 
 describe('Campaign tiers are unchanged by the Frontier', () => {
   // Two FNV-style 32-bit hashes and the length of JSON.stringify(generateLevel(t)), taken with main's generator before
-  // chunk 15a touched it.
+  // chunk 15a touched it (tiers 50 and 100 re-taken in 18b, when the block HP curve changed; 1, 10 and 25 are the originals).
   const fnv = (s: string) => {
     let h = 0x811c9dc5;
     let g = 0x01000193 ^ 0x5bd1e995;
@@ -179,7 +179,7 @@ describe('Campaign tiers are unchanged by the Frontier', () => {
     return h.toString(16).padStart(8, '0') + g.toString(16).padStart(8, '0');
   };
   const SNAP: Record<number, [string, number]> = {
-    1: ['76e35c05da9d477e', 2618], 10: ['25429cf3fcdd20fe', 4558], 25: ['0d28f9a0b9f6baef', 9816], 50: ['e9a040401b93c773', 18776], 100: ['120e08645e947e29', 28877],
+    1: ['76e35c05da9d477e', 2618], 10: ['25429cf3fcdd20fe', 4558], 25: ['0d28f9a0b9f6baef', 9816], 50: ['26a11f92f95d473f', 18857], 100: ['fb5a11aee3bffa6b', 30160],
   };
   for (const t of [1, 10, 25, 50, 100]) {
     it(`tier ${t}`, () => {

@@ -1,4 +1,4 @@
-import { HULL_ORDER, HULLS, SizeClass } from '../data/hulls';
+import { HULL_ORDER, HULLS, hullTrait, SizeClass } from '../data/hulls';
 import { HULL_ROWS } from '../data/hullLayouts';
 import { hullAffordable } from './paletteLogic';
 import { Rect } from './layout';
@@ -62,6 +62,9 @@ export function hullSheetLines(s: HullStatLine): string[] {
     `Size ${s.size}`,
   ];
 }
+
+/** The one-line trait under the info sheet's numbers (null for a two-ejector hull). */
+export const hullTraitLine = (s: HullStatLine): string | null => hullTrait(s.ejectors);
 
 export function hullBuyLabel(s: HullStatLine, credits: number): { label: string; enabled: boolean } {
   return { label: `Buy\n${fmtBig(s.price)}`, enabled: credits >= s.price };

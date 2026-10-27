@@ -26,8 +26,18 @@ export const MAP_UNLOCK_TIER = 25;
 export const MAP_BASE_TIER = 25;
 export const MAP_TIER_PER_RING = 0.3;
 export const MAP_TIER_NOISE = 2;
-/** Block HP: blockHp(MAP_BASE_TIER) x MAP_HP_GROWTH^ring x (1 ± MAP_HP_NOISE). */
-export const MAP_HP_GROWTH = 1.015;
+/**
+ * Block HP of a ring (chunk 18b, docs/difficulty-audit.md): the campaign curve at the ring's effective tier (MAP_BASE_TIER +
+ * ring x MAP_TIER_PER_RING, so tier 100 at ring 250), then x FRONTIER_LATE_GROWTH per ring past FRONTIER_CURVE_RING, times
+ * (1 +- MAP_HP_NOISE). The audit's x1.001 let a builder pass ring 2000, so the late growth is much steeper than the audit proposed.
+ */
+export const FRONTIER_CURVE_RING = 250;
+export const FRONTIER_LATE_GROWTH = 1.018;
+/**
+ * Passing a Frontier wall must cost more than in the campaign (the audit's lane lever): the cheapest column of a Frontier wall is
+ * at least this share of the median column (the campaign's is 0.3), so there is no cheap lane through the map.
+ */
+export const MAP_MIN_COLUMN_SHARE = 1.0;
 export const MAP_HP_NOISE = 0.1;
 /** Per-square multipliers [min, max] on the campaign value at the effective tier. */
 export const MAP_ROWS_MUL: [number, number] = [0.7, 1.4];

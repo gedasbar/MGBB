@@ -15,6 +15,22 @@ import { planWave } from '../../src/game/waves';
 import { ENEMIES } from '../../src/data/enemies';
 import { WAVE_TIME, waveHpMul } from '../../src/data/waves';
 import { tierOfTime } from '../../src/econ/economy';
+import { HULL_BUILDERS } from '../../src/game/gridUtils';
+
+/**
+ * Chunk 18b: coverage. A wall is 21 columns wide and a one-ejector hull must sweep it, so raw DPS overstates it (18a: a Shuttle
+ * builder with an 86K estimate cleared tier 53, a Halberd builder with 5.3K cleared 99). The builder buyer ranks builds by
+ * estimate x this weight; the casual buyer stays on the raw estimate. Weights are read off the 18a bot tables.
+ */
+export const COVERAGE_WEIGHT: Record<number, number> = { 1: 0.1, 2: 0.4 };
+const ejectorCache = new Map<string, number>();
+export function ejectorsOf(hull: string): number {
+  if (!ejectorCache.has(hull)) ejectorCache.set(hull, HULL_BUILDERS[hull]().cells.filter(c => c.type === 'ejector').length);
+  return ejectorCache.get(hull)!;
+}
+export const coverageOf = (hull: string) => COVERAGE_WEIGHT[ejectorsOf(hull)] ?? 1;
+/** What the builder buyer ranks by. */
+export const scoreOf = (e: { hull: string; est: number }) => e.est * coverageOf(e.hull);
 
 // ------------------------------------------------------------------ assumptions of the buyer model
 /** Runs the player makes per campaign tier before moving on, and the share of a wall each run destroys (balance-damage part C). */
@@ -249,7 +265,8 @@ export function buildCatalogue(): Entry[] {
 
 /** The best entry the budget buys at a hero level, from the sensible family only ('std', a casual builder) or both ('any', a player who stacks Percent x): hero 0 ranks everything, the 60 best at hero 0 are re-estimated with the hero's base damage. */
 export function bestOwned(budget: number, hero = 0, family: 'std' | 'any' = 'any'): Entry | null {
-  const cands = buildCatalogue().filter(e => e.cost <= budget && (family === 'any' || e.fam === 'std')).sort((a, b) => b.est - a.est);
+  const rank = family === 'std' ? (e: Entry) => e.est : scoreOf;
+  const cands = buildCatalogue().filter(e => e.cost <= budget && (family === 'any' || e.fam === 'std')).sort((a, b) => rank(b) - rank(a));
   if (!cands.length) return null;
   if (!hero) return cands[0];
   let best: Entry | null = null;
@@ -257,7 +274,7 @@ export function bestOwned(budget: number, hero = 0, family: 'std' | 'any' = 'any
     const g = gridOfEntry(e);
     if (!g) continue;
     const est = compile(g, { baseDamage: heroDamage(hero) }).stats.estDps;
-    if (!best || est > best.est) best = { ...e, est };
+    if (!best || rank({ ...e, est }) > rank(best)) best = { ...e, est };
   }
   return best;
 }

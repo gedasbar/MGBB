@@ -132,6 +132,8 @@ export interface WallSpec {
   spike: boolean;
   /** Campaign tier: its results count toward the campaign progress. */
   campaign?: boolean;
+  /** Cheapest column as a share of the median one (default MIN_COLUMN_SHARE, the campaign's rule; the Frontier asks for more, chunk 18b). */
+  minColumnShare?: number;
 }
 
 /** The campaign tier's spec: exactly the numbers generateLevel always used. */
@@ -189,7 +191,7 @@ export function buildWall(spec: WallSpec): LevelDef {
   const colCount = (c: number) => { let n = 0; for (let r = 0; r < h; r++) if (mask[r * WALL_COLS + c]) n++; return n; };
   const counts = Array.from({ length: WALL_COLS }, (_, c) => colCount(c));
   const median = [...counts].sort((x, y) => x - y)[Math.floor(WALL_COLS / 2)];
-  const minCount = Math.max(1, Math.ceil(median * MIN_COLUMN_SHARE));
+  const minCount = Math.max(1, Math.ceil(median * (spec.minColumnShare ?? MIN_COLUMN_SHARE)));
   for (let c = 0; c < WALL_COLS; c++) {
     const need = minCount - counts[c];
     if (need <= 0) continue;

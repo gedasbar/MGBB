@@ -7,7 +7,7 @@ import { CATEGORY_COLOR } from './draw';
 import { shipThumbnail, TextureMaker } from '../ui/shipArt';
 import { HULL_ROWS } from '../data/hullLayouts';
 import {
-  hullBuyLabel, hullBuyRect, hullContentH, HULL_PANEL, HULL_TITLE_H, hullListRect, hullRowRects, hullRows, HullRow, hullSheetLines, hullSheetRect, hullSummary,
+  hullBuyLabel, hullBuyRect, hullContentH, HULL_PANEL, HULL_TITLE_H, hullListRect, hullRowRects, hullRows, HullRow, hullSheetLines, hullSheetRect, hullSummary, hullTraitLine,
 } from './hullPickerLogic';
 import { clampScroll, scrollToReveal } from './paletteLogic';
 
@@ -167,6 +167,9 @@ export class HullPicker {
     price.position.set(s.x + s.w - 14, s.y + 12);
     const lines = makeText(hullSheetLines(row).join('\n'), 16, THEME.text, { lineHeight: 26 });
     lines.position.set(s.x + 14, s.y + 48);
+    const traitText = hullTraitLine(row);
+    const trait = traitText ? makeText(traitText, 15, THEME.textDim) : null;
+    trait?.position.set(s.x + 14, s.y + 182);
     const preview = new Graphics();
     this.drawLayoutPreview(preview, row.id, { x: s.x + 232, y: s.y + 44, w: s.w - 232 - 14, h: 130 });
     const b = hullBuyRect();
@@ -176,6 +179,7 @@ export class HullPicker {
     label.anchor.set(0.5);
     label.position.set(b.x + b.w / 2, b.y + b.h / 2);
     this.sheetC.addChild(bg, title, price, lines, preview, btn, label);
+    if (trait) this.sheetC.addChild(trait);
     if (row.dot) this.sheetC.addChild(new Graphics().circle(b.x + b.w - 14, b.y + 14, DOT_R).fill(THEME.currency));
   }
 

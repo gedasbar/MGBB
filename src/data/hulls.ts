@@ -89,3 +89,18 @@ export function sizeClassOf(hullId?: string): SizeClass {
 export function hitRadiusOf(hullId?: string): number {
   return SIZE_CLASSES[sizeClassOf(hullId)].hitRadius;
 }
+
+/**
+ * Chunk 18b: the one-line trait the hull picker shows for hulls at the two ends of the coverage scale (docs/difficulty-audit.md: a
+ * wall is 21 columns wide and a one-ejector hull must sweep it). Hulls in between (2 ejectors) get no trait line.
+ */
+export const SINGLE_LANE_EJECTORS = 1;
+export const WIDE_COVERAGE_EJECTORS = 3;
+export const SINGLE_LANE_TRAIT = 'Single lane: strong on one target, slow to clear wide walls';
+export const WIDE_COVERAGE_TRAIT = 'Wide coverage: clears walls fast';
+/** The trait line of a hull with this many ejectors, or null. */
+export function hullTrait(ejectors: number): string | null {
+  if (ejectors <= SINGLE_LANE_EJECTORS) return SINGLE_LANE_TRAIT;
+  if (ejectors >= WIDE_COVERAGE_EJECTORS) return WIDE_COVERAGE_TRAIT;
+  return null;
+}

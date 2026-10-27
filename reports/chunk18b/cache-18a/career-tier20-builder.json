@@ -1,0 +1,18 @@
+{
+ "desc": "1 Flat+ L2 + 4 Percent x L2",
+ "kind": "builder",
+ "hull": "lancet",
+ "copies": 5,
+ "level": 2,
+ "cost": 2639,
+ "est": 103.33499063824178,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 27,
+ "ringPass": 150,
+ "ringClear": 5,
+ "ffWaves": [],
+ "ffDied": [],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 446.00215285252955
+}

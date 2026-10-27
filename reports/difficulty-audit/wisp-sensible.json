@@ -6,10 +6,10 @@
  "level": 2,
  "cost": 1322,
  "est": 33.342750701447116,
- "tierPass": 53,
- "tierPassFail": "54 Slab",
+ "tierPass": 45,
+ "tierPassFail": "46 Arrow",
  "tierClear": 12,
- "ringPass": 100,
+ "ringPass": 25,
  "ringClear": 0,
  "ffWaves": [
   9,
@@ -19,6 +19,6 @@
   true,
   true
  ],
- "needPassAtReach": 42.034047226798464,
+ "needPassAtReach": 113.6696340257171,
  "needClearAtReach": 38.286329386437025
 }

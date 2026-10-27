@@ -1,7 +1,7 @@
 // Chunk 18a: the difficulty audit's model (scripts/lib/difficultyModel.ts, difficultyProposal.ts). These test the arithmetic the
 // audit's tables stand on; the tables themselves are measurements (npm run difficulty-audit).
 import { describe, expect, it } from 'vitest';
-import { bestOwned, budgetAt, buildCatalogue, campaignNeeds, flyNeeds, gridCost, heroLevelFor, incomeAt, medalsAt, ratioText, wallNeeds } from '../scripts/lib/difficultyModel';
+import { bestOwned, budgetAt, coverageOf, ejectorsOf, scoreOf, buildCatalogue, campaignNeeds, flyNeeds, gridCost, heroLevelFor, incomeAt, medalsAt, ratioText, wallNeeds } from '../scripts/lib/difficultyModel';
 import { currentFlyHp, currentRingHp, proposedBlockHp, proposedFlyHp, proposedRingHp, referenceDps, PROPOSED } from '../scripts/lib/difficultyProposal';
 import { standardBuild } from '../src/debug/hullBuilds';
 import { buildDartStarterGrid } from '../src/game/starter';
@@ -66,14 +66,27 @@ describe('what a buyer owns', () => {
       const o = bestOwned(budget);
       expect(o).not.toBeNull();
       expect(o!.cost).toBeLessThanOrEqual(budget);
-      expect(o!.est).toBeGreaterThanOrEqual(last);
-      last = o!.est;
+      expect(scoreOf(o!)).toBeGreaterThanOrEqual(last);
+      last = scoreOf(o!);
     }
   });
   it('the builder family is at least as strong as the casual family, and strictly stronger with money', () => {
-    expect(bestOwned(2e5)!.est).toBeGreaterThanOrEqual(bestOwned(2e5, 0, 'std')!.est);
-    expect(bestOwned(2e5)!.est).toBeGreaterThan(2 * bestOwned(2e5, 0, 'std')!.est);
+    expect(scoreOf(bestOwned(2e5)!)).toBeGreaterThanOrEqual(scoreOf(bestOwned(2e5, 0, 'std')!));
+    expect(scoreOf(bestOwned(2e5)!)).toBeGreaterThan(2 * scoreOf(bestOwned(2e5, 0, 'std')!));
     expect(buildCatalogue().some(e => e.fam === 'mult')).toBe(true);
+  });
+});
+
+describe('coverage weight (18b)', () => {
+  it('counts ejectors and weighs one-ejector hulls down', () => {
+    expect(ejectorsOf('shuttle')).toBe(1);
+    expect(ejectorsOf('halberd')).toBe(3);
+    expect(coverageOf('shuttle')).toBeLessThan(coverageOf('corvette'));
+    expect(coverageOf('corvette')).toBeLessThan(coverageOf('halberd'));
+    expect(coverageOf('halberd')).toBe(1);
+  });
+  it('the builder no longer picks a one-ejector hull at tier 75 money', () => {
+    expect(ejectorsOf(bestOwned(220_000)!.hull)).toBeGreaterThan(1);
   });
 });
 
@@ -97,10 +110,9 @@ describe('proposed curves (not wired into the game)', () => {
   it('leave the first 30 tiers exactly as they are (small numbers early)', () => {
     for (let t = 1; t <= 30; t++) expect(proposedBlockHp(t)).toBe(blockHp(t));
   });
-  it('keep growing to tier 100 and are whole numbers', () => {
+  it('are what 18b put into the game (campaign curve)', () => {
     let last = 0;
-    for (let t = 30; t <= 100; t++) { const hp = proposedBlockHp(t); expect(hp).toBeGreaterThanOrEqual(last); expect(Number.isInteger(hp)).toBe(true); last = hp; }
-    expect(proposedBlockHp(100)).toBeGreaterThan(blockHp(100) * 10);
+    for (let t = 1; t <= 100; t++) { const hp = proposedBlockHp(t); expect(hp).toBe(blockHp(t)); expect(hp).toBeGreaterThanOrEqual(last); last = hp; }
   });
   it('the Frontier curve joins the campaign curve at the end of the campaign, and Free Fly is unchanged up to the first changed wave', () => {
     expect(proposedRingHp(PROPOSED.frontierPastRing)).toBeCloseTo(proposedBlockHp(100), 0);

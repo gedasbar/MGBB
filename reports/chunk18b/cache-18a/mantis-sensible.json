@@ -1,0 +1,24 @@
+{
+ "desc": "8 dmg blocks L4",
+ "kind": "sensible",
+ "hull": "mantis",
+ "copies": 8,
+ "level": 4,
+ "cost": 7354,
+ "est": 450.5185556720439,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 29,
+ "ringPass": 150,
+ "ringClear": 5,
+ "ffWaves": [
+  14,
+  14
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 573.1194833153928
+}

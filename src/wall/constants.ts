@@ -52,7 +52,7 @@ export const MAX_CAMERA_SPEED = 420;
 export const CAMERA_EASE = 14;
 
 /**
- * Block HP at tier T: BLOCK_HP_BASE x BLOCK_HP_GROWTH^(min(T, BLOCK_HP_GROWTH_END) - 1), a whole number. Chunk 14a: base 2
+ * Block HP at tier T: BLOCK_HP_BASE x BLOCK_HP_GROWTH^(T - 1) up to BLOCK_HP_FIRST_END, then the segments below, a whole number. Chunk 14a: base 2
  * against the basic shot's 1 (it was 100 against Flat+'s 101), +13% a tier up to tier 38 and flat after it (it was +5.5% a
  * tier all the way). npm run balance-damage: the DPS a player can own climbs fast until the Fan / Shuttle and L3-L5 blocks
  * (about tier 35-45) and then stops (every block at L5); with +5.5% the middle tiers were 4-9x too easy and tier 100 needed
@@ -60,7 +60,13 @@ export const CAMERA_EASE = 14;
  */
 export const BLOCK_HP_BASE = 2;
 export const BLOCK_HP_GROWTH = 1.13;
-export const BLOCK_HP_GROWTH_END = 38;
+/**
+ * Chunk 18b (docs/difficulty-audit.md, section E): the growth per tier after tier BLOCK_HP_FIRST_END, as segments [last tier of the
+ * segment, growth per tier]. Tiers 1..BLOCK_HP_FIRST_END keep BLOCK_HP_GROWTH exactly; HP no longer stops growing at tier 38, and
+ * stays flat after the last segment (tier 100). Tier 100: about 3.4K.
+ */
+export const BLOCK_HP_FIRST_END = 30;
+export const BLOCK_HP_SEGMENTS: readonly (readonly [number, number])[] = [[40, 1.06], [60, 1.065], [100, 1.0525]];
 /** Rows of a wall: WALL_ROWS_FIRST at tier 1 growing linearly to WALL_ROWS_LAST at tier 100 (chunk 14a: was 8 at tier 1). */
 export const WALL_ROWS_FIRST = 4;
 export const WALL_ROWS_LAST = 41;

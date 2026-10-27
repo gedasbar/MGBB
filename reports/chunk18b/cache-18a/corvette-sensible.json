@@ -1,0 +1,24 @@
+{
+ "desc": "6 dmg blocks L6",
+ "kind": "sensible",
+ "hull": "corvette",
+ "copies": 6,
+ "level": 6,
+ "cost": 33734,
+ "est": 309.0676696851682,
+ "tierPass": 100,
+ "tierPassFail": "none",
+ "tierClear": 29,
+ "ringPass": 150,
+ "ringClear": 10,
+ "ffWaves": [
+  14,
+  14
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 342.3106457242583,
+ "needClearAtReach": 573.1194833153928
+}

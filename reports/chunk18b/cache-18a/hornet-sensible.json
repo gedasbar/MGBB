@@ -1,0 +1,24 @@
+{
+ "desc": "5 dmg blocks L3",
+ "kind": "sensible",
+ "hull": "hornet",
+ "copies": 5,
+ "level": 3,
+ "cost": 3212,
+ "est": 44.24690339046262,
+ "tierPass": 53,
+ "tierPassFail": "54 Slab",
+ "tierClear": 12,
+ "ringPass": 100,
+ "ringClear": 0,
+ "ffWaves": [
+  10,
+  10
+ ],
+ "ffDied": [
+  true,
+  true
+ ],
+ "needPassAtReach": 42.034047226798464,
+ "needClearAtReach": 38.286329386437025
+}
