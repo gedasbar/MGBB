@@ -93,7 +93,7 @@ Career-matched builds:
 Free Fly (waves, two seeds): casual Leviathan 24 -> 25, builder Leviathan 33/32 -> 45/45, builder Halberd (tier 75) 28 -> 35, others unchanged (see audit section 9.3).
 
 ## E2E
-Full run (29 scripts): 27 passed. `campaign` and `mitosis-blocks` failed in the full run and passed when run alone; `campaign` fails intermittently on the untouched main source too (2 of 4 runs with `src/` checked out from origin/main, 2 of 4 with the new source), so it is not new. No baseline run was made before the change (see DECISIONS 313). The e2e scripts overwrote old report images; they were restored (`git checkout -- reports`) and new old-chunk images deleted.
+Full run (29 scripts): 27 passed. `campaign` and `mitosis-blocks` failed in the full run and passed when run alone; `campaign` fails intermittently on the untouched main source too (3 of 4 runs with `src/` checked out from origin/main, 2 of 4 with the new source), so it is not new. No baseline run was made before the change (see DECISIONS 313). The e2e scripts overwrote old report images; they were restored (`git checkout -- reports`) and new old-chunk images deleted.
 
 ## Deviations
 - Frontier casual pass 350 (brief: about 300); Free Fly best builder 45 (brief: 40). The constants of the brief were kept for Free Fly; for the Frontier the constants are mine (1.018 and share 1.0).
