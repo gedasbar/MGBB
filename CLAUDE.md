@@ -6,7 +6,7 @@ The owner is not a programmer. They test in the browser and describe what they s
 
 ## Stack and commands
 - TypeScript (strict), Vite, PixiJS v8, Vitest, Playwright (headless Chromium, scripts in `e2e/*.cjs`).
-- Check `package.json` for exact script names. Typical: `npm run dev`, `npx tsc --noEmit`, `npm test` (= `npx vitest run`), `npm run test:e2e` (quick smoke set of browser scripts, needs `npm run dev` running), `npm run test:e2e:all` (every `e2e/*.e2e.cjs`, runner `scripts/run-e2e.cjs`), `node e2e/<name>.e2e.cjs`, `npm run balance-wall`, `npm run balance-econ`, `npm run balance-damage` (7 min; `PART=a|b|c|d`, `QUICK=1`), `scripts/block-audit.ts`.
+- Check `package.json` for exact script names. Typical: `npm run dev`, `npx tsc --noEmit`, `npm test` (= `npx vitest run`), `npm run test:e2e` (quick smoke set of browser scripts, needs `npm run dev` running), `npm run test:e2e:all` (every `e2e/*.e2e.cjs`, runner `scripts/run-e2e.cjs`), `node e2e/<name>.e2e.cjs`, `npm run balance-wall`, `npm run balance-econ`, `npm run balance-damage` (7 min; `PART=a|b|c|d`, `QUICK=1`), `npm run difficulty-audit` (content vs what a player owns, `docs/difficulty-audit.md`; about 1 min from the committed bot cache in `reports/difficulty-audit/`, `FORCE=1` flies the bots again, about 40 min), `scripts/block-audit.ts`.
 - Never run `playwright install` (Chromium is preinstalled). npm and pip work; most other network access does not.
 - Dev URL flags: `?debug=1` (debug panel, seam line), `?stats=0|1` (stats overlay, also toggled with the backtick key), `?bg=<id>|off` (force or remove the background). Dev hook: `window.__mgbm`.
 

@@ -2,7 +2,7 @@
 
 The living plan for Mitosis Gun Builder: how we work, what the design is trying to be, what was decided and why, and what comes next. Any new planning chat or agent should read this first, then `CLAUDE.md` (current state of the code) and `DECISIONS.md` (numbered implementation decisions).
 
-Last updated: 2026-10-26, after chunk 17b (block interactions). `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
+Last updated: 2026-10-27, after chunk 18a (difficulty audit, read-only; 17b before it was block interactions). `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
 
 ---
 
@@ -53,7 +53,7 @@ From the owner's playtests and audits, most important first:
 3. **Hull layouts have no soul.** The 14 new layouts are shapes without a design intent; there is no "best route" or puzzle idea. Each hull needs an idea sentence and a layout drawn to serve it (bottlenecks, corridors, chambers, far-apart ejectors, pockets).
 4. **Hull art is just the layout.** The newer hulls' art is generated from the grid. Needs real silhouettes (after an approved concept sheet).
 5. ~~**Caps too tight for big hulls.**~~ **Done (17b):** Splitters 15 (growth 1.35 / 1.45), Turns 20 (growth 1.20). Original text: Splitters (2 and 1) and turns (8) were capped when hulls had at most 3 ejectors. Owner wants splitters capped at 15 with a steeper price per copy, and more turns.
-6. **Content difficulty.** Walls and the Frontier do not keep up with multiplier builds (the bot passed tier 100 with a Trident). Frontier HP grows only 1.5% per ring.
+6. **Content difficulty.** Walls and the Frontier do not keep up with multiplier builds (the bot passed tier 100 with a Trident). Frontier HP grows only 1.5% per ring. **Audited in 18a (`docs/difficulty-audit.md`, proposal not applied):** passing is free from the 8th hull; block HP is flat from tier 38 so a casual buyer at tier 60 already clears all 100 tiers; the multiplier line is x1.7 to x32 over the sensible build; the Frontier's 1.5% a ring outgrows every build around ring 200; Free Fly waves grow x1.44 a wave. Next: the owner's answers to the 8 questions there, then a tuning chunk (18b).
 7. **Early game.** A Dart with one Flat+ can pass up to tier 22 without buying anything. Owner finds it acceptable for now; the hull ladder adds purchase goals.
 8. ~~**Homing, Orbit, Mine**~~ **Done (17b):** a copy now gives a longer seek range, one more orbit pass, one more mine (up to 3 extra). Original text: they gain nothing measurable from extra copies on the bench; they are uncapped, which is a trap in the Shop.
 9. ~~**Code mess.**~~ **Done (chunk 17-cleanup):** one hull layout file with a plain-language validator, dead stub files and dead exports removed, every e2e script passes, root and reports tidied, `docs/EDITING.md` for the data files you edit by hand. Biggest files still to split someday are listed in `reports/chunk17-cleanup/REPORT.md`.
@@ -86,7 +86,7 @@ Next, in order:
 2. ~~**17b, interactions:**~~ (done) the trigger rules above, the pair audit, AoE + Fork both working, the AoE penalty shown in the estimate and the block info, splitter cap 15 and more turns with steeper copy prices, Homing/Orbit/Mine stacking decided (give copies a real effect or cap 1).
 3. **Hull redesign:** an idea sentence per hull (planning chat drafts, owner edits or redraws layouts), then layouts rebuilt. Owner may draw layouts directly in the data file.
 4. **Ship art:** concept sheet first, then real silhouettes for all 19 hulls.
-5. **Content difficulty:** audit first (needed vs attainable damage by tier and ring), then faster HP growth late in the campaign and the Frontier.
+5. **Content difficulty:** ~~audit~~ (done, 18a: `docs/difficulty-audit.md`, `npm run difficulty-audit`); next the tuning chunk 18b once the owner has answered the audit's questions (HP curve first, then the Frontier formula and Free Fly growth, rerun the audit with `FORCE=1`).
 6. **New block batch** (owner's list): Curve Left, projectile speed up / slow, pull towards the ship's centre line, turn upwards after a delay, align direction of travel, ship magnet, double lifetime, persist while damage is left, reverse on hit, straight-line spread ejectors (left, right, wide forward).
 
 ### Backlog (parked)
