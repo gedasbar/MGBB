@@ -10,7 +10,9 @@ import { CATEGORY_COLOR, THEME } from '../ui/theme';
 import { HIT_CLOUD } from '../engine/projectiles';
 import { fmtBig, fmtDamage } from '../ui/format';
 import { makeText } from '../builder/ui';
-import { getProgressStore } from '../econ/progress';
+import { getProgressStore, RunResult } from '../econ/progress';
+import { shotLookFor, SHOT_LOOKS } from '../ui/shotLook';
+import { ShotTextures, shotTextures } from '../ui/shotTextures';
 import { debugHooks } from '../debug/hooks';
 import { RunSummaryScreen, fmtTime, CaptainSummary } from './RunSummaryScreen';
 import { KillBanker } from '../captains/state';
@@ -29,7 +31,7 @@ import { FREEFLY_PASS_SHARE, FRONTIER_NAME, PROGRESS_COLOR } from '../frontier/c
 import { FrontierScreen } from './FrontierScreen';
 import { BuildScreen } from './BuildScreen';
 import { RESULT_DELAY_CLEARED, RESULT_DELAY_FAILED } from '../wall/constants';
-import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_WAIT, PHASE_MINE_TRAVEL, PHASE_ORBIT } from '../engine/projectiles';
+import { ARC_MAX, PHASE_NORMAL, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_WAIT, PHASE_MINE_TRAVEL, PHASE_ORBIT } from '../engine/projectiles';
 
 /** Status tints of a rock: burning is a redder orange, frozen a pale blue. */
 const BURN_COLOR = 0xff4a1a;
@@ -71,6 +73,7 @@ export class FlyScreen implements Screen {
   hullBarFg = new Graphics().rect(0, 0, 100, 10).fill(0x00ff00);
   
   projSprites: Sprite[] = [];
+  private shotTex!: ShotTextures;
   enemySprites = new Map<number, RockView>();
   fragments = new FragmentPool();
   /** One fragment pool per species look (the basic rock's is `fragments`), made on first use. */
@@ -173,6 +176,7 @@ export class FlyScreen implements Screen {
       this.uiLayer.addChild(this.timeBarBg, this.timeBarFg);
     }
 
+    this.shotTex = shotTextures(this.screenManager.app);
     for (let i = 0; i < this.world.pool.max; i++) {
       const s = new Sprite(Texture.WHITE);
       s.width = 6;
@@ -398,8 +402,12 @@ export class FlyScreen implements Screen {
           s.tint = MINE_COLOR;
           s.rotation = Math.PI / 4;
         } else {
-          s.width = 6 * pool.size[i];
-          s.height = 14 * pool.size[i];
+          // Chunk 21a: a shot in plain flight is drawn by its damage band (ui/shotLook.ts); Orbit, Boomerang and Mine shots keep the plain bar.
+          const look = ph === PHASE_NORMAL ? shotLookFor(pool.damage[i]) : SHOT_LOOKS[0];
+          const tex = look.bolt ? this.shotTex.bolt : this.shotTex.bar;
+          if (s.texture !== tex) s.texture = tex;
+          s.width = look.w * pool.size[i];
+          s.height = look.h * pool.size[i];
           s.tint = ph === PHASE_ORBIT || ph === PHASE_BOOM_OUT || ph === PHASE_BOOM_BACK ? LOOP_COLOR : ph === PHASE_MINE_TRAVEL ? MINE_COLOR : 0x00ffff;
           s.rotation = Math.atan2(pool.vy[i], pool.vx[i]) + Math.PI / 2;
         }
@@ -500,7 +508,7 @@ export class FlyScreen implements Screen {
       name: CAPTAIN_BY_ID[id]?.name ?? id, killsAdded: this.banker.added, killsTotal: store.data.captains.heroes[id]?.kills ?? 0,
       medals: paid.medals, doubled: paid.doubled,
     };
-    const result = { credits: w.credits, kills: w.kills, time: w.time, tier: w.tier };
+    const result: RunResult = { credits: w.credits, kills: w.kills, time: w.time, tier: w.tier, shots: { ...w.projSys.runStats } };
     sm.switchTo(new RunSummaryScreen(sm, result, { newBestTier: false, newBestTime: false, newBestEarnings: paid.newBestEarnings }, {
       result: this.outcome!, destroyed: 0, total: 0, medal: paid.medals > 0,
       encounter: { duration: opts.frontier!.params.duration, kills: w.kills },

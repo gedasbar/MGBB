@@ -56,6 +56,9 @@ export interface EnemyEntity extends EnemyStats {
 
 /** How a hit reached the callback: a projectile hit, a burn tick or a chain jump. */
 export const HIT_NORMAL = 0;
+
+/** The two numbers of a run's summary (chunk 21a). */
+export interface RunStats { bestShot: number; totalDamage: number }
 export const HIT_BURN = 1;
 export const HIT_CHAIN = 2;
 /** A Static Charge pulse (a normal hit with its own number) and a Residue Seed cloud tick (a quiet tick, like a burn). */
@@ -204,6 +207,8 @@ export class ProjectileSystem {
   readonly arcT = new Float32Array(ARC_MAX);
   private arcNext = 0;
 
+  /** Chunk 21a: what the run summary shows. `bestShot` = the largest single hit (any source), `totalDamage` = the damage of every hit and cloud tick, as the hit pipeline counts it (burn ticks are not counted). */
+  readonly runStats: RunStats = { bestShot: 0, totalDamage: 0 };
   readonly fx: EffectCounters = {
     chainJumps: 0, boomerangReturns: 0, orbitLaunches: 0, mineDetonations: 0, mineExpired: 0, igniteApplied: 0, burnTicks: 0,
     corrosionStrips: 0, freezeApplied: 0, frozenBonusHits: 0, executionerHits: 0,
@@ -938,6 +943,7 @@ export class ProjectileSystem {
       this.leftFrac = d > 0 && need < d ? 1 - need / d : 0;
     }
     const res = applyDamage(t, d, pure, tier, armorPierce, shieldBreaker);
+    this.noteDamage(d);
     if (this.onHit) this.onHit(t, res.hpDamage, x, y, kind);
     this.afterHit(t, res.killed, d, mi, kind);
     if (t.hp > 0) {
@@ -947,6 +953,7 @@ export class ProjectileSystem {
       if (mi.staticCharge && this.staticCount(t)) {
         const extra = d * staticFrac(mi.staticCharge);
         const r2 = applyDamage(t, extra, pure, tier, armorPierce, shieldBreaker);
+        this.noteDamage(extra);
         this.fx.staticPulses++;
         if (this.onHit) this.onHit(t, r2.hpDamage, x, y, HIT_PULSE);
         this.afterHit(t, r2.killed, extra, mi, HIT_PULSE);
@@ -955,6 +962,14 @@ export class ProjectileSystem {
     }
     if (mi.corrosion && t.armor > 0) this.corrode(t, mi.corrosion);
     return res;
+  }
+
+  /** Run statistics (chunk 21a): a hit that is not a number or not positive counts for nothing; the total never overflows to Infinity. */
+  private noteDamage(d: number) {
+    if (!(d > 0)) return;
+    const st = this.runStats;
+    if (d > st.bestShot) st.bestShot = Math.min(d, Number.MAX_VALUE);
+    st.totalDamage = Math.min(Number.MAX_VALUE, st.totalDamage + d);
   }
 
   /**
@@ -1040,6 +1055,7 @@ export class ProjectileSystem {
         for (const c of buf) {
           if (c.hp <= 0) continue;
           const res = applyDamage(c, this.cloudD[k], 0, tier);
+          this.noteDamage(this.cloudD[k]);
           this.fx.residueTicks++;
           if (this.onHit) this.onHit(c, res.hpDamage, c.x, c.y, HIT_CLOUD);
         }
