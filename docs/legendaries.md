@@ -57,7 +57,17 @@ Reaching = a passed or cleared square at that ring or beyond in that direction (
 
 ## 4. Price
 
-A legendary costs Medals AND credits: **15 Medals + 50K credits** (ring 100), **25 + 200K** (ring 200), **40 + 800K** (ring 300). Both must be affordable for the Buy button and for the yellow dot; the info sheet shows both. Buying takes both. The credit price was checked against the economy model: see the report (`reports/chunk20a/REPORT.md`) for the final numbers and the reasoning.
+A legendary costs Medals AND credits: **15 Medals + 8K credits** (ring 100), **25 Medals + 65K** (ring 200), **40 Medals + 300K** (ring 300). Both must be affordable for the Buy button and for the yellow dot; the info sheet shows both ("Buy +1 / 8K + 15 Medals"). Buying takes both, and takes nothing when one is short. The prices are `LEGENDARY_PRICE_BY_RING` in `src/data/blockEconomy.ts` (a test keeps the ring of each block's unlock and its price row in step).
+
+**How the credit price was set.** The brief's first guess was 50K / 200K / 800K, "about 3-6 runs of income at the point a player reaches that ring". `npx vite-node scripts/legendary-prices.ts` (`reports/chunk20a/prices.md`) measures it with the model of the difficulty audit (3 runs per wall, each destroying half of it; the credits of a Frontier wall at that ring):
+
+| ring | effective tier | credits of one run | first guess in runs | final price | in runs | share of the credits banked on arrival | Medals on arrival (upper bound) |
+|---|---|---|---|---|---|---|---|
+| 100 | 55 | 1.6K | 30 | 8K | 4.9 | 14% | 86 |
+| 200 | 85 | 13.4K | 15 | 65K | 4.9 | 16% | 141 |
+| 300 | 115 | 62K | 13 | 300K | 4.8 | 11% | 182 |
+
+The first guess was 13-30 runs, far outside the 3-6 the brief asked for, so the credit prices follow the model (about 5 runs each). The Medals are unchanged (15 / 25 / 40): the Frontier pays 0.25 Medals a ring in the model, so the 25 Medals of a ring-200 legendary are about what the 100 rings between ring 100 and ring 200 pay; the Medals are the slower currency and the real gate. Nobody has played these numbers (see "Not verified" in the report).
 
 ## 5. Save
 
@@ -70,3 +80,26 @@ The save shape does not change. Legendaries are ordinary entries of `owned` (cap
 - **Lone Shot, Rebound and the estimate.** Their bonuses depend on the state of the run, so the builder's estimate shows x1 for both. The real damage is in the Gun.
 - **Waypoint counts blocks, not curved flight.** "Turn or curve block" is read as the four blocks Turn Left, Turn Right, Curving Right and Random Curve.
 - **Fuse charge count** is skipped.
+
+## 7. The audit (`npm run interaction-audit`, `docs/interaction-audit.md`)
+
+The audit now covers 36 blocks (the 24 shape and effect blocks plus the twelve legendaries), 1,260 ordered pairs, on the Fan's middle column behind a Flat+ (Frontier Echo is flown with a furthest ring of 100). New counters on `projSys.fx` prove each effect happened: `lastBreathHits`, `zigzagFlips`, `loneBoosts`, `reboundBonuses`, `mirrorClones`, `fuseEmits`; the six blocks that only change the compiled damage have none.
+
+**Result: 1,140 OK, 120 CANCELS, 0 EXPLODES.** The 44 older flagged pairs are the same 44 as after 19a (no old pair changed); 76 pairs are new. Nothing explodes (most shots alive at once in the audit: under the 1,000 limit; the slowest 90th percentile step is under the 4 ms line). Nothing in the engine was changed to remove a CANCELS: each of the 76 has a reason that is the design of the block, not a bug. The reasons:
+
+| pairs | block | why it is flagged | verdict |
+|---|---|---|---|
+| 42 | **Fuse** with 21 partners | A Fuse fires one shot in ten, with 20x the damage of one. The audit sizes its targets from a plain Flat+ gun, so the one big shot overkills a target many times over and a half-run has only a few shots: "Ignite / Frostbite / Static Charge / Executioner / Fission Catalyst never happens" and "22% of Payload alone". Fuse and Capacitor are damage concentrators: their gain is against a target with a lot of HP (a wall block of thousands), which the bench does not have. Rerunning nine blocks (Fuse, Payload, Ignite, Boomerang, Orbit, Static Charge, Cauterize, Hollow Core, Piercing) at 40 s per half-run instead of 6 s: Fuse + Piercing and Fuse + Orbit were no longer flagged; Fuse + Payload (26%), Ignite, Static Charge, Boomerang (80%), Cauterize (83%) and Hollow Core (44%) still were, so the short run is part of it and the overkill is the rest. | by design (bench artefact) |
+| 18 | **Hollow Core** with 18 partners | Every block placed next to it takes one empty cell away: on the Fan 70 cells become 69 and the shot's damage 16 becomes 15.8 (-1.3%, the block's design: build lean). The bench's targets die in a whole number of hits, and at this damage the -1.3% costs one extra hit on some targets, which shows as "93% of the better block alone". Checked: Hollow Core alone against Ignite + Hollow Core at five target HPs (x0.9 ... x1.1): the ratio is 0.933 at x1.0 and exactly 1.000 at the other four. Partners that add a visible effect hide it. | bench artefact (quantisation) |
+| 8 | **Zigzag** with Homing, Boomerang, Orbit, Payload | Boomerang 60%, Homing 91%, Orbit 94%, Payload 93%. Probably the weave: it costs hits on narrow targets, and its +5% a change needs a longer flight than the bench's 200-450 px to pay. Not investigated further (the Payload 93% could be the same whole-hits effect as Hollow Core's). | not established; no pair loses an effect (Zigzag's own counter is above 0 in all of them) |
+| 8 | **Frontier Echo / Payload / Idle Barrels** with Static Charge or Executioner | "never happens": the shot becomes strong enough to kill a bench target outright, so Static Charge never gets its third hit and Executioner never meets a target below 25% HP. | bench artefact (nothing to hit twice) |
+
+Not in the list: Mirror (every pair is above the better block alone), Last Breath, Rebound, Lone Shot, Heavy Round, Waypoint (on the bench's straight line it has no turn to count, so it is only a 1.0 multiplier there; it is tested in the unit tests with real turns). Idle Barrels is flown with the Fan's two unused side ejectors (+6).
+
+## 8. Performance (`npm run perf-legendary`, `reports/chunk20a/perf.md`)
+
+Mirror, Splitter 3 and Fork on Impact on the Fan (three ejectors fed), in the three bench scenarios, headless: **0.03-0.04 ms per `World.update` step on average (p99 under 0.1 ms), 6 shots per pulse, most 115 projectiles alive** (Mirror + Fork x2 + Piercing x3) against a pool of 4,000. Without the Mirror the same circuit is 3 shots per pulse and about 0.03-0.06 ms (the first row includes warm-up). So the engine side of doubling the shots is negligible; the cost on a phone is drawing, which this headless run cannot measure. The browser run of `e2e/legendaries.e2e.cjs` (Mirror + Zigzag on the Fan, 12 shots, headless software rendering) printed 16-17 frames per second. I did not measure an ordinary flight in the same browser for comparison, so that number says nothing about Mirror's cost; it is not a phone number either.
+
+## 9. Tests
+
+`tests/legendaries.test.ts` (29 tests): each formula with its edge cases (Lone Shot with 0, 1, 5, 9, 10 and 12 shots, Heavy Round at 1, 1.3, 0.6, 0.2 and 0.05 and in the compiler on the Dart, a slowed Dart and the Galleon, Rebound's first, equal and rising shots, Fuse with 9 vs 10 shots and 100 pulses, Hollow Core's cell count, Idle Barrels with all ejectors used, Waypoint with and without turns), the Mirror pair and its pool limit, Last Breath's window edge, Zigzag's sides, speed and additive gain, the unlock by direction and ring, the old ring-100 blocks at ring 50, the dual price (nothing is taken when one is short), the sheet labels and the dot, and a v9 save that loads unchanged. 14 mutations were made and all caught (list in the report).

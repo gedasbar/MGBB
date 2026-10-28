@@ -39,6 +39,8 @@ One line per block; the comment above the table explains each column:
 
 Example: `turn_l: { cap: 20, base: 30, growth: 1.2 }`. Change `cap: 20` to `cap: 30` to allow 30 turns. Upgrade prices of the eight upgradable blocks are derived from `base` (see the top of the file).
 
+The twelve legendary blocks cost Medals as well: their prices are the three rows of `LEGENDARY_PRICE_BY_RING` (ring 100 / 200 / 300: `credits` and `medals`) at the top of the same file, and the ring that unlocks each block is in `src/frontier/unlocks.ts` (`UNLOCK_BLOCKS`). A test checks that the two agree.
+
 ## What an error looks like
 
 - A layout mistake, from `npm test`:
