@@ -88,7 +88,7 @@ describe('ring walls', () => {
     // homing: a shot just left of the seam, heading up, is pulled right toward a block in column 0 only
     const h = wall(3, (r, c) => r === 2 && c === 0);
     const target = h.blocks[2 * WALL_COLS + 0]!;
-    const i = shoot(h, W - 40, target.y + 200, 10, [{ type: 'homing', level: 1 }], 0, -600);
+    const i = shoot(h, W - 20, target.y + 200, 10, [{ type: 'homing', level: 1 }], 0, -600);
     for (let k = 0; k < 6; k++) h.update(1 / 60, null);
     expect(h.pool.vx[i]).toBeGreaterThan(5);
   });

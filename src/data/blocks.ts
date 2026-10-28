@@ -243,7 +243,7 @@ function levelMod(id: string, name: string, maxLevel: number, mod: Modifier, des
 
 /** The line every stacking shape block ends with: what one more copy on the signal path does (checked by tests/interactions.test.ts). */
 export const MORE: Record<string, string> = {
-  piercing: 'Each extra copy: one more pierce.',
+  piercing: 'Each extra copy: passes through 1 more target.',
   bouncing: 'Each extra copy: one more bounce.',
   aoe: 'Each extra copy: bigger area, -5% damage.',
   chain: 'Each extra copy: one more jump in every chain (each added jump weaker).',
@@ -255,9 +255,7 @@ export const MORE: Record<string, string> = {
 };
 
 levelMod('piercing', 'Piercing', 5, { type: 'piercing' },
-  (l) => l === 1
-    ? `Projectiles pass through enemies. Each hit costs the projectile the damage it dealt (at least 10% of its damage). ${MORE.piercing}`
-    : `Projectiles pass through enemies. Each hit costs the projectile 1/${l} of the damage it dealt (at least ${Math.round(10 / l * 10) / 10}% of its damage). ${MORE.piercing}`);
+  () => `Projectiles pass through enemies at full damage: 1 copy hits 2 targets, 3 copies hit 4. ${MORE.piercing}`);
 levelMod('bouncing', 'Bouncing', 5, { type: 'bouncing' },
   (l) => `Bounces off the first ${bounceCount(l)} things it hits instead of stopping. Keeps full damage. ${MORE.bouncing}`);
 levelMod('aoe_circle', 'AoE - Circle', 5, { type: 'aoe_circle' },

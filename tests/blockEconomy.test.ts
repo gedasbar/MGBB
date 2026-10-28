@@ -195,7 +195,7 @@ describe('shape blocks stack (step 5)', () => {
     expect(aoeStackDamage(3)).toBeCloseTo(0.9025, 12);
   });
 
-  it('Piercing: every copy adds one to the divisor of the loss per hit (1 / (3 + extra)), so the shot keeps more of its damage', () => {
+  it('Piercing (19a): every copy lets the shot through one more target, every hit at full damage', () => {
     const along = (k: number) => {
       const r = rig();
       const rocks = Array.from({ length: 10 }, (_, j) => r.rock(270, 900 - 80 * j)); // 80 px apart: the hit zones (rock 20 + shot 10) do not overlap
@@ -203,17 +203,11 @@ describe('shape blocks stack (step 5)', () => {
       r.step(150);
       return rocks.map(e => dmg(e));
     };
-    const runs = [1, 2, 3, 4].map(along);
-    runs.forEach((d, i) => {
-      const n = 3 + i; // level 3 plus the extra copies
-      d.forEach((taken, h) => expect(taken, `k=${i + 1} rock ${h}`).toBeCloseTo(100 * Math.pow(1 - 1 / n, h), 6)); // each hit costs 1/n of the damage the shot has
+    [1, 2, 3, 4].forEach(k => {
+      const d = along(k);
+      d.forEach((taken, h) => expect(taken, `k=${k} rock ${h}`).toBeCloseTo(h <= k ? 100 : 0, 6)); // k + 1 targets, then the shot is gone
     });
-    const totals = runs.map(d => d.reduce((a, b) => a + b, 0));
-    for (let i = 1; i < totals.length; i++) expect(totals[i]).toBeGreaterThan(totals[i - 1]);
-    const gains = totals.slice(1).map((t, i) => t - totals[i]);
-    for (let i = 1; i < gains.length; i++) expect(gains[i]).toBeLessThan(gains[i - 1]); // the benefit falls off
   });
-
   it('Bouncing: +1 bounce per copy', () => {
     for (const k of [1, 2, 3, 6]) {
       const r = rig();
@@ -314,13 +308,16 @@ describe('shape blocks stack (step 5)', () => {
       r.sys.steer(DT, r.enemies);
       return Math.abs(Math.atan2(r.pool.vx[i], -r.pool.vy[i])) * (180 / Math.PI);
     };
-    // 20 degrees off: the turn per step is the rate (180 deg/s x H(k) / 60)
-    expect(turned(1, 20)).toBeCloseTo(3, 4);
-    expect(turned(2, 20)).toBeCloseTo(4.5, 4);
-    expect(turned(3, 20)).toBeCloseTo(3 * harmonic(3), 4);
-    // 40 degrees off is outside the 60 degree cone of one copy, inside the 90 degree cone of two
-    expect(turned(1, 40)).toBeCloseTo(0, 6);
-    expect(turned(2, 40)).toBeGreaterThan(4);
+    // 12 degrees off (inside the cone of every copy count): the turn per step is the rate (180 deg/s x H(k) / 60)
+    expect(turned(1, 12)).toBeCloseTo(3, 4);
+    expect(turned(2, 12)).toBeCloseTo(4.5, 4);
+    expect(turned(3, 12)).toBeCloseTo(3 * harmonic(3), 4);
+    // 20 degrees off is outside the 33 degree cone of one copy, inside the 49.5 degree cone of two (19a values)
+    expect(turned(1, 20)).toBeCloseTo(0, 6);
+    expect(turned(2, 20)).toBeGreaterThan(4);
+    // 28 degrees off: outside two copies (24.75 each side), inside three (30.25)
+    expect(turned(2, 28)).toBeCloseTo(0, 6);
+    expect(turned(3, 28)).toBeGreaterThan(5);
   });
 
   it('Boomerang: the range grows by the AoE-style factor per copy', () => {
@@ -448,7 +445,7 @@ describe('NaN and Infinity safety (step 7)', () => {
   it('an infinite shot does not run out while piercing (Infinity - Infinity would be NaN) and kills what it touches', () => {
     const r = rig();
     const rocks = [0, 1, 2].map(j => r.rock(270, 400 - 50 * j, 1000));
-    r.launch(copiesOf('piercing', 1, 3), 270, 460, 0, -600, Infinity);
+    r.launch(copiesOf('piercing', 2, 3), 270, 460, 0, -600, Infinity);
     r.step(80);
     for (const e of rocks) { expect(Number.isNaN(e.hp)).toBe(false); expect(e.hp).toBeLessThanOrEqual(0); }
     for (let i = 0; i < r.pool.max; i++) if (r.pool.active[i]) expect(Number.isNaN(r.pool.damage[i])).toBe(false);

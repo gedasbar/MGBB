@@ -4,7 +4,7 @@ import { BLOCK_ECONOMY, capOf } from '../src/data/blockEconomy';
 import { copyPrice } from '../src/econ/economy';
 import { compile } from '../src/engine/compiler';
 import { Modifier } from '../src/engine/compilerTypes';
-import { CHAIN_ARCS_PER_SHOT, chainJumps, homingConeDeg, homingRange, MINE_EXTRA_MAX, orbitPassTime, orbitTime, ORBIT_RADIUS } from '../src/engine/effects';
+import { CHAIN_ARCS_PER_SHOT, chainJumps, homingConeDeg, homingRange, PIERCE_DAMAGE_KEEP, MINE_EXTRA_MAX, orbitPassTime, orbitTime, ORBIT_RADIUS } from '../src/engine/effects';
 import { ProjectilePool } from '../src/engine/pools';
 import { EnemyEntity, PHASE_MINE_WAIT, PHASE_NORMAL, ProjectileSystem } from '../src/engine/projectiles';
 import { SpatialHash } from '../src/engine/spatialHash';
@@ -48,10 +48,12 @@ function rig() {
 }
 const mods = (...types: [string, number?][]): Modifier[] => types.map(([type, level]) => ({ type, level: level ?? 1 }));
 const taken = (e: EnemyEntity, from = 100000) => from - e.hp;
+/** n Piercing copies on the path, as `mods` entries. */
+const pierce = (n: number): [string, number][] => Array.from({ length: n }, () => ['piercing', 1]);
 
 describe('the trigger table', () => {
   it('says what the design note says', () => {
-    expect(TRIGGERS.aoe.fires).toBe('shot_end');
+    expect(TRIGGERS.aoe.fires).toBe('every_hit');
     expect(TRIGGERS.fork.fires).toBe('first_hit');
     expect(TRIGGERS.chain.fires).toBe('every_hit');
     expect(TRIGGERS.chain.maxPerShot).toBe(3);
@@ -60,8 +62,9 @@ describe('the trigger table', () => {
     for (const t of [TRIGGERS.aoe, TRIGGERS.fork, TRIGGERS.chain]) expect(t.fragments).toBe(false);
   });
   it('triggerDue and triggerCarried follow the table', () => {
-    expect(triggerDue(TRIGGERS.aoe, true, false)).toBe(false);
-    expect(triggerDue(TRIGGERS.aoe, false, true)).toBe(true);
+    expect(triggerDue(TRIGGERS.aoe, false, false)).toBe(true); // 19a: every hit
+    expect(triggerDue({ ...TRIGGERS.aoe, fires: 'shot_end' }, true, false)).toBe(false); // the 'shot_end' rule still works if the table is switched back
+    expect(triggerDue({ ...TRIGGERS.aoe, fires: 'shot_end' }, false, true)).toBe(true);
     expect(triggerDue(TRIGGERS.fork, true, false)).toBe(true);
     expect(triggerDue(TRIGGERS.fork, false, true)).toBe(false);
     expect(triggerDue(TRIGGERS.chain, false, false)).toBe(true);
@@ -70,23 +73,26 @@ describe('the trigger table', () => {
   });
 });
 
-describe('AoE fires once, when the shot ends', () => {
-  /** A piercing level 1 shot (each hit costs the hp taken) through four weak rocks in a line, a bystander beside the first and one beside the last. */
+describe('AoE fires on every hit (19a)', () => {
+  /** A shot with two Piercing copies (3 targets) through four weak rocks in a line, with a bystander beside the first, the third and the fourth. */
   function line(extra: Modifier[]) {
     const r = rig();
     const path = [0, 1, 2, 3].map(j => r.rock(270, 700 - 90 * j, 30, 20));
     const beside1 = r.rock(310, 700, 100000, 10);
+    const beside3 = r.rock(310, 700 - 180, 100000, 10);
     const beside4 = r.rock(310, 700 - 270, 100000, 10);
-    r.launch([...mods(['piercing', 1], ['aoe_circle', 1]), ...extra], 270, 900, 0, -600, 100);
-    return { r, path, beside1, beside4 };
+    r.launch([...mods(...pierce(2), ['aoe_circle', 1]), ...extra], 270, 900, 0, -600, 100);
+    return { r, path, beside1, beside3, beside4 };
   }
-  it('a piercing shot travels through the line and makes ONE blast, at the hit that uses it up', () => {
-    const { r, path, beside1, beside4 } = line([]);
+  it('a piercing shot makes a blast on EVERY hit: the bystanders beside the first and the last pierce hit are both hurt', () => {
+    const { r, path, beside1, beside3, beside4 } = line([]);
     r.step(120);
-    expect(path.slice(0, 3).every(e => e.hp <= 0)).toBe(true); // the fourth took the last of the shot's damage
-    expect(r.sys.fx.aoeBlasts).toBe(1);
-    expect(taken(beside1)).toBe(0);           // no blast at the first pierce hit
-    expect(taken(beside4)).toBeGreaterThan(0); // the blast where it ended
+    expect(path.slice(0, 3).every(e => e.hp <= 0)).toBe(true);
+    expect(path[3].hp).toBe(30);               // the shot ended after three targets
+    expect(r.sys.fx.aoeBlasts).toBe(3);
+    expect(taken(beside1)).toBeGreaterThan(0); // blast at the first hit
+    expect(taken(beside3)).toBeGreaterThan(0); // blast at the last hit
+    expect(taken(beside4)).toBe(0);            // the shot did not reach this one
   });
   it('a plain shot (no Piercing, no Bouncing) blasts on its first hit', () => {
     const r = rig();
@@ -98,20 +104,50 @@ describe('AoE fires once, when the shot ends', () => {
     expect(taken(target)).toBe(100);
     expect(taken(near)).toBe(100);
   });
-  it('a piercing shot that never runs out and leaves play still blasts once, where it last hit (retire)', () => {
+  it('a bouncing shot blasts on every bounce too', () => {
     const r = rig();
-    const a = r.rock(270, 700), b = r.rock(270, 610);
+    r.rock(270, 600);
+    r.rock(270, 300);
+    const i = r.launch(mods(['bouncing', 1], ['aoe_circle', 1]), 270, 800, 0, -600, 100);
+    r.step(40);
+    expect(r.sys.fx.bounces).toBeGreaterThanOrEqual(1);
+    expect(r.sys.fx.aoeBlasts).toBe(r.sys.fx.bounces + (r.pool.active[i] ? 0 : 1));
+  });
+  it('a shot that leaves play owes no blast (retire adds nothing under the every-hit rule)', () => {
+    const r = rig();
+    r.rock(270, 700); r.rock(270, 610);
     const beside = r.rock(310, 610, 100000, 10);
-    const i = r.launch(mods(['piercing', 3], ['aoe_circle', 1]), 270, 900, 0, -600, 100);
+    const i = r.launch(mods(...pierce(5), ['aoe_circle', 1]), 270, 900, 0, -600, 100);
     r.step(80);
-    expect(r.sys.fx.aoeBlasts).toBe(0);
+    expect(r.sys.fx.aoeBlasts).toBe(2);
     expect(r.pool.active[i]).toBe(1);
-    r.sys.retire(i);                          // the world calls this when the shot leaves the screen
+    const before = taken(beside);
+    r.sys.retire(i);
     r.step(1);
-    expect(r.sys.fx.aoeBlasts).toBe(1);
-    expect(taken(beside)).toBeGreaterThan(0);
-    expect(taken(a)).toBeGreaterThan(0);
-    expect(taken(b)).toBeGreaterThan(0);
+    expect(r.sys.fx.aoeBlasts).toBe(2);
+    expect(taken(beside)).toBe(before);
+  });
+});
+
+describe('Piercing by count (19a)', () => {
+  const targets = (copies: number, rocks = 6) => {
+    const r = rig();
+    const path = Array.from({ length: rocks }, (_, j) => r.rock(270, 700 - 90 * j, 100000, 20));
+    const i = r.launch(mods(...pierce(copies)), 270, 900, 0, -600, 100);
+    r.step(120);
+    return { r, path, i, hit: path.filter(e => e.hp < 100000).length };
+  };
+  it('1 copy hits 2 targets and the shot ends after the second; 3 copies hit 4', () => {
+    const one = targets(1);
+    expect(one.hit).toBe(2);
+    expect(one.r.pool.active[one.i]).toBe(0);
+    expect(targets(3).hit).toBe(4);
+    expect(targets(0 + 1, 1).hit).toBe(1);
+  });
+  it('every hit is at full damage (PIERCE_DAMAGE_KEEP = 1)', () => {
+    expect(PIERCE_DAMAGE_KEEP).toBe(1);
+    const { path } = targets(3);
+    for (const e of path.slice(0, 4)) expect(taken(e)).toBe(100);
   });
 });
 
@@ -130,7 +166,7 @@ describe('Fork on Impact fires on the first hit; fragments carry statuses only',
   it('a piercing shot forks once (first hit), not on every hit', () => {
     const r = rig();
     for (let j = 0; j < 4; j++) r.rock(270, 700 - 90 * j);
-    r.launch(mods(['piercing', 3], ['fork_impact', 1]), 270, 900, 0, -600, 100);
+    r.launch(mods(...pierce(3), ['fork_impact', 1]), 270, 900, 0, -600, 100);
     r.step(100);
     expect(r.sys.fx.forks).toBe(1);
   });
@@ -160,7 +196,7 @@ describe('Chain Lightning: every hit, at most 3 chains per shot', () => {
       r.rock(270 - 60, 800 - 100 * j, 100000, 10);
       r.rock(270 + 60, 800 - 100 * j, 100000, 10);
     }
-    r.launch(mods(['piercing', 3], ['chain_lightning', 1]), 270, 950, 0, -600, 100);
+    r.launch(mods(...pierce(5), ['chain_lightning', 1]), 270, 950, 0, -600, 100);
     r.step(120);
     expect(r.sys.fx.pierceHits).toBeGreaterThanOrEqual(5);
     expect(r.sys.fx.chainJumps).toBe(CHAIN_ARCS_PER_SHOT * chainJumps(1));
@@ -172,7 +208,7 @@ describe('Chain Lightning: every hit, at most 3 chains per shot', () => {
       r.rock(270 - 60, 800 - 100 * j, 100000, 10);
       r.rock(270 + 60, 800 - 100 * j, 100000, 10);
     }
-    r.launch(mods(['piercing', 3], ['chain_lightning', 1]), 270, 950, 0, -600, 100);
+    r.launch(mods(...pierce(1), ['chain_lightning', 1]), 270, 950, 0, -600, 100);
     r.step(100);
     expect(r.sys.fx.chainJumps).toBe(2 * chainJumps(1));
   });
@@ -182,7 +218,7 @@ describe('Gravity Well makes one pulling spot per shot', () => {
   it('a piercing shot through three rocks makes one', () => {
     const r = rig();
     for (let j = 0; j < 3; j++) r.rock(270, 800 - 100 * j);
-    r.launch(mods(['piercing', 3], ['gravity_well', 1]), 270, 950, 0, -600, 100);
+    r.launch(mods(...pierce(2), ['gravity_well', 1]), 270, 950, 0, -600, 100);
     r.step(100);
     expect(r.sys.fx.wellsMade).toBe(1);
   });

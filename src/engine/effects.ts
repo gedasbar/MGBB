@@ -158,6 +158,10 @@ export const MAX_BOUNCES = 127;
 /** Chain Lightning: the e-th jump added by an extra copy deals CHAIN_STACK_FALL^e of a normal jump (the jumps of one block stay at 70% each, as before). */
 export const CHAIN_STACK_FALL = 0.85;
 
+// ---- Chunk 19a: Piercing by count
+/** Share of its damage a Piercing shot keeps after passing through a target: 1.0 = full damage on every hit (tune here). */
+export const PIERCE_DAMAGE_KEEP = 1.0;
+
 // ---- Chunk 17b: the trigger table (engine/triggers.ts)
 /** Chain Lightning fires on every hit of a shot, but at most this many chains per shot. */
 export const CHAIN_ARCS_PER_SHOT = 3;

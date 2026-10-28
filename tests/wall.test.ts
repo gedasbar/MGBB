@@ -376,16 +376,16 @@ describe('Edge-push camera', () => {
 });
 
 describe('Shared hit pipeline on a wall', () => {
-  it('piercing passes through several blocks of a column', () => {
+  it('piercing passes through its count of blocks of a column (2 copies: 3 blocks)', () => {
     const w = world(level(8));
     w.setWallOffset(8 * CELL + 40); // the wall's lowest row sits near the bottom of the screen
     const col = 7;
     const x = col * CELL + 27;
     const lowest = blockAt(w, 7, col);
-    const i = shoot(w, x, lowest.y + 20, 450, [{ type: 'piercing', level: 1 }], { vy: -600 });
+    const i = shoot(w, x, lowest.y + 20, 450, [{ type: 'piercing', level: 1 }, { type: 'piercing', level: 1 }], { vy: -600 });
     for (let k = 0; k < 120 && w.pool.active[i]; k++) w.update(1 / 60, null);
     const killed = [0, 1, 2, 3, 4, 5, 6, 7].filter(r => w.blocks[r * WALL_COLS + col] === null).length;
-    expect(killed).toBeGreaterThanOrEqual(3);
+    expect(killed).toBe(3);
     expect(w.destroyed).toBe(killed);
     // A plain shot of the same size stops at the first block.
     const w2 = world(level(8));

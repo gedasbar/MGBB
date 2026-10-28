@@ -218,14 +218,14 @@ describe('block audit: changes what the ship fires in Fly', () => {
   });
 
   it('fly: piercing lets the projectile survive a hit (baseline: it is destroyed)', () => {
-    // The shot spends the damage it dealt, so it only carries on past a weak enemy (40 HP vs 2 damage).
+    // Chunk 19a: one Piercing copy lets the shot through one target, at full damage.
     const wb = newWorld(buildStarterGrid());
     const base = hitOnce(wb, { hp: 0.8 });
     expect(wb.pool.active[base.i]).toBe(0);
     const w = newWorld(withBlock('piercing'));
     const r = hitOnce(w, { hp: 0.8 });
     expect(w.pool.active[r.i]).toBe(1);
-    expect(w.pool.damage[r.i]).toBeLessThan(r.startDamage);
+    expect(w.pool.damage[r.i]).toBe(r.startDamage);
   });
 
   it('fly: bouncing ricochets off an armored enemy (baseline: destroyed)', () => {

@@ -94,13 +94,13 @@ const ROWS: Row[] = [
   {
     id: 'homing',
     mod: { type: 'homing', level: 1 },
-    text: /180° per second toward the nearest enemy within 400 px and a 60° cone/,
+    text: /180° per second toward the nearest enemy within 328 px and a 33° cone/,
     fly: () => {
       const trial = (id?: string) => {
         const w = newWorld(id);
         const i = fireOne(w);
-        // 250 px ahead and 90 px to the right: 20 degrees off the heading, inside the 60 degree cone.
-        const e = w.spawnRock(w.pool.x[i] + 90, w.pool.y[i] - 250, 100000)!;
+        // 250 px ahead and 53 px to the right: 12 degrees off the heading, inside the 33 degree cone (one copy).
+        const e = w.spawnRock(w.pool.x[i] + 53, w.pool.y[i] - 250, 100000)!;
         run(w, 40);
         return 100000 - e.hp;
       };
@@ -112,7 +112,7 @@ const ROWS: Row[] = [
       w.spawnRock(w.pool.x[i] + 200, w.pool.y[i] - 20, 100000);
       w.projSys.steer(1 / 60, w.mitosis.enemies);
       expect(w.pool.vx[i]).toBeCloseTo(0, 3);
-      // Beyond 400 px: no steering either.
+      // Beyond 328 px: no steering either.
       const far = newWorld('homing');
       const j = fireOne(far);
       far.spawnRock(far.pool.x[j] + 100, far.pool.y[j] - 500, 100000);

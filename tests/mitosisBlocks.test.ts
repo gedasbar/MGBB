@@ -464,26 +464,22 @@ describe('Bouncing: bounces off whatever it hits', () => {
       expect(e.hp).toBeLessThan(1e9);
     }
   });
-  it('Piercing first: a pierce that leaves damage keeps the shot flying with its bounces; one that would use it up becomes a bounce at full damage', () => {
-    const run1 = (pierceLevel: number) => {
-      rng.reset(2);
-      const w = ff();
-      const e = rock(w, 200, 300, 1e9);
-      const mi = w.projSys.modifiersTable.length;
-      w.projSys.modifiersTable = [...w.projSys.modifiersTable, [{ type: 'piercing', level: pierceLevel }, { type: 'bouncing', level: 1 }]];
-      const i = w.pool.spawn(200, 300 + 25, 0, -600, 100, 0, mi);
-      w.projSys.init(i);
-      w.update(DT, idle);
-      return { w, i, e };
-    };
-    const strong = run1(1);   // level 1: a hit costs the damage it dealt: used up -> bounce, damage restored
-    expect(strong.w.pool.active[strong.i]).toBe(1);
-    expect(strong.w.pool.damage[strong.i]).toBe(100);
-    expect(strong.w.projSys.fx.bounces).toBe(1);
-    const weak = run1(5);     // level 5: costs 1/5: 80 left, still piercing, no bounce used
-    expect(weak.w.pool.damage[weak.i]).toBeCloseTo(80, 4);
-    expect(weak.w.projSys.fx.bounces).toBe(0);
-    expect(weak.w.pool.bounces[weak.i]).toBe(2);
+  it('Piercing first (19a): the shot passes through its pierce count of targets, then the next hit is a bounce at full damage', () => {
+    rng.reset(2);
+    const w = ff();
+    rock(w, 200, 300, 1e9);
+    rock(w, 200, 200, 1e9);
+    const mi = w.projSys.modifiersTable.length;
+    w.projSys.modifiersTable = [...w.projSys.modifiersTable, [{ type: 'piercing', level: 1 }, { type: 'bouncing', level: 1 }]];
+    const i = w.pool.spawn(200, 300 + 25, 0, -600, 100, 0, mi);
+    w.projSys.init(i);
+    for (let k = 0; k < 90 && w.projSys.fx.bounces < 1; k++) w.update(DT, idle);
+    expect(w.projSys.fx.pierceHits).toBe(1);      // the first rock: passed through, no bounce used
+    expect(w.projSys.fx.bounces).toBe(1);         // the second rock: pierce used up, so it bounces
+    expect(w.pool.active[i]).toBe(1);
+    expect(w.pool.damage[i]).toBe(100);           // full damage all the way
+    expect(w.pool.bounces[i]).toBe(1);
+    expect(w.pool.pierced[i]).toBe(0);            // the bounce re-arms the pierce
   });
   it('never loops for ever or sits still: a shot carrying the block is freed at the age cap, and nothing is left after a long run', () => {
     const w = ff();
