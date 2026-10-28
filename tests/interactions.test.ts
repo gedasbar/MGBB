@@ -129,6 +129,19 @@ describe('AoE fires on every hit (19a)', () => {
   });
 });
 
+describe('Piercing + AoE + Fork cannot explode (19a)', () => {
+  it('3 Piercing copies, AoE and Fork through a dense cluster: 4 blasts at most, one fork, fork copies add no blast, few shots alive', () => {
+    const r = rig();
+    for (let j = 0; j < 6; j++) for (let k = -3; k <= 3; k++) r.rock(270 + 40 * k, 700 - 70 * j, 100000, 15);
+    r.launch(mods(...pierce(3), ['aoe_circle', 1], ['fork_impact', 1]), 270, 900, 0, -600, 100);
+    let maxAlive = 0;
+    for (let n = 0; n < 150; n++) { r.step(1); maxAlive = Math.max(maxAlive, r.pool.count); }
+    expect(r.sys.fx.forks).toBe(1);
+    expect(r.sys.fx.aoeBlasts).toBe(4);   // one blast per hit of the main shot (3 copies = 4 targets); the fork copies carry none
+    expect(maxAlive).toBeLessThanOrEqual(3);
+  });
+});
+
 describe('Piercing by count (19a)', () => {
   const targets = (copies: number, rocks = 6) => {
     const r = rig();

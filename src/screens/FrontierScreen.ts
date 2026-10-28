@@ -96,7 +96,7 @@ export class FrontierScreen implements Screen {
   private medalText = makeText('', 16, THEME.currency, { fontWeight: 'bold' });
   private spikeText = makeText('', 15, THEME.bad, { fontWeight: 'bold' });
   private countText = makeText('', 14, THEME.textDim, { fontWeight: 'bold' });
-  /** Chunk 19a: best credits earned in one run of the selected square, right-aligned on the state row; empty when never played. */
+  /** Chunk 19a: best credits earned in one run of the selected square, after the state and Medal text on the state row; empty when never played. */
   private earnText = makeText('', 14, THEME.currency, { fontWeight: 'bold' });
 
   /** Drawn last frame, for the stats overlay and the e2e hook. */
@@ -139,8 +139,7 @@ export class FrontierScreen implements Screen {
     this.medalText.position.set(lx, PANEL_Y + 120);
     this.spikeText.position.set(lx, PANEL_Y + 146);
     this.countText.position.set(lx, PANEL_Y + 172);
-    this.earnText.anchor.set(1, 0);
-    this.earnText.position.set(VIEW_W - lx, PANEL_Y + 123);
+    this.earnText.position.set(lx, PANEL_Y + 123);
 
     this.container.addChild(bg, this.tiles, this.ringG, this.selG, chrome, this.title, this.medalsText, this.credits.container,
       this.line1, this.line2, this.stateText, this.medalText, this.spikeText, this.countText, this.earnText);
@@ -382,7 +381,8 @@ export class FrontierScreen implements Screen {
     } else this.countText.style.fill = THEME.textDim;
     this.stateText.style.fill = STATE_COLOR[st];
     const earned = p.squareBestCredits[sqKey(x, y)];
-    this.earnText.text = earned !== undefined ? `Best earned ${fmtBig(earned)}` : '';
+    this.earnText.text = earned !== undefined ? `·  Best earned ${fmtBig(earned)}` : '';
+    this.earnText.x = (this.medalText.text ? this.medalText.x + this.medalText.width : this.stateText.x + this.stateText.width) + 10;
     const ok = canPlay(this.f, x, y);
     this.playButton.setEnabled(ok);
     this.playButton.setText(st === 'passed' || st === 'cleared' ? 'REPLAY' : 'PLAY');
@@ -554,7 +554,7 @@ export class FrontierScreen implements Screen {
       state: () => ({
         camera: { cx: frontierSession.cx, cy: frontierSession.cy, zoom: frontierSession.zoom },
         selected: frontierSession.sel ? { ...frontierSession.sel } : null,
-        panel: { line1: this.line1.text, line2: this.line2.text, state: this.stateText.text, medal: this.medalText.text, spike: this.spikeText.text, note: this.countText.text, play: this.playButton.enabled },
+        panel: { line1: this.line1.text, line2: this.line2.text, state: this.stateText.text, medal: this.medalText.text, spike: this.spikeText.text, note: this.countText.text, earned: this.earnText.text, play: this.playButton.enabled },
         unlocksOpen: this.unlocksOpen,
         drawnSquares: this.drawnSquares, spritesUsed: this.spritesUsed, pool: this.views.length * 5,
         medals: store.data.medals, credits: store.data.credits, sq: { ...store.data.frontier.sq }, toast: this.toast.message,
