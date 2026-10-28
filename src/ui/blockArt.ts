@@ -465,6 +465,76 @@ export const GLYPHS: Record<string, Glyph> = {
     rotatesWithBlock: false,
     draw: (p) => { p.line([[0, 0.9], [0, 0.05]], 1.3); p.fill([[0, -0.9], [0.45, -0.4], [0, 0.05], [-0.45, -0.4]]); },
   },
+  // Chunk 20b: motion blocks
+  curving_left: {
+    rotatesWithBlock: true,
+    draw: (p) => {
+      p.line(arc(0.8, 0.9, 1.4, Math.PI, 4.53).map(([x, y]) => [-x, y] as Pt), 1);
+      p.head(-1, -0.48, -1, 0);
+    },
+  },
+  angle_left: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.line([[0.4, 0.9], [-0.4, -0.5]], 1.2); p.head(-0.55, -0.78, -0.5, -0.87, 0.6, 0.4); p.line([[0.4, 0.9], [0.4, -0.2]], 0.4); },
+  },
+  angle_right: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.line([[-0.4, 0.9], [0.4, -0.5]], 1.2); p.head(0.55, -0.78, 0.5, -0.87, 0.6, 0.4); p.line([[-0.4, 0.9], [-0.4, -0.2]], 0.4); },
+  },
+  accelerator: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.line([[-0.7, -0.1], [0, -0.8], [0.7, -0.1]], 1.3); p.line([[-0.7, 0.65], [0, -0.05], [0.7, 0.65]], 1.3); },
+  },
+  brake: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.fill(p.rect(-0.85, -0.85, 0.85, -0.5)); p.line([[0, 0.9], [0, 0.1]], 1.1); p.head(0, -0.2, 0, -1, 0.5, 0.4); },
+  },
+  scatter: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.line([[0, 0.9], [-0.7, -0.5]], 0.9); p.line([[0, 0.9], [0, -0.8]], 0.9); p.line([[0, 0.9], [0.7, -0.5]], 0.9);
+      p.fill(p.rect(-0.95, -0.7, -0.5, -0.3)); p.fill(p.rect(-0.2, -0.95, 0.2, -0.6)); p.fill(p.rect(0.5, -0.7, 0.95, -0.3));
+    },
+  },
+  upturn: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.line([[-0.7, 0.9], [-0.7, 0.2], [0.1, -0.3], [0.1, -0.5]], 1.2); p.head(0.1, -1, 0, -1, 0.55, 0.42); },
+  },
+  align: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.line([[0, 0.7], [0, -0.5]], 1.2); p.head(0, -1, 0, -1, 0.55, 0.42); p.line([[-0.85, 0.85], [0.85, 0.85]], 1.5); },
+  },
+  extender: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.outline([[-0.6, -0.9], [0.6, -0.9], [0, 0]], 1.1); p.fill([[-0.6, 0.9], [0.6, 0.9], [0, 0]]); },
+  },
+  centreline: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.line([[0, -0.95], [0, 0.95]], 0.8);
+      p.line([[-0.95, 0], [-0.35, 0]], 1); p.head(-0.15, 0, 1, 0, 0.4, 0.32);
+      p.line([[0.95, 0], [0.35, 0]], 1); p.head(0.15, 0, -1, 0, 0.4, 0.32);
+    },
+  },
+  magnetized: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.line(arc(0, 0.1, 0.65, 0, Math.PI), 1.7);
+      p.line([[0.65, 0.1], [0.65, -0.55]], 1.7); p.line([[-0.65, 0.1], [-0.65, -0.55]], 1.7);
+      p.fill(p.rect(-0.95, -0.95, -0.35, -0.55)); p.fill(p.rect(0.35, -0.95, 0.95, -0.55));
+    },
+  },
+  persist: {
+    rotatesWithBlock: false,
+    draw: (p) => {
+      p.line([[0, 0.9], [0, -0.5]], 1); p.head(0, -1, 0, -1, 0.5, 0.38);
+      p.outline(p.rect(-0.7, 0.3, 0.7, 0.7), 0.8); p.outline(p.rect(-0.45, -0.35, 0.45, 0), 0.8);
+    },
+  },
+  reverse: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.line([[-0.5, 0.9], [-0.5, -0.3], ...arc(0, -0.3, 0.5, Math.PI, 2 * Math.PI), [0.5, 0.4]], 1.2); p.head(0.5, 0.95, 0, 1, 0.55, 0.42); },
+  },
 };
 
 /** Fallback glyph: a small centred square. */

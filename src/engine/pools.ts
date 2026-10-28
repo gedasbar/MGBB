@@ -62,6 +62,8 @@ export class ProjectilePool {
   prevX: Float32Array;
   prevY: Float32Array;
   flips: Uint8Array;
+  /** The speed the shot was launched at: the pull of Centreline and Ship Magnet may slow it and turn it, never speed it past this. */
+  vmax: Float32Array;
 
   constructor(max: number = CONFIG.CAPS.PROJECTILES) {
     this.max = max;
@@ -103,6 +105,7 @@ export class ProjectilePool {
     this.prevX = new Float32Array(max);
     this.prevY = new Float32Array(max);
     this.flips = new Uint8Array(max);
+    this.vmax = new Float32Array(max);
   }
 
   spawn(x: number, y: number, vx: number, vy: number, damage: number, pure: number = 0, modIndex: number = 0): number {
@@ -141,6 +144,7 @@ export class ProjectilePool {
         this.prevX[i] = x;
         this.prevY[i] = y;
         this.flips[i] = 0;
+        this.vmax[i] = Math.hypot(vx, vy);
         this.count++;
         return i;
       }

@@ -535,14 +535,14 @@ export class ProjectileSystem {
   }
 
   /**
-   * Centreline and Ship Magnet (chunk 20b): an acceleration, then the speed is put back, so the shot bends instead of speeding up.
-   * Centreline pulls sideways toward the x the shot was fired from (proportional inside CENTRE_SOFT px, so it does not jitter on the line);
-   * Ship Magnet pulls toward the ship's current position (proportional inside MAGNET_SOFT px). Extra copies pull harder by the harmonic sum.
+   * Centreline and Ship Magnet (chunk 20b): an acceleration added to the velocity. The speed may fall (a shot flying straight away from
+   * the magnet slows down, turns and comes back) but never rises over the speed the shot was launched at, so a pull bends a shot
+   * instead of speeding it up. Centreline pulls sideways toward the x the shot was fired from (proportional inside CENTRE_SOFT px, so it
+   * does not jitter on the line); Ship Magnet pulls toward the ship's current position (proportional inside MAGNET_SOFT px). Extra copies
+   * pull harder by the harmonic sum.
    */
   private pull(i: number, centreCopies: number, magnetCopies: number, dt: number) {
     const pool = this.pool;
-    const speed = Math.hypot(pool.vx[i], pool.vy[i]);
-    if (speed < 1) return;
     let ax = 0, ay = 0;
     if (centreCopies > 0) {
       const dx = this.dxw(pool.anchorX[i], pool.x[i]);
@@ -560,7 +560,8 @@ export class ProjectileSystem {
     }
     const vx = pool.vx[i] + ax * dt;
     const vy = pool.vy[i] + ay * dt;
-    const k = speed / (Math.hypot(vx, vy) || 1);
+    const sp = Math.hypot(vx, vy);
+    const k = sp > pool.vmax[i] ? pool.vmax[i] / sp : 1;
     pool.vx[i] = vx * k;
     pool.vy[i] = vy * k;
   }
