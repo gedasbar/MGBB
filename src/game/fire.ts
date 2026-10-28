@@ -1,6 +1,6 @@
 import { EjectorRecipe, Grid } from '../engine/compiler';
 import { evalDamage, isDynamic, mulSafe } from '../engine/compilerTypes';
-import { OVERCLOCK_WINDOW } from '../engine/effects';
+import { FUSE_N, loneShotMul, MIRROR_OFFSET, OVERCLOCK_WINDOW } from '../engine/effects';
 import { ProjectilePool } from '../engine/pools';
 import { ProjectileSystem } from '../engine/projectiles';
 import { rng } from '../rng';
@@ -62,6 +62,11 @@ export class Gun {
   private readonly altCount: Int32Array;
   private readonly altStamp: Int32Array;
   private readonly altCur: Int32Array;
+  /** Rebound (chunk 20a), by block cell key: the damage the previous shot arrived with and whether there was one. */
+  private readonly rebPrev: Float64Array;
+  private readonly rebHas: Uint8Array;
+  /** Per recipe: its line has a Mirror block (every shot gets a clone beside it). */
+  private readonly mirror: boolean[];
   /** Random Router: the pulse each router last picked on and what it picked (-1 = both outputs). */
   private readonly rndStamp: Int32Array;
   private readonly rndChoice: Int32Array;
@@ -82,14 +87,17 @@ export class Gun {
     this.dyn = recipes.map(r => isDynamic(r.packet));
     this.st = recipes.map(r => new Float64Array(Math.max(1, r.packet.ops.length) * 3));
     for (const r of recipes) {
-      for (const op of r.packet.ops) if ((op.t === 'alt' || op.t === 'rnd') && !this.altKeys.has(op.key)) this.altKeys.set(op.key, this.altKeys.size);
+      for (const op of r.packet.ops) if ((op.t === 'alt' || op.t === 'rnd' || op.t === 'rebound') && !this.altKeys.has(op.key)) this.altKeys.set(op.key, this.altKeys.size);
     }
+    this.mirror = recipes.map(r => r.packet.mods.some(m => m.type === 'mirror'));
     const n = Math.max(1, this.altKeys.size);
     this.altCount = new Int32Array(n);
     this.altStamp = new Int32Array(n).fill(-1);
     this.altCur = new Int32Array(n);
     this.rndStamp = new Int32Array(n).fill(-1);
     this.rndChoice = new Int32Array(n);
+    this.rebPrev = new Float64Array(n);
+    this.rebHas = new Uint8Array(n);
     this.window = Math.max(OVERCLOCK_WINDOW, 1.5 * pulsePeriod);
   }
 
@@ -116,6 +124,7 @@ export class Gun {
     this.altCount.fill(0);
     this.altStamp.fill(-1);
     this.rndStamp.fill(-1);
+    this.rebHas.fill(0);
   }
 
   /** One pulse from (shipX, shipY): one projectile per recipe that fires on it (see the class comment). */
@@ -190,6 +199,7 @@ export class Gun {
           st[o] = 0;
           st[o + 1] = 0;
           this.fx.capacitorEmits++;
+          if (op.n === FUSE_N) this.projSys.fx.fuseEmits++;
           break;
         }
         case 'alt': {
@@ -211,6 +221,22 @@ export class Gun {
           break;
         }
         case 'delay': this.curDelay += op.sec; break;
+        case 'lone': {
+          // Lone Shot: the fewer of the player's shots are alive, the harder this one hits (x2 alone, x1 from ten).
+          const m = loneShotMul(this.pool.count);
+          if (m > 1) this.projSys.fx.loneBoosts++;
+          d *= m;
+          break;
+        }
+        case 'rebound': {
+          // Rebound: x4 when the shot before it through this block arrived with less damage. The comparison uses the damage arriving.
+          const ki = this.altKeys.get(op.key) as number;
+          const arriving = d;
+          if (this.rebHas[ki] && this.rebPrev[ki] < arriving) { d *= op.mul; this.projSys.fx.reboundBonuses++; }
+          this.rebPrev[ki] = arriving;
+          this.rebHas[ki] = 1;
+          break;
+        }
       }
       if (!(d > 0) && op.t !== 'cap') return 0; // also drops NaN
     }
@@ -233,6 +259,14 @@ export class Gun {
       this.projSys.shipX = shipX;
       this.projSys.shipY = shipY;
       this.projSys.init(i);
+      // Mirror: a clone beside the shot, same damage and modifiers. Made here and nowhere else, so it is never cloned again; a full pool skips it.
+      if (this.mirror[ri]) {
+        const c = this.pool.spawn(shipX + off.x + (-vy / speed) * MIRROR_OFFSET, shipY + off.y + (vx / speed) * MIRROR_OFFSET, vx, vy, damage, r.packet.pure || 0, ri);
+        if (c >= 0) {
+          this.projSys.fx.mirrorClones++;
+          this.projSys.init(c);
+        }
+      }
     }
   }
 }

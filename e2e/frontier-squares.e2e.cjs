@@ -142,8 +142,8 @@ const readSquares = async (page, sqs, dx = 0, dy = 0) => {
   await page.evaluate(() => window.__mgbm.openUnlocks());
   await page.waitForTimeout(150);
   const ul = await page.evaluate(() => window.__mgbm.unlocksText());
-  check(ul.filter(t => /^Ring \d+$/.test(t)).length === 16 && ul.includes('North  ·  furthest ring 11') && ul.filter(t => t === 'Unlocked').length === 1,
-    `Unlocks panel: 16 entries, furthest rings, one unlocked (${ul.filter(t => t.includes('furthest')).join(' | ')})`);
+  check(ul.filter(t => /^Ring \d+$/.test(t)).length === 28 && ul.includes('North  ·  furthest ring 11') && ul.filter(t => t === 'Unlocked').length === 1,
+    `Unlocks panel: 28 entries, furthest rings, one unlocked (${ul.filter(t => t.includes('furthest')).join(' | ')})`);
   shots.push(await canvasShot(page)); caps.push('Unlocks panel');
   await page.evaluate(() => window.__mgbm.closeUnlocks());
 

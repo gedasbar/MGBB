@@ -11,10 +11,11 @@ import {
   bounceCount, BOUNCE_SPREAD_DEG, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct,
   FRAGMENT_GENERATION, residueFrac, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac,
   WELL_TIME, wellPull, stackGrowth, homingRange, HOMING_RANGE_BASE, PIERCE_DAMAGE_KEEP, HOMING_CONE_BASE_DEG, homingConeDeg, mineExtra, MINE_SPREAD, orbitPassTime, harmonic, aoeStackDamage, FORK_PAIR_DAMAGE, MAX_BOUNCES, CHAIN_STACK_FALL,
+  lastBreathMul, ZIGZAG_ANGLE_DEG, ZIGZAG_PERIOD, zigzagMul,
 } from './effects';
 import { RING } from './pools';
 import { TRIGGERS, triggerCarried, triggerDue } from './triggers';
-import { CELL } from '../wall/constants';
+import { CELL, PROJECTILE_MAX_AGE } from '../wall/constants';
 import { wrapDx } from './wrap';
 
 export interface EnemyEntity extends EnemyStats {
@@ -117,6 +118,13 @@ export interface EffectCounters {
   forks: number;
   pierceHits: number;
   homingSteers: number;
+  // Chunk 20a: what the legendary blocks did
+  lastBreathHits: number;
+  zigzagFlips: number;
+  loneBoosts: number;
+  reboundBonuses: number;
+  mirrorClones: number;
+  fuseEmits: number;
 }
 
 /** Base hit radius of a projectile (scaled by the pool's size). */
@@ -196,6 +204,7 @@ export class ProjectileSystem {
     corrosionStrips: 0, freezeApplied: 0, frozenBonusHits: 0, executionerHits: 0,
     bounces: 0, edgeBounces: 0, cleaverHits: 0, cullingHits: 0, residueClouds: 0, residueTicks: 0, wellsMade: 0, staticPulses: 0,
     cauterizeMarks: 0, fissionMarks: 0, spillMarks: 0, aoeBlasts: 0, forks: 0, pierceHits: 0, homingSteers: 0,
+    lastBreathHits: 0, zigzagFlips: 0, loneBoosts: 0, reboundBonuses: 0, mirrorClones: 0, fuseEmits: 0,
   };
 
   /** Residue Seed clouds (a ring): position, seconds left, damage per tick, seconds since the last tick. Drawn by the screens. */
@@ -380,6 +389,32 @@ export class ProjectileSystem {
     }
   }
 
+  /**
+   * Zigzag (chunk 20a): the shot leaves ZIGZAG_ANGLE_DEG to the left of its heading and every ZIGZAG_PERIOD seconds turns by twice that, the
+   * other way each time, so it weaves between the two sides of its line. `zigN` counts the changes (each adds ZIGZAG_GAIN damage at a hit).
+   */
+  private stepZigzag(i: number, dt: number) {
+    const pool = this.pool;
+    const a = ZIGZAG_ANGLE_DEG * RAD;
+    if (pool.zigT[i] < 0) { this.rotateV(i, -a); pool.zigT[i] = 0; }
+    pool.zigT[i] += dt;
+    while (pool.zigT[i] >= ZIGZAG_PERIOD && pool.zigN[i] < 255) {
+      pool.zigT[i] -= ZIGZAG_PERIOD;
+      pool.zigN[i]++;
+      this.rotateV(i, pool.zigN[i] % 2 === 1 ? 2 * a : -2 * a);
+      this.fx.zigzagFlips++;
+    }
+  }
+
+  /** Turns a projectile's velocity by `rad` (clockwise on screen), keeping its speed. */
+  private rotateV(i: number, rad: number) {
+    const pool = this.pool;
+    const c = Math.cos(rad), s = Math.sin(rad);
+    const vx = pool.vx[i], vy = pool.vy[i];
+    pool.vx[i] = vx * c - vy * s;
+    pool.vy[i] = vx * s + vy * c;
+  }
+
   /** Path modifiers: curving, homing and random curve turn a projectile's velocity (speed is kept). */
   steer(dt: number, targets: EnemyEntity[] | TargetField) {
     const pool = this.pool;
@@ -398,6 +433,7 @@ export class ProjectileSystem {
       }
       const mods = this.modsOf(i);
       if (mods.length === 0) continue;
+      for (const m of mods) if (m.type === 'zigzag') { this.stepZigzag(i, dt); break; }
       let turn = 0; // radians per second, clockwise on screen
       for (const m of mods) {
         if (m.type === 'curve' && m.dir === 'right') turn += CURVE_RATE_DEG * (m.level ?? 1) * RAD;
@@ -470,7 +506,7 @@ export class ProjectileSystem {
 
       const px = this.pool.x[i];
       const py = this.pool.y[i];
-      const damage = this.pool.damage[i];
+      let damage = this.pool.damage[i];
       const pure = this.pool.pure[i];
       const mods = this.modsOf(i);
 
@@ -500,6 +536,9 @@ export class ProjectileSystem {
       }
       if (!target) continue;
       if (phase === PHASE_MINE_WAIT) this.fx.mineDetonations++;
+      // Legendary hit-time factors (Last Breath, Zigzag). `shotDamage` is what the shot carries on; `damage` is this hit's.
+      const shotDamage = damage;
+      damage *= this.hitFactor(i, mods);
 
       // ---- 1. the direct hit (every hit)
       const pool = this.pool;
@@ -524,7 +563,7 @@ export class ProjectileSystem {
         // Chunk 19a: pierce by count. A piercing shot passes through what it hit and cannot hit it again; every Piercing copy on the
         // path lets it through ONE more target (1 copy: 2 targets). Damage stays PIERCE_DAMAGE_KEEP of the hit before (1.0: full).
         const canPierce = pool.pierced[i] < this.stk.pierce;
-        pierceDamage = damage * PIERCE_DAMAGE_KEEP;
+        pierceDamage = shotDamage * PIERCE_DAMAGE_KEEP;
         // Piercing first; a Bouncing block turns the shot that Piercing would have used up into a bounce, at full damage.
         bounceOnPierceEnd = !canPierce && !!bounceMod && this.bouncesLeft(i, bounceMod.level ?? 1) > 0;
         ended = !canPierce && !bounceOnPierceEnd;
@@ -572,12 +611,27 @@ export class ProjectileSystem {
         pool.skipId[i] = target.id; // a boomerang flies on through what it hit; each leg hits a target once
       } else if (isPiercing) {
         pool.skipId[i] = target.id;
-        if (bounceOnPierceEnd) { pool.damage[i] = damage; pool.pierced[i] = 0; this.bounce(i, field, target, px, py, hitR); }
+        if (bounceOnPierceEnd) { pool.damage[i] = shotDamage; pool.pierced[i] = 0; this.bounce(i, field, target, px, py, hitR); }
         else { this.fx.pierceHits++; pool.damage[i] = pierceDamage; pool.pierced[i]++; }
       } else {
         this.bounce(i, field, target, px, py, hitR); // ricochet off whatever it hit, full damage kept
       }
     }
+  }
+
+  /**
+   * Damage factor of a hit from the modifiers that read the shot's state (chunk 20a): Last Breath doubles a hit in the last second of
+   * the shot's life, Zigzag adds ZIGZAG_GAIN per direction change so far. 1 for a shot with neither.
+   */
+  private hitFactor(i: number, mods: Modifier[]): number {
+    let f = 1;
+    for (const m of mods) {
+      if (m.type === 'last_breath') {
+        const k = lastBreathMul(this.pool.age[i], PROJECTILE_MAX_AGE);
+        if (k > 1) { f *= k; this.fx.lastBreathHits++; }
+      } else if (m.type === 'zigzag') f *= zigzagMul(this.pool.zigN[i]);
+    }
+    return f;
   }
 
   /** AoE blasts owed by shots that left play after hitting (retire()): x, y, damage, pure, modifier list, the target not to hit again. */

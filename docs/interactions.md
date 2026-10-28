@@ -100,3 +100,12 @@ Before (main, after 17b): 494 OK, 58 CANCELS, 0 EXPLODES. After: **508 OK, 44 CA
 - AoE Rectangle + Boomerang (85%), AoE Rectangle + Gravity Well (91%) (both orders) and Homing + Boomerang (90%, both orders): now OK. The Rectangle pairs are from the new shape; Homing + Boomerang is a side effect of the shorter Homing range in the bench (noise level, not understood in detail).
 - AoE Circle + Boomerang is still flagged, 91% -> 94%.
 - The 44 that remain are the old by-design and bench-artefact pairs (Boomerang, Orbit, Mine, Fork + Spill, ...); see section 4.
+
+## 6. Chunk 20a: the legendary blocks
+
+Design and numbers: `docs/legendaries.md`. What matters for the trigger table:
+
+- `TRIGGERS.mirror` (`fires: 'launch'`): the Mirror clone is made when the shot LEAVES the gun (`Gun.spawn`), never on a hit, and only for shots that come from a recipe. Fork copies, Chain arcs, extra mines and everything else that calls `pool.spawn` directly are not mirrored, so a clone is never cloned (one generation, by construction). A full pool (`CONFIG.CAPS.PROJECTILES`) skips the clone.
+- Fuse is the Capacitor stage with n = 10 and a x2 on the summed damage: one shot out for ten in, never more out than in.
+- Last Breath (x2 on a hit in the last second of the shot's life) and Zigzag (the shot turns every 0.2 s, +5% a change) are read in `processField` / `steer` from the shot's own age and counters, so they are carried by Fork copies (which share the modifier list) and not by Chain arcs.
+- The audit with the twelve legendaries: 1,140 OK, 120 CANCELS, 0 EXPLODES (the 44 older flags unchanged, 76 new ones that are the blocks' own design: `docs/legendaries.md` section 7).

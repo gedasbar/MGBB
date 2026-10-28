@@ -101,11 +101,11 @@ export function clearFrontierSquare(store: ProgressStore, x: number, y: number):
 
 /**
  * Directional unlocks (chunk 15b): marks one lattice square at ring 100 cleared in each direction, so every gated block
- * can be bought (no credits, no Medals). Lattice squares are never holes.
+ * can be bought (no credits, no Medals; the legendary blocks still cost theirs). Lattice squares are never holes.
  */
 export function reachAllDirections(store: ProgressStore) {
   const f = store.data.frontier;
-  for (const [x, y] of [[0, -100], [100, 0], [0, 100], [-100, 0]]) f.sq[sqKey(x, y)] = SQ_CLEARED;
+  for (const [x, y] of [[0, -300], [300, 0], [0, 300], [-300, 0]]) f.sq[sqKey(x, y)] = SQ_CLEARED;
   store.commit();
 }
 

@@ -222,7 +222,7 @@ export class WallWorld {
     this.projSys.wrapW = this.ring ? this.worldW : 0;
     const hullGrid = opts.grid ?? buildStarterGrid();
     this.fireRateMul = fireRateMul(hullGrid.hullId) * this.mods.fireRateMul;
-    const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage });
+    const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage, furthestRing: this.mods.furthestRing, projSpeedMul: this.mods.projSpeedMul });
     this.recipes = compiled.recipes;
     this.warnings = compiled.warnings;
     this.spawnOffsets = spawnOffsetsFor(this.recipes, hullGrid);

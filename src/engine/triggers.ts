@@ -17,7 +17,7 @@
  */
 import { CHAIN_ARCS_PER_SHOT } from './effects';
 
-export type When = 'every_hit' | 'first_hit' | 'shot_end';
+export type When = 'every_hit' | 'first_hit' | 'shot_end' | 'launch';
 
 export interface Trigger {
   fires: When;
@@ -37,6 +37,8 @@ export const TRIGGERS = {
   chain: { fires: 'every_hit', fragments: false, arcs: false, maxPerShot: CHAIN_ARCS_PER_SHOT } as Trigger,
   /** Gravity Well: one pulling spot per shot, on its first hit. */
   gravityWell: { fires: 'first_hit', fragments: false, arcs: false } as Trigger,
+  /** Mirror (chunk 20a): one clone per shot, made when the shot LEAVES the gun (Gun.spawn), never on a hit. A clone is not mirrored again. */
+  mirror: { fires: 'launch', fragments: false, arcs: false, maxPerShot: 1 } as Trigger,
 } as const;
 
 /** Whether `t` fires on this hit. `firstHit`: no earlier hit of this shot; `shotEnds`: this hit uses the shot up. */

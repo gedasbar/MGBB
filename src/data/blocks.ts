@@ -1,11 +1,15 @@
 import { aoeCircleRadius, randomCurveMaxDeg, shieldBreakMul, armorPierceMul, forkDamageFrac, CURVE_RATE_DEG, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG } from '../engine/projectiles';
 import { FIXED_LEVEL, UPGRADABLE } from './blockEconomy';
+import { PROJECTILE_MAX_AGE } from '../wall/constants';
 import { addDamage, BlockCategory, BlockDef, gateDamage, Modifier, mulDamage, Packet, Rarity, Rel } from '../engine/compilerTypes';
 import {
   alternatorMul, boomerangRange, capacitorMul, CAPACITOR_N, chainJumps, CHAIN_ARC_LIFE, CHAIN_FRAC, CHAIN_RANGE, corrosionCap,
   CORROSION_STEP, delaySeconds, executionerMul, EXECUTIONER_BELOW, frostBonus, frostSlow, frostTime, igniteFrac, IGNITE_TIME,
   mineDistance, MINE_WAIT, orbitTime, ORBIT_RADIUS, ORBIT_REHIT, overclockAverage, overclockGain, OVERCLOCK_CAP, OVERCLOCK_WINDOW,
   bounceCount, flatPlusAdd, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct, fissionCooldown, residueFrac,
+  frontierEchoAdd, PAYLOAD_ADD, loneShotMul, LONE_SHOT_FULL, LAST_BREATH_MUL, LAST_BREATH_WINDOW, ZIGZAG_ANGLE_DEG, ZIGZAG_PERIOD, ZIGZAG_GAIN,
+  HEAVY_MUL_NORMAL, HEAVY_MUL_SLOWEST, HEAVY_SLOW_SPEED, HOLLOW_CORE_PER_CELL, hollowCoreMul, IDLE_BARRELS_PER_EJECTOR, idleBarrelsAdd, WAYPOINT_PER_TURN,
+  waypointMul, REBOUND_MUL, FUSE_N, FUSE_MUL, FRONTIER_ECHO_SHARE,
   CHAIN_ARCS_PER_SHOT, MINE_EXTRA_MAX, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, routerBoth, SPILL_CHAIN_DEPTH, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac, WELL_RADIUS, WELL_TIME, wellPull,
 } from '../engine/effects';
 
@@ -312,6 +316,75 @@ newMod('static_charge', 'Static Charge', 'status', 'uncommon', 'static_charge',
 modBlock('magnetize_target', 'Magnetize Target', 'status', 1, { type: 'magnetize_target' }, 'Magnetises enemies.');
 modBlock('vampiric', 'Vampiric', 'status', 3, { type: 'vampiric' }, 'Heals the hull on hit.');
 
+// ---------------------------------------------------------------- Legendary (chunk 20a, docs/legendaries.md)
+// One copy each, no upgrades, bought with Medals and credits once a Frontier ring is reached in their direction (frontier/unlocks.ts).
+const LEGENDARY = { maxLevel: 1, shown: true, unlock: 'shop' as const, outputs: FWD };
+register({
+  id: 'frontier_echo', name: 'Frontier Echo', category: 'legendary', ...LEGENDARY,
+  desc: `Adds ${pct(FRONTIER_ECHO_SHARE)}% of your furthest Frontier ring to each shot as flat damage (whole numbers; ring 300 = +30). Counts the furthest passed or cleared square in any direction.`,
+  transform: (p, _l, ctx) => { addDamage(p, frontierEchoAdd(ctx.furthestRing)); p.mods.push({ type: 'frontier_echo' }); },
+});
+register({
+  id: 'payload', name: 'Payload', category: 'legendary', ...LEGENDARY,
+  desc: `Adds +${PAYLOAD_ADD} damage to each shot: a flat bonus, worth most on a lean line.`,
+  transform: (p) => { addDamage(p, PAYLOAD_ADD); },
+});
+register({
+  id: 'lone_shot', name: 'Lone Shot', category: 'legendary', ...LEGENDARY,
+  desc: `Multiplies a shot's damage by up to ×${loneShotMul(1)}: ×${loneShotMul(1)} when it is your only shot in the air, falling in a straight line to ×1 at ${LONE_SHOT_FULL} or more of your shots alive. The builder's estimate counts ×1.`,
+  transform: (p) => { p.ops.push({ t: 'lone' }); p.mods.push({ type: 'lone_shot' }); },
+});
+register({
+  id: 'last_breath', name: 'Last Breath', category: 'legendary', ...LEGENDARY,
+  desc: `×${LAST_BREATH_MUL} damage on a hit during the last ${LAST_BREATH_WINDOW} s of the shot's life (a shot lives ${PROJECTILE_MAX_AGE} s, so from the 2nd second on): shots that have flown a long way, bounced around or orbited hit twice as hard.`,
+  transform: (p) => { p.mods.push({ type: 'last_breath' }); },
+});
+register({
+  id: 'zigzag', name: 'Zigzag', category: 'legendary', ...LEGENDARY,
+  desc: `The shot changes direction every ${ZIGZAG_PERIOD} s, weaving ${ZIGZAG_ANGLE_DEG}° to each side of its line, and gains +${pct(ZIGZAG_GAIN)}% damage for every change (added, not compounded: after 10 changes ×1.5).`,
+  transform: (p) => { p.mods.push({ type: 'zigzag' }); },
+});
+register({
+  id: 'heavy_round', name: 'Heavy Round', category: 'legendary', ...LEGENDARY,
+  desc: `Damage ×${HEAVY_MUL_NORMAL} at normal shot speed, rising in a straight line to ×${HEAVY_MUL_SLOWEST} at ${HEAVY_SLOW_SPEED}× speed. Reads the shot's real speed (Turn block levels, the hull's shot speed, the captain); applied to the damage at the end of the line.`,
+  transform: (p) => { p.mods.push({ type: 'heavy_round' }); },
+});
+register({
+  id: 'hollow_core', name: 'Hollow Core', category: 'legendary', ...LEGENDARY,
+  desc: `Damage +${pct(HOLLOW_CORE_PER_CELL)}% for every empty buildable cell of the hull (a cell with no block on it, whether or not a line runs through it). It shrinks as you place blocks. Counted when the circuit is compiled.`,
+  transform: (p, _l, ctx) => { mulDamage(p, hollowCoreMul(ctx.emptyCells)); p.mods.push({ type: 'hollow_core' }); },
+});
+register({
+  id: 'idle_barrels', name: 'Idle Barrels', category: 'legendary', ...LEGENDARY,
+  desc: `+${IDLE_BARRELS_PER_EJECTOR} flat damage for every ejector of the hull that no signal reaches. All ejectors used = +0.`,
+  transform: (p, _l, ctx) => { addDamage(p, idleBarrelsAdd(ctx.idleEjectors)); },
+});
+register({
+  id: 'waypoint', name: 'Waypoint', category: 'legendary', ...LEGENDARY,
+  desc: `×${WAYPOINT_PER_TURN} damage for every Turn Left, Turn Right, Curving Right or Random Curve block the signal passed before it reaches this one (×${Math.round(waypointMul(5) * 100) / 100} after five).`,
+  transform: (p) => { mulDamage(p, waypointMul(p.turns)); },
+});
+register({
+  id: 'rebound', name: 'Rebound', category: 'legendary', ...LEGENDARY,
+  desc: `×${REBOUND_MUL} damage when the previous shot through this block arrived with less damage than this one. The first shot gets ×1. Needs damage that changes from shot to shot (chance blocks, Overclock, Lone Shot). The builder's estimate counts ×1.`,
+  transform: (p) => { p.mods.push({ type: 'rebound' }); },
+  keyedOp: (key) => ({ t: 'rebound', key, mul: REBOUND_MUL }),
+});
+register({
+  id: 'mirror', name: 'Mirror', category: 'legendary', ...LEGENDARY,
+  desc: 'Every shot leaving through this line is cloned: the clone flies beside it with the same damage and the same modifiers. Clones are made at the ship, so they are never cloned again; when the projectile limit is reached the clone is skipped.',
+  transform: (p) => { p.mods.push({ type: 'mirror' }); },
+});
+register({
+  id: 'fuse', name: 'Fuse', category: 'legendary', ...LEGENDARY,
+  desc: `Collects ${FUSE_N} shots and releases ONE shot with ×${FUSE_MUL} the total damage of the ${FUSE_N} (the other ${FUSE_N - 1} are absorbed): the Capacitor with a longer fuse and a better rate (×${FUSE_N * FUSE_MUL} every ${FUSE_N}th pulse).`,
+  transform: (p) => {
+    p.damage *= FUSE_N * FUSE_MUL;
+    p.ops.push({ t: 'cap', n: FUSE_N, mul: FUSE_MUL });
+    p.mods.push({ type: 'fuse' });
+  },
+});
+
 // ---------------------------------------------------------------- Passives
 const PASSIVE = 'Passive block: not on the signal path and no ship stat consumes it.';
 for (const [id, name, max] of [
@@ -329,7 +402,12 @@ export const MOD_LABEL: Record<string, string> = {
   // Chunk 11a
   fission_catalyst: 'Fission Catalyst', cauterize: 'Cauterize', cleaver: 'Cleaver', culling_bolt: 'Culling Bolt', residue_seed: 'Residue Seed',
   overkill_spill: 'Overkill Spill', gravity_well: 'Gravity Well', static_charge: 'Static Charge', random_router: 'Random Router',
+  // Chunk 20a
+  frontier_echo: 'Frontier Echo', lone_shot: 'Lone Shot', last_breath: 'Last Breath', zigzag: 'Zigzag', heavy_round: 'Heavy Round', hollow_core: 'Hollow Core',
+  waypoint: 'Waypoint', rebound: 'Rebound', mirror: 'Mirror', fuse: 'Fuse',
 };
+
+for (const id of ['turn_l', 'turn_r', 'curving_right', 'random_curve']) BLOCKS[id].isTurn = true;
 
 // Chunk 16c-2: only the blocks in UPGRADABLE have levels. Every other block has one level and runs at its fixed level.
 for (const b of Object.values(BLOCKS)) {

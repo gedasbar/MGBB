@@ -136,7 +136,7 @@ export class World {
     this.director = this.makeDirector();
     this.startWave = Math.max(1, Math.floor(opts.startWave ?? 1));
     this.applyStartWave();
-    const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage });
+    const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage, furthestRing: this.mods.furthestRing, projSpeedMul: this.mods.projSpeedMul });
     const hull = opts.grid ?? buildStarterGrid();
     this.recipes = compiled.recipes;
     this.fireRateMul = fireRateMul(hull.hullId) * this.mods.fireRateMul;

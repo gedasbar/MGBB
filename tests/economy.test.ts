@@ -37,7 +37,7 @@ describe('pricing formulas', () => {
   });
   it('every picker block has a base price, and the hull ladder is free then strictly ascending', () => {
     for (const b of pickerBlocks()) expect(BASE_PRICE[b.id]).toBeGreaterThan(0);
-    expect(pickerBlocks().length).toBe(41);
+    expect(pickerBlocks().length).toBe(53);
     expect(HULL_PRICE.dart).toBe(0);
     const ladder = HULL_ORDER.map(id => HULL_PRICE[id]);
     for (let i = 1; i < ladder.length; i++) expect(ladder[i]).toBeGreaterThan(ladder[i - 1]);

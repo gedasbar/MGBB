@@ -35,13 +35,15 @@ export interface RunModifiers {
   killHeal: number;
   /** Multiplier on the wall's top-edge boost zone height. */
   boostZone: number;
+  /** Furthest Frontier ring reached in any direction (Frontier Echo, chunk 20a; not a captain effect: the progress store fills it in). */
+  furthestRing: number;
 }
 
 export function neutralModifiers(): RunModifiers {
   return {
     baseDamage: 0, damageMul: 1, fireRateMul: 1, projSpeedMul: 1, vsArmor: 0, vsShield: 0, vsFragment: 0, wallDamageMul: 1,
     creditMul: 1, wallCreditMul: 1, waveBonusMul: 1, passCredits: 0, medalDouble: 0, secondChances: 0, spawnInvuln: 0,
-    hullMul: 1, killHeal: 0, boostZone: 1,
+    hullMul: 1, killHeal: 0, boostZone: 1, furthestRing: 0,
   };
 }
 

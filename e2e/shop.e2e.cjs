@@ -66,7 +66,7 @@ async function montage(page, shots, captions, file, k) {
 
   // ---- layout at the phone width (360 css px = 540 game px, so css = game x 0.667)
   let st = await shopState(page);
-  check(st.section === undefined && st.rows.length === 41, `the Shop lists 41 blocks as tiles (${st.rows.length})`);
+  check(st.section === undefined && st.rows.length === 53, `the Shop lists 53 blocks as tiles (${st.rows.length})`);
   const tiles = await pal(page, 'p.tiles.slice(0, 6).map(t => ({ x: t.x, y: t.y, w: t.w, h: t.h }))');
   check(tiles[4].x > tiles[3].x && tiles[3].x > tiles[2].x && tiles[2].x > tiles[1].x && tiles[1].x > tiles[0].x && tiles[4].y === tiles[0].y && tiles[5].x === tiles[0].x && tiles[5].y > tiles[0].y,
     `5 tiles per row: ${JSON.stringify(tiles.map(t => [t.x, t.y]))}`);
@@ -81,9 +81,9 @@ async function montage(page, shots, captions, file, k) {
   // ---- one list, ordered by category
   const allIds = await pal(page, 'p.tiles.map(t => t.id)');
   const cats = await page.evaluate(async (ids) => { const m = await import('/src/data/blocks.ts'); return ids.map(i => m.BLOCKS[i].category); }, allIds);
-  const order = ['pathing', 'damage', 'modifier', 'status', 'mitosis'];
+  const order = ['pathing', 'damage', 'modifier', 'status', 'mitosis', 'legendary'];
   const idx = cats.map(x => order.indexOf(x));
-  check(idx.every((v, i) => v >= 0 && (i === 0 || v >= idx[i - 1])), 'the list is grouped by category (pathing, damage, modifier, status, mitosis)');
+  check(idx.every((v, i) => v >= 0 && (i === 0 || v >= idx[i - 1])), 'the list is grouped by category (pathing, damage, modifier, status, mitosis, legendary)');
   const dmgIds = allIds.filter((_, i) => cats[i] === 'damage');
 
   // ---- select a tile: info sheet opens, tile stays visible, buy / upgrade work with the Shop's prices
@@ -131,7 +131,7 @@ async function montage(page, shots, captions, file, k) {
   const sc = await pal(page, '({ y: p.scrollY, max: p.maxScrollValue })');
   check(sc.y > 0 && Math.abs(sc.y - sc.max) < 1, `the wheel scrolls the grid to its end (${sc.y.toFixed(0)} of ${sc.max.toFixed(0)})`);
   st = await shopState(page);
-  check(st.rows.length === 41 && st.section === undefined, 'the Shop is blocks only: no Hulls section');
+  check(st.rows.length === 53 && st.section === undefined, 'the Shop is blocks only: no Hulls section');
 
   // ---- wide window
   await page.setViewportSize({ width: 1600, height: 900 });

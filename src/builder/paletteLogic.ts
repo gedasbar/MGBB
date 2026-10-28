@@ -20,7 +20,7 @@ const BADGE_MAX = 99;
 export const REMOVE_TILE = '__remove';
 
 /** Palette order: by category, then the data order within a category. */
-export const PALETTE_CATEGORIES: readonly BlockCategory[] = ['pathing', 'damage', 'modifier', 'status', 'mitosis'];
+export const PALETTE_CATEGORIES: readonly BlockCategory[] = ['pathing', 'damage', 'modifier', 'status', 'mitosis', 'legendary'];
 
 export type SheetButtonId = 'place' | 'buy' | 'upgrade';
 
@@ -100,6 +100,9 @@ export interface SheetInput {
   maxLevel: number;
   credits: number;
   copyPrice: number;
+  /** Legendary blocks (chunk 20a): Medals a copy costs on top of the credits, and the Medals in hand. */
+  medalPrice?: number;
+  medals?: number;
   /** Copies one can own (Infinity = no cap). */
   cap?: number;
   /** Price of the next level (ignored at max level). */
@@ -126,6 +129,9 @@ export interface SheetContent {
   upgrade: SheetButton | null;
 }
 
+/** "50K" for an ordinary block, "50K + 15 Medals" for a legendary one. */
+export const priceText = (credits: number, medals = 0) => (medals > 0 ? `${fmtBig(credits)} + ${medals} Medals` : fmtBig(credits));
+
 export function sheetContent(i: SheetInput): SheetContent {
   const atMax = i.level >= i.maxLevel;
   const hasLevels = i.maxLevel > 1;
@@ -144,7 +150,10 @@ export function sheetContent(i: SheetInput): SheetContent {
   return {
     ...base,
     lockText: null,
-    buy: atCap ? { label: 'Max', enabled: false } : { label: `Buy +1\n${fmtBig(i.copyPrice)}`, enabled: i.credits >= i.copyPrice },
+    buy: atCap ? { label: 'Max', enabled: false } : {
+      label: `Buy +1\n${priceText(i.copyPrice, i.medalPrice)}`,
+      enabled: i.credits >= i.copyPrice && (i.medals ?? 0) >= (i.medalPrice ?? 0),
+    },
     upgrade: !hasLevels ? null : atMax
       ? { label: 'Upgrade\nMAX', enabled: false }
       : { label: `Upgrade L${i.level}→L${i.level + 1}\n${fmtBig(i.upgradePrice)}`, enabled: i.credits >= i.upgradePrice },
@@ -195,6 +204,9 @@ export interface CopyMarkInput {
   cap: number;
   /** The block is gated behind a Frontier requirement. */
   locked: boolean;
+  /** Legendary blocks: Medals the copy costs and the Medals in hand (both must be payable for the dot). */
+  medalPrice?: number;
+  medals?: number;
 }
 
 /**
@@ -202,7 +214,7 @@ export interface CopyMarkInput {
  * paid, or while the block is locked. Brightness says nothing about ownership (the count does).
  */
 export function copyAffordable(i: CopyMarkInput): boolean {
-  return !i.locked && i.owned < i.cap && i.credits >= i.copyPrice;
+  return !i.locked && i.owned < i.cap && i.credits >= i.copyPrice && (i.medals ?? 0) >= (i.medalPrice ?? 0);
 }
 
 /** The same mark on a hull the player does not own yet in the hull picker. */

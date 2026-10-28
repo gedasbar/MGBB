@@ -23,6 +23,7 @@
     "economy-audit": "vite-node scripts/economy-audit.ts",
     "blocks-doc": "vite-node scripts/blocks-doc.ts",
     "interaction-audit": "vite-node scripts/interaction-audit.ts",
+    "perf-legendary": "vite-node scripts/perf-legendary.ts",
     "difficulty-audit": "vite-node scripts/difficulty-audit.ts"
   },
   "devDependencies": {

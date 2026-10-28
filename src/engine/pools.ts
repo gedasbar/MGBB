@@ -52,6 +52,9 @@ export class ProjectilePool {
   firstDamage: Float64Array;
   lastX: Float32Array;
   lastY: Float32Array;
+  /** Chunk 20a, Zigzag: direction changes so far and the time into the current leg (-1 = the first leg has not been started). */
+  zigN: Uint8Array;
+  zigT: Float32Array;
 
   constructor(max: number = CONFIG.CAPS.PROJECTILES) {
     this.max = max;
@@ -86,6 +89,8 @@ export class ProjectilePool {
     this.firstDamage = new Float64Array(max);
     this.lastX = new Float32Array(max);
     this.lastY = new Float32Array(max);
+    this.zigN = new Uint8Array(max);
+    this.zigT = new Float32Array(max);
   }
 
   spawn(x: number, y: number, vx: number, vy: number, damage: number, pure: number = 0, modIndex: number = 0): number {
@@ -117,6 +122,8 @@ export class ProjectilePool {
         this.chains[i] = 0;
         this.pierced[i] = 0;
         this.aoePending[i] = 0;
+        this.zigN[i] = 0;
+        this.zigT[i] = -1;
         this.count++;
         return i;
       }
