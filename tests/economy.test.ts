@@ -271,7 +271,7 @@ describe('inventory and levels in the builder', () => {
 describe('level scaling of the formerly flat modifiers', () => {
   const cases: [string, number, number, number][] = [
     // formula, level, expected at level, expected at level 1
-    ['aoeCircleRadius', 3, 70, 50], ['shieldBreakMul', 2, 2, 1.5], ['pierceCostMul', 2, 0.5, 1],
+    ['aoeCircleRadius', 3, 74, 54], ['shieldBreakMul', 2, 2, 1.5],
   ];
   it.each(cases)('%s at level %i is %d (level 1: %d)', async (fn, level, atLevel, atOne) => {
     const proj = (await import('../src/engine/projectiles')) as unknown as Record<string, (l: number) => number>;

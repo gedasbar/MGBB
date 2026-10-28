@@ -4,8 +4,9 @@
  *
  *   fires      'every_hit'  on every hit of the shot (local and cheap effects);
  *              'first_hit'  only on the first hit of the shot (spawning effects: the main shot goes on if it can);
- *              'shot_end'   only on the hit that uses the shot up: a plain shot on its first hit, a Piercing shot when its damage
- *                           is gone, a Bouncing shot when its bounces are gone. A piercing or bouncing shot travels, then explodes once.
+ *              'shot_end'   only on the hit that uses the shot up: a plain shot on its first hit, a Piercing shot after its last pierce,
+ *                           a Bouncing shot when its bounces are gone. A piercing or bouncing shot travels, then explodes once.
+ *                           (Unused since chunk 19a, when pierce and bounce became finite counts; kept so the rule can be switched back.)
  *   fragments  true = the copies a Fork on Impact makes also have this effect (false: they are plain shots, so nothing cascades).
  *   arcs       true = a Chain Lightning arc also carries it (statuses and Mitosis effects do; nothing else).
  *   maxPerShot most times it can fire for one shot (absent = no limit).
@@ -28,8 +29,8 @@ export interface Trigger {
 export const TRIGGERS = {
   /** Ignite, Frostbite, Corrosion, Static Charge and the Mitosis effects: informational, applied in strike(). */
   status: { fires: 'every_hit', fragments: true, arcs: true } as Trigger,
-  /** AoE Circle and AoE Rectangle: one blast where the shot ends. Boomerang and Orbit shots never end by a hit, so with AoE they explode on their first hit. */
-  aoe: { fires: 'shot_end', fragments: false, arcs: false } as Trigger,
+  /** AoE Circle and AoE Rectangle (19a): a blast on EVERY hit; pierce and bounce are counted, so the number of blasts is finite. Boomerang and Orbit shots never end by a hit, so with AoE they explode on their first hit and end. */
+  aoe: { fires: 'every_hit', fragments: false, arcs: false } as Trigger,
   /** Fork on Impact: two copies on the first hit. */
   fork: { fires: 'first_hit', fragments: false, arcs: false } as Trigger,
   /** Chain Lightning: every hit, at most this many chains per shot (each Chain copy adds one jump to every chain). */

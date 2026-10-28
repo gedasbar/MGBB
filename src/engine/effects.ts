@@ -57,9 +57,16 @@ export const ORBIT_OPEN = 0.12;
 export const MINE_EXTRA_MAX = 3;
 export const MINE_SPREAD = 36;
 export const mineExtra = (copies: number) => Math.min(MINE_EXTRA_MAX, Math.max(0, copies - 1));
-/** Homing: seek range in px; every extra copy stretches it by the same shrinking factor as the size blocks (stackGrowth). */
-export const HOMING_RANGE_BASE = 400;
+/**
+ * Homing (chunk 19a nerf): ONE copy is short-sighted, THREE copies see what one copy used to (range 400 px, cone 60 degrees).
+ * Range grows by the size-block factor stackGrowth (x1.22 at 3 copies), the cone by the harmonic sum (x1.83 at 3 copies),
+ * so the bases are 400 / 1.21875 and 60 / 1.8333 rounded.
+ */
+export const HOMING_RANGE_BASE = 328;
 export const homingRange = (copies: number) => HOMING_RANGE_BASE * stackGrowth(copies);
+/** Homing: total opening angle of the cone (degrees) of one copy; extra copies widen it logarithmically (harmonic). */
+export const HOMING_CONE_BASE_DEG = 33;
+export const homingConeDeg = (copies: number) => HOMING_CONE_BASE_DEG * harmonic(copies);
 /** Orbit: every extra copy adds one more full pass round the ship, which takes 2 pi r / speed seconds. */
 export const orbitPassTime = (speed: number) => (2 * Math.PI * ORBIT_RADIUS) / Math.max(1, speed);
 export const mineDistance = (l: number) => 220 + 40 * (l - 1);
@@ -150,6 +157,10 @@ export const FORK_PAIR_DAMAGE = 0.8;
 export const MAX_BOUNCES = 127;
 /** Chain Lightning: the e-th jump added by an extra copy deals CHAIN_STACK_FALL^e of a normal jump (the jumps of one block stay at 70% each, as before). */
 export const CHAIN_STACK_FALL = 0.85;
+
+// ---- Chunk 19a: Piercing by count
+/** Share of its damage a Piercing shot keeps after passing through a target: 1.0 = full damage on every hit (tune here). */
+export const PIERCE_DAMAGE_KEEP = 1.0;
 
 // ---- Chunk 17b: the trigger table (engine/triggers.ts)
 /** Chain Lightning fires on every hit of a shot, but at most this many chains per shot. */

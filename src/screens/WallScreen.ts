@@ -465,7 +465,7 @@ export class WallScreen implements Screen {
     w.bank(store);
     this.banker.flush(w.destroyed);
     const result = { credits: w.credits, kills: w.destroyed, time: w.time, tier: w.tier };
-    const marks = { newBestTier: false, newBestTime: false };
+    const marks = { newBestTier: false, newBestTime: false, newBestEarnings: w.newBestEarnings };
     const level = this.levelDef;
     const grid = this.grid;
     const sm = this.sm;

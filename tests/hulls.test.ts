@@ -261,7 +261,7 @@ describe('saves with the bigger ladder', () => {
     const raw = { ...defaultProgress(), ownedHulls: ['dart', 'fan', 'shuttle', 'wisp', 'zenith', 'not_a_hull', 7] };
     const p = loadProgress(JSON.stringify(raw));
     expect(p.version).toBe(PROGRESS_VERSION);
-    expect(PROGRESS_VERSION).toBe(8);
+    expect(PROGRESS_VERSION).toBe(9);
     expect(p.ownedHulls.sort()).toEqual(['dart', 'fan', 'shuttle', 'wisp', 'zenith'].sort());
     expect(richProgress().ownedHulls.length).toBe(19);
   });

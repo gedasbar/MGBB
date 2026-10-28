@@ -376,16 +376,16 @@ describe('Edge-push camera', () => {
 });
 
 describe('Shared hit pipeline on a wall', () => {
-  it('piercing passes through several blocks of a column', () => {
+  it('piercing passes through its count of blocks of a column (2 copies: 3 blocks)', () => {
     const w = world(level(8));
     w.setWallOffset(8 * CELL + 40); // the wall's lowest row sits near the bottom of the screen
     const col = 7;
     const x = col * CELL + 27;
     const lowest = blockAt(w, 7, col);
-    const i = shoot(w, x, lowest.y + 20, 450, [{ type: 'piercing', level: 1 }], { vy: -600 });
+    const i = shoot(w, x, lowest.y + 20, 450, [{ type: 'piercing', level: 1 }, { type: 'piercing', level: 1 }], { vy: -600 });
     for (let k = 0; k < 120 && w.pool.active[i]; k++) w.update(1 / 60, null);
     const killed = [0, 1, 2, 3, 4, 5, 6, 7].filter(r => w.blocks[r * WALL_COLS + col] === null).length;
-    expect(killed).toBeGreaterThanOrEqual(3);
+    expect(killed).toBe(3);
     expect(w.destroyed).toBe(killed);
     // A plain shot of the same size stops at the first block.
     const w2 = world(level(8));
@@ -522,5 +522,41 @@ describe('Free Fly is unaffected', () => {
     expect(w.kills + w.hits.length).toBeGreaterThan(0);
     expect(w.shipX).toBe(CONFIG.VIEW.W / 2);
     expect(w.hull).toBe(100);
+  });
+});
+
+describe('AoE shapes on a wall (19a)', () => {
+  /** Fires one still shot into block (row 5, col 10) of an 8-row wall; returns the "row,col" of every block that took damage. */
+  function blasted(mods: any[], at: 'centre' | 'left' | 'right' = 'centre'): string[] {
+    const w = world(level(8, () => plain(1000)));
+    w.setWallOffset(8 * CELL + 40);
+    const b = blockAt(w, 5, 10);
+    const x = b.col * CELL + (at === 'centre' ? CELL / 2 : at === 'left' ? 1 : CELL - 1);
+    const y = at === 'centre' ? b.y : b.y + CELL / 2 - 1; // the edge nearest the ship: where a real shot touches it
+    shoot(w, x, y, 10, mods);
+    w.update(1e-6, null);
+    return w.all.filter(c => w.blocks[c.id] === c && c.hp < 1000).map(c => `${c.row},${c.col}`).sort();
+  }
+  const rect = (k: number) => Array.from({ length: k }, () => ({ type: 'aoe_rect', level: 1 }));
+  const cells = (rows: number[], cols: number[]) => rows.flatMap(r => cols.map(c => `${r},${c}`)).sort();
+
+  it('AoE Rectangle: 1 copy = the hit block and one each side; 2 = one row deeper (behind, away from the ship); 3 = 2 x 5; 4 = 3 x 5; 5 = 3 x 7', () => {
+    expect(blasted(rect(1))).toEqual(cells([5], [9, 10, 11]));
+    expect(blasted(rect(2))).toEqual(cells([4, 5], [9, 10, 11]));
+    expect(blasted(rect(3))).toEqual(cells([4, 5], [8, 9, 10, 11, 12]));
+    expect(blasted(rect(4))).toEqual(cells([3, 4, 5], [8, 9, 10, 11, 12]));
+    expect(blasted(rect(5))).toEqual(cells([3, 4, 5], [7, 8, 9, 10, 11, 12, 13]));
+  });
+  it('AoE Circle: one copy reaches the blocks beside the hit one even when the shot touches the far edge, about the Rectangle area', () => {
+    const circle = [{ type: 'aoe_circle', level: 1 }];
+    const rect1 = blasted(rect(1));
+    for (const at of ['centre', 'left', 'right'] as const) {
+      const c = blasted(circle, at);
+      for (const cell of rect1) expect(c, `${at}`).toContain(cell);   // everything the 1-copy Rectangle hits
+      for (const cell of c) {                                         // and not much more: inside the 3 x 3 round the hit block
+        const [r, col] = cell.split(',').map(Number);
+        expect(Math.abs(r - 5) <= 1 && Math.abs(col - 10) <= 1, `${at} ${cell}`).toBe(true);
+      }
+    }
   });
 });

@@ -2,7 +2,7 @@
 
 The living plan for Mitosis Gun Builder: how we work, what the design is trying to be, what was decided and why, and what comes next. Any new planning chat or agent should read this first, then `CLAUDE.md` (current state of the code) and `DECISIONS.md` (numbered implementation decisions).
 
-Last updated: 2026-10-27, after chunk 18b (difficulty curves; 18a was the read-only audit). `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
+Last updated: 2026-10-28, after chunk 19a (best earnings, Homing nerf, Piercing by count, AoE shapes; 18b was the difficulty curves). `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
 
 ---
 
@@ -48,7 +48,7 @@ Last updated: 2026-10-27, after chunk 18b (difficulty curves; 18a was the read-o
 
 From the owner's playtests and audits, most important first:
 
-1. ~~**Interactions cancel each other.**~~ **Mostly done (17b):** the trigger table is in (`src/engine/triggers.ts`, `docs/interactions.md`) and the pair audit exists. AoE + Fork now both happen; 29 pairs are still flagged with reasons in `docs/interaction-audit.md` (the blast now waits for the end of a piercing/bouncing line; Boomerang and Orbit; bench artefacts). Original text: Example: an AoE shot explodes on its first hit, so Fork on Impact never triggers. More pairs are likely broken. Planned fix: per-effect trigger rules (section 5) plus an automated pair audit.
+1. ~~**Interactions cancel each other.**~~ **Mostly done (17b):** the trigger table is in (`src/engine/triggers.ts`, `docs/interactions.md`) and the pair audit exists. AoE + Fork now both happen; **19a made Piercing a count and AoE fire on every hit, so Piercing/Bouncing + AoE no longer cancel (58 -> 44 flagged pairs, `docs/interactions.md` section 5);** the rest are Boomerang, Orbit, Mine and bench artefacts (`docs/interaction-audit.md`). Original text: Example: an AoE shot explodes on its first hit, so Fork on Impact never triggers. More pairs are likely broken. Planned fix: per-effect trigger rules (section 5) plus an automated pair audit.
 2. ~~**AoE stacking penalty is invisible.**~~ **Done (17b):** the estimate and the block text show it. Original text: The engine applies x0.95 per extra AoE copy (`aoeStackDamage` in `src/engine/effects.ts`), but the builder's damage estimate and the block text do not show it, so it looks missing.
 3. **Hull layouts have no soul.** The 14 new layouts are shapes without a design intent; there is no "best route" or puzzle idea. Each hull needs an idea sentence and a layout drawn to serve it (bottlenecks, corridors, chambers, far-apart ejectors, pockets).
 4. **Hull art is just the layout.** The newer hulls' art is generated from the grid. Needs real silhouettes (after an approved concept sheet).
@@ -103,6 +103,7 @@ Next, in order:
 
 The numbered implementation log is `DECISIONS.md`. The big design turns, newest first:
 
+- **19a** Best credits earned per tier/square (save v9); Homing nerfed (1 copy short-sighted, 3 copies = the old values); Piercing is a count (1 copy = 2 targets, full damage); AoE fires on every hit; AoE Rectangle in wall cells (1x3, 2x3, 2x5, 3x5, 3x7), Circle one cell.
 - **17a** 19-hull ladder; hulls bought in the builder's picker; Shop blocks only; yellow "affordable" dot; brightness no longer means owned.
 - **16c-2** Upgrades only on 8 blocks; copy caps; price family B; shape blocks stack; hero uncapped; no damage clamp but NaN-safe.
 - **16c-1** Economy audit: most blocks' 2nd copy did nothing; damage ceiling far above content; hull jump from 3 to 72 cells.

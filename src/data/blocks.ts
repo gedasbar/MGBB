@@ -1,4 +1,4 @@
-import { aoeCircleRadius, randomCurveMaxDeg, shieldBreakMul, aoeRectSize, armorPierceMul, forkDamageFrac, CURVE_RATE_DEG, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG } from '../engine/projectiles';
+import { aoeCircleRadius, randomCurveMaxDeg, shieldBreakMul, armorPierceMul, forkDamageFrac, CURVE_RATE_DEG, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG } from '../engine/projectiles';
 import { FIXED_LEVEL, UPGRADABLE } from './blockEconomy';
 import { addDamage, BlockCategory, BlockDef, gateDamage, Modifier, mulDamage, Packet, Rarity, Rel } from '../engine/compilerTypes';
 import {
@@ -243,7 +243,7 @@ function levelMod(id: string, name: string, maxLevel: number, mod: Modifier, des
 
 /** The line every stacking shape block ends with: what one more copy on the signal path does (checked by tests/interactions.test.ts). */
 export const MORE: Record<string, string> = {
-  piercing: 'Each extra copy: one more pierce.',
+  piercing: 'Each extra copy: passes through 1 more target.',
   bouncing: 'Each extra copy: one more bounce.',
   aoe: 'Each extra copy: bigger area, -5% damage.',
   chain: 'Each extra copy: one more jump in every chain (each added jump weaker).',
@@ -255,13 +255,11 @@ export const MORE: Record<string, string> = {
 };
 
 levelMod('piercing', 'Piercing', 5, { type: 'piercing' },
-  (l) => l === 1
-    ? `Projectiles pass through enemies. Each hit costs the projectile the damage it dealt (at least 10% of its damage). ${MORE.piercing}`
-    : `Projectiles pass through enemies. Each hit costs the projectile 1/${l} of the damage it dealt (at least ${Math.round(10 / l * 10) / 10}% of its damage). ${MORE.piercing}`);
+  () => `Projectiles pass through enemies at full damage: 1 copy hits 2 targets, 3 copies hit 4. ${MORE.piercing}`);
 levelMod('bouncing', 'Bouncing', 5, { type: 'bouncing' },
   (l) => `Bounces off the first ${bounceCount(l)} things it hits instead of stopping. Keeps full damage. ${MORE.bouncing}`);
 levelMod('aoe_circle', 'AoE - Circle', 5, { type: 'aoe_circle' },
-  (l) => `Projectiles explode once, where the shot ends (a Piercing or Bouncing shot travels on first), hitting every enemy within ${aoeCircleRadius(l)} units. ${MORE.aoe}`);
+  (l) => `Projectiles explode on every hit, hitting every enemy within ${aoeCircleRadius(l)} units: about one block beyond the one hit. ${MORE.aoe}`);
 levelMod('shield_breaker', 'Shield-Breaker', 3, { type: 'shield_breaker' },
   (l) => `Damage dealt to a shield ×${shieldBreakMul(l)}, and shields take double on top of that. Hits on armor and HP are unchanged.`);
 register({
@@ -294,9 +292,9 @@ levelMod('curving_right', 'Curving Right', 3, { type: 'curve', dir: 'right' },
 levelMod('random_curve', 'Random Curve', 3, { type: 'random_curve' },
   (l) => `Projectiles weave on smooth random steering, turning at most ${randomCurveMaxDeg(l)}° per second.`);
 levelMod('homing', 'Homing', 5, { type: 'homing' },
-  (l) => `Projectiles steer at ${HOMING_RATE_DEG * l}° per second toward the nearest enemy within ${HOMING_RANGE} px and a ${HOMING_CONE_DEG}° cone ahead. With no target they fly straight. ${MORE.homing}`);
+  (l) => `Projectiles steer at ${HOMING_RATE_DEG * l}° per second toward the nearest enemy within ${HOMING_RANGE} px and a ${HOMING_CONE_DEG}° cone ahead (one copy is short-sighted). With no target they fly straight. ${MORE.homing}`);
 levelMod('aoe_rect', 'AoE - Rectangle', 5, { type: 'aoe_rect' },
-  (l) => { const r = aoeRectSize(l); return `Projectiles detonate once, where the shot ends (a Piercing or Bouncing shot travels on first), as a horizontal bar ${r.w} px wide and ${r.h} px tall, hitting every enemy it overlaps. ${MORE.aoe}`; });
+  () => `Projectiles detonate on every hit, hitting a block-sized area centred on the one hit and reaching behind it. 1 copy: 1x3 blocks; each copy grows the area (2x3, 2x5, 3x5, 3x7, ...). ${MORE.aoe}`);
 levelMod('fork_impact', 'Fork on Impact', 3, { type: 'fork_impact' },
   (l) => `On the first hit, spawns 2 copies at ${Math.round(forkDamageFrac(l) * 100)}% damage and 0.6× size, flying ±${FORK_ANGLE_DEG}° off the heading; the shot goes on. Copies carry status effects only (no blast, fork or chain). ${MORE.fork}`);
 levelMod('armor_piercer', 'Armor-Piercer Tip', 3, { type: 'armor_piercer' },

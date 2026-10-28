@@ -75,6 +75,7 @@ export function resetCampaign(store: ProgressStore) {
   const p = store.data;
   p.clearedTiers = d.clearedTiers; p.passedTiers = d.passedTiers;
   p.wallBestPct = d.wallBestPct; p.wallBestTime = d.wallBestTime; p.wallBestClearTime = d.wallBestClearTime;
+  p.wallBestCredits = d.wallBestCredits; p.squareBestCredits = d.squareBestCredits;
   p.medals = 0; p.highestCleared = 0;
   p.captains = defaultProgress().captains;
   p.frontier = d.frontier;

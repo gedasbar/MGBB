@@ -1,5 +1,6 @@
 import { MAX_TIER } from '../wall/generator';
 import { applySquareRun, defaultFrontier, FrontierSave, sanitizeFrontier, SquareRunOutcome } from '../frontier/state';
+import { parseKey, sqKey } from '../frontier/world';
 import { MAP_UNLOCK_TIER } from '../frontier/constants';
 import { EncounterOutcome } from '../frontier/encounter';
 import { blockName, gateOf, isBlockUnlocked, newlyReached, Reach, reachBySector, requirementText } from '../frontier/unlocks';
@@ -15,12 +16,12 @@ import {
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 8;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 9;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 8;
+  version: 9;
   /** A one-time message for the next screen that can show it (the economy refund of the version 8 migration); cleared when taken. */
   notice?: string;
   credits: number;
@@ -42,6 +43,9 @@ export interface Progress {
   /** Best time of a pass or a clear, and best time of a clear alone. */
   wallBestTime: Record<string, number>;
   wallBestClearTime: Record<string, number>;
+  /** Chunk 19a: best credits earned in ONE run (passed, cleared or crashed alike), per campaign tier (key = tier) and per Frontier square (key = "x,y", the origin included). Absent = never earned any. */
+  wallBestCredits: Record<string, number>;
+  squareBestCredits: Record<string, number>;
   /** Medals in hand: one per tier's first full clear and the Free Fly milestones, minus what the captains took. */
   medals: number;
   /** Captains (chunk 13a): owned, selected, levels, kills, options, claimed Free Fly milestones. */
@@ -62,8 +66,8 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 8, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
-    clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
+    version: 9, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, wallBestCredits: {}, squareBestCredits: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
     frontier: defaultFrontier(),
   };
 }
@@ -109,6 +113,18 @@ export function sanitizeProgress(raw: unknown): Progress {
     for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
       const t = Number(k);
       if (Number.isInteger(t) && t >= 1 && t <= MAX_TIER && typeof v === 'number' && isFinite(v) && v >= 0 && v <= max) dst[k] = v;
+    }
+  }
+  // v9 (chunk 19a): best credits per tier and per square. Older saves have none; unusable entries are dropped.
+  if (r.wallBestCredits && typeof r.wallBestCredits === 'object') {
+    for (const [k, v] of Object.entries(r.wallBestCredits as Record<string, unknown>)) {
+      const t = Number(k);
+      if (Number.isInteger(t) && t >= 1 && t <= MAX_TIER && typeof v === 'number' && v > 0 && v <= Number.MAX_VALUE) out.wallBestCredits[k] = Math.floor(v);
+    }
+  }
+  if (r.squareBestCredits && typeof r.squareBestCredits === 'object') {
+    for (const [k, v] of Object.entries(r.squareBestCredits as Record<string, unknown>)) {
+      if (parseKey(k) && typeof v === 'number' && v > 0 && v <= Number.MAX_VALUE) out.squareBestCredits[k] = Math.floor(v);
     }
   }
   // Saves older than v6 held one Medal per cleared tier: never trust a stored count above that. From v6 on Medals are a
@@ -191,7 +207,7 @@ interface SquareRunResult {
  * (pass / clear) and its Medal on the first clear of a medal square. A run on a square that cannot be played books the
  * credits only (it never happens through the UI).
  */
-function applyFrontierRun(p: Progress, run: SquareRunResult): SquareRunOutcome {
+function applyFrontierRun(p: Progress, run: SquareRunResult): SquareRunOutcome & { newBestEarnings: boolean } {
   const cleared = run.destroyed >= run.total;
   return applyFrontierOutcome(p, { ...run, cleared, passed: cleared || !!run.passed });
 }
@@ -200,13 +216,22 @@ function applyFrontierRun(p: Progress, run: SquareRunResult): SquareRunOutcome {
  * Books any Frontier run by its outcome (a wall run above, or a Free Fly encounter): credits and kills as usual, then the
  * square's state and the first-clear Medal. Free Fly records (best wave / time) are not touched.
  */
-function applyFrontierOutcome(p: Progress, run: { x: number; y: number; credits: number; kills: number; cleared: boolean; passed: boolean; medalDouble?: number; rand?: () => number }): SquareRunOutcome {
+function applyFrontierOutcome(p: Progress, run: { x: number; y: number; credits: number; kills: number; cleared: boolean; passed: boolean; medalDouble?: number; rand?: () => number }): SquareRunOutcome & { newBestEarnings: boolean } {
   p.credits += Math.floor(run.credits);
   p.totalKills += run.kills;
   p.runs++;
   const r = applySquareRun(p.frontier, run.x, run.y, { cleared: run.cleared, passed: run.passed, medalDouble: run.medalDouble, rand: run.rand });
   p.medals += r.medals;
-  return r;
+  // A run on a square that cannot be played (r.ok false) never happens through the UI and keeps no record.
+  return { ...r, newBestEarnings: r.ok && noteBestCredits(p.squareBestCredits, sqKey(run.x, run.y), run.credits) };
+}
+
+/** Chunk 19a: keeps `credits` (whole) under `key` when it beats the stored best. Returns whether it did; nothing earned is never a record. */
+export function noteBestCredits(best: Record<string, number>, key: string, credits: number): boolean {
+  const c = Math.floor(credits);
+  if (!(c > 0) || c <= (best[key] ?? 0)) return false;
+  best[key] = c;
+  return true;
 }
 
 /** The encounter outcome as a square result: cleared fills, passed and cleared both unlock, failed changes nothing. */
@@ -236,11 +261,12 @@ export interface WallRunResult {
  * Books one campaign wall run (win or lose): credits for the blocks destroyed, the best result of the tier, and a Medal
  * the first time the tier is fully cleared. Replays pay credits but no Medal.
  */
-export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean; /** Medals paid (2 when doubled). */ medals: number; medalDoubled: boolean; newBestPct: boolean; newBestTime: boolean; newlyPassed: boolean } {
+export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean; /** Medals paid (2 when doubled). */ medals: number; medalDoubled: boolean; newBestPct: boolean; newBestTime: boolean; newlyPassed: boolean; newBestEarnings: boolean } {
   p.credits += Math.floor(run.credits);
   p.totalKills += run.kills;
   p.runs++;
   const key = String(run.tier);
+  const newBestEarnings = noteBestCredits(p.wallBestCredits, key, run.credits);
   const pct = run.total > 0 ? Math.floor((run.destroyed / run.total) * 100) : 100;
   const cleared = run.destroyed >= run.total;
   const passed = cleared || !!run.passed;
@@ -273,7 +299,7 @@ export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean;
     }
     p.highestCleared = Math.max(p.highestCleared, run.tier);
   }
-  return { medal, medals, medalDoubled, newBestPct, newBestTime, newlyPassed };
+  return { medal, medals, medalDoubled, newBestPct, newBestTime, newlyPassed, newBestEarnings };
 }
 
 export type BuyResult = { ok: true; price: number } | { ok: false; error: string };
@@ -370,7 +396,7 @@ export class ProgressStore {
   }
 
   /** Books a Frontier Free Fly encounter (chunk 15b). Returns the square outcome (Medal paid on a first clear). */
-  recordFrontierFly(run: { x: number; y: number; credits: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number }): SquareRunOutcome {
+  recordFrontierFly(run: { x: number; y: number; credits: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number }): SquareRunOutcome & { newBestEarnings: boolean } {
     const r = applyFrontierOutcome(this.data, { ...run, ...outcomeFlags(run.outcome) });
     this.commit();
     return r;
@@ -426,23 +452,24 @@ export class ProgressStore {
    * tier's best result and awards the first-clear Medal. Best tier and best time belong to Free Fly and are not touched.
    * Call exactly once per level (WallWorld.bank guards this).
    */
-  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; rand?: () => number }): { medal: boolean; medals: number; medalDoubled: boolean } {
+  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; rand?: () => number }): { medal: boolean; medals: number; medalDoubled: boolean; newBestEarnings: boolean } {
+    let newBestEarnings = false;
     let medal = false;
     let medals = 0;
     let medalDoubled = false;
     if (run.square && run.destroyed !== undefined && run.total !== undefined) {
       const r = applyFrontierRun(this.data, { ...run.square, destroyed: run.destroyed, total: run.total, credits: run.credits, kills: run.kills, passed: run.passed, medalDouble: run.medalDouble, rand: run.rand });
-      medal = r.medals > 0; medals = r.medals; medalDoubled = r.medalDoubled;
+      medal = r.medals > 0; medals = r.medals; medalDoubled = r.medalDoubled; newBestEarnings = r.newBestEarnings;
     } else if (run.tier !== undefined && run.destroyed !== undefined && run.total !== undefined) {
       const r = applyWallRun(this.data, { tier: run.tier, destroyed: run.destroyed, total: run.total, time: run.time ?? 0, credits: run.credits, kills: run.kills, passed: run.passed, medalDouble: run.medalDouble, rand: run.rand });
-      medal = r.medal; medals = r.medals; medalDoubled = r.medalDoubled;
+      medal = r.medal; medals = r.medals; medalDoubled = r.medalDoubled; newBestEarnings = r.newBestEarnings;
     } else {
       this.data.credits += Math.floor(run.credits);
       this.data.totalKills += run.kills;
       this.data.runs++;
     }
     this.commit();
-    return { medal, medals, medalDoubled };
+    return { medal, medals, medalDoubled, newBestEarnings };
   }
 }
 

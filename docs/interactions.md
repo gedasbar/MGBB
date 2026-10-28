@@ -1,5 +1,7 @@
 # Block interactions: when does each effect fire? (chunk 17b)
 
+> **Chunk 19a changed two rules below: AoE now fires on every hit and Piercing is a count. Section 5 is current; sections 1-4 describe 17b.**
+
 Principle: **every effect says WHEN it fires.** Local and cheap effects fire on every hit; big-area or spawning effects fire once. The rules live in one table in code, `TRIGGERS` in `src/engine/triggers.ts`; the owner can change a rule there. `npm run interaction-audit` tests every pair of blocks against the rules (`docs/interaction-audit.md`).
 
 Words: a **hit** is a projectile touching a target. The **shot** is one projectile from the ejector (plus the copies it makes). The shot **ends** on the hit that uses it up: a plain shot on its first hit; a Piercing shot when its damage runs out (and no Bouncing block turns that into a bounce); a Bouncing shot when it has no bounces left.
@@ -66,3 +68,35 @@ Rules in words:
 - **New in the list:** Bouncing + AoE Circle (84%) and Fork + Boomerang (85%) crossed the 95% line.
 - **Remaining by design:** Boomerang with Piercing, Bouncing (it already passes through everything), Mine (both replace the flight path), AoE (the blast ends the boomerang on its first hit), Homing, Fork.
 - **Remaining, bench artefacts:** pairs with Orbit or the curves. An Orbit shot always leaves from the same point 33 px beside the ship's axis, so in the tight cluster bench it never hits and nothing it carries can happen; curved shots miss low-HP targets so Executioner never fires. Overkill Spill + Residue Seed (83%) and Fork + Spill (90%) are kill-timing noise of the splitting-rock bench.
+
+## 5. Chunk 19a: pierce and bounce are counts, so AoE fires on every hit
+
+Piercing used to spend the shot's damage, so how long a shot lived depended on the targets' HP; it was hard to say when "the end" was and AoE had to wait for it (section 2). Now **each Piercing copy on the path lets the shot through ONE more target** (1 copy: 2 targets, 3 copies: 4), at full damage (`PIERCE_DAMAGE_KEEP = 1.0` in `effects.ts`; below 1 each pass multiplies the damage, so it can be tuned). The shot ends after its last allowed hit. A Bouncing block still turns the end of the pierce into a bounce (and the pierce count starts again after it). Both counts are finite, so the table changes:
+
+| effect | fires (19a) | carried by fork copies | carried by chain arcs |
+|---|---|---|---|
+| Status and Mitosis effects | every hit | yes | yes |
+| AoE Circle, AoE Rectangle | **every hit** (was: once, when the shot ends) | no | no |
+| Fork on Impact | the first hit only | no | no |
+| Chain Lightning | every hit, at most `CHAIN_ARCS_PER_SHOT` = 3 chains per shot | no | no |
+| Gravity Well | the first hit only | yes | no |
+
+- The blast of a hit goes to everything in the area except the target of that hit (it took the direct hit), at the damage of that hit times the AoE factor (x0.95 per extra copy). A piercing shot with AoE through a line therefore blasts at every target; neighbours of two targets in a row can be blasted twice. That is the point of the rule.
+- Boomerang and Orbit shots never end by a hit, so with AoE they still explode on their first hit and end (section 3).
+- The `shot_end` trigger and `retire()` (the blast owed when a shot leaves the screen) are kept in the code and still work if the table is switched back; with `every_hit` nothing is owed (`aoePending` is never set).
+- Fork copies and chain arcs carry no AoE, so Piercing + AoE + Fork cannot cascade: the main shot makes at most (copies + 1) blasts and one fork. `tests/interactions.test.ts` has the cluster test (4 blasts, 1 fork, at most 3 shots alive); the bench of `scripts/lib/dmgBench.ts` for Piercing x3 + AoE + Fork, and a longer line with Bouncing, Fork x2 and Chain, stayed under 52 shots alive and 0.05 ms per step (no EXPLODES).
+
+### AoE shapes (19a)
+
+- **Rectangle**, in wall cells (`CELL` = 54 px; Free Fly uses the same size in pixels), centred sideways on the hit block and reaching **behind** it (up the screen, away from the ship). Copies alternate one row deeper and two cells wider: 1 copy 1 x 3, 2: 2 x 3, 3: 2 x 5, 4: 3 x 5, 5: 3 x 7, 6: 4 x 7 (`aoeRectCells`). The `level` of the block no longer matters.
+- **Circle**: the base radius is one cell (`AOE_CIRCLE_CELLS` = 1, 54 px; it was 50 px, so +4) from the point where the shot touches the block, which reaches the blocks beside the hit one. The per-copy growth (`stackGrowth`) and the -5% per extra copy are unchanged, for both shapes. On a wall, one Circle hits the 1 x 3 of one Rectangle and may also touch the row behind and in front.
+- Free Fly: the Rectangle is a box of the same cells around the hit rock's centre, hitting every rock it overlaps.
+
+### Audit before and after (`npm run interaction-audit`, 24 blocks, 552 pairs, one copy of each block)
+
+Before (main, after 17b): 494 OK, 58 CANCELS, 0 EXPLODES. After: **508 OK, 44 CANCELS, 0 EXPLODES.** 14 pairs went from CANCELS to OK, no pair got worse:
+
+- Piercing + AoE Circle (80%), Piercing + AoE Rectangle (92%), Bouncing + AoE Circle (84%), Bouncing + AoE Rectangle (81%) and the same four with the blocks in the other order: now OK.
+- AoE Rectangle + Boomerang (85%), AoE Rectangle + Gravity Well (91%) (both orders) and Homing + Boomerang (90%, both orders): now OK. The Rectangle pairs are from the new shape; Homing + Boomerang is a side effect of the shorter Homing range in the bench (noise level, not understood in detail).
+- AoE Circle + Boomerang is still flagged, 91% -> 94%.
+- The 44 that remain are the old by-design and bench-artefact pairs (Boomerang, Orbit, Mine, Fork + Spill, ...); see section 4.

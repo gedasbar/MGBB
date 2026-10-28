@@ -1,5 +1,6 @@
 import type { EnemyEntity } from './projectiles';
 import { SpatialHash } from './spatialHash';
+import { CELL } from '../wall/constants';
 
 /** Where a ricochet leaves a surface: unit normal and how far to move the projectile out of the target. */
 export interface BounceInfo { nx: number; ny: number; push: number }
@@ -16,6 +17,11 @@ export interface TargetField {
   collectCircle(x: number, y: number, r: number, out: EnemyEntity[]): void;
   /** Living targets touched by a w x h rectangle centred on (x, y). */
   collectRect(x: number, y: number, w: number, h: number, out: EnemyEntity[]): void;
+  /**
+   * Living targets in the AoE Rectangle of chunk 19a: `cols` x `rows` wall cells (CELL px each), centred sideways on `target` and
+   * reaching from its row `rows - 1` rows BEHIND it (up the screen, away from the ship).
+   */
+  collectArea(target: EnemyEntity, cols: number, rows: number, out: EnemyEntity[]): void;
   /** Living targets that may lie within `range` of (x, y) (homing; the caller filters by distance and cone). */
   collectNear(x: number, y: number, range: number, out: EnemyEntity[]): void;
   /** Ricochet surface at a hit; absent or null = the caller picks a random direction. */
@@ -55,6 +61,11 @@ export class EnemyField implements TargetField {
       const ddy = Math.max(0, Math.abs(e.y - py) - h / 2);
       if (ddx * ddx + ddy * ddy <= e.radius * e.radius) out.push(e);
     }
+  }
+
+  collectArea(t: EnemyEntity, cols: number, rows: number, out: EnemyEntity[]) {
+    // Free Fly has no grid: the same cell size in pixels, centred on the hit rock, reaching up from it.
+    this.collectRect(t.x, t.y - ((rows - 1) * CELL) / 2, cols * CELL, rows * CELL, out);
   }
 
   collectNear(_x: number, _y: number, _range: number, out: EnemyEntity[]) {

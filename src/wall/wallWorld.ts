@@ -46,7 +46,7 @@ export function scrollSpeed(base: number, shipY: number, zoneMul = 1): number {
 
 /** What the world needs from the progress store at the end of a level. */
 export interface WallBank {
-  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number }): { medal: boolean; medals?: number; medalDoubled?: boolean } | void;
+  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number }): { medal: boolean; medals?: number; medalDoubled?: boolean; newBestEarnings?: boolean } | void;
 }
 
 /** Ship position the pointer asks for, in world px (x) and screen px (y). */
@@ -101,6 +101,14 @@ class BlockField implements TargetField {
     out.length = 0;
     this.forEachIn(px - w / 2, py - h / 2, px + w / 2, py + h / 2, b => {
       if (Math.abs(this.w.dxw(b.x, px)) <= w / 2 + CELL / 2 && Math.abs(b.y - py) <= h / 2 + CELL / 2) out.push(b);
+    });
+  }
+
+  collectArea(t: EnemyEntity, cols: number, rows: number, out: EnemyEntity[]) {
+    out.length = 0;
+    const halfW = (cols * CELL) / 2;
+    this.forEachIn(t.x - halfW, t.y - (rows - 0.5) * CELL, t.x + halfW, t.y + CELL / 2, b => {
+      if (Math.abs(this.w.dxw(b.x, t.x)) < halfW && b.y <= t.y + CELL / 2 && b.y >= t.y - (rows - 1) * CELL - CELL / 2) out.push(b);
     });
   }
 
@@ -190,6 +198,8 @@ export class WallWorld {
   medalEarned = false;
   medalsEarned = 0;
   medalDoubled = false;
+  /** Chunk 19a: this run earned more credits than any earlier run of this tier / square. */
+  newBestEarnings = false;
   autoFire = true;
   /** Pulse-rate multiplier of the hull being flown (the Dart is slow). */
   private fireRateMul = 1;
@@ -357,6 +367,7 @@ export class WallWorld {
     this.medalEarned = !!(res && res.medal);
     this.medalsEarned = (res && res.medals) || 0;
     this.medalDoubled = !!(res && res.medalDoubled);
+    this.newBestEarnings = !!(res && res.newBestEarnings);
     return true;
   }
 

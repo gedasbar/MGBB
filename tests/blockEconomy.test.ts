@@ -15,11 +15,12 @@ import { Gun, spawnOffsetsFor } from '../src/game/fire';
 import { HULL_BUILDERS } from '../src/game/gridUtils';
 import { place } from '../src/game/starter';
 import { ProjectilePool } from '../src/engine/pools';
-import { PHASE_BOOM_BACK, PHASE_MINE_WAIT, ProjectileSystem, EnemyEntity } from '../src/engine/projectiles';
+import { aoeRectCells, PHASE_BOOM_BACK, PHASE_MINE_WAIT, ProjectileSystem, EnemyEntity } from '../src/engine/projectiles';
 import { Modifier } from '../src/engine/compilerTypes';
 import { SpatialHash } from '../src/engine/spatialHash';
 import { fmtBig, fmtDamage } from '../src/ui/format';
 import { boomerangRange, bounceCount, chainJumps, MINE_SIZE } from '../src/engine/effects';
+import { CELL } from '../src/wall/constants';
 
 const mem = (init: Record<string, string> = {}) => {
   const d = { ...init };
@@ -195,7 +196,7 @@ describe('shape blocks stack (step 5)', () => {
     expect(aoeStackDamage(3)).toBeCloseTo(0.9025, 12);
   });
 
-  it('Piercing: every copy adds one to the divisor of the loss per hit (1 / (3 + extra)), so the shot keeps more of its damage', () => {
+  it('Piercing (19a): every copy lets the shot through one more target, every hit at full damage', () => {
     const along = (k: number) => {
       const r = rig();
       const rocks = Array.from({ length: 10 }, (_, j) => r.rock(270, 900 - 80 * j)); // 80 px apart: the hit zones (rock 20 + shot 10) do not overlap
@@ -203,17 +204,11 @@ describe('shape blocks stack (step 5)', () => {
       r.step(150);
       return rocks.map(e => dmg(e));
     };
-    const runs = [1, 2, 3, 4].map(along);
-    runs.forEach((d, i) => {
-      const n = 3 + i; // level 3 plus the extra copies
-      d.forEach((taken, h) => expect(taken, `k=${i + 1} rock ${h}`).toBeCloseTo(100 * Math.pow(1 - 1 / n, h), 6)); // each hit costs 1/n of the damage the shot has
+    [1, 2, 3, 4].forEach(k => {
+      const d = along(k);
+      d.forEach((taken, h) => expect(taken, `k=${k} rock ${h}`).toBeCloseTo(h <= k ? 100 : 0, 6)); // k + 1 targets, then the shot is gone
     });
-    const totals = runs.map(d => d.reduce((a, b) => a + b, 0));
-    for (let i = 1; i < totals.length; i++) expect(totals[i]).toBeGreaterThan(totals[i - 1]);
-    const gains = totals.slice(1).map((t, i) => t - totals[i]);
-    for (let i = 1; i < gains.length; i++) expect(gains[i]).toBeLessThan(gains[i - 1]); // the benefit falls off
   });
-
   it('Bouncing: +1 bounce per copy', () => {
     for (const k of [1, 2, 3, 6]) {
       const r = rig();
@@ -245,19 +240,28 @@ describe('shape blocks stack (step 5)', () => {
     expect(a[2].target).toBeCloseTo(100 * 0.9025, 4);
   });
 
-  it('AoE Rectangle: wider and taller per copy (same factors as the circle)', () => {
-    const wide = (k: number) => {
+  it('AoE Rectangle (19a): cells, centred on the hit block, growing alternately deeper and wider: 1x3, 2x3, 2x5, 3x5, 3x7', () => {
+    expect([1, 2, 3, 4, 5, 6].map(k => aoeRectCells(k))).toEqual([
+      { cols: 3, rows: 1 }, { cols: 3, rows: 2 }, { cols: 5, rows: 2 }, { cols: 5, rows: 3 }, { cols: 7, rows: 3 }, { cols: 7, rows: 4 },
+    ]);
+    // In the engine (Free Fly, same cell size in pixels): a grid of tiny rocks, one per cell round the hit rock; behind = up the screen.
+    const hitCells = (k: number) => {
       const r = rig();
       r.rock(270, 400, 100000, 5);
-      const row = Array.from({ length: 80 }, (_, j) => r.rock(270 + 2 + 4 * j, 400, 100000, 1));
-      r.launch(copiesOf('aoe_rect', k, 1), 270, 440, 0, -600, 100);
+      const cells: { dc: number; dr: number; e: EnemyEntity }[] = [];
+      for (let dc = -4; dc <= 4; dc++) for (let dr = -1; dr <= 4; dr++) if (dc !== 0 || dr !== 0) cells.push({ dc, dr, e: r.rock(270 + dc * CELL, 400 - dr * CELL, 100000, 1) });
+      r.launch(copiesOf('aoe_rect', k, 1), 270, 430, 0, -600, 100);
       r.step(60);
-      return row.filter(e => dmg(e) > 0).length;
+      return cells.filter(c => dmg(c.e) > 0).map(c => `${c.dc},${c.dr}`).sort();
     };
-    const w = [1, 2, 3].map(wide);
-    expect(w[1]).toBeGreaterThan(w[0]);
-    expect(w[2]).toBeGreaterThan(w[1]);
-    expect(w[1] / w[0]).toBeCloseTo(1.125, 1);
+    const expected = (k: number) => {
+      const { cols, rows } = aoeRectCells(k);
+      const out: string[] = [];
+      for (let dc = -(cols - 1) / 2; dc <= (cols - 1) / 2; dc++) for (let dr = 0; dr < rows; dr++) if (dc !== 0 || dr !== 0) out.push(`${dc},${dr}`);
+      return out.sort();
+    };
+    // dr = -1 (the row in front of the hit rock, nearer the ship) is never in the area; the shot's own column rocks dr >= 1 are in the way of nothing (the shot ends on the hit)
+    for (const k of [1, 2, 3, 4, 5]) expect(hitCells(k), `${k} copies`).toEqual(expected(k));
   });
 
   it('Chain Lightning: +1 jump per copy, each jump pays the same share', () => {
@@ -314,13 +318,16 @@ describe('shape blocks stack (step 5)', () => {
       r.sys.steer(DT, r.enemies);
       return Math.abs(Math.atan2(r.pool.vx[i], -r.pool.vy[i])) * (180 / Math.PI);
     };
-    // 20 degrees off: the turn per step is the rate (180 deg/s x H(k) / 60)
-    expect(turned(1, 20)).toBeCloseTo(3, 4);
-    expect(turned(2, 20)).toBeCloseTo(4.5, 4);
-    expect(turned(3, 20)).toBeCloseTo(3 * harmonic(3), 4);
-    // 40 degrees off is outside the 60 degree cone of one copy, inside the 90 degree cone of two
-    expect(turned(1, 40)).toBeCloseTo(0, 6);
-    expect(turned(2, 40)).toBeGreaterThan(4);
+    // 12 degrees off (inside the cone of every copy count): the turn per step is the rate (180 deg/s x H(k) / 60)
+    expect(turned(1, 12)).toBeCloseTo(3, 4);
+    expect(turned(2, 12)).toBeCloseTo(4.5, 4);
+    expect(turned(3, 12)).toBeCloseTo(3 * harmonic(3), 4);
+    // 20 degrees off is outside the 33 degree cone of one copy, inside the 49.5 degree cone of two (19a values)
+    expect(turned(1, 20)).toBeCloseTo(0, 6);
+    expect(turned(2, 20)).toBeGreaterThan(4);
+    // 28 degrees off: outside two copies (24.75 each side), inside three (30.25)
+    expect(turned(2, 28)).toBeCloseTo(0, 6);
+    expect(turned(3, 28)).toBeGreaterThan(5);
   });
 
   it('Boomerang: the range grows by the AoE-style factor per copy', () => {
@@ -448,7 +455,7 @@ describe('NaN and Infinity safety (step 7)', () => {
   it('an infinite shot does not run out while piercing (Infinity - Infinity would be NaN) and kills what it touches', () => {
     const r = rig();
     const rocks = [0, 1, 2].map(j => r.rock(270, 400 - 50 * j, 1000));
-    r.launch(copiesOf('piercing', 1, 3), 270, 460, 0, -600, Infinity);
+    r.launch(copiesOf('piercing', 2, 3), 270, 460, 0, -600, Infinity);
     r.step(80);
     for (const e of rocks) { expect(Number.isNaN(e.hp)).toBe(false); expect(e.hp).toBeLessThanOrEqual(0); }
     for (let i = 0; i < r.pool.max; i++) if (r.pool.active[i]) expect(Number.isNaN(r.pool.damage[i])).toBe(false);
@@ -480,8 +487,8 @@ describe('save version 8: upgrades and copies over the caps are refunded (step 8
   it('refunds levels of blocks that lost them at the OLD upgrade price and sets them to level 1', () => {
     const raw = { version: 7, credits: 1000, owned: { piercing: 2, homing: 1, flat_plus: 3, percent_mult: 2 }, levels: { piercing: 5, homing: 3, flat_plus: 4, percent_mult: 7 } };
     const p = loadProgress(JSON.stringify(raw));
-    expect(p.version).toBe(8);
-    expect(PROGRESS_VERSION).toBe(8);
+    expect(p.version).toBe(9);
+    expect(PROGRESS_VERSION).toBe(9);
     expect(p.levels.piercing).toBe(1);
     expect(p.levels.homing).toBe(1);
     expect(p.levels.flat_plus).toBe(4); // keeps upgrades
@@ -512,7 +519,7 @@ describe('save version 8: upgrades and copies over the caps are refunded (step 8
     expect(store.takeNotice()).toBeNull();
     const again = new ProgressStore(st);
     expect(again.data.credits).toBe(credits); // not refunded a second time
-    expect(again.data.version).toBe(8);
+    expect(again.data.version).toBe(9);
     expect(again.data.notice).toBeUndefined();
     const raw = { ...JSON.parse(serializeProgress(defaultProgress())), owned: { turn_l: 99 }, levels: { piercing: 1 } };
     expect(loadProgress(JSON.stringify(raw)).owned.turn_l).toBe(99); // v8 data is trusted (the cheat panel may exceed caps)

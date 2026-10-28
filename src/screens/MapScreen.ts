@@ -16,6 +16,7 @@ import { CreditsBadge, textButton, TextButton } from '../ui/hud';
 import { FrontierScreen } from './FrontierScreen';
 import { FRONTIER_NAME, MAP_UNLOCK_TIER } from '../frontier/constants';
 import { fmtTime } from './RunSummaryScreen';
+import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 
@@ -63,6 +64,8 @@ export class MapScreen implements Screen {
   private hint = makeText('', 14, THEME.textDim, { wordWrap: true, wordWrapWidth: VIEW_W - 28, lineHeight: 17 });
   private spikeLine = makeText('', 15, THEME.bad, { fontWeight: 'bold' });
   private bestLine = makeText('', 16, THEME.textDim, { fontWeight: 'bold' });
+  /** Chunk 19a: best credits earned in one run of the selected tier; empty when never played. */
+  private earnLine = makeText('', 16, THEME.currency, { fontWeight: 'bold' });
 
   selected: number;
   scrollY = 0;
@@ -95,9 +98,10 @@ export class MapScreen implements Screen {
     this.hint.position.set(14, SHEET_Y + 40);
     this.spikeLine.position.set(14, SHEET_Y + 96);
     this.bestLine.position.set(14, SHEET_Y + 124);
+    this.earnLine.position.set(14, SHEET_Y + 150);
     this.startButton = textButton('mapStart', { x: VIEW_W - 14 - 150, y: SHEET_Y + SHEET_H - 14 - 56, w: 150, h: 56 }, 'START', () => this.start(), 24);
     this.buttons.push(this.startButton);
-    this.sheet.addChild(sheetBg, this.title, this.hint, this.spikeLine, this.bestLine, this.startButton.container);
+    this.sheet.addChild(sheetBg, this.title, this.hint, this.spikeLine, this.bestLine, this.earnLine, this.startButton.container);
 
     const tabs = makeTabButtons('tabMap', (id) => this.tapTab(id));
     this.buttons.push(...tabs);
@@ -178,6 +182,8 @@ export class MapScreen implements Screen {
     const result = info.state === 'cleared' ? `Cleared ${clearTime !== undefined ? fmtTime(clearTime) : ''}`
       : info.state === 'passed' ? `Passed ${passTime !== undefined ? fmtTime(passTime) : ''}` : 'Not passed';
     this.bestLine.text = destroyed ? `${destroyed}  ·  ${result}` : result;
+    const earned = p.wallBestCredits[key];
+    this.earnLine.text = earned !== undefined ? `Best earned ${fmtBig(earned)}` : '';
     const open = info.state !== 'locked';
     this.startButton.setEnabled(open);
     this.startButton.container.children.forEach(c => { if ((c as any).text !== undefined) (c as any).text = open ? 'START' : 'Locked'; });
@@ -265,7 +271,7 @@ export class MapScreen implements Screen {
         selected: this.selected, scrollY: this.scrollY, medals: this.store.data.medals, credits: this.store.data.credits,
         medalsText: this.medalsText.text,
         tiles: Array.from({ length: MAX_TIER }, (_, i) => this.tileInfo(i + 1)),
-        sheet: { title: this.title.text, hint: this.hint.text, spike: this.spikeLine.text, best: this.bestLine.text, startLabel: this.startLabel(), startEnabled: this.startButton.enabled },
+        sheet: { title: this.title.text, hint: this.hint.text, spike: this.spikeLine.text, best: this.bestLine.text, earned: this.earnLine.text, startLabel: this.startLabel(), startEnabled: this.startButton.enabled },
         toast: this.toast.message,
       }),
       tileScreenRect: (tier: number) => this.tileScreenRect(tier),
