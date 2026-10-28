@@ -10,7 +10,7 @@ import {
   orbitTime, ORBIT_OPEN, ORBIT_RADIUS, ORBIT_REHIT,
   bounceCount, BOUNCE_SPREAD_DEG, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct,
   FRAGMENT_GENERATION, residueFrac, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac,
-  WELL_TIME, wellPull, stackGrowth, homingRange, HOMING_RANGE_BASE, mineExtra, MINE_SPREAD, orbitPassTime, harmonic, aoeStackDamage, FORK_PAIR_DAMAGE, MAX_BOUNCES, CHAIN_STACK_FALL,
+  WELL_TIME, wellPull, stackGrowth, homingRange, HOMING_RANGE_BASE, HOMING_CONE_BASE_DEG, homingConeDeg, mineExtra, MINE_SPREAD, orbitPassTime, harmonic, aoeStackDamage, FORK_PAIR_DAMAGE, MAX_BOUNCES, CHAIN_STACK_FALL,
 } from './effects';
 import { RING } from './pools';
 import { TRIGGERS, triggerCarried, triggerDue } from './triggers';
@@ -125,7 +125,7 @@ export const CURVE_RATE_DEG = 90;
 export const HOMING_RATE_DEG = 180;
 export const HOMING_RANGE = HOMING_RANGE_BASE;
 /** Total opening angle of the homing cone, centred on the heading. */
-export const HOMING_CONE_DEG = 60;
+export const HOMING_CONE_DEG = HOMING_CONE_BASE_DEG;
 export const RANDOM_CURVE_MAX_DEG = 120;
 /** Random Curve turn rate at a block level: 120 deg/s at level 1, +25% per level. */
 export const randomCurveMaxDeg = (level: number) => RANDOM_CURVE_MAX_DEG * (1 + 0.25 * (level - 1));
@@ -429,7 +429,7 @@ export class ProjectileSystem {
           const d2 = dx * dx + dy * dy;
           if (d2 > best) continue;
           const diff = wrapAngle(Math.atan2(dy, dx) - heading);
-          if (Math.abs(diff) > Math.min(Math.PI, (HOMING_CONE_DEG * hFactor / 2) * RAD)) continue;
+          if (Math.abs(diff) > Math.min(Math.PI, (homingConeDeg(homingK) / 2) * RAD)) continue;
           best = d2;
           bestDiff = diff;
           found = true;

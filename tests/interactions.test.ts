@@ -4,7 +4,7 @@ import { BLOCK_ECONOMY, capOf } from '../src/data/blockEconomy';
 import { copyPrice } from '../src/econ/economy';
 import { compile } from '../src/engine/compiler';
 import { Modifier } from '../src/engine/compilerTypes';
-import { CHAIN_ARCS_PER_SHOT, chainJumps, homingRange, MINE_EXTRA_MAX, orbitPassTime, orbitTime, ORBIT_RADIUS } from '../src/engine/effects';
+import { CHAIN_ARCS_PER_SHOT, chainJumps, homingConeDeg, homingRange, MINE_EXTRA_MAX, orbitPassTime, orbitTime, ORBIT_RADIUS } from '../src/engine/effects';
 import { ProjectilePool } from '../src/engine/pools';
 import { EnemyEntity, PHASE_MINE_WAIT, PHASE_NORMAL, ProjectileSystem } from '../src/engine/projectiles';
 import { SpatialHash } from '../src/engine/spatialHash';
@@ -225,14 +225,21 @@ describe('every stacking block says what one more copy does', () => {
 });
 
 describe('Homing, Orbit and Mine: an extra copy does something', () => {
-  it('Homing: the seek range grows with the copies (400, then longer with shrinking steps)', () => {
-    expect(homingRange(1)).toBe(400);
+  it('Homing (19a nerf): one copy is clearly shorter-sighted than the old 400 px / 60 deg, three copies are about the old values', () => {
+    const OLD_RANGE = 400, OLD_CONE = 60;
+    expect(homingRange(1)).toBeLessThan(OLD_RANGE * 0.9);
+    expect(homingConeDeg(1)).toBeLessThan(OLD_CONE * 0.7);
+    expect(Math.abs(homingRange(3) / OLD_RANGE - 1)).toBeLessThan(0.1);
+    expect(Math.abs(homingConeDeg(3) / OLD_CONE - 1)).toBeLessThan(0.1);
+    expect(homingConeDeg(2)).toBeGreaterThan(homingConeDeg(1));
+  });
+  it('Homing: the seek range grows with the copies (then longer with shrinking steps)', () => {
     expect(homingRange(2)).toBeGreaterThan(homingRange(1));
     expect(homingRange(3) - homingRange(2)).toBeLessThan(homingRange(2) - homingRange(1) + 1e-9 + 100);
-    // a rock 430 px away, 20 degrees off the heading: only a shot with two copies sees it
+    // a rock 360 px away, 20 degrees off the heading: only a shot with two copies sees it (one copy: 328 px, 33 degree cone)
     const turned = (k: number) => {
       const r = rig();
-      r.rock(270 + 430 * Math.sin(20 * Math.PI / 180), 900 - 430 * Math.cos(20 * Math.PI / 180), 100000, 20);
+      r.rock(270 + 360 * Math.sin(20 * Math.PI / 180), 900 - 360 * Math.cos(20 * Math.PI / 180), 100000, 20);
       const i = r.launch(Array.from({ length: k }, () => ({ type: 'homing', level: 1 })), 270, 900, 0, -600, 100);
       r.step(1);
       return Math.abs(r.pool.vx[i]);

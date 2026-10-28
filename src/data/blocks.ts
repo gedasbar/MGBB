@@ -294,7 +294,7 @@ levelMod('curving_right', 'Curving Right', 3, { type: 'curve', dir: 'right' },
 levelMod('random_curve', 'Random Curve', 3, { type: 'random_curve' },
   (l) => `Projectiles weave on smooth random steering, turning at most ${randomCurveMaxDeg(l)}° per second.`);
 levelMod('homing', 'Homing', 5, { type: 'homing' },
-  (l) => `Projectiles steer at ${HOMING_RATE_DEG * l}° per second toward the nearest enemy within ${HOMING_RANGE} px and a ${HOMING_CONE_DEG}° cone ahead. With no target they fly straight. ${MORE.homing}`);
+  (l) => `Projectiles steer at ${HOMING_RATE_DEG * l}° per second toward the nearest enemy within ${HOMING_RANGE} px and a ${HOMING_CONE_DEG}° cone ahead (one copy is short-sighted). With no target they fly straight. ${MORE.homing}`);
 levelMod('aoe_rect', 'AoE - Rectangle', 5, { type: 'aoe_rect' },
   (l) => { const r = aoeRectSize(l); return `Projectiles detonate once, where the shot ends (a Piercing or Bouncing shot travels on first), as a horizontal bar ${r.w} px wide and ${r.h} px tall, hitting every enemy it overlaps. ${MORE.aoe}`; });
 levelMod('fork_impact', 'Fork on Impact', 3, { type: 'fork_impact' },
