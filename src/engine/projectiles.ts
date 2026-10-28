@@ -2,7 +2,7 @@ import { rng } from '../rng';
 import { ProjectilePool } from './pools';
 import { Modifier } from './compilerTypes';
 import { SpatialHash } from './spatialHash';
-import { EnemyStats, applyDamage, DamageResult } from './damage';
+import { EnemyStats, applyDamage, DamageResult, damageToKill } from './damage';
 import { EnemyField, TargetField } from './targets';
 import {
   BOOMERANG_CATCH, boomerangRange, BURN_TICK, CHAIN_FRAC, CHAIN_RANGE, CHAIN_ARC_LIFE, chainJumps, corrosionCap, CORROSION_STEP,
@@ -12,10 +12,11 @@ import {
   FRAGMENT_GENERATION, residueFrac, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac,
   WELL_TIME, wellPull, stackGrowth, homingRange, HOMING_RANGE_BASE, PIERCE_DAMAGE_KEEP, HOMING_CONE_BASE_DEG, homingConeDeg, mineExtra, MINE_SPREAD, orbitPassTime, harmonic, aoeStackDamage, FORK_PAIR_DAMAGE, MAX_BOUNCES, CHAIN_STACK_FALL,
   lastBreathMul, ZIGZAG_ANGLE_DEG, ZIGZAG_PERIOD, zigzagMul,
+  CENTRE_ACCEL, CENTRE_SOFT, MAGNET_ACCEL, MAGNET_SOFT, SWEEP_MAX, SWEEP_MIN, SWEEP_MIN_SPACING, UPTURN_DELAY, UPTURN_RATE_DEG,
 } from './effects';
 import { RING } from './pools';
 import { TRIGGERS, triggerCarried, triggerDue } from './triggers';
-import { CELL, PROJECTILE_MAX_AGE } from '../wall/constants';
+import { CELL } from '../wall/constants';
 import { wrapDx } from './wrap';
 
 export interface EnemyEntity extends EnemyStats {
@@ -88,6 +89,9 @@ export interface StackCounts {
   boomerang: number; orbit: number; mine: number;
 }
 
+/** Copies of the motion blocks (chunk 20b) on the projectile being processed (0 = absent). */
+export interface MotionCounts { upturn: number; centreline: number; magnet: number; reverse: number; align: number; persist: number }
+
 /** Counters of what the effect blocks did (debug hook and tests). */
 export interface EffectCounters {
   chainJumps: number;
@@ -125,6 +129,12 @@ export interface EffectCounters {
   reboundBonuses: number;
   mirrorClones: number;
   fuseEmits: number;
+  // Chunk 20b: what the motion blocks did
+  reverseFlips: number;
+  persistContinues: number;
+  aligns: number;
+  upturnTurns: number;
+  sweepHits: number;
 }
 
 /** Base hit radius of a projectile (scaled by the pool's size). */
@@ -205,6 +215,7 @@ export class ProjectileSystem {
     bounces: 0, edgeBounces: 0, cleaverHits: 0, cullingHits: 0, residueClouds: 0, residueTicks: 0, wellsMade: 0, staticPulses: 0,
     cauterizeMarks: 0, fissionMarks: 0, spillMarks: 0, aoeBlasts: 0, forks: 0, pierceHits: 0, homingSteers: 0,
     lastBreathHits: 0, zigzagFlips: 0, loneBoosts: 0, reboundBonuses: 0, mirrorClones: 0, fuseEmits: 0,
+    reverseFlips: 0, persistContinues: 0, aligns: 0, upturnTurns: 0, sweepHits: 0,
   };
 
   /** Residue Seed clouds (a ring): position, seconds left, damage per tick, seconds since the last tick. Drawn by the screens. */
@@ -229,6 +240,11 @@ export class ProjectileSystem {
 
   /** Copies of the stacking shape blocks on the projectile being processed (filled by scan(); one reused object). */
   private stk: StackCounts = { pierce: 0, bounce: 0, aoeCircle: 0, aoeRect: 0, chain: 0, homing: 0, fork: 0, boomerang: 0, orbit: 0, mine: 0 };
+  /** Copies of the motion blocks on the projectile being processed (filled by scan()). */
+  private mv: MotionCounts = { upturn: 0, centreline: 0, magnet: 0, reverse: 0, align: 0, persist: 0 };
+  /** Persist: the share of the last direct hit's damage the target did NOT need (0 when it survived); written by strike() while `trackLeft` is on. */
+  private leftFrac = 0;
+  private trackLeft = false;
 
   /** Captain effects on every hit (chunk 13a). The neutral values change nothing; the world sets them at run start. */
   readonly bonus = { damageMul: 1, vsArmor: 0, vsShield: 0, vsFragment: 0 };
@@ -277,6 +293,8 @@ export class ProjectileSystem {
     mi.fission = mi.cauterize = mi.cleaver = mi.culling = mi.residue = mi.spill = mi.gravity = mi.staticCharge = 0;
     const stk = this.stk;
     stk.pierce = stk.bounce = stk.aoeCircle = stk.aoeRect = stk.chain = stk.homing = stk.fork = stk.boomerang = stk.orbit = stk.mine = 0;
+    const mv = this.mv;
+    mv.upturn = mv.centreline = mv.magnet = mv.reverse = mv.align = mv.persist = 0;
     for (const m of mods) {
       switch (m.type) {
         case 'piercing': stk.pierce++; break;
@@ -301,6 +319,12 @@ export class ProjectileSystem {
         case 'overkill_spill': mi.spill = m.level ?? 1; break;
         case 'gravity_well': mi.gravity = m.level ?? 1; break;
         case 'static_charge': mi.staticCharge = m.level ?? 1; break;
+        case 'upturn': mv.upturn++; break;
+        case 'centreline': mv.centreline++; break;
+        case 'magnetized': mv.magnet++; break;
+        case 'reverse': mv.reverse++; break;
+        case 'align': mv.align++; break;
+        case 'persist': mv.persist++; break;
       }
     }
     return mi;
@@ -423,6 +447,8 @@ export class ProjectileSystem {
     this.clock += dt;
     for (let i = 0; i < pool.max; i++) {
       if (!pool.active[i]) continue;
+      pool.prevX[i] = pool.x[i];
+      pool.prevY[i] = pool.y[i];
       pool.age[i] += dt;
       if (pool.phase[i] !== PHASE_NORMAL && dt > 0) {
         this.stepPhase(i, dt);
@@ -435,8 +461,12 @@ export class ProjectileSystem {
       if (mods.length === 0) continue;
       for (const m of mods) if (m.type === 'zigzag') { this.stepZigzag(i, dt); break; }
       let turn = 0; // radians per second, clockwise on screen
+      let upK = 0, cenK = 0, magK = 0; // copies of Upturn, Centreline and Ship Magnet (chunk 20b)
       for (const m of mods) {
-        if (m.type === 'curve' && m.dir === 'right') turn += CURVE_RATE_DEG * (m.level ?? 1) * RAD;
+        if (m.type === 'curve') turn += (m.dir === 'left' ? -1 : 1) * CURVE_RATE_DEG * (m.level ?? 1) * RAD;
+        else if (m.type === 'upturn') upK++;
+        else if (m.type === 'centreline') cenK++;
+        else if (m.type === 'magnetized') magK++;
         else if (m.type === 'random_curve') {
           let phase = pool.aux3[i] + dt / RANDOM_CURVE_PERIOD;
           while (phase >= 1) {
@@ -489,7 +519,50 @@ export class ProjectileSystem {
         pool.vx[i] = vx * c - vy * s;
         pool.vy[i] = vx * s + vy * c;
       }
+      if (upK > 0 && pool.age[i] >= UPTURN_DELAY) this.upturn(i, upK, dt);
+      if (cenK > 0 || magK > 0) this.pull(i, cenK, magK, dt);
     }
+  }
+
+  /** Upturn (chunk 20b): turns the heading toward straight up, the short way, at UPTURN_RATE_DEG x harmonic(copies) degrees per second. */
+  private upturn(i: number, copies: number, dt: number) {
+    const pool = this.pool;
+    const diff = wrapAngle(-Math.PI / 2 - Math.atan2(pool.vy[i], pool.vx[i]));
+    if (Math.abs(diff) < 1e-4) return;
+    const maxStep = UPTURN_RATE_DEG * harmonic(copies) * RAD * dt;
+    this.rotateV(i, Math.max(-maxStep, Math.min(maxStep, diff)));
+    this.fx.upturnTurns++;
+  }
+
+  /**
+   * Centreline and Ship Magnet (chunk 20b): an acceleration, then the speed is put back, so the shot bends instead of speeding up.
+   * Centreline pulls sideways toward the x the shot was fired from (proportional inside CENTRE_SOFT px, so it does not jitter on the line);
+   * Ship Magnet pulls toward the ship's current position (proportional inside MAGNET_SOFT px). Extra copies pull harder by the harmonic sum.
+   */
+  private pull(i: number, centreCopies: number, magnetCopies: number, dt: number) {
+    const pool = this.pool;
+    const speed = Math.hypot(pool.vx[i], pool.vy[i]);
+    if (speed < 1) return;
+    let ax = 0, ay = 0;
+    if (centreCopies > 0) {
+      const dx = this.dxw(pool.anchorX[i], pool.x[i]);
+      ax += CENTRE_ACCEL * harmonic(centreCopies) * Math.max(-1, Math.min(1, dx / CENTRE_SOFT));
+    }
+    if (magnetCopies > 0) {
+      const dx = this.dxw(this.shipX, pool.x[i]);
+      const dy = this.shipY - pool.y[i];
+      const d = Math.hypot(dx, dy);
+      if (d > 0.5) {
+        const a = MAGNET_ACCEL * harmonic(magnetCopies) * Math.min(1, d / MAGNET_SOFT);
+        ax += (dx / d) * a;
+        ay += (dy / d) * a;
+      }
+    }
+    const vx = pool.vx[i] + ax * dt;
+    const vy = pool.vy[i] + ay * dt;
+    const k = speed / (Math.hypot(vx, vy) || 1);
+    pool.vx[i] = vx * k;
+    pool.vy[i] = vy * k;
   }
 
   /** Free Fly: rocks found through the spatial hash. */
@@ -504,8 +577,8 @@ export class ProjectileSystem {
     for (let i = 0; i < this.pool.max; i++) {
       if (!this.pool.active[i]) continue;
 
-      const px = this.pool.x[i];
-      const py = this.pool.y[i];
+      let px = this.pool.x[i];
+      let py = this.pool.y[i];
       let damage = this.pool.damage[i];
       const pure = this.pool.pure[i];
       const mods = this.modsOf(i);
@@ -533,9 +606,15 @@ export class ProjectileSystem {
         }
       } else {
         target = field.hitCircle(px, py, hitR, this.pool.skipId[i]);
+        if (!target && phase !== PHASE_MINE_WAIT) {
+          // Chunk 20b: a fast shot (Accelerator) moves further in one step than a target is wide: look along the path it just flew.
+          const swept = this.sweep(i, field, hitR);
+          if (swept) { target = swept.target; px = swept.x; py = swept.y; this.pool.x[i] = px; this.pool.y[i] = py; this.fx.sweepHits++; }
+        }
       }
       if (!target) continue;
       if (phase === PHASE_MINE_WAIT) this.fx.mineDetonations++;
+      const kReverse = this.mv.reverse, kAlign = this.mv.align, kPersist = this.mv.persist;
       // Legendary hit-time factors (Last Breath, Zigzag). `shotDamage` is what the shot carries on; `damage` is this hit's.
       const shotDamage = damage;
       damage *= this.hitFactor(i, mods);
@@ -548,7 +627,11 @@ export class ProjectileSystem {
       if (pool.hits[i] < 255) pool.hits[i]++;
       // A stacked AoE costs the whole shot 5% damage per extra copy (direct hit and blast alike, so the builder's estimate can show it).
       const aoeFactor = isCopy ? 1 : aoeMod ? aoeStackDamage(this.stk.aoeCircle) : rectMod ? aoeStackDamage(this.stk.aoeRect) : 1;
+      this.leftFrac = 0;
+      this.trackLeft = kPersist > 0;
       this.strike(target, damage * aoeFactor, pure, tier, armorPierce, isShieldBreaker, mi, px, py, HIT_NORMAL);
+      this.trackLeft = false;
+      const leftFrac = this.leftFrac; // Persist: the share of this hit's damage the target did not need
 
       // ---- 2. what happens to the shot: does this hit use it up? (decided here, carried out in step 4)
       const aoeAny = aoeMod || rectMod;
@@ -556,7 +639,15 @@ export class ProjectileSystem {
       let ended = false;
       let pierceDamage = 0; // the shot's damage after this hit when it pierces
       let bounceOnPierceEnd = false;
-      if (keepsFlying) {
+      // Chunk 20b, in this order (docs/motion-blocks.md section 1): Reverse (a flip is left), Persist (killed with damage to spare), then the old rules.
+      const flip = kReverse > pool.flips[i] && triggerCarried(TRIGGERS.reverse, isCopy) && (phase === PHASE_NORMAL || phase === PHASE_BOOM_OUT);
+      const persists = !flip && !keepsFlying && kPersist > 0 && leftFrac > 0;
+      const persistDamage = shotDamage * leftFrac;
+      if (flip) {
+        ended = false;
+      } else if (persists) {
+        ended = false;
+      } else if (keepsFlying) {
         // Orbit and Boomerang shots never end by a hit; with an AoE block they explode on the first hit instead (docs/interactions.md).
         ended = !!aoeAny && triggerCarried(TRIGGERS.aoe, isCopy);
       } else if (isPiercing) {
@@ -605,10 +696,24 @@ export class ProjectileSystem {
 
       // ---- 4. carry out the shot's movement
       if (ended) { pool.free(i); continue; }
+      if (flip) {
+        // Reverse: the shot goes back the way it came (a Boomerang's outward leg turns into its way back at once). It skips the target it just hit.
+        pool.flips[i]++;
+        pool.skipId[i] = target.id;
+        if (phase === PHASE_BOOM_OUT) pool.phase[i] = PHASE_BOOM_BACK;
+        else { pool.vx[i] = -pool.vx[i]; pool.vy[i] = -pool.vy[i]; }
+        this.fx.reverseFlips++;
+        continue;
+      }
       if (phase === PHASE_ORBIT) {
         this.ringAdd(i, target.id); // orbiting: hits, and keeps going
       } else if (phase === PHASE_BOOM_OUT || phase === PHASE_BOOM_BACK) {
         pool.skipId[i] = target.id; // a boomerang flies on through what it hit; each leg hits a target once
+      } else if (persists) {
+        // Persist: the target is dead; the shot goes on with the damage it did not need.
+        pool.skipId[i] = target.id;
+        pool.damage[i] = persistDamage;
+        this.fx.persistContinues++;
       } else if (isPiercing) {
         pool.skipId[i] = target.id;
         if (bounceOnPierceEnd) { pool.damage[i] = shotDamage; pool.pierced[i] = 0; this.bounce(i, field, target, px, py, hitR); }
@@ -616,7 +721,36 @@ export class ProjectileSystem {
       } else {
         this.bounce(i, field, target, px, py, hitR); // ricochet off whatever it hit, full damage kept
       }
+      // Align: a shot that survived this hit by passing, bouncing or persisting flies straight up again (Reverse flips are left alone).
+      if (kAlign > 0 && !keepsFlying) {
+        const sp = Math.hypot(pool.vx[i], pool.vy[i]);
+        pool.vx[i] = 0;
+        pool.vy[i] = -sp;
+        this.fx.aligns++;
+      }
     }
+  }
+
+  /**
+   * Swept hit test (chunk 20b): the shot moved from (prevX, prevY) to its position in one step. A move longer than SWEEP_MIN px is
+   * looked at in points no further apart than the shot's radius (at least SWEEP_MIN_SPACING px), earliest first; the first target
+   * touched wins. Null for a short move, a move over SWEEP_MAX px (a wrap or a jump) or nothing in the way.
+   */
+  private sweep(i: number, field: TargetField, hitR: number): { target: EnemyEntity; x: number; y: number } | null {
+    const pool = this.pool;
+    const dx = this.dxw(pool.x[i], pool.prevX[i]);
+    const dy = pool.y[i] - pool.prevY[i];
+    const len = Math.hypot(dx, dy);
+    if (!(len > SWEEP_MIN) || len > SWEEP_MAX) return null;
+    const n = Math.ceil(len / Math.max(SWEEP_MIN_SPACING, hitR));
+    for (let k = 1; k < n; k++) {
+      let x = pool.prevX[i] + (dx * k) / n;
+      const y = pool.prevY[i] + (dy * k) / n;
+      if (this.wrapW > 0) x = ((x % this.wrapW) + this.wrapW) % this.wrapW;
+      const t = field.hitCircle(x, y, hitR, pool.skipId[i]);
+      if (t) return { target: t, x, y };
+    }
+    return null;
   }
 
   /**
@@ -627,7 +761,7 @@ export class ProjectileSystem {
     let f = 1;
     for (const m of mods) {
       if (m.type === 'last_breath') {
-        const k = lastBreathMul(this.pool.age[i], PROJECTILE_MAX_AGE);
+        const k = lastBreathMul(this.pool.age[i], this.pool.life[i]);
         if (k > 1) { f *= k; this.fx.lastBreathHits++; }
       } else if (m.type === 'zigzag') f *= zigzagMul(this.pool.zigN[i]);
     }
@@ -798,6 +932,12 @@ export class ProjectileSystem {
     if (mi.culling) { d += Math.min(cullingPct(mi.culling) * t.maxHp, CULLING_CAP * dmg); this.fx.cullingHits++; }
     if (mi.executioner && t.hp < t.maxHp * EXECUTIONER_BELOW) { d *= executionerMul(mi.executioner); this.fx.executionerHits++; }
     if ((t.freezeT ?? 0) > 0) { d *= 1 + (t.freezeBonus ?? 0); this.fx.frozenBonusHits++; }
+    if (this.trackLeft) {
+      // Persist: how much of this hit the target needed to die (the shot keeps the rest); 0 left when it survives.
+      this.trackLeft = false;
+      const need = damageToKill(t, pure, tier, armorPierce, shieldBreaker);
+      this.leftFrac = d > 0 && need < d ? 1 - need / d : 0;
+    }
     const res = applyDamage(t, d, pure, tier, armorPierce, shieldBreaker);
     if (this.onHit) this.onHit(t, res.hpDamage, x, y, kind);
     this.afterHit(t, res.killed, d, mi, kind);
@@ -1039,6 +1179,8 @@ export class ProjectileSystem {
         const k = pool.spawn(pool.x[i], pool.y[i], Math.cos(a) * speed, Math.sin(a) * speed, dmg, pool.pure[i], pool.modIndex[i]);
         if (k < 0) return; // the pool is full: no more forks this hit
         pool.size[k] = pool.size[i] * FORK_SIZE;
+        pool.life[k] = pool.life[i];
+        pool.anchorX[k] = pool.anchorX[i];
         pool.copy[k] = 1;
         pool.skipId[k] = enemyId;
         this.init(k);

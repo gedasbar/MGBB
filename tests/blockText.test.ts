@@ -19,7 +19,9 @@ describe('player block texts (19b)', () => {
     }
   });
   it('stacking blocks have a stacking line of at most 40 characters, the others have none', () => {
-    const stackers = ['piercing', 'bouncing', 'aoe_circle', 'aoe_rect', 'chain_lightning', 'homing', 'fork_impact', 'boomerang', 'orbit', 'mine'];
+    const stackers = ['piercing', 'bouncing', 'aoe_circle', 'aoe_rect', 'chain_lightning', 'homing', 'fork_impact', 'boomerang', 'orbit', 'mine',
+      // chunk 20b
+      'angle_left', 'angle_right', 'accelerator', 'brake', 'scatter', 'upturn', 'extender', 'centreline', 'magnetized', 'reverse'];
     for (const b of pickerBlocks()) {
       const { stack } = blockText(b, 1);
       if (stackers.includes(b.id)) {

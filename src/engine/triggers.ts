@@ -24,6 +24,8 @@ export interface Trigger {
   fragments: boolean;
   arcs: boolean;
   maxPerShot?: number;
+  /** True = `maxPerShot` is the number of copies of the block on the shot's path (Reverse: one flip per copy). */
+  perCopy?: boolean;
 }
 
 export const TRIGGERS = {
@@ -39,6 +41,12 @@ export const TRIGGERS = {
   gravityWell: { fires: 'first_hit', fragments: false, arcs: false } as Trigger,
   /** Mirror (chunk 20a): one clone per shot, made when the shot LEAVES the gun (Gun.spawn), never on a hit. A clone is not mirrored again. */
   mirror: { fires: 'launch', fragments: false, arcs: false, maxPerShot: 1 } as Trigger,
+  /** Reverse (chunk 20b): the shot flips on a hit and survives it, once per copy on the path. Fork copies do not flip. */
+  reverse: { fires: 'every_hit', fragments: false, arcs: false, perCopy: true } as Trigger,
+  /** Align (chunk 20b): after a hit the shot survives by passing, bouncing or persisting, it snaps to straight up. Fork copies do it too. */
+  align: { fires: 'every_hit', fragments: true, arcs: false } as Trigger,
+  /** Persist (chunk 20b): on every direct hit the shot spends what the target needed and goes on if it killed it with damage to spare. */
+  persist: { fires: 'every_hit', fragments: true, arcs: false } as Trigger,
 } as const;
 
 /** Whether `t` fires on this hit. `firstHit`: no earlier hit of this shot; `shotEnds`: this hit uses the shot up. */

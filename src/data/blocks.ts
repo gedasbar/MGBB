@@ -10,6 +10,8 @@ import {
   frontierEchoAdd, PAYLOAD_ADD, loneShotMul, LONE_SHOT_FULL, LAST_BREATH_MUL, LAST_BREATH_WINDOW, ZIGZAG_ANGLE_DEG, ZIGZAG_PERIOD, ZIGZAG_GAIN,
   HEAVY_MUL_NORMAL, HEAVY_MUL_SLOWEST, HEAVY_SLOW_SPEED, HOLLOW_CORE_PER_CELL, hollowCoreMul, IDLE_BARRELS_PER_EJECTOR, idleBarrelsAdd, WAYPOINT_PER_TURN,
   waypointMul, REBOUND_MUL, FUSE_N, FUSE_MUL, FRONTIER_ECHO_SHARE,
+  ACCELERATOR_MUL, angleAfter, ANGLE_MAX_DEG, ANGLE_STEP_DEG, BRAKE_FLOOR, BRAKE_MUL, CENTRE_ACCEL, clampSpeedMul, EXTENDER_MUL, harmonic, MAGNET_ACCEL,
+  MAX_SPEED_MUL, scatterAfter, SCATTER_BASE_DEG, SCATTER_MAX_DEG, SCATTER_STEP_DEG, UPTURN_DELAY, UPTURN_RATE_DEG,
   CHAIN_ARCS_PER_SHOT, MINE_EXTRA_MAX, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, routerBoth, SPILL_CHAIN_DEPTH, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac, WELL_RADIUS, WELL_TIME, wellPull,
 } from '../engine/effects';
 
@@ -289,10 +291,11 @@ newMod('mine', 'Mine', 'modifier', 'uncommon', 'mine',
   (l) => `Stops after ${mineDistance(l)} px and waits up to ${MINE_WAIT} s; detonates for its full damage when something touches it. In the Wall it stays where it is and the wall runs into it. ${MORE.mine}`);
 newMod('gravity_well', 'Gravity Well', 'modifier', 'rare', 'gravity_well',
   (l) => `On the first impact of a shot, pulls rocks within ${WELL_RADIUS} px toward the impact point at ${wellPull(l)} px/s for ${WELL_TIME} s. Free Fly rocks only.`);
-modBlock('magnetized', 'Magnetized', 'modifier', 1, { type: 'magnetized' }, 'Projectiles are magnetised.');
 
 levelMod('curving_right', 'Curving Right', 3, { type: 'curve', dir: 'right' },
   (l) => `After launch, projectiles turn clockwise at ${CURVE_RATE_DEG * l}° per second.`);
+levelMod('curving_left', 'Curving Left', 3, { type: 'curve', dir: 'left' },
+  (l) => `After launch, projectiles turn anticlockwise at ${CURVE_RATE_DEG * l}° per second. Mirror of Curving Right.`);
 levelMod('random_curve', 'Random Curve', 3, { type: 'random_curve' },
   (l) => `Projectiles weave on smooth random steering, turning at most ${randomCurveMaxDeg(l)}° per second.`);
 levelMod('homing', 'Homing', 5, { type: 'homing' },
@@ -303,6 +306,46 @@ levelMod('fork_impact', 'Fork on Impact', 3, { type: 'fork_impact' },
   (l) => `On the first hit, spawns 2 copies at ${Math.round(forkDamageFrac(l) * 100)}% damage and 0.6× size, flying ±${FORK_ANGLE_DEG}° off the heading; the shot goes on. Copies carry status effects only (no blast, fork or chain). ${MORE.fork}`);
 levelMod('armor_piercer', 'Armor-Piercer Tip', 3, { type: 'armor_piercer' },
   (l) => `Deals ×${armorPierceMul(l)} damage to enemies that have armor. No effect on unarmored enemies.`);
+
+// ---------------------------------------------------------------- Motion blocks (chunk 20b, docs/motion-blocks.md)
+/** A shown, non-upgradable Modifier that changes how the shot moves: it tags the packet with its own id and may change the packet. */
+function motion(id: string, name: string, rarity: Rarity, desc: string, change?: (p: Packet) => void) {
+  register({
+    id, name, category: 'modifier', outputs: FWD, ...rare(rarity), desc,
+    transform: (p) => { change?.(p); p.mods.push({ type: id }); },
+  });
+}
+const deg = (v: number) => `${v}°`;
+motion('angle_left', 'Angle Left', 'common',
+  `The shot leaves ${deg(ANGLE_STEP_DEG)} left of straight up and flies in a straight line. Each extra copy adds ${deg(ANGLE_STEP_DEG)}, up to ${deg(ANGLE_MAX_DEG)} (4 copies). On one signal path it adds to Angle Right. Not a turn for Waypoint.`,
+  (p) => { p.angle = angleAfter(p.angle, -1); });
+motion('angle_right', 'Angle Right', 'common',
+  `The shot leaves ${deg(ANGLE_STEP_DEG)} right of straight up and flies in a straight line. Each extra copy adds ${deg(ANGLE_STEP_DEG)}, up to ${deg(ANGLE_MAX_DEG)} (4 copies). On one signal path it adds to Angle Left. Not a turn for Waypoint.`,
+  (p) => { p.angle = angleAfter(p.angle, 1); });
+motion('accelerator', 'Accelerator', 'uncommon',
+  `Shot speed ×${ACCELERATOR_MUL} per copy (up to ×${MAX_SPEED_MUL} in all). Fast shots are checked along their whole path, so they cannot skip through a target.`,
+  (p) => { p.speedMul = clampSpeedMul(p.speedMul * ACCELERATOR_MUL); });
+motion('brake', 'Brake', 'uncommon',
+  `Shot speed ×${BRAKE_MUL} per copy, never below ×${BRAKE_FLOOR}. Slow shots stay in the air and under Heavy Round hit harder (×5 at ×${BRAKE_FLOOR}).`,
+  (p) => { p.speedMul = clampSpeedMul(p.speedMul * BRAKE_MUL); });
+motion('scatter', 'Scatter', 'uncommon',
+  `Every shot leaves at a random straight angle within ±${deg(SCATTER_BASE_DEG)} of its line. Each extra copy widens it by ${deg(SCATTER_STEP_DEG)}, up to ±${deg(SCATTER_MAX_DEG)}. Adds to Angle blocks (they set the middle of the cone).`,
+  (p) => { p.scatter = scatterAfter(p.scatter); });
+motion('upturn', 'Upturn', 'uncommon',
+  `After ${UPTURN_DELAY} s of flight the shot turns back to straight up at ${UPTURN_RATE_DEG}° per second: it cancels drift from angles, curves and bounces. Extra copies turn faster (${Math.round(harmonic(2) * 100) / 100}× with two, ${Math.round(harmonic(3) * 100) / 100}× with three).`);
+motion('align', 'Align', 'rare',
+  'After every hit it survives (a pass, a bounce or a Persist continue) the shot snaps back to straight up. It does not undo a Reverse flip.');
+motion('extender', 'Extender', 'uncommon',
+  `Shot lifetime ×${EXTENDER_MUL} per copy (3 s, 6 s, 12 s). Last Breath's window moves with it. Worth most with blocks that keep a shot in the air.`,
+  (p) => { p.lifeMul *= EXTENDER_MUL; });
+motion('centreline', 'Centreline', 'rare',
+  `Shots are pulled sideways toward the vertical line through the ship's centre where they were fired (${CENTRE_ACCEL} px/s² at most). Extra copies pull harder (×${Math.round(harmonic(2) * 100) / 100}, ×${Math.round(harmonic(3) * 100) / 100}). A shot from a side ejector swings through the line.`);
+motion('magnetized', 'Ship Magnet', 'rare',
+  `Shots are pulled toward the ship's CURRENT position (${MAGNET_ACCEL} px/s²) and swarm around it. Extra copies pull harder. A shot still ends at its lifetime (3 s; an Extender lengthens it).`);
+motion('persist', 'Persist', 'epic',
+  'The shot keeps going through targets while it has damage left: each kill spends what that target had left (shield, armor and HP), and the shot ends at 0. A target it cannot kill ends it. Blasts, chains and forks spend nothing.');
+motion('reverse', 'Reverse', 'rare',
+  'On a hit the shot survives and flips its direction of travel, once per copy; then it behaves normally. Triggers on that hit fire as usual. A Boomerang returns at once.');
 
 // ---------------------------------------------------------------- Status & elemental
 newMod('ignite', 'Ignite', 'status', 'uncommon', 'ignite',
@@ -361,7 +404,7 @@ register({
 });
 register({
   id: 'waypoint', name: 'Waypoint', category: 'legendary', ...LEGENDARY,
-  desc: `×${WAYPOINT_PER_TURN} damage for every Turn Left, Turn Right, Curving Right or Random Curve block the signal passed before it reaches this one (×${Math.round(waypointMul(5) * 100) / 100} after five).`,
+  desc: `×${WAYPOINT_PER_TURN} damage for every Turn Left, Turn Right, Curving Right, Curving Left or Random Curve block the signal passed before it reaches this one (×${Math.round(waypointMul(5) * 100) / 100} after five).`,
   transform: (p) => { mulDamage(p, waypointMul(p.turns)); },
 });
 register({
@@ -398,16 +441,19 @@ for (const [id, name, max] of [
 /** Friendly names of projectile modifiers, for the ledger tooltip. */
 export const MOD_LABEL: Record<string, string> = {
   piercing: 'Piercing', bouncing: 'Bouncing', aoe_circle: 'AoE - Circle', shield_breaker: 'Shield-Breaker',
-  curve: 'Curving Right', random_curve: 'Random Curve', homing: 'Homing', aoe_rect: 'AoE - Rectangle', fork_impact: 'Fork on Impact', armor_piercer: 'Armor-Piercer Tip',
+  curve: 'Curving', random_curve: 'Random Curve', homing: 'Homing', aoe_rect: 'AoE - Rectangle', fork_impact: 'Fork on Impact', armor_piercer: 'Armor-Piercer Tip',
   // Chunk 11a
   fission_catalyst: 'Fission Catalyst', cauterize: 'Cauterize', cleaver: 'Cleaver', culling_bolt: 'Culling Bolt', residue_seed: 'Residue Seed',
   overkill_spill: 'Overkill Spill', gravity_well: 'Gravity Well', static_charge: 'Static Charge', random_router: 'Random Router',
   // Chunk 20a
   frontier_echo: 'Frontier Echo', lone_shot: 'Lone Shot', last_breath: 'Last Breath', zigzag: 'Zigzag', heavy_round: 'Heavy Round', hollow_core: 'Hollow Core',
   waypoint: 'Waypoint', rebound: 'Rebound', mirror: 'Mirror', fuse: 'Fuse',
+  // Chunk 20b
+  angle_left: 'Angle Left', angle_right: 'Angle Right', accelerator: 'Accelerator', brake: 'Brake', scatter: 'Scatter', upturn: 'Upturn', align: 'Align',
+  extender: 'Extender', centreline: 'Centreline', magnetized: 'Ship Magnet', persist: 'Persist', reverse: 'Reverse',
 };
 
-for (const id of ['turn_l', 'turn_r', 'curving_right', 'random_curve']) BLOCKS[id].isTurn = true;
+for (const id of ['turn_l', 'turn_r', 'curving_right', 'curving_left', 'random_curve']) BLOCKS[id].isTurn = true;
 
 // Chunk 16c-2: only the blocks in UPGRADABLE have levels. Every other block has one level and runs at its fixed level.
 for (const b of Object.values(BLOCKS)) {

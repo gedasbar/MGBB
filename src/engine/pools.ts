@@ -1,4 +1,5 @@
 import { CONFIG } from '../config';
+import { PROJECTILE_MAX_AGE } from '../wall/constants';
 
 /** Remembered recent targets per projectile (Orbit). */
 export const RING = 4;
@@ -55,6 +56,12 @@ export class ProjectilePool {
   /** Chunk 20a, Zigzag: direction changes so far and the time into the current leg (-1 = the first leg has not been started). */
   zigN: Uint8Array;
   zigT: Float32Array;
+  /** Chunk 20b: seconds the shot may live (Extender doubles it), the ship's x when it was fired (Centreline), its position before this step's move (swept hit test) and the Reverse flips used. */
+  life: Float32Array;
+  anchorX: Float32Array;
+  prevX: Float32Array;
+  prevY: Float32Array;
+  flips: Uint8Array;
 
   constructor(max: number = CONFIG.CAPS.PROJECTILES) {
     this.max = max;
@@ -91,6 +98,11 @@ export class ProjectilePool {
     this.lastY = new Float32Array(max);
     this.zigN = new Uint8Array(max);
     this.zigT = new Float32Array(max);
+    this.life = new Float32Array(max).fill(PROJECTILE_MAX_AGE);
+    this.anchorX = new Float32Array(max);
+    this.prevX = new Float32Array(max);
+    this.prevY = new Float32Array(max);
+    this.flips = new Uint8Array(max);
   }
 
   spawn(x: number, y: number, vx: number, vy: number, damage: number, pure: number = 0, modIndex: number = 0): number {
@@ -124,6 +136,11 @@ export class ProjectilePool {
         this.aoePending[i] = 0;
         this.zigN[i] = 0;
         this.zigT[i] = -1;
+        this.life[i] = PROJECTILE_MAX_AGE;
+        this.anchorX[i] = x;
+        this.prevX[i] = x;
+        this.prevY[i] = y;
+        this.flips[i] = 0;
         this.count++;
         return i;
       }

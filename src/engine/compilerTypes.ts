@@ -100,13 +100,16 @@ export interface Packet {
   tags: Set<string>;
   /** Turn and curve blocks the signal has passed so far (Waypoint reads it). */
   turns: number;
+  /** Chunk 20b: degrees the shot is aimed off its ejector direction (left < 0, clamped to +/-60), and the half-width of Scatter's random cone (0 = none). */
+  angle: number;
+  scatter: number;
 }
 
 /** Damage of a packet as it leaves the generator, before any block. */
 export const GENERATOR_BASE_DAMAGE = 1;
 
 export function newPacket(base: number = GENERATOR_BASE_DAMAGE): Packet {
-  return { base, damage: base, pure: 0, count: 1, speedMul: 1, lifeMul: 1, sizeMul: 1, mods: [], gates: [], ops: [], tags: new Set(), turns: 0 };
+  return { base, damage: base, pure: 0, count: 1, speedMul: 1, lifeMul: 1, sizeMul: 1, mods: [], gates: [], ops: [], tags: new Set(), turns: 0, angle: 0, scatter: 0 };
 }
 
 export function addDamage(p: Packet, v: number) {
@@ -210,5 +213,7 @@ export function clonePacket(p: Packet): Packet {
     ops: [...p.ops],
     tags: new Set(p.tags),
     turns: p.turns,
+    angle: p.angle,
+    scatter: p.scatter,
   };
 }

@@ -3,6 +3,7 @@ import { applySquareRun, defaultFrontier, FrontierSave, sanitizeFrontier, Square
 import { parseKey, sqKey } from '../frontier/world';
 import { MAP_UNLOCK_TIER } from '../frontier/constants';
 import { EncounterOutcome } from '../frontier/encounter';
+import { highestPassed, isTierUnlocked, TIER_LOCKS, tierLockOf, tierRequirementText } from '../data/tierLocks';
 import { blockName, furthestRing, gateOf, isBlockUnlocked, newlyReached, Reach, reachBySector, requirementText } from '../frontier/unlocks';
 import { CaptainsState, defaultCaptains, sanitizeCaptains, addCaptainKills, buyOption, activateOption, claimFlyMilestone, rollMedals, selectCaptain, unlockCaptain, upgradeHero, CaptainResult, MedalAward } from '../captains/state';
 import { modifiersFor, RunModifiers } from '../captains/modifiers';
@@ -238,10 +239,12 @@ export function noteBestCredits(best: Record<string, number>, key: string, credi
 /** The encounter outcome as a square result: cleared fills, passed and cleared both unlock, failed changes nothing. */
 const outcomeFlags = (o: EncounterOutcome) => ({ cleared: o === 'cleared', passed: o !== 'failed' });
 
-/** A shop block that is gated by a directional unlock the player has not reached (and owns no copy of). */
+/** A shop block that is locked: by a Frontier ring (legendary blocks) or by a campaign tier (chunk 20b), and the player owns no copy of it. */
 export function blockLockReason(p: Progress, id: string, reach: Reach = reachBySector(p.frontier)): string | null {
-  if (isBlockUnlocked(id, p.owned[id] ?? 0, reach)) return null;
-  return requirementText(gateOf(id)!);
+  const owned = p.owned[id] ?? 0;
+  if (!isBlockUnlocked(id, owned, reach)) return requirementText(gateOf(id)!);
+  if (!isTierUnlocked(id, owned, p.passedTiers, reach)) return tierRequirementText(tierLockOf(id)!);
+  return null;
 }
 
 export interface WallRunResult {
@@ -354,6 +357,8 @@ export class ProgressStore {
 
   /** Frontier reach per sector as of the last commit (directional unlocks), and the unlocks it produced not yet shown. */
   private reach: Reach;
+  /** Highest passed tier as of the last commit (tier-locked blocks, chunk 20b). */
+  private tierReach: number;
   unlockNotices: string[] = [];
 
   constructor(private storage: StorageLike | null = null, initial?: Progress) {
@@ -361,6 +366,7 @@ export class ProgressStore {
     try { raw = storage?.getItem(PROGRESS_KEY) ?? null; } catch { /* storage unavailable */ }
     this.data = initial ?? loadProgress(raw);
     this.reach = reachBySector(this.data.frontier);
+    this.tierReach = highestPassed(this.data.passedTiers);
   }
 
   /** Reach per sector (cached; recomputed on every commit). */
@@ -385,6 +391,14 @@ export class ProgressStore {
     const after = reachBySector(this.data.frontier);
     for (const u of newlyReached(this.reach, after)) this.unlockNotices.push(`Unlocked: ${blockName(u.blockId)}`);
     this.reach = after;
+    // Passing a tier unlocks its blocks (announced once; a block the save already owns is not).
+    const tierNow = highestPassed(this.data.passedTiers);
+    if (tierNow > this.tierReach) {
+      for (const [id, t] of Object.entries(TIER_LOCKS)) {
+        if (t > this.tierReach && t <= tierNow && !(this.data.owned[id] > 0)) this.unlockNotices.push(`Unlocked: ${blockName(id)}`);
+      }
+    }
+    this.tierReach = tierNow;
     try { this.storage?.setItem(PROGRESS_KEY, serializeProgress(this.data)); } catch { /* quota or private mode */ }
     for (const l of this.listeners) l();
   }

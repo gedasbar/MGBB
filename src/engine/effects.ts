@@ -212,3 +212,38 @@ export const MIRROR_OFFSET = 16;
 /** Fuse: shots collected per released shot and the multiplier on their summed damage (the Capacitor stage with other numbers). */
 export const FUSE_N = 10;
 export const FUSE_MUL = 2;
+
+// ---- Chunk 20b: motion blocks (docs/motion-blocks.md). Every number of the thirteen lives here.
+/** Angle Left / Right: degrees per copy and the most a shot can be aimed off straight (4 copies). */
+export const ANGLE_STEP_DEG = 15;
+export const ANGLE_MAX_DEG = 60;
+/** Accelerator / Brake: speed factor per copy, the floor Brake cannot go under, and the ceiling of the packet's speed multiplier. */
+export const ACCELERATOR_MUL = 1.5;
+export const BRAKE_MUL = 0.7;
+export const BRAKE_FLOOR = 0.2;
+export const MAX_SPEED_MUL = 4;
+/** Scatter: half-width (degrees) of the random cone for one copy, added per extra copy, and the most. */
+export const SCATTER_BASE_DEG = 30;
+export const SCATTER_STEP_DEG = 15;
+export const SCATTER_MAX_DEG = 60;
+/** Upturn: seconds of flight before the shot starts turning up, and the turn rate (degrees per second) of one copy. */
+export const UPTURN_DELAY = 0.4;
+export const UPTURN_RATE_DEG = 120;
+/** Extender: life factor per copy. */
+export const EXTENDER_MUL = 2;
+/** Centreline: sideways acceleration (px/s^2) toward the firing line, the distance inside which it is proportional (px). */
+export const CENTRE_ACCEL = 500;
+export const CENTRE_SOFT = 40;
+/** Ship Magnet: acceleration (px/s^2) toward the ship's current position and the distance inside which it is proportional (px). */
+export const MAGNET_ACCEL = 2400;
+export const MAGNET_SOFT = 80;
+/** Swept hit test: a move shorter than SWEEP_MIN px is checked at its end only (no existing shot is faster at 60 Hz), a longer one at points SWEEP_SPACING apart, never over SWEEP_MAX. */
+export const SWEEP_MIN = 16;
+export const SWEEP_MIN_SPACING = 6;
+export const SWEEP_MAX = 400;
+/** Angle of a packet after one more Angle Left (dir -1) or Right (dir +1) block. */
+export const angleAfter = (angle: number, dir: -1 | 1) => Math.max(-ANGLE_MAX_DEG, Math.min(ANGLE_MAX_DEG, angle + dir * ANGLE_STEP_DEG));
+/** Scatter half-width after one more Scatter block (0 = none yet). */
+export const scatterAfter = (w: number) => (w <= 0 ? SCATTER_BASE_DEG : Math.min(SCATTER_MAX_DEG, w + SCATTER_STEP_DEG));
+/** A packet's speed multiplier after a speed block: the Brake floor and the ceiling apply. */
+export const clampSpeedMul = (m: number) => Math.min(MAX_SPEED_MUL, Math.max(BRAKE_FLOOR, m));

@@ -13,9 +13,8 @@ import { fireRateMul, hitRadiusOf, shotSpeedMul } from '../data/hulls';
 import { speciesOf } from '../data/species';
 import { ENEMIES } from '../data/enemies';
 import { EnemyField } from '../engine/targets';
-import { HIT_BURN, HIT_CLOUD } from '../engine/projectiles';
+import { HIT_BURN, HIT_CLOUD, PHASE_NORMAL } from '../engine/projectiles';
 import { fissionCooldown, SPILL_CHAIN_DEPTH, WELL_RADIUS } from '../engine/effects';
-import { PROJECTILE_MAX_AGE } from '../wall/constants';
 import { FREEFLY_REWARD_MUL, freeFlyRewardTier, waveBonus, waveHpMul, WAVE_TIME } from '../data/waves';
 import { PlannedSpawn, WaveDirector } from './waves';
 import { ALIVE_HOLD } from '../data/waves';
@@ -407,7 +406,11 @@ export class World {
       // A Bouncing shot with bounces left reflects off the screen edges (no damage); one that carries the block cannot fly for ever.
       if (pool.bounces[i] >= 0) {
         this.projSys.edgeBounce(i, 0, VW, 0, CONFIG.VIEW.H);
-        if (pool.age[i] > PROJECTILE_MAX_AGE) { this.projSys.retire(i); continue; }
+        if (pool.age[i] > pool.life[i]) { this.projSys.retire(i); continue; }
+      } else if (pool.phase[i] === PHASE_NORMAL && pool.age[i] > pool.life[i]) {
+        // Chunk 20b: a shot kept in play by Ship Magnet, Centreline or Reverse still ends at its lifetime (a normal shot has left the screen long before).
+        this.projSys.retire(i);
+        continue;
       }
       if (pool.x[i] < -50 || pool.x[i] > VW + 50 || pool.y[i] < -50 || pool.y[i] > CONFIG.VIEW.H + 50) {
         this.projSys.retire(i);
