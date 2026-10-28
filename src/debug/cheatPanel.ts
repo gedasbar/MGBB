@@ -107,7 +107,7 @@ export function addCheats(parent: HTMLElement) {
   // ---- Frontier (chunk 15a)
   const fr = group('dbg-g-frontier', 'Frontier');
   button(fr, 'dbg-fr-unlock', 'Unlock the Frontier', () => { unlockFrontier(store()); say('Frontier open (tiers 1-25 passed, no medals)'); });
-  button(fr, 'dbg-fr-reach-all', 'Reach ring 100 everywhere', () => { reachAllDirections(store()); say('every directional unlock reached (all gated blocks for sale)'); });
+  button(fr, 'dbg-fr-reach-all', 'Reach ring 300 everywhere', () => { reachAllDirections(store()); say('every directional unlock reached (all gated blocks for sale)'); });
   const fx = number(fr, 'dbg-fr-x', 'x', '0');
   const fy = number(fr, 'dbg-fr-y', 'y', '0');
   const num = (el: HTMLInputElement) => Math.round(Number(el.value)) || 0;
