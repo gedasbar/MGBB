@@ -46,7 +46,7 @@ export function scrollSpeed(base: number, shipY: number, zoneMul = 1): number {
 
 /** What the world needs from the progress store at the end of a level. */
 export interface WallBank {
-  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number }): { medal: boolean; medals?: number; medalDoubled?: boolean } | void;
+  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number }): { medal: boolean; medals?: number; medalDoubled?: boolean; newBestEarnings?: boolean } | void;
 }
 
 /** Ship position the pointer asks for, in world px (x) and screen px (y). */
@@ -190,6 +190,8 @@ export class WallWorld {
   medalEarned = false;
   medalsEarned = 0;
   medalDoubled = false;
+  /** Chunk 19a: this run earned more credits than any earlier run of this tier / square. */
+  newBestEarnings = false;
   autoFire = true;
   /** Pulse-rate multiplier of the hull being flown (the Dart is slow). */
   private fireRateMul = 1;
@@ -357,6 +359,7 @@ export class WallWorld {
     this.medalEarned = !!(res && res.medal);
     this.medalsEarned = (res && res.medals) || 0;
     this.medalDoubled = !!(res && res.medalDoubled);
+    this.newBestEarnings = !!(res && res.newBestEarnings);
     return true;
   }
 

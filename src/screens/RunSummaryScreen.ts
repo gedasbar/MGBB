@@ -58,7 +58,7 @@ export class RunSummaryScreen implements Screen {
   private gestures: GestureTracker | null = null;
   private rows: { label: string; value: string; best: boolean }[];
 
-  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean }, readonly wall?: WallSummary, readonly captain?: CaptainSummary) {
+  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean; newBestEarnings?: boolean }, readonly wall?: WallSummary, readonly captain?: CaptainSummary) {
     const bg = new Graphics().rect(0, 0, CONFIG.VIEW.W, CONFIG.VIEW.H).fill(THEME.bg);
     this.container.addChild(bg);
 
@@ -75,6 +75,12 @@ export class RunSummaryScreen implements Screen {
     creditsLabel.anchor.set(0.5);
     creditsLabel.position.set(VIEW_W / 2, 250);
     this.container.addChild(title, credits, creditsLabel);
+    if (marks.newBestEarnings) {
+      const best = makeText('New best earnings!', 18, THEME.good, { fontWeight: 'bold' });
+      best.anchor.set(0.5);
+      best.position.set(VIEW_W / 2, 118);
+      this.container.addChild(best);
+    }
 
     this.rows = enc ? [
       { label: 'Survived', value: `${fmtTime(result.time)} / ${fmtTime(enc.duration)}`, best: false },

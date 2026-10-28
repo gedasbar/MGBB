@@ -464,13 +464,13 @@ export class FlyScreen implements Screen {
    * Frontier encounter: books the square (cleared / passed / failed by the time survived; a quit counts like a death at
    * that time), credits and kills. Free Fly records are not touched. Returns the Medals paid.
    */
-  private bankEncounter(): { medals: number; doubled: boolean } {
+  private bankEncounter(): { medals: number; doubled: boolean; newBestEarnings: boolean } {
     const fr = this.opts.frontier!;
     const w = this.world;
     this.outcome = encounterOutcome(w.time, fr.params.duration, w.survived);
     const r = getProgressStore().recordFrontierFly({ x: fr.x, y: fr.y, credits: w.credits, kills: w.kills, outcome: this.outcome, medalDouble: this.mods.medalDouble });
     this.banker.flush(w.kills);
-    return { medals: r.medals, doubled: r.medalDoubled };
+    return { medals: r.medals, doubled: r.medalDoubled, newBestEarnings: r.newBestEarnings };
   }
 
   /** The run is over: bank it exactly once and show the summary. */
@@ -501,7 +501,7 @@ export class FlyScreen implements Screen {
       medals: paid.medals, doubled: paid.doubled,
     };
     const result = { credits: w.credits, kills: w.kills, time: w.time, tier: w.tier };
-    sm.switchTo(new RunSummaryScreen(sm, result, { newBestTier: false, newBestTime: false }, {
+    sm.switchTo(new RunSummaryScreen(sm, result, { newBestTier: false, newBestTime: false, newBestEarnings: paid.newBestEarnings }, {
       result: this.outcome!, destroyed: 0, total: 0, medal: paid.medals > 0,
       encounter: { duration: opts.frontier!.params.duration, kills: w.kills },
       buttons: [

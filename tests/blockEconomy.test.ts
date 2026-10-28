@@ -480,8 +480,8 @@ describe('save version 8: upgrades and copies over the caps are refunded (step 8
   it('refunds levels of blocks that lost them at the OLD upgrade price and sets them to level 1', () => {
     const raw = { version: 7, credits: 1000, owned: { piercing: 2, homing: 1, flat_plus: 3, percent_mult: 2 }, levels: { piercing: 5, homing: 3, flat_plus: 4, percent_mult: 7 } };
     const p = loadProgress(JSON.stringify(raw));
-    expect(p.version).toBe(8);
-    expect(PROGRESS_VERSION).toBe(8);
+    expect(p.version).toBe(9);
+    expect(PROGRESS_VERSION).toBe(9);
     expect(p.levels.piercing).toBe(1);
     expect(p.levels.homing).toBe(1);
     expect(p.levels.flat_plus).toBe(4); // keeps upgrades
@@ -512,7 +512,7 @@ describe('save version 8: upgrades and copies over the caps are refunded (step 8
     expect(store.takeNotice()).toBeNull();
     const again = new ProgressStore(st);
     expect(again.data.credits).toBe(credits); // not refunded a second time
-    expect(again.data.version).toBe(8);
+    expect(again.data.version).toBe(9);
     expect(again.data.notice).toBeUndefined();
     const raw = { ...JSON.parse(serializeProgress(defaultProgress())), owned: { turn_l: 99 }, levels: { piercing: 1 } };
     expect(loadProgress(JSON.stringify(raw)).owned.turn_l).toBe(99); // v8 data is trusted (the cheat panel may exceed caps)

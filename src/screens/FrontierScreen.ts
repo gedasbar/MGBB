@@ -29,7 +29,7 @@ import { frontierSession, frontierJump, selectionAfterTap } from '../frontier/se
 import {
   canPlay, frontierCounts, frontierSquare, medalShown, nearestMedalSquare, SquareState, squareState,
 } from '../frontier/state';
-import { getWorld, parseKey, sector, SECTOR_NAME } from '../frontier/world';
+import { getWorld, parseKey, sector, SECTOR_NAME, sqKey } from '../frontier/world';
 import { clearFrontierRing, clearFrontierSquare, unlockFrontier } from '../debug/cheats';
 
 const TOP = 52;
@@ -96,6 +96,8 @@ export class FrontierScreen implements Screen {
   private medalText = makeText('', 16, THEME.currency, { fontWeight: 'bold' });
   private spikeText = makeText('', 15, THEME.bad, { fontWeight: 'bold' });
   private countText = makeText('', 14, THEME.textDim, { fontWeight: 'bold' });
+  /** Chunk 19a: best credits earned in one run of the selected square, right-aligned on the state row; empty when never played. */
+  private earnText = makeText('', 14, THEME.currency, { fontWeight: 'bold' });
 
   /** Drawn last frame, for the stats overlay and the e2e hook. */
   drawnSquares = 0;
@@ -137,9 +139,11 @@ export class FrontierScreen implements Screen {
     this.medalText.position.set(lx, PANEL_Y + 120);
     this.spikeText.position.set(lx, PANEL_Y + 146);
     this.countText.position.set(lx, PANEL_Y + 172);
+    this.earnText.anchor.set(1, 0);
+    this.earnText.position.set(VIEW_W - lx, PANEL_Y + 123);
 
     this.container.addChild(bg, this.tiles, this.ringG, this.selG, chrome, this.title, this.medalsText, this.credits.container,
-      this.line1, this.line2, this.stateText, this.medalText, this.spikeText, this.countText);
+      this.line1, this.line2, this.stateText, this.medalText, this.spikeText, this.countText, this.earnText);
     for (const b of this.buttons) this.container.addChild(b.container);
     this.unlocksC.visible = false;
     this.container.addChild(this.unlocksC);
@@ -377,6 +381,8 @@ export class FrontierScreen implements Screen {
       this.countText.style.fill = PROGRESS_COLOR;
     } else this.countText.style.fill = THEME.textDim;
     this.stateText.style.fill = STATE_COLOR[st];
+    const earned = p.squareBestCredits[sqKey(x, y)];
+    this.earnText.text = earned !== undefined ? `Best earned ${fmtBig(earned)}` : '';
     const ok = canPlay(this.f, x, y);
     this.playButton.setEnabled(ok);
     this.playButton.setText(st === 'passed' || st === 'cleared' ? 'REPLAY' : 'PLAY');
@@ -394,6 +400,7 @@ export class FrontierScreen implements Screen {
     this.line2.text = '';
     this.stateText.text = '';
     this.medalText.text = '';
+    this.earnText.text = '';
     this.spikeText.text = '';
     this.playButton.setEnabled(false);
     this.playButton.setText('PLAY');
