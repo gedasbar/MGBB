@@ -109,3 +109,29 @@ Design and numbers: `docs/legendaries.md`. What matters for the trigger table:
 - Fuse is the Capacitor stage with n = 10 and a x2 on the summed damage: one shot out for ten in, never more out than in.
 - Last Breath (x2 on a hit in the last second of the shot's life) and Zigzag (the shot turns every 0.2 s, +5% a change) are read in `processField` / `steer` from the shot's own age and counters, so they are carried by Fork copies (which share the modifier list) and not by Chain arcs.
 - The audit with the twelve legendaries: 1,140 OK, 120 CANCELS, 0 EXPLODES (the 44 older flags unchanged, 76 new ones that are the blocks' own design: `docs/legendaries.md` section 7).
+
+## 7. Chunk 20b: the motion blocks
+
+Design and numbers: `docs/motion-blocks.md`. Three new rows in `TRIGGERS` (`src/engine/triggers.ts`):
+
+| effect | fires | carried by fork copies | carried by chain arcs |
+|---|---|---|---|
+| Reverse | every hit while a flip is left, at most one per copy of the block (`perCopy`) | no | no |
+| Align | after every hit the shot survives by passing, bouncing or persisting (not after a Reverse flip) | yes | no |
+| Persist | every direct hit | yes | no |
+
+**What happens to a shot on a hit** (first match wins; every triggered effect of section 3 and 5 still fires first, on the hit that flips or continues the shot):
+
+1. **Reverse** (a flip is left, and the shot is in plain flight or on a Boomerang's way out): the shot survives, its velocity is negated (a Boomerang's outward leg becomes its way back at once), it skips the target it hit. It uses no pierce, bounce or damage.
+2. **Persist** (the target was killed with damage to spare): the shot goes on with the damage it did not need (`damageToKill`, in the units the damage code counts: shield, armor, HP).
+3. **Piercing**: a free pass while passes are left (section 5).
+4. **Bouncing**: a bounce while bounces are left.
+5. otherwise the shot ends.
+
+After 2, 3 or 4, **Align** snaps the heading straight up.
+
+- Persist + Piercing: Persist spends damage on kills, Piercing's passes carry the shot through the targets Persist cannot kill (a tough target ends a Persist-only shot).
+- Persist + AoE: the blast is a trigger of the hit and takes the hit's damage; it spends nothing of the shot's budget. A persisting AoE shot blasts once per kill.
+- Reverse + Align: the flip is not undone by Align; the next pass, bounce or persist after the flip snaps it up.
+- Reverse + Boomerang: the first hit turns the boomerang back. Reverse + Orbit / Mine: nothing (those phases own the velocity and a mine must detonate); no flip is used up.
+- Fast shots (Accelerator) are checked along the whole path they flew in a step (`ProjectileSystem.sweep`), so AoE, bounce and fork happen where the shot actually touched the target.
