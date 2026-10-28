@@ -41,12 +41,12 @@ const one = (base: number): BlockEconomy => ({ cap: 1, base, growth: 1 });
 
 /**
  * Legendary blocks (chunk 20a): one copy, paid in credits AND Medals, by the Frontier ring that unlocks them (frontier/unlocks.ts).
- * Credits are about 3-6 runs of income at the point the ring is reached (report of chunk 20a); change the prices here.
+ * Credits are about 5 runs of a Frontier wall at that ring (reports/chunk20a/prices.md; the first guess of 50K / 200K / 800K was 30 / 15 / 13 runs); change the prices here.
  */
 export const LEGENDARY_PRICE_BY_RING: Readonly<Record<number, { credits: number; medals: number }>> = {
-  100: { credits: 50_000, medals: 15 },
-  200: { credits: 200_000, medals: 25 },
-  300: { credits: 800_000, medals: 40 },
+  100: { credits: 8_000, medals: 15 },
+  200: { credits: 65_000, medals: 25 },
+  300: { credits: 300_000, medals: 40 },
 };
 const legendary = (ring: number): BlockEconomy => ({ cap: 1, base: LEGENDARY_PRICE_BY_RING[ring].credits, growth: 1, medals: LEGENDARY_PRICE_BY_RING[ring].medals });
 /** A stacking shape block: no cap, normal growth. */

@@ -104,9 +104,9 @@ async function revealRow(page, id) {
   // ---- the Shop: blocks only, no Hulls tab, dots
   await tap(page, ...SHOP_TAB);
   let s = await state(page);
-  check(Array.isArray(s.rows) && s.rows.length === 41 && s.section === undefined, `the Shop lists 41 blocks and has no sections (${s.rows && s.rows.length})`);
+  check(Array.isArray(s.rows) && s.rows.length === 53 && s.section === undefined, `the Shop lists 53 blocks and has no sections (${s.rows && s.rows.length})`);
   const dotKeys = s.rows.filter(r => r.dot).map(r => r.key);
-  check(dotKeys.length > 5, `the Shop shows dots on affordable blocks (${dotKeys.length} of 41 with 5K credits)`);
+  check(dotKeys.length > 5, `the Shop shows dots on affordable blocks (${dotKeys.length} of 53 with 5K credits)`);
   const alphaOwned = await page.evaluate(() => window.__mgbm.shopScreen.palette.tileAlpha('turn_l'));
   const alphaNot = await page.evaluate(() => window.__mgbm.shopScreen.palette.tileAlpha('flat_plus'));
   check(alphaOwned === 1 && alphaNot === 1, `owned and unowned tiles have the same brightness (${alphaOwned} / ${alphaNot})`);

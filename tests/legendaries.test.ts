@@ -339,10 +339,10 @@ describe('legendary blocks: two prices', () => {
     p.frontier.sq[sqKey(0, -100)] = 2; // North ring 100
     return p;
   };
-  it('the table: 15 Medals + 50K, 25 + 200K, 40 + 800K by ring', () => {
-    expect(LEGENDARY_PRICE_BY_RING).toEqual({ 100: { credits: 50_000, medals: 15 }, 200: { credits: 200_000, medals: 25 }, 300: { credits: 800_000, medals: 40 } });
-    expect(copyPrice('frontier_echo', 0)).toBe(50_000);
-    expect(copyPrice('fuse', 0)).toBe(800_000);
+  it('the table: 15 Medals + 8K, 25 + 65K, 40 + 300K by ring', () => {
+    expect(LEGENDARY_PRICE_BY_RING).toEqual({ 100: { credits: 8_000, medals: 15 }, 200: { credits: 65_000, medals: 25 }, 300: { credits: 300_000, medals: 40 } });
+    expect(copyPrice('frontier_echo', 0)).toBe(8_000);
+    expect(copyPrice('fuse', 0)).toBe(300_000);
   });
   it('locked until the ring is reached, then both prices must be payable; buying takes both', () => {
     const p = defaultProgress();
@@ -354,28 +354,28 @@ describe('legendary blocks: two prices', () => {
     q.credits = 1e9; q.medals = 14;
     expect(buyCopy(q, 'frontier_echo')).toEqual({ ok: false, error: 'Not enough Medals' });
     expect(q.credits).toBe(1e9); expect(q.medals).toBe(14); // neither taken
-    q.medals = 15; q.credits = 49_999;
+    q.medals = 15; q.credits = 7_999;
     expect(buyCopy(q, 'frontier_echo')).toEqual({ ok: false, error: 'Not enough credits' });
     expect(q.medals).toBe(15);
-    q.credits = 60_000;
-    expect(buyCopy(q, 'frontier_echo')).toEqual({ ok: true, price: 50_000 });
-    expect(q.credits).toBe(10_000); expect(q.medals).toBe(0); expect(q.owned.frontier_echo).toBe(1);
+    q.credits = 10_000;
+    expect(buyCopy(q, 'frontier_echo')).toEqual({ ok: true, price: 8_000 });
+    expect(q.credits).toBe(2_000); expect(q.medals).toBe(0); expect(q.owned.frontier_echo).toBe(1);
     q.credits = 1e9; q.medals = 50;
     expect(buyCopy(q, 'frontier_echo').ok).toBe(false); // cap 1
     expect(q.medals).toBe(50);
   });
   it('the info sheet shows both prices and Buy needs both; the yellow dot only when both can be paid', () => {
-    const base = { id: 'frontier_echo', name: 'Frontier Echo', desc: 'x', owned: 0, available: 0, level: 1, maxLevel: 1, cap: 1, upgradePrice: 0, lock: null, copyPrice: 50_000, medalPrice: 15 };
+    const base = { id: 'frontier_echo', name: 'Frontier Echo', desc: 'x', owned: 0, available: 0, level: 1, maxLevel: 1, cap: 1, upgradePrice: 0, lock: null, copyPrice: 8_000, medalPrice: 15 };
     const buy = (credits: number, medals: number) => sheetContent({ ...base, credits, medals }).buy!;
-    expect(buy(50_000, 15).label).toBe('Buy +1\n50K + 15 Medals');
-    expect(buy(50_000, 15).enabled).toBe(true);
-    expect(buy(50_000, 14).enabled).toBe(false);
-    expect(buy(49_999, 15).enabled).toBe(false);
+    expect(buy(8_000, 15).label).toBe('Buy +1\n8K + 15 Medals');
+    expect(buy(8_000, 15).enabled).toBe(true);
+    expect(buy(8_000, 14).enabled).toBe(false);
+    expect(buy(7_999, 15).enabled).toBe(false);
     const dot = (credits: number, medals: number, locked = false) =>
-      copyAffordable({ credits, medals, copyPrice: 50_000, medalPrice: 15, owned: 0, cap: 1, locked });
-    expect(dot(50_000, 15)).toBe(true);
-    expect(dot(50_000, 14)).toBe(false);
-    expect(dot(49_999, 15)).toBe(false);
+      copyAffordable({ credits, medals, copyPrice: 8_000, medalPrice: 15, owned: 0, cap: 1, locked });
+    expect(dot(8_000, 15)).toBe(true);
+    expect(dot(8_000, 14)).toBe(false);
+    expect(dot(7_999, 15)).toBe(false);
     expect(dot(1e9, 99, true)).toBe(false); // locked
     // An ordinary block still has no Medal price in its label.
     expect(sheetContent({ ...base, id: 'payload', copyPrice: 600, medalPrice: undefined, credits: 1000 }).buy!.label).toBe('Buy +1\n600');

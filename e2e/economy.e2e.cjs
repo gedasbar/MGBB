@@ -129,7 +129,7 @@ async function aim(page, s) {
   // ---- Shop: buy a Splitter 2 (needs 200)
   await tap(page, ...TAB.shop);
   s = await state(page);
-  check(s.rows && s.rows.length === 41, `Shop lists 41 blocks (${s.rows && s.rows.length})`);
+  check(s.rows && s.rows.length === 53, `Shop lists 53 blocks (${s.rows && s.rows.length})`);
   if (s.credits < 200) {
     console.log('INFO  fewer than 200 credits: using +10000 credits for the purchases');
     await dbg('dbg-credits');
