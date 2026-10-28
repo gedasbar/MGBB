@@ -9,6 +9,7 @@ import { HULL_INFO } from '../game/gridUtils';
 import { HullPicker } from '../builder/hullPicker';
 import { buyAndSelectHull } from '../builder/hullPickerLogic';
 import { describeBlock } from '../engine/compilerTypes';
+import { blockText } from '../data/blockText';
 import { CompiledShip, Grid } from '../engine/compiler';
 import { BuilderModel, statsDelta } from '../builder/model';
 import { getBuilderModel } from '../builder/session';
@@ -335,9 +336,9 @@ export class BuildScreen implements Screen {
     }
     const def = BLOCKS[cell.blockId];
     const info = this.model.compiled.cellInfo[sel.y * this.model.grid.w + sel.x];
-    let body = describeBlock(def, cell.level);
-    if (!info.onPath) body += ' No signal reaches this block.';
-    this.inspector.set(def.name, body);
+    const text = blockText(def, cell.level);
+    const second = info.onPath ? text.stack ?? '' : [text.stack, 'No signal reaches it.'].filter(Boolean).join(' · ');
+    this.inspector.set(def.name, text.short, THEME.text, second);
   }
 
   private installDevHook() {
@@ -355,7 +356,7 @@ export class BuildScreen implements Screen {
         view: this.view,
         pickerOpen: this.picker.isOpen,
         toast: this.toast.message,
-        inspector: { title: this.inspector.titleText, body: this.inspector.bodyText },
+        inspector: { title: this.inspector.titleText, body: this.inspector.bodyText, stack: this.inspector.stackText },
         statsStrip: this.stats.texts(),
         ledger: this.tip.visible ? this.tipText.text : null,
         hull: this.model.hullId,
@@ -499,7 +500,8 @@ export class BuildScreen implements Screen {
     if (blockId) {
       const def = BLOCKS[blockId];
       const ok = p && p.compiled.recipes.length > 0;
-      this.inspector.set(ok ? def.name : `${def.name} · no ejector reached`, describeBlock(def, this.model.levelOf(blockId)), ok ? THEME.text : THEME.warn);
+      const text = blockText(def, this.model.levelOf(blockId));
+      this.inspector.set(ok ? def.name : `${def.name} · no ejector reached`, text.short, ok ? THEME.text : THEME.warn, text.stack ?? '');
     } else {
       this.inspector.set('Remove', 'Clears this cell and returns the block to your inventory.');
     }

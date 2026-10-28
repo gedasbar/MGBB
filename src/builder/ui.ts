@@ -128,23 +128,28 @@ export class Inspector {
   readonly container = new Container();
   private title = makeText('', 15, THEME.text, { fontWeight: 'bold' });
   private body = makeText('', 14, THEME.textDim, { wordWrap: true, wordWrapWidth: VIEW_W - 20, lineHeight: 17 });
+  private stack = makeText('', 12, THEME.textDim, { wordWrap: true, wordWrapWidth: VIEW_W - 20, lineHeight: 15 });
 
   constructor() {
     const r = LAYOUT.inspector;
     const bg = new Graphics().rect(r.x, r.y, r.w, r.h).fill(THEME.panel).rect(r.x, r.y + r.h - 1, r.w, 1).fill(THEME.border);
     this.title.position.set(10, r.y + 5);
     this.body.position.set(10, r.y + 24);
-    this.container.addChild(bg, this.title, this.body);
+    this.stack.position.set(10, r.y + 44);
+    this.stack.alpha = 0.7;
+    this.container.addChild(bg, this.title, this.body, this.stack);
   }
 
-  set(title: string, body: string, titleColor: number = THEME.text) {
+  set(title: string, body: string, titleColor: number = THEME.text, stack = '') {
     this.title.text = title;
     this.title.style.fill = titleColor;
     this.body.text = body;
+    this.stack.text = stack;
   }
 
   get titleText(): string { return this.title.text; }
   get bodyText(): string { return this.body.text; }
+  get stackText(): string { return this.stack.text; }
 }
 
 /** The stats strip's numbers: the damage formatter (whole or one decimal below 1000, K / M / B / T above). */

@@ -146,7 +146,7 @@ async function aim(page, s) {
   const press = async (which) => tap(page, ...centre(await page.evaluate((w) => window.__mgbm.shopScreen.palette.sheetButtonRect(w), which)), { pause: 200 });
   await selectTile('splitter_2');
   let sh = await sheet();
-  check(sh.sel === 'splitter_2' && /Splits the signal into two full copies/.test(sh.c.body), `tile tap selects it and shows its rule: "${sh.c.title}"`);
+  check(sh.sel === 'splitter_2' && /Splits the signal in two: left and right/.test(sh.c.body), `tile tap selects it and shows its rule: "${sh.c.title}"`);
   check(sh.c.buy.label === 'Buy +1\n120' && sh.c.buy.enabled, `buy button "${sh.c.buy.label}" is enabled`);
   check(sh.c.upgrade === null && sh.c.levelLine === '', 'Splitter 2 has no upgrade levels (16c-2: only eight blocks have levels)');
   await press('buy');

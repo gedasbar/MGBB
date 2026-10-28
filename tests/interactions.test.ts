@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BLOCKS, MORE } from '../src/data/blocks';
+import { blockText } from '../src/data/blockText';
 import { BLOCK_ECONOMY, capOf } from '../src/data/blockEconomy';
 import { copyPrice } from '../src/econ/economy';
 import { compile } from '../src/engine/compiler';
@@ -256,7 +257,8 @@ describe('the estimate shows the AoE penalty', () => {
 
 describe('every stacking block says what one more copy does', () => {
   const stackers = ['piercing', 'bouncing', 'aoe_circle', 'aoe_rect', 'chain_lightning', 'homing', 'fork_impact', 'boomerang', 'orbit', 'mine'];
-  it.each(stackers)('%s: the rule text has an "Each extra copy" line', (id) => {
+  it.each(stackers)('%s: the player text has a short "+1 copy" line and the technical text keeps "Each extra copy" (docs/blocks.md)', (id) => {
+    expect(blockText(BLOCKS[id]).stack, id).toMatch(/^\+1 copy: /);
     const text = BLOCKS[id].maxLevel > 1 ? BLOCKS[id].desc : BLOCKS[id].desc;
     for (const l of [1, BLOCKS[id].fixedLevel ?? 1, BLOCKS[id].maxLevel]) {
       const t = typeof text === 'function' ? text(l) : text;
@@ -270,6 +272,7 @@ describe('every stacking block says what one more copy does', () => {
       expect(t).toContain('bigger area');
     }
     expect(MORE.aoe).toContain('-5%');
+    for (const id of ['aoe_circle', 'aoe_rect']) expect(blockText(BLOCKS[id]).stack).toBe('+1 copy: bigger area, -5% dmg');
   });
 });
 

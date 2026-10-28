@@ -3,7 +3,7 @@ import { BuilderModel } from './model';
 import { LAYOUT } from './layout';
 import { copyCap, copyPrice, maxLevelOf, upgradePrice } from '../econ/economy';
 import { blockLockReason } from '../econ/progress';
-import { describeBlock } from '../engine/compilerTypes';
+import { blockText } from '../data/blockText';
 import { paletteIds, REMOVE_TILE, removeSheetContent, sheetContent } from './paletteLogic';
 import { PaletteSource, TilePalette } from './tilePalette';
 
@@ -48,7 +48,7 @@ export class Picker extends TilePalette {
         const p = model.store.data;
         const level = model.levelOf(id);
         return sheetContent({
-          id, name: BLOCKS[id].name, desc: describeBlock(BLOCKS[id], level), owned: p.owned[id] ?? 0, available: model.available(id),
+          id, name: BLOCKS[id].name, desc: blockText(BLOCKS[id], level).short, stack: blockText(BLOCKS[id], level).stack, owned: p.owned[id] ?? 0, available: model.available(id),
           level, maxLevel: maxLevelOf(id), cap: copyCap(id), credits: p.credits, copyPrice: copyPrice(id, p.owned[id] ?? 0), upgradePrice: upgradePrice(id, level),
           lock: blockLockReason(p, id, model.store.frontierReach), showFree: true,
         });

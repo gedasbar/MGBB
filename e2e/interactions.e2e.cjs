@@ -135,7 +135,7 @@ const freeze = (page) => page.evaluate(() => window.__mgbm.setTimeScale(0));
   const r = await page.evaluate(() => window.__mgbm.buildScreen.picker.tileScreenRect('aoe_circle'));
   await tap(page, ...centre(r));
   const sheet = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; return p.sheetContentNow; });
-  check(sheet && /Each extra copy: bigger area, -5% damage\./.test(sheet.body), `the AoE sheet says: "${sheet && sheet.body}"`);
+  check(sheet && /^\+1 copy: bigger area, -5% dmg$/.test(sheet.stack), `the AoE sheet says: "${sheet && sheet.body}" / "${sheet && sheet.stack}"`);
   const shot5 = await snap(page);
 
   await montage(page, [shot1, shot2, shot3, shot4, shot5],
