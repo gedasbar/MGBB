@@ -1,3 +1,4 @@
+import { TIER_LOCKS } from '../src/data/tierLocks';
 import { describe, expect, it } from 'vitest';
 import { FRONTIER_SEED, FREEFLY_SHARE, FREEFLY_SQUARE_SECONDS, FF_WAVE_CAP, PROGRESS_COLOR } from '../src/frontier/constants';
 import { squareKind, squareLevel } from '../src/frontier/level';
@@ -172,23 +173,22 @@ describe('Free Fly HP growth (18b)', () => {
 });
 
 describe('Directional unlocks', () => {
-  it('table (chunk 20a): 28 entries, rings [10, 25, 50, 100, 200, 300], 28 different blocks: 16 ordinary ones of the two newest batches + 12 legendary, a spread of categories', () => {
-    expect([...UNLOCK_RINGS]).toEqual([10, 25, 50, 100, 200, 300]);
-    expect(UNLOCKS.length).toBe(28);
+  it('table (chunk 20b): 12 entries, rings [100, 200, 300], twelve different legendary blocks, three per direction', () => {
+    expect([...UNLOCK_RINGS]).toEqual([100, 200, 300]);
+    expect(UNLOCKS.length).toBe(12);
     const ids = UNLOCKS.map(u => u.blockId);
-    expect(new Set(ids).size).toBe(28);
-    const legendary = ids.filter(id => BLOCKS[id].category === 'legendary');
-    expect(legendary.length).toBe(12);
-    const ordinary = ids.filter(id => BLOCKS[id].category !== 'legendary');
-    const batches = ['alternator', 'delay_line', 'overclock', 'capacitor', 'executioner', 'boomerang', 'orbit', 'chain_lightning', 'mine', 'ignite', 'frostbite', 'corrosion',
-      'fission_catalyst', 'cauterize', 'cleaver', 'culling_bolt', 'residue_seed', 'overkill_spill', 'gravity_well', 'static_charge', 'random_router'];
-    expect([...ordinary, ...FREE_NEW_BLOCKS].sort()).toEqual([...batches].sort());
+    expect(new Set(ids).size).toBe(12);
+    for (const id of ids) expect(BLOCKS[id].category, id).toBe('legendary');
     for (const sec of ['N', 'E', 'S', 'W']) {
-      const cats = new Set(UNLOCKS.filter(u => u.sector === sec && BLOCKS[u.blockId].category !== 'legendary').map(u => BLOCKS[u.blockId].category));
-      expect(cats.size).toBeGreaterThanOrEqual(3);
-      // Each direction: rings 100 / 200 / 300 hold exactly one legendary block each.
       for (const r of [100, 200, 300]) expect(UNLOCKS.filter(u => u.sector === sec && u.ring === r).map(u => BLOCKS[u.blockId].category)).toEqual(['legendary']);
     }
+    // The blocks of the two newest batches that are not free are all tier-locked now.
+    for (const id of ['alternator', 'capacitor', 'executioner', 'orbit', 'chain_lightning', 'mine', 'frostbite', 'corrosion', 'fission_catalyst', 'cleaver',
+      'culling_bolt', 'residue_seed', 'overkill_spill', 'gravity_well', 'static_charge', 'random_router']) expect(TIER_LOCKS[id], id).toBeGreaterThanOrEqual(5);
+    expect(Object.keys(TIER_LOCKS).length).toBe(26);
+    expect(Math.min(...Object.values(TIER_LOCKS))).toBe(5);
+    expect(Math.max(...Object.values(TIER_LOCKS))).toBe(60);
+    for (const id of FREE_NEW_BLOCKS) expect(TIER_LOCKS[id]).toBeUndefined();
   });
 
   it('reach per sector: highest ring of a passed or cleared square in each sector', () => {
@@ -204,16 +204,16 @@ describe('Directional unlocks', () => {
   it('an unlock fires exactly once at its threshold, each sector on its own', () => {
     const store = new ProgressStore(null, defaultProgress());
     const lattice = (x: number, y: number) => { expect(W.isHole(x, y)).toBe(false); store.data.frontier.sq[sqKey(x, y)] = 2; };
-    lattice(0, -9); store.commit();
-    expect(store.takeUnlockNotices()).toEqual([]); // ring 9: below the threshold
-    lattice(0, -10); store.commit();
-    expect(store.takeUnlockNotices()).toEqual(['Unlocked: Random Router']);
-    lattice(0, -11); store.commit();
+    lattice(0, -99); store.commit();
+    expect(store.takeUnlockNotices()).toEqual([]); // ring 99: below the threshold
+    lattice(0, -100); store.commit();
+    expect(store.takeUnlockNotices()).toEqual(['Unlocked: Frontier Echo']);
+    lattice(0, -101); store.commit();
     expect(store.takeUnlockNotices()).toEqual([]); // once
     expect(store.frontierReach.E).toBe(0);
-    lattice(14, 0); store.commit(); // East ring 14
-    expect(store.takeUnlockNotices()).toEqual(['Unlocked: Overkill Spill']);
-    expect(newlyReached({ N: 0, E: 0, S: 0, W: 0 }, { N: 0, E: 0, S: 0, W: 100 }).map(u => u.blockId)).toEqual(['corrosion', 'gravity_well', 'residue_seed', 'alternator', 'rebound']);
+    lattice(200, 0); store.commit(); // East ring 200
+    expect(store.takeUnlockNotices()).toEqual(['Unlocked: Last Breath', 'Unlocked: Zigzag']);
+    expect(newlyReached({ N: 0, E: 0, S: 0, W: 0 }, { N: 0, E: 0, S: 0, W: 100 }).map(u => u.blockId)).toEqual(['rebound']);
   });
 
   it('shop gating: a gated block is refused until reached; ungated and free blocks are not gated', () => {
@@ -221,34 +221,36 @@ describe('Directional unlocks', () => {
     p.credits = 1e9;
     expect(gateOf('flat_plus')).toBeUndefined();
     for (const id of FREE_NEW_BLOCKS) expect(gateOf(id)).toBeUndefined();
-    expect(blockLockReason(p, 'chain_lightning')).toBe('Reach ring 50 North');
-    expect(buyCopy(p, 'chain_lightning')).toEqual({ ok: false, error: 'Reach ring 50 North' });
-    expect(buyUpgrade(p, 'chain_lightning').ok).toBe(false);
+    p.medals = 1000;
+    expect(blockLockReason(p, 'fuse')).toBe('Reach ring 300 West');
+    expect(buyCopy(p, 'fuse')).toEqual({ ok: false, error: 'Reach ring 300 West' });
+    expect(buyUpgrade(p, 'fuse').ok).toBe(false);
     expect(buyCopy(p, 'overclock').ok).toBe(true);
-    p.frontier.sq[sqKey(0, -10)] = 1; // North ring 10 passed: Random Router
-    expect(buyCopy(p, 'random_router').ok).toBe(true);
-    expect(isBlockUnlocked('gravity_well', 0, { N: 0, E: 0, S: 0, W: 24 })).toBe(false);
-    expect(isBlockUnlocked('gravity_well', 0, { N: 0, E: 0, S: 0, W: 25 })).toBe(true);
-    expect(isBlockUnlocked('gravity_well', 0, { N: 99, E: 99, S: 99, W: 0 })).toBe(false); // the wrong direction does not count
+    p.frontier.sq[sqKey(0, -100)] = 1; // North ring 100 passed: Frontier Echo
+    expect(buyCopy(p, 'frontier_echo').ok).toBe(true);
+    expect(isBlockUnlocked('mirror', 0, { N: 0, E: 0, S: 0, W: 199 })).toBe(false);
+    expect(isBlockUnlocked('mirror', 0, { N: 0, E: 0, S: 0, W: 200 })).toBe(true);
+    expect(isBlockUnlocked('mirror', 0, { N: 999, E: 999, S: 999, W: 0 })).toBe(false); // the wrong direction does not count
   });
 
-  it('grandfather rule: an old save that owns a gated block keeps it unlocked (no save change)', () => {
+  it('grandfather rule: an old save that owns a block keeps it unlocked (no save change)', () => {
     const old = { version: 6, credits: 5000, owned: { chain_lightning: 2, orbit: 0 }, levels: { chain_lightning: 3 }, ownedHulls: ['dart'] };
     const p = loadProgress(JSON.stringify(old));
     expect(PROGRESS_VERSION).toBe(9);
     expect(p.owned.chain_lightning).toBe(2);
-    expect(blockLockReason(p, 'chain_lightning')).toBeNull();
+    expect(blockLockReason(p, 'chain_lightning')).toBeNull(); // owned: still buyable although tier 60 is not passed
     expect(buyCopy(p, 'chain_lightning').ok).toBe(true);
-    expect(blockLockReason(p, 'orbit')).toBe('Reach ring 50 South');
+    expect(blockLockReason(p, 'orbit')).toBe('Pass tier 42');
     const back = loadProgress(serializeProgress(p));
     expect(blockLockReason(back, 'chain_lightning')).toBeNull();
   });
 
   it('a square on a threshold ring names its unlock', () => {
-    expect(unlockOnSquare(3, -25)?.blockId).toBe('cleaver');
-    expect(unlockOnSquare(-50, 10)?.blockId).toBe('residue_seed');
-    expect(unlockOnSquare(3, -24)).toBeUndefined();
-    expect(ring(-50, 10)).toBe(50);
+    expect(unlockOnSquare(3, -100)?.blockId).toBe('frontier_echo');
+    expect(unlockOnSquare(-300, 10)?.blockId).toBe('fuse');
+    expect(unlockOnSquare(3, -99)).toBeUndefined();
+    expect(unlockOnSquare(3, -25)).toBeUndefined(); // the old ring-25 square names nothing now
+    expect(ring(-300, 10)).toBe(300);
   });
 });
 

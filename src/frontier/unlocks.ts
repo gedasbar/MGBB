@@ -5,20 +5,20 @@ import type { FrontierSave } from './state';
 /**
  * Directional unlocks (chunk 15b): going far in one direction of the Frontier unlocks blocks. Each of the four sectors has
  * a threshold at each of UNLOCK_RINGS; reaching it (a passed or cleared square at that ring or beyond, in that sector)
- * unlocks its blocks. Rings 10, 25 and 50 unlock ordinary blocks (placeholders from chunk 15b); rings 100, 200 and 300 unlock the
- * twelve legendary blocks (chunk 20a, docs/legendaries.md). The four ordinary blocks that used to sit at ring 100 moved to ring 50.
+ * unlocks its block. Since chunk 20b the Frontier unlocks ONLY the twelve legendary blocks (rings 100, 200, 300; chunk 20a,
+ * docs/legendaries.md); the ordinary blocks that sat at rings 10 / 25 / 50 are unlocked by campaign tiers (data/tierLocks.ts).
  */
 
 /** Ring thresholds, the same in every direction. */
-export const UNLOCK_RINGS = [10, 25, 50, 100, 200, 300] as const;
+export const UNLOCK_RINGS = [100, 200, 300] as const;
 export const UNLOCK_SECTORS: Exclude<Sector, 'C'>[] = ['N', 'E', 'S', 'W'];
 
 /** sector -> the blocks each UNLOCK_RINGS entry unlocks, in ring order (a ring may unlock several). */
 const UNLOCK_BLOCKS: Record<Exclude<Sector, 'C'>, string[][]> = {
-  N: [['random_router'], ['cleaver'], ['frostbite', 'chain_lightning'], ['frontier_echo'], ['payload'], ['lone_shot']],
-  E: [['overkill_spill'], ['mine'], ['capacitor', 'fission_catalyst'], ['last_breath'], ['zigzag'], ['heavy_round']],
-  S: [['static_charge'], ['culling_bolt'], ['orbit', 'executioner'], ['hollow_core'], ['idle_barrels'], ['waypoint']],
-  W: [['corrosion'], ['gravity_well'], ['residue_seed', 'alternator'], ['rebound'], ['mirror'], ['fuse']],
+  N: [['frontier_echo'], ['payload'], ['lone_shot']],
+  E: [['last_breath'], ['zigzag'], ['heavy_round']],
+  S: [['hollow_core'], ['idle_barrels'], ['waypoint']],
+  W: [['rebound'], ['mirror'], ['fuse']],
 };
 
 /** Blocks of the two newest batches (chunks 9a and 11a) that stay free: one per category, the cheaper ones. */
@@ -26,7 +26,7 @@ export const FREE_NEW_BLOCKS = ['delay_line', 'overclock', 'boomerang', 'ignite'
 
 export interface UnlockEntry { sector: Exclude<Sector, 'C'>; ring: number; blockId: string }
 
-/** All 28 entries: sector by sector, ring by ring. */
+/** All 12 entries: sector by sector, ring by ring. */
 export const UNLOCKS: UnlockEntry[] = UNLOCK_SECTORS.flatMap(sec => UNLOCK_RINGS.flatMap((r, i) => UNLOCK_BLOCKS[sec][i].map(blockId => ({ sector: sec, ring: r, blockId }))));
 
 const GATE = new Map(UNLOCKS.map(u => [u.blockId, u]));

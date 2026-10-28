@@ -4,6 +4,10 @@ import { writeFileSync } from 'fs';
 import { pickerBlocks } from '../src/data/blocks';
 import { blockText } from '../src/data/blockText';
 import { describeBlock } from '../src/engine/compilerTypes';
+import { BLOCK_ECONOMY } from '../src/data/blockEconomy';
+import { TIER_LOCKS } from '../src/data/tierLocks';
+import { UNLOCKS } from '../src/frontier/unlocks';
+import { BLOCKS } from '../src/data/blocks';
 
 const esc = (s: string) => s.replace(/\|/g, '\|');
 const lines = [
@@ -19,5 +23,15 @@ for (const b of pickerBlocks()) {
   const t = blockText(b, lv);
   lines.push(`| ${b.name} | ${esc(t.short)} | ${t.stack ? esc(t.stack) : ''} | ${esc(describeBlock(b, lv))} |`);
 }
+// Chunk 20b: where each locked block comes from.
+lines.push('', '## Unlocks', '',
+  'Most blocks are open from the start. **Campaign tiers** (`src/data/tierLocks.ts`, chunk 20b): the block is bought after the player has PASSED the tier (a save that owns a copy keeps buying; a save that had reached the old Frontier ring of the block keeps it). **Frontier rings** (`src/frontier/unlocks.ts`): only the twelve legendary blocks, three per direction at rings 100 / 200 / 300.', '',
+  '| Pass campaign tier | Block | First copy (credits) | Cap |', '|---|---|---|---|');
+for (const [id, tier] of Object.entries(TIER_LOCKS).sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))) {
+  const e = BLOCK_ECONOMY[id];
+  lines.push(`| ${tier} | ${BLOCKS[id].name} | ${e.base.toLocaleString('en')} | ${e.cap ?? 'none'} |`);
+}
+lines.push('', '| Frontier ring | Direction | Legendary block |', '|---|---|---|');
+for (const u of UNLOCKS.slice().sort((a, b) => a.ring - b.ring || a.sector.localeCompare(b.sector))) lines.push(`| ${u.ring} | ${u.sector} | ${BLOCKS[u.blockId].name} |`);
 writeFileSync('docs/blocks.md', lines.join('\n') + '\n');
 console.log(`docs/blocks.md: ${pickerBlocks().length} blocks`);

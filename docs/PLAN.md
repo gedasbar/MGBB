@@ -2,7 +2,7 @@
 
 The living plan for Mitosis Gun Builder: how we work, what the design is trying to be, what was decided and why, and what comes next. Any new planning chat or agent should read this first, then `CLAUDE.md` (current state of the code) and `DECISIONS.md` (numbered implementation decisions).
 
-Last updated: 2026-10-28, after chunk 20a (twelve legendary blocks; 19a was best earnings, Homing nerf, Piercing by count, AoE shapes; 18b the difficulty curves). `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
+Last updated: 2026-10-28, after chunk 20b (thirteen motion blocks, campaign-tier locks, Frontier legendary-only) and 20a (twelve legendary blocks; 19a was best earnings, Homing nerf, Piercing by count, AoE shapes; 18b the difficulty curves). `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
 
 ---
 
@@ -36,8 +36,8 @@ Last updated: 2026-10-28, after chunk 20a (twelve legendary blocks; 19a was best
 
 ## 3. Current state (short; details in CLAUDE.md)
 
-- **Modes:** campaign walls tiers 1-100 (one-hit ship, pass or clear), Free Fly (endless waves of splitting rocks), Frontier (infinite grid map unlocked after tier 25, holes, medal squares, Free Fly squares, directional unlocks at rings 10/25/50 with ordinary blocks and 100/200/300 with the legendary blocks).
-- **Blocks:** 53 visible (41 ordinary + 12 legendary, one copy each, bought with Medals and credits; `docs/legendaries.md`). Only 8 ordinary blocks have upgrades (Flat+, Percent x, Lucky Strike, Jackpot, Gambler's Gate, Shield-Breaker, Armor-Piercer, Pure Converter). Shape blocks (Piercing, Bouncing, AoE, Chain, Homing, Fork, Boomerang, Orbit, Mine) stack per copy. Status/Mitosis effects are one copy.
+- **Modes:** campaign walls tiers 1-100 (one-hit ship, pass or clear), Free Fly (endless waves of splitting rocks), Frontier (infinite grid map unlocked after tier 25, holes, medal squares, Free Fly squares, directional unlocks at rings 100/200/300 with the twelve legendary blocks; ordinary blocks unlock by campaign tier since 20b).
+- **Blocks:** 66 visible (54 ordinary incl. 13 motion blocks + 12 legendary, one copy each, bought with Medals and credits; `docs/legendaries.md`). Only 8 ordinary blocks have upgrades (Flat+, Percent x, Lucky Strike, Jackpot, Gambler's Gate, Shield-Breaker, Armor-Piercer, Pure Converter). Shape blocks (Piercing, Bouncing, AoE, Chain, Homing, Fork, Boomerang, Orbit, Mine) stack per copy. Status/Mitosis effects are one copy.
 - **Hulls:** 19 (Dart free ... Zenith 1.3M), bought in the builder's hull picker. Size classes change the hit radius (8/9/10/11).
 - **Captains:** 4 captains, hero level uncapped (+0.5 base damage per level, Medal cost 1.2^(n-1)), option tiers unlocked by kills.
 - **Economy:** price family B; Percent x x1.5 (L1) to x3 (L10), cap 10; no damage clamp, NaN-safe Float64 damage.
@@ -87,7 +87,7 @@ Next, in order:
 3. **Hull redesign:** an idea sentence per hull (planning chat drafts, owner edits or redraws layouts), then layouts rebuilt. Owner may draw layouts directly in the data file.
 4. **Ship art:** concept sheet first, then real silhouettes for all 19 hulls.
 5. **Content difficulty:** ~~audit~~ (18a) and ~~HP curves~~ (18b, `docs/difficulty-audit.md` section 9). Next: playtest, then fine-tuning with `npm run difficulty-audit` (`FORCE=1`) and `scripts/frontier-reach.ts` / `scripts/ff-career.ts`; later the other levers (rows, speed, lane) if HP is not enough.
-6. **New block batch** (owner's list): Curve Left, projectile speed up / slow, pull towards the ship's centre line, turn upwards after a delay, align direction of travel, ship magnet, double lifetime, persist while damage is left, reverse on hit, straight-line spread ejectors (left, right, wide forward).
+6. ~~**New block batch** (owner's list)~~ **Done (20b):** Curve Left, Angle Left / Right, speed up / slow, Scatter, Upturn, Align, Extender, Centreline, Ship Magnet, Persist, Reverse. Still open from the list: the straight-line spread ejectors (left, right, wide forward) were covered by Angle / Scatter and not built as separate hull pieces.
 
 ### Backlog (parked)
 - Frontier: special squares, named combos for the directional unlocks, per-direction themes. (Legendary blocks: done in 20a; the Skills tree is next and will upgrade them.)
@@ -103,6 +103,7 @@ Next, in order:
 
 The numbered implementation log is `DECISIONS.md`. The big design turns, newest first:
 
+- **20b** Thirteen motion blocks (Modifier category), a campaign-tier lock ("Pass tier N", 26 blocks, tiers 5 to 60), the Frontier unlocks only the twelve legendaries (the 16 ordinary blocks of rings 10 / 25 / 50 moved to tiers), a swept hit test for fast shots, Free Fly shot lifetime. Save unchanged (9). Details: `docs/motion-blocks.md`, DECISIONS 338 onwards.
 - **20a** Twelve legendary blocks (category Legendary, lime), one copy, Medals + credits (15 + 8K, 25 + 65K, 40 + 300K), unlocked at Frontier rings 100 / 200 / 300 per direction; the old ring-100 ordinary blocks moved to ring 50; Mirror, Fuse, Lone Shot, Rebound need runtime state in the Gun; no save change. Audit: 1,140 OK / 120 CANCELS (76 new, all by design or bench artefacts) / 0 EXPLODES.
 - **19a** Best credits earned per tier/square (save v9); Homing nerfed (1 copy short-sighted, 3 copies = the old values); Piercing is a count (1 copy = 2 targets, full damage); AoE fires on every hit; AoE Rectangle in wall cells (1x3, 2x3, 2x5, 3x5, 3x7), Circle one cell.
 - **17a** 19-hull ladder; hulls bought in the builder's picker; Shop blocks only; yellow "affordable" dot; brightness no longer means owned.

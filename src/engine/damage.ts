@@ -78,3 +78,29 @@ export function applyDamage(
 
   return { hpDamage: actualHpTaken, shieldDamage, armorDamage: 0, killed };
 }
+
+/**
+ * The smallest hit (the `damage` argument of applyDamage) that kills `enemy`, counted the way applyDamage counts: the direct share
+ * empties the shield first (a Shield-Breaker makes a shield point cost less), then the armor-piercer bonus and the armor reduction
+ * apply to what is left, and the pure share goes straight to HP. Chunk 20b: Persist spends this much of a hit on a target.
+ * 0 for a target that is already dead; Infinity when the hit can never kill (cannot happen with HP > 0 and a positive reduction).
+ */
+export function damageToKill(
+  enemy: EnemyStats, pureFrac: number, tier: number, armorPierce: number | boolean = false, shieldBreaker: boolean | number = false,
+): number {
+  const hp = enemy.hp;
+  if (!(hp > 0)) return 0;
+  const p = Math.min(1, Math.max(0, pureFrac));
+  const sbMul = shieldBreaker === true ? 1.5 : typeof shieldBreaker === 'number' ? shieldBreaker : 1;
+  const perPoint = shieldBreaker ? sbMul * 2 : 1;
+  const shield = Math.max(0, enemy.shield) / perPoint; // direct damage that empties the shield
+  const pierceMul = armorPierce === true ? 2 : armorPierce === false ? 1 : armorPierce;
+  const k = (pierceMul > 1 && enemy.armor > 0 ? pierceMul : 1) / (1 + enemy.armor / armorScale(tier));
+  // Only pure damage reaches HP while the shield holds: if that kills before the shield is empty, that is the answer.
+  if (p > 0) {
+    const d1 = hp / p;
+    if (d1 * (1 - p) <= shield) return d1;
+  }
+  const slope = (1 - p) * k + p;
+  return slope > 0 ? (hp + shield * k) / slope : Infinity;
+}

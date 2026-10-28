@@ -7,7 +7,7 @@ import { Gun, spawnOffsetsFor } from '../game/fire';
 import { HIT_BURN, HIT_CLOUD } from '../engine/projectiles';
 import { buildStarterGrid } from '../game/starter';
 import {
-  BOOST_MAX, CELL, PASS_MARGIN_CELLS, PROJECTILE_MAX_AGE, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_H,
+  BOOST_MAX, CELL, PASS_MARGIN_CELLS, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_H,
 } from './constants';
 import { LevelDef, rewardPerBlock } from './level';
 import { wallResult } from './result';
@@ -468,7 +468,7 @@ export class WallWorld {
           continue;
         }
       }
-      if (pool.y[i] < wallTop || pool.y[i] > VIEW_H + 50 || pool.age[i] > PROJECTILE_MAX_AGE) this.projSys.retire(i);
+      if (pool.y[i] < wallTop || pool.y[i] > VIEW_H + 50 || pool.age[i] > pool.life[i]) this.projSys.retire(i);
     }
 
     // --- Burn ticks, freeze timers, arc lifetimes (blocks die inside the hit callback)

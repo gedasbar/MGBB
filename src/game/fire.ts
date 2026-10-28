@@ -4,9 +4,10 @@ import { FUSE_N, loneShotMul, MIRROR_OFFSET, OVERCLOCK_WINDOW } from '../engine/
 import { ProjectilePool } from '../engine/pools';
 import { ProjectileSystem } from '../engine/projectiles';
 import { rng } from '../rng';
-import { FIRE_OFFSET_SCALE } from '../wall/constants';
+import { FIRE_OFFSET_SCALE, PROJECTILE_MAX_AGE } from '../wall/constants';
 
 export const PROJECTILE_SPEED = 600;
+const RAD = Math.PI / 180;
 /** Ship-space pixels per hull cell: an ejector's offset from the hull centre is scaled by this when projectiles spawn. */
 export const PX_PER_CELL = 14;
 
@@ -252,9 +253,22 @@ export class Gun {
     else if (r.direction === 'S') vy = speed;
     else if (r.direction === 'E') vx = speed;
     else vx = -speed;
+    // Angle and Scatter (chunk 20b): the launch direction is turned by the packet's angle plus a random draw inside its Scatter cone.
+    // The draw is made once, so a Mirror clone flies the same way as its shot.
+    let aim = r.packet.angle || 0;
+    if (r.packet.scatter > 0) aim += (rng.combat.next() * 2 - 1) * r.packet.scatter;
+    if (aim !== 0) {
+      const c = Math.cos(aim * RAD), sn = Math.sin(aim * RAD);
+      const ux = vx, uy = vy;
+      vx = ux * c - uy * sn;
+      vy = ux * sn + uy * c;
+    }
+    const life = PROJECTILE_MAX_AGE * (r.packet.lifeMul || 1);
     const off = this.offsets[ri];
     const i = this.pool.spawn(shipX + off.x, shipY + off.y, vx, vy, damage, r.packet.pure || 0, ri);
     if (i >= 0) {
+      this.pool.life[i] = life;
+      this.pool.anchorX[i] = shipX;
       this.shots++;
       this.projSys.shipX = shipX;
       this.projSys.shipY = shipY;
@@ -263,6 +277,8 @@ export class Gun {
       if (this.mirror[ri]) {
         const c = this.pool.spawn(shipX + off.x + (-vy / speed) * MIRROR_OFFSET, shipY + off.y + (vx / speed) * MIRROR_OFFSET, vx, vy, damage, r.packet.pure || 0, ri);
         if (c >= 0) {
+          this.pool.life[c] = life;
+          this.pool.anchorX[c] = shipX;
           this.projSys.fx.mirrorClones++;
           this.projSys.init(c);
         }

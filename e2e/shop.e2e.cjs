@@ -51,7 +51,7 @@ async function montage(page, shots, captions, file, k) {
 
 (async () => {
   const browser = await lib.chromium.launch({ headless: true });
-  const { page } = await lib.openGame(browser, { viewport: { width: 360, height: 740 }, rich: true });
+  const { page } = await lib.openGame(browser, { viewport: { width: 360, height: 740 }, rich: true, tiers: false });
   await tap(page, ...SHOP_TAB);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.shopScreen);
   // Plenty of credits, one block with none owned, one gated block (a Frontier ring it has not reached).
@@ -66,7 +66,7 @@ async function montage(page, shots, captions, file, k) {
 
   // ---- layout at the phone width (360 css px = 540 game px, so css = game x 0.667)
   let st = await shopState(page);
-  check(st.section === undefined && st.rows.length === 53, `the Shop lists 53 blocks as tiles (${st.rows.length})`);
+  check(st.section === undefined && st.rows.length === 66, `the Shop lists 66 blocks as tiles (${st.rows.length})`);
   const tiles = await pal(page, 'p.tiles.slice(0, 6).map(t => ({ x: t.x, y: t.y, w: t.w, h: t.h }))');
   check(tiles[4].x > tiles[3].x && tiles[3].x > tiles[2].x && tiles[2].x > tiles[1].x && tiles[1].x > tiles[0].x && tiles[4].y === tiles[0].y && tiles[5].x === tiles[0].x && tiles[5].y > tiles[0].y,
     `5 tiles per row: ${JSON.stringify(tiles.map(t => [t.x, t.y]))}`);
@@ -118,7 +118,7 @@ async function montage(page, shots, captions, file, k) {
   // ---- locked: lock text, no buy / upgrade
   await tapTile(page, 'random_router');
   pst = await pal(page, '({ c: p.sheetContentNow, buy: p.sheetButtonVisible("buy"), up: p.sheetButtonVisible("upgrade") })');
-  check(pst.c && pst.c.lockText === 'Reach ring 10 North' && !pst.buy && !pst.up, `locked block: "${pst.c && pst.c.lockText}", no buy and no upgrade button`);
+  check(pst.c && pst.c.lockText === 'Pass tier 10' && !pst.buy && !pst.up, `locked block: "${pst.c && pst.c.lockText}", no buy and no upgrade button`);
   const locked = (await shopState(page)).rows.find(r => r.key === 'random_router');
   check(locked.buttons.every(b => !b.enabled && b.lock), 'the test view lists the locked block with disabled buttons');
   const cr = (await own(page, 'random_router')).credits;
@@ -131,7 +131,7 @@ async function montage(page, shots, captions, file, k) {
   const sc = await pal(page, '({ y: p.scrollY, max: p.maxScrollValue })');
   check(sc.y > 0 && Math.abs(sc.y - sc.max) < 1, `the wheel scrolls the grid to its end (${sc.y.toFixed(0)} of ${sc.max.toFixed(0)})`);
   st = await shopState(page);
-  check(st.rows.length === 53 && st.section === undefined, 'the Shop is blocks only: no Hulls section');
+  check(st.rows.length === 66 && st.section === undefined, 'the Shop is blocks only: no Hulls section');
 
   // ---- wide window
   await page.setViewportSize({ width: 1600, height: 900 });

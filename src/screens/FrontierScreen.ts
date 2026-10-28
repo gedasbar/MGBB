@@ -484,7 +484,7 @@ export class FrontierScreen implements Screen {
     this.unlocksC.addChild(g);
     const title = makeText('Unlocks', 22, THEME.text, { fontWeight: 'bold' });
     title.position.set(m.x + 24, m.y + 20);
-    const sub = makeText('Go far in a direction to unlock blocks there. The lime ones are legendary: Medals and credits. Tap to close.', 13, THEME.textDim, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: m.w - 48 });
+    const sub = makeText('Go far in a direction to unlock its legendary blocks (bought with Medals and credits). Ordinary blocks unlock in the campaign. Tap to close.', 13, THEME.textDim, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: m.w - 48 });
     sub.position.set(m.x + 24, m.y + 52);
     this.unlocksC.addChild(title, sub);
     const colW = (m.w - 40) / 2;

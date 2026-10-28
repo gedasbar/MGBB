@@ -310,13 +310,10 @@ describe('legendary blocks: unlock by direction and ring', () => {
     expect(isBlockUnlocked('payload', 0, { ...NONE, N: 250 })).toBe(true);
     expect(isBlockUnlocked('lone_shot', 0, { ...NONE, N: 250 })).toBe(false);
   });
-  it('the four ordinary blocks that left ring 100 now unlock at ring 50, next to the old ring-50 block', () => {
-    for (const [id, sec] of [['chain_lightning', 'N'], ['fission_catalyst', 'E'], ['executioner', 'S'], ['alternator', 'W']] as const) {
-      expect(gateOf(id), id).toMatchObject({ sector: sec, ring: 50 });
-    }
-    expect(UNLOCKS.filter(u => u.sector === 'N' && u.ring === 50).map(u => u.blockId)).toEqual(['frostbite', 'chain_lightning']);
-    // A square on a threshold ring names both.
-    expect(unlocksOnSquare(0, -50).map(u => u.blockId)).toEqual(['frostbite', 'chain_lightning']);
+  it('chunk 20b: the Frontier unlocks legendary blocks only; the ordinary ones moved to campaign tiers', () => {
+    for (const u of UNLOCKS) expect(BLOCKS[u.blockId].category, u.blockId).toBe('legendary');
+    for (const id of ['chain_lightning', 'fission_catalyst', 'executioner', 'alternator', 'frostbite']) expect(gateOf(id), id).toBeUndefined();
+    expect(unlocksOnSquare(0, -50)).toEqual([]);
     expect(unlocksOnSquare(0, -200).map(u => u.blockId)).toEqual(['payload']);
   });
   it('the furthest ring is the highest in any direction', () => {

@@ -474,9 +474,9 @@ describe('chunk 9a blocks: data', () => {
     expect(describeBlock(b, 1)).toBe(describeBlock(b, 4)); // the cell's level does not matter: the block runs at its fixed level
     expect(pickerBlocks().some(p => p.id === id)).toBe(true);
   });
-  it('the picker has 53 blocks in 6 categories (Status, Mitosis and Legendary are their own sections)', () => {
+  it('the picker has 66 blocks in 6 categories (Status, Mitosis and Legendary are their own sections)', () => {
     const cats = new Set(pickerBlocks().map(b => b.category));
-    expect(pickerBlocks().length).toBe(53);
+    expect(pickerBlocks().length).toBe(66);
     expect([...cats].sort()).toEqual(['damage', 'legendary', 'mitosis', 'modifier', 'pathing', 'status']);
     expect(pickerBlocks().filter(b => b.category === 'status').map(b => b.id).sort()).toEqual(['corrosion', 'frostbite', 'ignite', 'static_charge']);
   });

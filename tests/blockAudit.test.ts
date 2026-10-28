@@ -66,6 +66,9 @@ describe('block audit: the picker only offers blocks that compile and change Fly
       // Chunk 20a: the twelve legendary blocks
       'frontier_echo', 'fuse', 'heavy_round', 'hollow_core', 'idle_barrels', 'last_breath', 'lone_shot', 'mirror', 'payload', 'rebound',
       'waypoint', 'zigzag',
+      // Chunk 20b: the thirteen motion blocks
+      'accelerator', 'align', 'angle_left', 'angle_right', 'brake', 'centreline', 'curving_left', 'extender', 'magnetized', 'persist',
+      'reverse', 'scatter', 'upturn',
     ].sort());
   });
 

@@ -103,7 +103,7 @@ async function flyFan(page, blocks) {
   let st = await page.evaluate(() => window.__mgbm.state());
   const rows = Object.fromEntries(st.rows.map(r => [r.key, r]));
   check(LEGENDARY.every(id => rows[id]), 'the Shop lists all twelve legendary tiles');
-  check(st.rows.filter(r => r.key).length === 53, `the Shop lists 53 blocks in all (${st.rows.length})`);
+  check(st.rows.filter(r => r.key).length === 66, `the Shop lists 66 blocks in all (${st.rows.length})`);
   const lockOf = (id) => rows[id].buttons[0].lock;
   check(lockOf('payload') === 'Reach ring 200 North' && lockOf('fuse') === 'Reach ring 300 West' && lockOf('hollow_core') === 'Reach ring 100 South',
     `locked tiles name their requirement: "${lockOf('payload')}" / "${lockOf('fuse')}" / "${lockOf('hollow_core')}"`);
@@ -152,9 +152,9 @@ async function flyFan(page, blocks) {
   await page.evaluate(() => window.__mgbm.openUnlocks());
   await page.waitForTimeout(200);
   const ul = await page.evaluate(() => window.__mgbm.unlocksText());
-  check(ul.filter(t => /^Ring \d+$/.test(t)).length === 28, `the Unlocks panel has 28 entries (${ul.filter(t => /^Ring \d+$/.test(t)).length})`);
+  check(ul.filter(t => /^Ring \d+$/.test(t)).length === 12, `the Unlocks panel has 12 entries (${ul.filter(t => /^Ring \d+$/.test(t)).length})`);
   check(LEGENDARY.every(id => ul.includes(id.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' '))), 'the panel names all twelve legendary blocks');
-  check(ul.filter(t => t === 'Unlocked').length === 5 && ul.includes('North  ·  furthest ring 100'), 'North ring 100 reached: the five North entries (rings 10, 25, 50 twice, 100) read Unlocked, the rest Locked');
+  check(ul.filter(t => t === 'Unlocked').length === 1 && ul.includes('North  ·  furthest ring 100'), 'North ring 100 reached: its one entry reads Unlocked, the rest Locked');
   shots.push(await snap(page)); caps.push('Frontier Unlocks panel:\n28 entries, legendary in lime');
   await page.evaluate(() => window.__mgbm.closeUnlocks());
 
