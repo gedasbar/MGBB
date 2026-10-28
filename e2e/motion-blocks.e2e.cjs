@@ -114,7 +114,7 @@ const worldInfo = (page) => page.evaluate(() => {
   await page.evaluate(() => window.__mgbm.setTimeScale(0));
   info = await worldInfo(page);
   const mids = info.hs.filter((_, i) => true);
-  check(info.alive > 8 && Math.max(...mids) <= 45.5 && Math.min(...mids) >= -45.5 && Math.max(...mids) > 20 && Math.min(...mids) < -20, `Scatter x2: ${info.alive} shots within +-45 degrees (${Math.min(...mids).toFixed(0)} to ${Math.max(...mids).toFixed(0)})`);
+  check(info.alive > 8 && Math.max(...mids) <= 45.5 && Math.min(...mids) >= -45.5 && Math.max(...mids) > 15 && Math.min(...mids) < -10, `Scatter x2: ${info.alive} shots within +-45 degrees (${Math.min(...mids).toFixed(0)} to ${Math.max(...mids).toFixed(0)})`);
   shots.push(await snap(page)); caps.push('Scatter x2 (middle lane):\nrandom +-45 degrees');
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
 

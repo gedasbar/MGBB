@@ -25,7 +25,7 @@ for (const b of pickerBlocks()) {
 }
 // Chunk 20b: where each locked block comes from.
 lines.push('', '## Unlocks', '',
-  'Most blocks are open from the start. **Campaign tiers** (`src/data/tierLocks.ts`, chunk 20b): the block is bought after the player has PASSED the tier (a save that owns a copy keeps buying; a save that had reached the block's old Frontier ring keeps it). **Frontier rings** (`src/frontier/unlocks.ts`): only the twelve legendary blocks, three per direction at rings 100 / 200 / 300.', '',
+  'Most blocks are open from the start. **Campaign tiers** (`src/data/tierLocks.ts`, chunk 20b): the block is bought after the player has PASSED the tier (a save that owns a copy keeps buying; a save that had reached the old Frontier ring of the block keeps it). **Frontier rings** (`src/frontier/unlocks.ts`): only the twelve legendary blocks, three per direction at rings 100 / 200 / 300.', '',
   '| Pass campaign tier | Block | First copy (credits) | Cap |', '|---|---|---|---|');
 for (const [id, tier] of Object.entries(TIER_LOCKS).sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))) {
   const e = BLOCK_ECONOMY[id];

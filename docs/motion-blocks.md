@@ -84,5 +84,10 @@ Counts Curving Left too (`isTurn`). The Angle blocks do not count.
 
 New lock type "pass campaign tier N". Frontier unlocks become legendary-only (rings 100 / 200 / 300); the 16 ordinary blocks that sat at rings 10 / 25 / 50 move to tier locks. Full table, prices and the grandfather rules are in the report and `docs/blocks.md`.
 
-## 6. Deviations
-(filled in at the end of the chunk)
+## 6. Deviations (what the code does differently from the first draft above)
+
+- Section 1 order: Persist is checked before Piercing (kills spend damage, pierce passes are kept for targets that would end the shot).
+- Centreline and Ship Magnet cap the speed at the launch speed (`pool.vmax`) instead of renormalising it: renormalising cancelled a pull along the shot's own line.
+- Reverse makes the shot survive the hit (needed for it to do anything on a plain shot); it also turns a Boomerang's outward leg into its way back.
+- The lock is "Pass tier N" (see DECISIONS 339); the 16 moved blocks keep a legacy Frontier-ring unlock for saves that had reached it.
+- Free Fly retires shots in normal flight at `pool.life` (decision 345).

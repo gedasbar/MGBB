@@ -96,6 +96,7 @@ const readSquares = async (page, sqs, dx = 0, dy = 0) => {
   check(census.cleared && census.passed === 1 && census.available && census.locked && census.hole && census.wall && census.freefly && census.medal && census.spike,
     `default zoom view holds every state, wall and Free Fly squares, medals, spikes, holes: ${JSON.stringify({ ...census, ffAvailable: undefined, ffLocked: undefined })}`);
   // Pixels: cleared = lavender fill; passed = lavender outline around a grey plate; the white selection shows on lavender.
+  for (let k = 0; k < 25; k++) { await page.screenshot(); await page.waitForTimeout(100); } // headless draws frames while it is screenshotted: draw the new view before reading pixels
   const [cl, pa, paEdge, sel] = [
     ...(await readSquares(page, [{ x: 2, y: -1 }])),
     ...(await readSquares(page, [setup.pm], 0, 12)),
@@ -113,8 +114,8 @@ const readSquares = async (page, sqs, dx = 0, dy = 0) => {
   const panel = await page.evaluate((q) => { window.__mgbm.select(q.x, q.y); return window.__mgbm.state().panel; }, census.ffAvailable || census.ffLocked);
   check(panel.line1.includes('Free Fly'), `panel names the kind: "${panel.line1}"`);
   // A square on the ring-10 line names its unlock.
-  const note = await page.evaluate(() => { window.__mgbm.select(0, -10); return window.__mgbm.state().panel.note; });
-  check(note.includes('Ring 10 North unlocks Random Router'), `square on the ring-10 line: "${note}"`);
+  const note = await page.evaluate(() => { window.__mgbm.select(0, -100); return window.__mgbm.state().panel.note; });
+  check(note.includes('Ring 100 North unlocks Frontier Echo'), `square on the ring-100 line: "${note}"`);
   await page.evaluate(() => window.__mgbm.select(1, -1));
   await page.waitForTimeout(150);
   shots.push(await canvasShot(page)); caps.push('lavender look, wall/Free Fly, ring 10');
@@ -127,23 +128,23 @@ const readSquares = async (page, sqs, dx = 0, dy = 0) => {
   shots.push(await canvasShot(page)); caps.push('zoom 5: threshold rings 10/25/50');
 
   // ---- Reach ring 10 North (cheat-clear the lattice column x = 0): the unlock toast fires once.
-  await page.evaluate(() => { const m = window.__mgbm; for (let k = 4; k <= 10; k++) m.clearSquare(0, -k); m.jump(0, -4, 44); });
+  await page.evaluate(() => { const m = window.__mgbm; for (let k = 4; k <= 100; k++) m.clearSquare(0, -k); m.jump(0, -4, 44); });
   await page.waitForTimeout(250);
   let fs1 = await state(page);
-  check(fs1.toast.includes('Unlocked: Random Router'), `toast on reaching ring 10 North: "${fs1.toast}"`);
+  check(fs1.toast.includes('Unlocked: Frontier Echo'), `toast on reaching ring 100 North: "${fs1.toast}"`);
   const reach = await page.evaluate(() => window.__mgbm.reach());
-  check(reach.N >= 10, `reach per direction ${JSON.stringify(reach)}`);
-  await page.evaluate(() => { window.__mgbm.clearSquare(0, -11); });
+  check(reach.N >= 100, `reach per direction ${JSON.stringify(reach)}`);
+  await page.evaluate(() => { window.__mgbm.clearSquare(0, -101); });
   await page.waitForTimeout(4000); // the first toast (3.5 s) is gone
-  await page.evaluate(() => window.__mgbm.clearSquare(1, -11));
+  await page.evaluate(() => window.__mgbm.clearSquare(1, -101));
   await page.waitForTimeout(200);
   fs1 = await state(page);
   check(!fs1.toast.includes('Unlocked'), 'no second toast for the same threshold');
   await page.evaluate(() => window.__mgbm.openUnlocks());
   await page.waitForTimeout(150);
   const ul = await page.evaluate(() => window.__mgbm.unlocksText());
-  check(ul.filter(t => /^Ring \d+$/.test(t)).length === 28 && ul.includes('North  ·  furthest ring 11') && ul.filter(t => t === 'Unlocked').length === 1,
-    `Unlocks panel: 28 entries, furthest rings, one unlocked (${ul.filter(t => t.includes('furthest')).join(' | ')})`);
+  check(ul.filter(t => /^Ring \d+$/.test(t)).length === 12 && ul.includes('North  ·  furthest ring 101') && ul.filter(t => t === 'Unlocked').length === 1,
+    `Unlocks panel: 12 entries, furthest rings, one unlocked (${ul.filter(t => t.includes('furthest')).join(' | ')})`);
   shots.push(await canvasShot(page)); caps.push('Unlocks panel');
   await page.evaluate(() => window.__mgbm.closeUnlocks());
 
@@ -152,18 +153,18 @@ const readSquares = async (page, sqs, dx = 0, dy = 0) => {
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.shopScreen, null, { timeout: 5000 });
   const rows = (await state(page)).rows;
   const rowOf = (k) => rows.find(r => r.key === k);
-  check(rowOf('random_router').buttons[0].lock === null && /^Buy/.test(rowOf('random_router').buttons[0].label), 'shop: Random Router (reached) is for sale');
-  check(rowOf('cleaver').buttons[0].label === 'Reach ring 25 North' && !rowOf('cleaver').buttons[0].enabled, `shop: Cleaver greyed "${rowOf('cleaver').buttons[0].label}"`);
+  check(rowOf('frontier_echo').buttons[0].lock === null, 'shop: Frontier Echo (ring 100 North reached) is unlocked');
+  check(rowOf('reverse').buttons[0].label === 'Pass tier 60' && !rowOf('cleaver').buttons[0].enabled, `shop: Reverse greyed "${rowOf('reverse').buttons[0].label}"`);
   check(/^Buy/.test(rowOf('overclock').buttons[0].label), 'shop: Overclock (left free) is for sale');
   const before = (await state(page)).credits;
   // Chunk 16b-fix: the Shop is a tile grid; a locked block shows its requirement in the info sheet and has no buy button.
-  await page.evaluate(() => window.__mgbm.shopScreen.palette.reveal('cleaver'));
+  await page.evaluate(() => window.__mgbm.shopScreen.palette.reveal('reverse'));
   await page.waitForTimeout(150);
-  const tile = await page.evaluate(() => window.__mgbm.shopScreen.palette.tileScreenRect('cleaver'));
+  const tile = await page.evaluate(() => window.__mgbm.shopScreen.palette.tileScreenRect('reverse'));
   await tap(page, tile.x + tile.w / 2, tile.y + tile.h / 2);
   const gate = await page.evaluate(() => { const p = window.__mgbm.shopScreen.palette; return { c: p.sheetContentNow, buy: p.sheetButtonVisible('buy'), up: p.sheetButtonVisible('upgrade') }; });
   const afterTap = await state(page);
-  check(gate.c && gate.c.lockText === 'Reach ring 25 North' && !gate.buy && !gate.up && afterTap.credits === before, `tapping it shows "${gate.c && gate.c.lockText}", offers no buy / upgrade and buys nothing`);
+  check(gate.c && gate.c.lockText === 'Pass tier 60' && !gate.buy && !gate.up && afterTap.credits === before, `tapping it shows "${gate.c && gate.c.lockText}", offers no buy / upgrade and buys nothing`);
   shots.push(await canvasShot(page)); caps.push('shop: gated blocks');
 
   // ---- Play a Free Fly square to a result (time x6, a real ship that only drifts a little), then back.
