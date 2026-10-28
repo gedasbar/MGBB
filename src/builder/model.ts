@@ -54,10 +54,19 @@ export class BuilderModel {
       /* storage unavailable */
     }
     this.saved = loadBuilder(raw, legacy);
+    // Chunk 21a: placed copies of a removed block were taken off the circuits; say so once (the progress notice is shown by the Build screen) and rewrite the save.
+    const removedCopies = this.saved.removedCopies ?? 0;
+    delete this.saved.removedCopies;
+    if (removedCopies > 0) {
+      const msg = `${removedCopies} placed Reverse block${removedCopies === 1 ? '' : 's'} taken off your circuits (the block was removed).`;
+      const d = this.store.data;
+      d.notice = d.notice ? `${d.notice} ${msg}` : msg;
+      this.store.commit();
+    }
     // A player of the old grid format built on what is now the Shuttle: it stays theirs.
     if (legacy && !this.store.data.ownedHulls.includes('shuttle')) { this.store.data.ownedHulls.push('shuttle'); this.store.commit(); }
     this.loadHull(hullId ?? this.saved.activeHull ?? DEFAULT_HULL);
-    if ((!raw || legacy || this.trimmed > 0) && storage) this.persist(); // write the new format over a migrated save
+    if ((!raw || legacy || this.trimmed > 0 || removedCopies > 0) && storage) this.persist(); // write the new format over a migrated save
   }
 
   /** Owned count per block id (a live view of the progress object). */

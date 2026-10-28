@@ -53,6 +53,10 @@ const legendary = (ring: number): BlockEconomy => ({ cap: 1, base: LEGENDARY_PRI
 const stack = (base: number): BlockEconomy => ({ cap: null, base, growth: GROWTH_NORMAL });
 
 /**
+ * Chunk 21a: the 16 blocks that moved from the Frontier to campaign tiers (20b) were repriced: the first copy costs about 2.5 runs at its unlock
+ * tier (5 runs for Overkill Spill, Residue Seed and Chain Lightning, which are meant to be dear). One "run" is the credits of half a wall at that tier
+ * (docs/difficulty-audit.md model; the column is in reports/chunk20b/prices.md). The test in tests/chunk21a.test.ts holds the table.
+ *
  * THE TABLE TO EDIT: one line per block shown in the Shop.
  *   cap    = how many copies you can own (null = no limit). The Shop shows "owned / cap" and the Buy button reads "Max" at the cap.
  *   base   = price in credits of the FIRST copy.
@@ -68,50 +72,51 @@ export const BLOCK_ECONOMY: Readonly<Record<string, BlockEconomy>> = {
   turn_r: { cap: 20, base: 30, growth: 1.2 },
   splitter_2: { cap: 15, base: 120, growth: 1.35 },
   splitter_3: { cap: 15, base: 700, growth: 1.45 },
-  alternator: one(1600),
-  random_router: one(1000),
+  alternator: one(3470),
+  random_router: one(110),
   delay_line: one(1000),
   // Damage
   flat_plus: { cap: 10, base: 60, growth: 1.2 },
+  plus_one: { cap: 10, base: 110, growth: 1.5 },
   percent_mult: { cap: 10, base: 100, growth: GROWTH_NORMAL },
   lucky_strike: { cap: 6, base: 70, growth: 1.25 },
   jackpot: { cap: 6, base: 75, growth: 1.25 },
   gamblers_gate: { cap: 4, base: 45, growth: 1.25 },
   overclock: { cap: 3, base: 500, growth: 1.35 },
-  capacitor: one(1600),
-  executioner: one(1600),
+  capacitor: one(2260),
+  executioner: one(2870),
   // Mitosis (effects: one copy)
-  fission_catalyst: one(2400),
+  fission_catalyst: one(4190),
   cauterize: one(1000),
-  cleaver: one(1000),
-  culling_bolt: one(1600),
-  residue_seed: one(1600),
-  overkill_spill: one(1000),
+  cleaver: one(60),
+  culling_bolt: one(920),
+  residue_seed: one(2260),
+  overkill_spill: one(460),
   // Shape blocks that stack (engine: every copy on the path adds a step)
   piercing: stack(500),
   bouncing: stack(500),
   aoe_circle: stack(600),
   aoe_rect: stack(600),
-  chain_lightning: stack(2400),
+  chain_lightning: stack(9600),
   homing: stack(800),
   fork_impact: stack(900),
   boomerang: stack(1000),
-  orbit: stack(1600),
-  mine: stack(1000),
+  orbit: stack(1450),
+  mine: stack(110),
   // One copy: a second would change nothing (the engine reads one level) or make the shot worse (turn rates add)
-  curving_right: one(300),
-  random_curve: one(300),
+  curving_right: { cap: 4, base: 300, growth: GROWTH_NORMAL },
+  random_curve: { cap: 4, base: 300, growth: GROWTH_NORMAL },
   shield_breaker: one(440),
   armor_piercer: one(440),
   pure_converter: one(600),
-  gravity_well: one(1600),
+  gravity_well: one(750),
   // Status (effects: one copy)
   ignite: one(1000),
-  frostbite: one(1600),
-  corrosion: one(1600),
-  static_charge: one(1000),
+  frostbite: one(340),
+  corrosion: one(540),
+  static_charge: one(140),
   // Motion blocks (chunk 20b, docs/motion-blocks.md). The cap is the number of copies that still add something; growth 1.30; the first copy costs about 2.5 runs at its unlock tier (scripts/motion-prices.ts).
-  curving_left: one(300),
+  curving_left: { cap: 4, base: 300, growth: GROWTH_NORMAL },
   angle_left: { cap: 4, base: 100, growth: GROWTH_NORMAL },
   angle_right: { cap: 4, base: 100, growth: GROWTH_NORMAL },
   accelerator: { cap: 3, base: 60, growth: GROWTH_NORMAL },
@@ -123,7 +128,6 @@ export const BLOCK_ECONOMY: Readonly<Record<string, BlockEconomy>> = {
   centreline: { cap: 3, base: 1300, growth: GROWTH_NORMAL },
   magnetized: { cap: 3, base: 1800, growth: GROWTH_NORMAL },
   persist: one(2500),
-  reverse: { cap: 3, base: 4800, growth: GROWTH_NORMAL },
   // Legendary (one copy, credits + Medals; the ring is the one that unlocks the block)
   frontier_echo: legendary(100), payload: legendary(200), lone_shot: legendary(300),
   last_breath: legendary(100), zigzag: legendary(200), heavy_round: legendary(300),

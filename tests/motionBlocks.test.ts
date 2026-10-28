@@ -23,11 +23,11 @@ import { rng } from '../src/rng';
 
 // Chunk 20b: the thirteen motion blocks (docs/motion-blocks.md). One test per rule, edge cases included.
 
-const NEW = ['curving_left', 'angle_left', 'angle_right', 'accelerator', 'brake', 'scatter', 'upturn', 'align', 'extender', 'centreline', 'magnetized', 'persist', 'reverse'];
+const NEW = ['curving_left', 'angle_left', 'angle_right', 'accelerator', 'brake', 'scatter', 'upturn', 'align', 'extender', 'centreline', 'magnetized', 'persist'];
 const CAPS: Record<string, number> = {
-  curving_left: 1, angle_left: 4, angle_right: 4, accelerator: 3, brake: 5, scatter: 3, upturn: 3, align: 1, extender: 2, centreline: 3, magnetized: 3, persist: 1, reverse: 3,
+  curving_left: 4, angle_left: 4, angle_right: 4, accelerator: 3, brake: 5, scatter: 3, upturn: 3, align: 1, extender: 2, centreline: 3, magnetized: 3, persist: 1,
 };
-const TIERS: Record<string, number> = { accelerator: 5, brake: 15, scatter: 15, upturn: 20, align: 25, extender: 30, centreline: 40, magnetized: 45, persist: 50, reverse: 60 };
+const TIERS: Record<string, number> = { accelerator: 5, brake: 15, scatter: 15, upturn: 20, align: 25, extender: 30, centreline: 40, magnetized: 45, persist: 50 };
 
 /** The Fan's straight column under its middle ejector: Flat+ first, then `ids` in order. */
 function fanLine(ids: string[]): Grid {
@@ -104,8 +104,8 @@ describe('motion blocks: data', () => {
     expect(BLOCKS.magnetized.shown).toBe(true);
     expect(BLOCKS.magnetize_target.shown).toBe(false);
   });
-  it('the trigger table has the three new rows', () => {
-    expect(TRIGGERS.reverse).toMatchObject({ fires: 'every_hit', fragments: false, perCopy: true });
+  it('the trigger table has the two new rows', () => {
+    expect(TRIGGERS).not.toHaveProperty('reverse');
     expect(TRIGGERS.align).toMatchObject({ fires: 'every_hit', fragments: true });
     expect(TRIGGERS.persist).toMatchObject({ fires: 'every_hit', fragments: true });
   });
@@ -267,11 +267,11 @@ describe('motion blocks: flight', () => {
     expect(headingDeg(r.pool, i)).toBeCloseTo(-90, 2);
   });
 
-  it('Curving Left turns anticlockwise at 90 degrees a second', () => {
+  it('Curving Left turns anticlockwise at 30 degrees a second (one copy)', () => {
     const r = rig();
     const i = r.launch([{ type: 'curve', dir: 'left', level: 1 }], 270, 900, 0, -600);
     for (let k = 0; k < 30; k++) r.step();
-    expect(headingDeg(r.pool, i)).toBeCloseTo(-135, 0);
+    expect(headingDeg(r.pool, i)).toBeCloseTo(-105, 0);
     expect(r.pool.vx[i]).toBeLessThan(0);
   });
 
@@ -477,81 +477,6 @@ describe('motion blocks: hits', () => {
     expect(r.pool.damage[i]).toBeGreaterThan(60); // the shot kept what the dead target did not need (the blast spent none)
     expect(a.hp).toBeLessThanOrEqual(0);
   });
-
-  it('Reverse: one flip per copy, then the shot behaves normally', () => {
-    const run = (copies: number) => {
-      const r = rig();
-      const i = r.launch(mod('reverse', copies), 270, 700, 0, -600, 10);
-      const first = r.rock(270, 640, 1e6);
-      const second = r.rock(270, 760, 1e6); // below the start: met on the way back
-      const vy: number[] = [];
-      let hitsFirst = 0;
-      for (let k = 0; k < 120; k++) {
-        const before = first.hp;
-        r.step();
-        if (first.hp < before) hitsFirst++;
-        if (r.pool.active[i]) vy.push(r.pool.vy[i]);
-      }
-      return { first, second, active: !!r.pool.active[i], flips: r.pool.flips[i], vy, sys: r.sys, hitsFirst };
-    };
-    const one = run(1);
-    expect(one.first.hp).toBe(1e6 - 10);
-    expect(one.vy.some(v => v > 0)).toBe(true); // between the flip and the second target it flew down
-    expect(one.second.hp).toBe(1e6 - 10); // flipped at the first, then hit (and used up by) the second
-    expect(one.active).toBe(false);
-    expect(one.sys.fx.reverseFlips).toBe(1);
-    const two = run(2);
-    expect(two.sys.fx.reverseFlips).toBe(2);
-    expect(two.second.hp).toBe(1e6 - 10);
-    expect(two.first.hp).toBe(1e6 - 20); // the second flip sent it up again into the first target, which (flips used up) ended it
-    expect(two.active).toBe(false);
-    const none = run(0);
-    expect(none.active).toBe(false);
-    expect(none.second.hp).toBe(1e6); // a plain shot dies on the first target
-  });
-  it('Reverse: the velocity is negated and the shot skips the target it just hit', () => {
-    const r = rig();
-    const i = r.launch(mod('reverse'), 270, 700, 100, -600, 10);
-    const t = r.rock(275, 690, 1e6);
-    r.step();
-    expect(r.pool.active[i]).toBe(1);
-    expect(r.pool.vx[i]).toBeCloseTo(-100, 6);
-    expect(r.pool.vy[i]).toBeCloseTo(600, 6);
-    expect(r.pool.skipId[i]).toBe(t.id);
-    r.step();
-    expect(t.hp).toBe(1e6 - 10); // the next step does not hit it again
-  });
-  it('Reverse: the triggers of the reversing hit fire as usual (AoE and Fork on Impact)', () => {
-    const r = rig();
-    r.launch([...mod('reverse'), ...mod('aoe_circle'), ...mod('fork_impact')], 270, 700, 0, -600, 10);
-    const t = r.rock(270, 690, 1e6, 10);
-    const side = r.rock(310, 690, 1e6, 10);
-    r.step();
-    expect(side.hp).toBeLessThan(1e6);
-    expect(r.sys.fx.forks).toBe(1);
-    expect(r.sys.fx.reverseFlips).toBe(1);
-    expect(t.hp).toBeLessThan(1e6);
-  });
-  it('Reverse + Piercing: the flip uses no pierce (the shot passes through on the way back)', () => {
-    const r = rig();
-    const i = r.launch([...mod('reverse'), ...mod('piercing')], 270, 700, 0, -600, 10);
-    const a = r.rock(270, 640, 1e6);
-    const b = r.rock(270, 760, 1e6);
-    const c = r.rock(270, 820, 1e6);
-    for (let k = 0; k < 120; k++) r.step();
-    expect(a.hp).toBe(1e6 - 10);
-    expect(b.hp).toBe(1e6 - 10);
-    expect(c.hp).toBe(1e6 - 10); // 2 pierce passes were still there after the flip
-    void i;
-  });
-  it('Reverse + Boomerang: the outward leg turns into the way back at the first hit', () => {
-    const r = rig();
-    const i = r.launch([...mod('reverse'), { type: 'boomerang', level: 1 }], 270, 800, 0, -600, 10);
-    r.rock(270, 700, 1e6);
-    for (let k = 0; k < 12; k++) r.step();
-    expect(r.pool.phase[i]).toBe(3); // PHASE_BOOM_BACK
-    expect(r.sys.fx.reverseFlips).toBe(1);
-  });
 });
 
 describe('motion blocks: Free Fly lifetime', () => {
@@ -605,8 +530,8 @@ describe('motion blocks: campaign-tier locks', () => {
     p.passedTiers = Array.from({ length: 60 }, (_, k) => k + 1);
     for (const id of Object.keys(TIER_LOCKS)) expect(blockLockReason(p, id), id).toBeNull();
     const q = defaultProgress();
-    q.passedTiers = Array.from({ length: 59 }, (_, k) => k + 1);
-    expect(blockLockReason(q, 'reverse')).toBe('Pass tier 60');
+    q.passedTiers = Array.from({ length: 49 }, (_, k) => k + 1);
+    expect(blockLockReason(q, 'persist')).toBe('Pass tier 50');
     expect(blockLockReason(q, 'chain_lightning')).toBe('Pass tier 60');
   });
   it('owned copies are never lost: a save that owns one keeps buying, and a reached old Frontier ring keeps its block', () => {

@@ -2,9 +2,9 @@ import { CONFIG } from '../config';
 import { BLOCKS } from '../data/blocks';
 import { fireRateMul, shotSpeedMul } from '../data/hulls';
 import {
-  clonePacket, CompileContext, Dir, DIRS, GENERATOR_BASE_DAMAGE, emitRate, evalDamage, mulDamage, newPacket, Packet, powerLevel, Rel, relToDir, Rotation, rotationToDir,
+  clonePacket, CompileContext, Dir, DIRS, eachShot, GENERATOR_BASE_DAMAGE, emitRate, evalDamage, mulDamage, newPacket, Packet, powerLevel, Rel, relToDir, Rotation, rotationToDir,
 } from './compilerTypes';
-import { aoeEstimateMul, heavyRoundMul } from './effects';
+import { aoeEstimateMul, heavyRoundMul, laneOffset } from './effects';
 
 export interface GridCell {
   x: number;
@@ -32,6 +32,8 @@ export interface EjectorRecipe {
   x: number;
   y: number;
   packet: Packet;
+  /** Sideways offset (px) of this shot from the ejector's centre line: the shots of a +1 Projectile lane stand side by side (0 = alone). */
+  lane: number;
 }
 
 type SegmentKind = 'live' | 'dead-end' | 'loop-cut' | 'overlap';
@@ -224,7 +226,9 @@ function compileOnce(grid: Grid, opts: CompileOptions, ctx: CompileContext): Com
           info.onPath = true;
           info.inDirs.push(dir);
           if (!info.ledger) info.ledger = ledgerOf(sig.packet);
-          recipes.push({ direction: eFacing, x: nx, y: ny, packet: sig.packet });
+          // One recipe per shot of the lane: the packet itself and the extras +1 Projectile blocks made (each only knows the blocks after its own).
+          const shots = [sig.packet, ...sig.packet.extras];
+          shots.forEach((shot, k) => recipes.push({ direction: eFacing, x: nx, y: ny, packet: { ...shot, extras: [] }, lane: laneOffset(k, shots.length) }));
           break;
         }
 
@@ -274,7 +278,15 @@ function compileOnce(grid: Grid, opts: CompileOptions, ctx: CompileContext): Com
         info.inDirs.push(dir);
 
         const packet = clonePacket(sig.packet);
-        def.transform?.(packet, powerLevel(def, cell.level), ctx);
+        const level = powerLevel(def, cell.level);
+        // The extras made by earlier +1 Projectile blocks get every block after theirs; a block that makes an extra does so inside its own transform (after this).
+        for (const e of packet.extras) {
+          def.transform?.(e, level, ctx);
+          if (def.isTurn) e.turns++;
+          if (def.keyedOp) e.ops.push(def.keyedOp(nidx));
+        }
+        if (def.addsShot) packet.extras.push(newPacket(packet.base));
+        def.transform?.(packet, level, ctx);
         if (def.isTurn) packet.turns++;
         if (def.keyedOp) packet.ops.push(def.keyedOp(nidx));
         if (!info.ledger) info.ledger = ledgerOf(packet);
@@ -288,9 +300,9 @@ function compileOnce(grid: Grid, opts: CompileOptions, ctx: CompileContext): Com
           info.outDirs.push(od);
           const child = clonePacket(packet);
           // An alternating block gives each output its own turn: the packet carries (block, branch) and the Gun lets one fire.
-          if (def.alternates) child.ops.push({ t: 'alt', key: nidx, branch: oi, of: outs.length });
+          if (def.alternates) eachShot(child, s => s.ops.push({ t: 'alt', key: nidx, branch: oi, of: outs.length }));
           // A random router: the Gun picks the output (or both) at random each pulse, from the seeded combat RNG.
-          if (def.router) child.ops.push({ t: 'rnd', key: nidx, branch: oi, of: outs.length, both: def.router.both(powerLevel(def, cell.level)) });
+          if (def.router) eachShot(child, s => s.ops.push({ t: 'rnd', key: nidx, branch: oi, of: outs.length, both: def.router!.both(level) }));
           children.push({ x: nx, y: ny, dir: od, packet: child, seen: new Set(sig.seen) });
         });
         // Reverse so the left branch is walked first.

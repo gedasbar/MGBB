@@ -111,6 +111,14 @@ export const GLYPHS: Record<string, Glyph> = {
     rotatesWithBlock: false,
     draw: (p) => { p.line([[-0.9, 0], [0.9, 0]], 1.6); p.line([[0, -0.9], [0, 0.9]], 1.6); },
   },
+  plus_one: {
+    rotatesWithBlock: false,
+    // Two shots side by side and a small plus above them.
+    draw: (p) => {
+      p.fill(p.rect(-0.75, -0.05, -0.3, 0.9)); p.fill(p.rect(0.3, -0.05, 0.75, 0.9));
+      p.line([[-0.45, -0.6], [0.45, -0.6]], 1.1); p.line([[0, -0.95], [0, -0.25]], 1.1);
+    },
+  },
   percent_mult: {
     rotatesWithBlock: false,
     draw: (p) => {
@@ -487,7 +495,8 @@ export const GLYPHS: Record<string, Glyph> = {
   },
   brake: {
     rotatesWithBlock: false,
-    draw: (p) => { p.fill(p.rect(-0.85, -0.85, 0.85, -0.5)); p.line([[0, 0.9], [0, 0.1]], 1.1); p.head(0, -0.2, 0, -1, 0.5, 0.4); },
+    // The Accelerator's chevrons flipped top to bottom: they point down.
+    draw: (p) => { p.line([[-0.7, 0.1], [0, 0.8], [0.7, 0.1]], 1.3); p.line([[-0.7, -0.65], [0, 0.05], [0.7, -0.65]], 1.3); },
   },
   scatter: {
     rotatesWithBlock: false,
@@ -530,10 +539,6 @@ export const GLYPHS: Record<string, Glyph> = {
       p.line([[0, 0.9], [0, -0.5]], 1); p.head(0, -1, 0, -1, 0.5, 0.38);
       p.outline(p.rect(-0.7, 0.3, 0.7, 0.7), 0.8); p.outline(p.rect(-0.45, -0.35, 0.45, 0), 0.8);
     },
-  },
-  reverse: {
-    rotatesWithBlock: false,
-    draw: (p) => { p.line([[-0.5, 0.9], [-0.5, -0.3], ...arc(0, -0.3, 0.5, Math.PI, 2 * Math.PI), [0.5, 0.4]], 1.2); p.head(0.5, 0.95, 0, 1, 0.55, 0.42); },
   },
 };
 

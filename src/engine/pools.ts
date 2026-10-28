@@ -56,12 +56,13 @@ export class ProjectilePool {
   /** Chunk 20a, Zigzag: direction changes so far and the time into the current leg (-1 = the first leg has not been started). */
   zigN: Uint8Array;
   zigT: Float32Array;
-  /** Chunk 20b: seconds the shot may live (Extender doubles it), the ship's x when it was fired (Centreline), its position before this step's move (swept hit test) and the Reverse flips used. */
+  /** Chunk 20b: seconds the shot may live (Extender doubles it), the ship's x when it was fired (Centreline), its position before this step's move (swept hit test)  */
   life: Float32Array;
   anchorX: Float32Array;
+  /** Chunk 21a: degrees a Curving block has turned this shot so far (the total is capped per copy). */
+  curved: Float32Array;
   prevX: Float32Array;
   prevY: Float32Array;
-  flips: Uint8Array;
   /** The speed the shot was launched at: the pull of Centreline and Ship Magnet may slow it and turn it, never speed it past this. */
   vmax: Float32Array;
 
@@ -102,9 +103,9 @@ export class ProjectilePool {
     this.zigT = new Float32Array(max);
     this.life = new Float32Array(max).fill(PROJECTILE_MAX_AGE);
     this.anchorX = new Float32Array(max);
+    this.curved = new Float32Array(max);
     this.prevX = new Float32Array(max);
     this.prevY = new Float32Array(max);
-    this.flips = new Uint8Array(max);
     this.vmax = new Float32Array(max);
   }
 
@@ -141,9 +142,9 @@ export class ProjectilePool {
         this.zigT[i] = -1;
         this.life[i] = PROJECTILE_MAX_AGE;
         this.anchorX[i] = x;
+        this.curved[i] = 0;
         this.prevX[i] = x;
         this.prevY[i] = y;
-        this.flips[i] = 0;
         this.vmax[i] = Math.hypot(vx, vy);
         this.count++;
         return i;

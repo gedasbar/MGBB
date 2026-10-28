@@ -103,13 +103,25 @@ export interface Packet {
   /** Chunk 20b: degrees the shot is aimed off its ejector direction (left < 0, clamped to +/-60), and the half-width of Scatter's random cone (0 = none). */
   angle: number;
   scatter: number;
+  /**
+   * Chunk 21a: the extra shots of this lane made by +1 Projectile blocks passed so far. Each is a packet of its own that started at the
+   * generator's base damage at its block, so it holds only what came AFTER that block; every later block is applied to it as well. The
+   * compiler turns each into a recipe of its own at the ejector. Extras never have extras.
+   */
+  extras: Packet[];
 }
 
 /** Damage of a packet as it leaves the generator, before any block. */
 export const GENERATOR_BASE_DAMAGE = 1;
 
 export function newPacket(base: number = GENERATOR_BASE_DAMAGE): Packet {
-  return { base, damage: base, pure: 0, count: 1, speedMul: 1, lifeMul: 1, sizeMul: 1, mods: [], gates: [], ops: [], tags: new Set(), turns: 0, angle: 0, scatter: 0 };
+  return { base, damage: base, pure: 0, count: 1, speedMul: 1, lifeMul: 1, sizeMul: 1, mods: [], gates: [], ops: [], tags: new Set(), turns: 0, angle: 0, scatter: 0, extras: [] };
+}
+
+/** A packet and its +1 Projectile extras: the shots one block has to treat alike. */
+export function eachShot(p: Packet, fn: (shot: Packet) => void) {
+  fn(p);
+  for (const e of p.extras) fn(e);
 }
 
 export function addDamage(p: Packet, v: number) {
@@ -171,6 +183,8 @@ export interface BlockDef {
   transform?: (packet: Packet, level: number, ctx: CompileContext) => void;
   /** A block with per-instance run state (Rebound): the op to append to the packet, given the block's cell index. */
   keyedOp?: (key: number) => DamageOp;
+  /** +1 Projectile (chunk 21a): adds one new shot to the lane, at the generator's base damage, that only the blocks after this one touch. */
+  addsShot?: boolean;
   /** A turn or curve block: counted in `packet.turns` for Waypoint. */
   isTurn?: boolean;
   /** The outputs take turns (Alternator): each output's packet is tagged with its branch, one fires per pulse. */
@@ -215,5 +229,6 @@ export function clonePacket(p: Packet): Packet {
     turns: p.turns,
     angle: p.angle,
     scatter: p.scatter,
+    extras: p.extras.map(clonePacket),
   };
 }

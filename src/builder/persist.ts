@@ -4,6 +4,7 @@ import { BLOCKS } from '../data/blocks';
 import { cloneGrid, HULL_BUILDERS } from '../game/gridUtils';
 import { orientLegacyAuto } from '../engine/orient';
 import { STARTER_HULL } from '../data/hulls';
+import { countRemovedEntries } from '../econ/migrate';
 
 export type SlotId = 'A' | 'B';
 
@@ -27,6 +28,8 @@ export interface SavedBuilder {
   /** Hull shown on the Build screen. */
   activeHull?: string;
   hulls: Record<string, HullSave>;
+  /** Set by loadBuilder only (never saved): placed copies of removed blocks (Reverse, chunk 21a) it took off the circuits. The model reads it once and deletes it. */
+  removedCopies?: number;
 }
 
 export const STORAGE_KEY = 'mgbm.builder.v2';
@@ -165,6 +168,8 @@ export function loadBuilder(raw: string | null, legacyRaw: string | null = null)
       const data = JSON.parse(raw);
       if (data && (data.version === 2 || data.version === 3) && data.hulls && typeof data.hulls === 'object') {
         const out: SavedBuilder = defaultSave();
+        const removed = countRemovedEntries(data.hulls);
+        if (removed > 0) out.removedCopies = removed;
         for (const hullId of Object.keys(HULL_BUILDERS)) {
           if (data.hulls[hullId]) out.hulls[hullId] = sanitizeHullSave(data.hulls[hullId], hullId, data.version === 2 ? 'v2' : 'v3');
         }

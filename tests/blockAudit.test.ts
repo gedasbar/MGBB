@@ -61,14 +61,14 @@ describe('block audit: the picker only offers blocks that compile and change Fly
       'alternator', 'aoe_circle', 'aoe_rect', 'armor_piercer', 'boomerang', 'bouncing', 'capacitor', 'cauterize', 'chain_lightning',
       'cleaver', 'corrosion', 'culling_bolt', 'curving_right', 'delay_line', 'executioner', 'fission_catalyst', 'flat_plus',
       'fork_impact', 'frostbite', 'gamblers_gate', 'gravity_well', 'homing', 'ignite', 'jackpot', 'lucky_strike', 'mine',
-      'orbit', 'overclock', 'overkill_spill', 'percent_mult', 'piercing', 'pure_converter', 'random_curve', 'random_router',
+      'orbit', 'overclock', 'overkill_spill', 'percent_mult', 'plus_one', 'piercing', 'pure_converter', 'random_curve', 'random_router',
       'residue_seed', 'shield_breaker', 'splitter_2', 'splitter_3', 'static_charge', 'turn_l', 'turn_r',
       // Chunk 20a: the twelve legendary blocks
       'frontier_echo', 'fuse', 'heavy_round', 'hollow_core', 'idle_barrels', 'last_breath', 'lone_shot', 'mirror', 'payload', 'rebound',
       'waypoint', 'zigzag',
       // Chunk 20b: the thirteen motion blocks
       'accelerator', 'align', 'angle_left', 'angle_right', 'brake', 'centreline', 'curving_left', 'extender', 'magnetized', 'persist',
-      'reverse', 'scatter', 'upturn',
+      'scatter', 'upturn',
     ].sort());
   });
 

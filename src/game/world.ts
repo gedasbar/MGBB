@@ -408,7 +408,7 @@ export class World {
         this.projSys.edgeBounce(i, 0, VW, 0, CONFIG.VIEW.H);
         if (pool.age[i] > pool.life[i]) { this.projSys.retire(i); continue; }
       } else if (pool.phase[i] === PHASE_NORMAL && pool.age[i] > pool.life[i]) {
-        // Chunk 20b: a shot kept in play by Ship Magnet, Centreline or Reverse still ends at its lifetime (a normal shot has left the screen long before).
+        // Chunk 20b: a shot kept in play by Ship Magnet or Centreline still ends at its lifetime (a normal shot has left the screen long before).
         this.projSys.retire(i);
         continue;
       }

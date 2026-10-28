@@ -14,8 +14,9 @@ export const PX_PER_CELL = 14;
 /** Where each recipe's projectiles leave, relative to the ship centre (the ejector's cell offset x PX_PER_CELL x FIRE_OFFSET_SCALE). */
 export function spawnOffsetsFor(recipes: EjectorRecipe[], hull: Grid): { x: number; y: number }[] {
   return recipes.map(r => ({
-    x: (r.x - (hull.w - 1) / 2) * PX_PER_CELL * FIRE_OFFSET_SCALE,
-    y: (r.y - (hull.h - 1) / 2) * PX_PER_CELL * FIRE_OFFSET_SCALE,
+    // The lane offset (+1 Projectile) is sideways to the way the ejector fires.
+    x: (r.x - (hull.w - 1) / 2) * PX_PER_CELL * FIRE_OFFSET_SCALE + (r.direction === 'N' || r.direction === 'S' ? r.lane : 0),
+    y: (r.y - (hull.h - 1) / 2) * PX_PER_CELL * FIRE_OFFSET_SCALE + (r.direction === 'E' || r.direction === 'W' ? r.lane : 0),
   }));
 }
 

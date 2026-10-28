@@ -292,8 +292,8 @@ describe('Frontier save (v7) and the wall run hook', () => {
   it('a v6 save loads with an empty Frontier; a v7 save round-trips the squares', () => {
     const v6 = { version: 6, credits: 40, clearedTiers: [1, 2, 3], passedTiers: [1, 2, 3], medals: 5 };
     const p = loadProgress(JSON.stringify(v6));
-    expect(PROGRESS_VERSION).toBe(9);
-    expect(p.version).toBe(9);
+    expect(PROGRESS_VERSION).toBe(10);
+    expect(p.version).toBe(10);
     expect(p.frontier).toEqual(defaultFrontier());
     expect(p.medals).toBe(5);
     p.frontier.sq['1,0'] = 2;
