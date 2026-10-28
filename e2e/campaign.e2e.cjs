@@ -122,6 +122,9 @@ async function flyLane(page, { shots = false } = {}) {
     const b = w.all.find(x => w.blocks[x.id] === x && x.x - cam > 80 && x.x - cam < 460 && x.y > 300 && x.y < 540);
     return { x: b.x - cam, y: b.y };
   });
+  // The ship's own gun must not clear the block it is about to touch: its pulse (a random phase) killed the 2 HP target before the
+  // grace was skipped about half the time, so the ship sat in an empty cell and the wall passed it ("Tier passed"): the flaky failure.
+  await page.evaluate(() => { window.__mgbm.wall.autoFire = false; });
   await mv(target.x, target.y);
   // The first move starts the 1 s spawn grace (unit-tested in tests/spawnSafety.test.ts); skip it here so the crash is immediate.
   await page.waitForTimeout(60);

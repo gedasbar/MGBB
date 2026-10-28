@@ -176,7 +176,7 @@ async function fly(page, plan, wave) {
   await page.waitForTimeout(600);
   await tap(page, ...centre(hero.rect), { pause: 600 });
   const after = await page.evaluate(() => JSON.parse(localStorage.getItem('mgbm.progress.v1')));
-  check(after.captains.heroes.cadet.level === 26 && after.version === 8, `bought level 26 (level ${after.captains.heroes.cadet.level}, medals ${after.medals}, version ${after.version})`);
+  check(after.captains.heroes.cadet.level === 26 && after.version === 9, `bought level 26 (level ${after.captains.heroes.cadet.level}, medals ${after.medals}, version ${after.version})`);
   const shotHero = await canvasShot(page);
 
   await montage(page, [shotMax, shotPiercing, heavy.shot, shotHero],

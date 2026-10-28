@@ -1,6 +1,6 @@
 // Chunk 17b end-to-end: block interactions in the real Free Fly engine and the info sheet. Rocks and shots are placed by the script
 // (real engine code, staged frames), time is frozen right after the event under test, and the frames go on one contact sheet:
-//   1 Piercing + AoE, mid-line (shot has pierced two rocks, no blast yet)   2 the same shot after its end (ONE blast)
+//   1 Piercing x3 + AoE, mid-line (shot has pierced two rocks, a blast at each hit)   2 the same shot after its end (a blast on every hit: four)  [chunk 19a: pierce is a count and AoE fires on every hit]
 //   3 AoE + Fork on Impact (blast and fragments)   4 Piercing + Chain Lightning (three chains at most)   5 AoE info sheet (the "extra copy" line)
 // Needs the Vite dev server. Run: node e2e/interactions.e2e.cjs   (adds ?debug=1&stats=0 itself)
 const path = require('path');
@@ -81,23 +81,23 @@ const freeze = (page) => page.evaluate(() => window.__mgbm.setTimeScale(0));
 
   // ---- 1 + 2: Piercing + AoE. Four weak rocks in a line; the shot uses itself up on the fourth. Bystanders sit beside the first and the last.
   const line = [[270, 560, 30, 18], [270, 480, 30, 18], [270, 400, 30, 18], [270, 320, 30, 18], [320, 560, 1e7, 12], [320, 320, 1e7, 12], [225, 320, 1e7, 12]];
-  await stage(page, line, [{ type: 'piercing', level: 1 }, { type: 'aoe_circle', level: 1 }], { x: 270, y: 700, speed: 350, damage: 100 });
+  await stage(page, line, [{ type: 'piercing', level: 1 }, { type: 'piercing', level: 1 }, { type: 'piercing', level: 1 }, { type: 'aoe_circle', level: 1 }], { x: 270, y: 700, speed: 350, damage: 100 });
   await until(page, 'fx.pierceHits >= 2');
   await freeze(page);
   const mid = await fxNow(page);
   const shot1 = await snap(page);
-  check(mid.aoeBlasts === 0 && mid.pierceHits >= 2, `mid-line: ${mid.pierceHits} pierce hits, ${mid.aoeBlasts} blasts (no blast per pierce hit)`);
+  check(mid.aoeBlasts === mid.pierceHits && mid.pierceHits >= 2, `mid-line: ${mid.pierceHits} pierce hits, ${mid.aoeBlasts} blasts (a blast on every hit)`);
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
-  await until(page, 'fx.aoeBlasts >= 1');
+  await until(page, 'fx.aoeBlasts >= 4');
   await page.waitForTimeout(60);
   await freeze(page);
   const end = await fxNow(page);
   const shot2 = await snap(page);
-  check(end.aoeBlasts === 1 && end.alive === 0, `after the end of the shot: ${end.aoeBlasts} blast, ${end.alive} shots left`);
+  check(end.aoeBlasts === 4 && end.alive === 0, `after the end of the shot: ${end.aoeBlasts} blasts (one per target), ${end.alive} shots left`);
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
   await page.waitForTimeout(500);
   const later = await fxNow(page);
-  check(later.aoeBlasts === 1, `still one blast half a second later (${later.aoeBlasts})`);
+  check(later.aoeBlasts === 4, `still four blasts half a second later (${later.aoeBlasts})`);
 
   // ---- 3: AoE + Fork on Impact on a plain shot: the blast and the two fragments.
   await stage(page, [[270, 480, 1e7, 20], [320, 480, 1e7, 12], [230, 440, 1e7, 12], [270, 300, 1e7, 14], [150, 340, 1e7, 14], [390, 340, 1e7, 14]],
@@ -112,7 +112,7 @@ const freeze = (page) => page.evaluate(() => window.__mgbm.setTimeScale(0));
   // ---- 4: Piercing + Chain Lightning through a column of five rocks with two neighbours each: three chains, not five.
   const col = [];
   for (let j = 0; j < 5; j++) col.push([270, 560 - 80 * j, 1e7, 16], [215, 560 - 80 * j, 1e7, 10], [325, 560 - 80 * j, 1e7, 10]);
-  await stage(page, col, [{ type: 'piercing', level: 3 }, { type: 'chain_lightning', level: 1 }], { x: 270, y: 720, speed: 450, damage: 100 });
+  await stage(page, col, [...Array.from({ length: 5 }, () => ({ type: 'piercing', level: 1 })), { type: 'chain_lightning', level: 1 }], { x: 270, y: 720, speed: 450, damage: 100 });
   await until(page, 'fx.chainJumps >= 6 || fx.pierceHits >= 5', 8000);
   await page.waitForTimeout(40);
   await freeze(page);
@@ -139,7 +139,7 @@ const freeze = (page) => page.evaluate(() => window.__mgbm.setTimeScale(0));
   const shot5 = await snap(page);
 
   await montage(page, [shot1, shot2, shot3, shot4, shot5],
-    ['1 Piercing + AoE\nmid-line: 2 pierced,\nno blast yet', '2 the same shot used up:\nONE blast at the end', '3 AoE + Fork on Impact:\nblast and 2 fragments', '4 Piercing + Chain:\n3 chains in all', '5 AoE info sheet:\n"each extra copy" line'],
+    ['1 Piercing x3 + AoE\nmid-line: 2 pierced,\na blast at each hit', '2 the same shot used up:\nfour blasts in all', '3 AoE + Fork on Impact:\nblast and 2 fragments', '4 Piercing + Chain:\n3 chains in all', '5 AoE info sheet:\n"each extra copy" line'],
     path.join(OUT, 'sheet_interactions.png'), 0.5);
   console.log('INFO  files: sheet_interactions.png');
   const c = lib.counts();
