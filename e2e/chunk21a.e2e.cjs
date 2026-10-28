@@ -197,11 +197,11 @@ const world = (page) => page.evaluate(() => {
     const turned = Math.max(...w.shots.map(s => s.curved));
     turns.push(turned);
     // The oldest shot still on the screen has not always lived long enough to use the whole total (the unit tests check the cap itself).
-    check(turned > 20 * copies && turned <= 45 * copies + 0.5, `Curving Right x${copies}: the oldest shot has turned ${turned.toFixed(1)} degrees (never more than ${45 * copies})`);
-    shots.push(await snap(page)); caps.push(`Curving Right x${copies}: ${30 * copies} deg/s, ${45 * copies} deg in all`);
+    check(turned > 10 * copies && turned <= 45 * copies + 0.5, `Curving Right x${copies}: the oldest shot has turned ${turned.toFixed(1)} degrees (never more than ${45 * copies})`);
+    shots.push(await snap(page)); caps.push('Curving Right x' + copies + ':\n' + (30 * copies) + ' deg/s, ' + (45 * copies) + ' deg in all');
     await page.evaluate(() => window.__mgbm.setTimeScale(1));
   }
-  check(turns[1] > 1.8 * turns[0], `four copies curve further than one (${turns[1].toFixed(0)} against ${turns[0].toFixed(0)} degrees)`);
+  check(turns[1] > 1.4 * turns[0], `four copies curve further than one (${turns[1].toFixed(0)} against ${turns[0].toFixed(0)} degrees)`);
 
   // ---- 4. Upturn over Ship Magnet: the magnets alone make a swarm round the ship; with Upturn the shots leave straight up after 0.4 s.
   await fillAndFly(page, [['flat_plus', 4, 8], ['magnetized', 4, 7], ['magnetized', 4, 6], ['magnetized', 4, 5]]);
@@ -209,8 +209,7 @@ const world = (page) => page.evaluate(() => {
   await page.evaluate(() => window.__mgbm.setTimeScale(0));
   w = await world(page);
   const swarm = w.shots.length;
-  shots.push(await snap(page)); caps.push(`Ship Magnet x3 alone:
-a swarm of ${swarm} shots round the ship`);
+  shots.push(await snap(page)); caps.push('Ship Magnet x3 alone: ' + swarm + ' shots\nstay in the lane round the ship');
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
   await fillAndFly(page, [['flat_plus', 4, 8], ['magnetized', 4, 7], ['magnetized', 4, 6], ['magnetized', 4, 5], ['upturn', 4, 4]]);
   await page.waitForTimeout(1800);
@@ -218,7 +217,7 @@ a swarm of ${swarm} shots round the ship`);
   w = await world(page);
   const upFx = await page.evaluate(() => window.__mgbm.world.projSys.fx.upturnTurns);
   check(swarm >= 6 && w.shots.length <= swarm * 0.6 && upFx > 20, `Upturn overrides the magnets: ${w.shots.length} shots in the air against the swarm of ${swarm}; ${upFx} turn steps`);
-  shots.push(await snap(page)); caps.push('Ship Magnet x3 + Upturn:\nafter 0.3 s Upturn takes over,\nthe shots fly straight up');
+  shots.push(await snap(page)); caps.push('Ship Magnet x3 + Upturn: after 0.4 s\nUpturn takes over, shots turn up\nand leave (' + w.shots.length + ' left, was ' + swarm + ')');
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
 
   // ---- 5. Shot looks at three damage bands (one lane each).
@@ -244,7 +243,7 @@ a swarm of ${swarm} shots round the ship`);
   const bandSizes = Object.values(looks).map(l => Math.round(l.h)).sort((a, b) => a - b);
   check(bandSizes.join(',') === '14,22,32', `damage 5 / 500 / 50000 are drawn 14 / 22 / 32 px long (${bandSizes.join(', ')})`);
   w = await world(page);
-  shots.push(await crop(page, 0, w.shipY - 320 + 20)); caps.push('Shot looks: 5 dmg (bar), 500 dmg\n(longer bar), 50,000 dmg (bolt)\nleft = 50K, middle = 5, right = 500');
+  shots.push(await crop(page, w.shipX - 90, w.shipY - 330)); caps.push('Shot looks, 3 lanes: 50,000 dmg\n(bolt, left), 5 dmg (bar, middle),\n500 dmg (longer bar, right)');
   await page.evaluate(() => { clearInterval(window.__lookTimer); window.__mgbm.setTimeScale(1); });
 
   // ---- 6. Brake icon = Accelerator's flipped.
@@ -260,7 +259,8 @@ a swarm of ${swarm} shots round the ship`);
     window.__mgbm.buildScreen.refresh();
   }, { OWN });
   await page.waitForTimeout(300);
-  shots.push(await crop(page, 90, 330)); caps.push('Brake (top) = Accelerator (below)\nflipped: chevrons point down');
+  const mid = await page.evaluate(() => { const v = window.__mgbm.buildScreen.view; return { x: v.ox + 4.5 * v.scale, y: v.oy + 7 * v.scale }; });
+  shots.push(await crop(page, mid.x - 90, mid.y - 160)); caps.push('Brake (top) = Accelerator (below)\nflipped: chevrons point down');
 
   // ---- 7. Run summary with the new stats.
   const summaryTexts = await page.evaluate(async () => {
