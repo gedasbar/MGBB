@@ -21,6 +21,7 @@
     "balance-damage": "vite-node scripts/balance-damage.ts",
     "balance-frontier": "vite-node scripts/balance-frontier.ts",
     "economy-audit": "vite-node scripts/economy-audit.ts",
+    "blocks-doc": "vite-node scripts/blocks-doc.ts",
     "interaction-audit": "vite-node scripts/interaction-audit.ts",
     "difficulty-audit": "vite-node scripts/difficulty-audit.ts"
   },

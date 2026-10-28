@@ -12,7 +12,7 @@ import { makeTabButtons } from '../builder/tabs';
 import { sfx } from '../audio';
 import { makeText, Toast, UIButton } from '../builder/ui';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
-import { describeBlock } from '../engine/compilerTypes';
+import { blockText } from '../data/blockText';
 import { copyCap, copyPrice, maxLevelOf, upgradePrice } from '../econ/economy';
 import { TilePalette, PaletteSource, SheetButtonId } from '../builder/tilePalette';
 import { copyAffordable, paletteIds, sheetContent, SheetContent } from '../builder/paletteLogic';
@@ -144,7 +144,7 @@ export class ShopScreen implements Screen {
     const level = p.levels[id] ?? 1;
     const owned = p.owned[id] ?? 0;
     return sheetContent({
-      id, name: BLOCKS[id].name, desc: describeBlock(BLOCKS[id], level), owned, available: owned, level, maxLevel: maxLevelOf(id), cap: copyCap(id),
+      id, name: BLOCKS[id].name, desc: blockText(BLOCKS[id], level).short, stack: blockText(BLOCKS[id], level).stack, owned, available: owned, level, maxLevel: maxLevelOf(id), cap: copyCap(id),
       credits: p.credits, copyPrice: copyPrice(id, owned), upgradePrice: upgradePrice(id, level),
       lock: blockLockReason(p, id, this.store.frontierReach),
     });

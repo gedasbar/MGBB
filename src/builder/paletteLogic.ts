@@ -89,8 +89,10 @@ export function cssPx(gamePx: number, cssWidth = PHONE_CSS_W): number {
 export interface SheetInput {
   id: string;
   name: string;
-  /** The block's rule at its current level (BlockDef.desc). */
+  /** The block's short player text at its current level (data/blockText.ts). */
   desc: string;
+  /** Second, dimmer line: what one more copy does (blocks that stack). */
+  stack?: string | null;
   owned: number;
   /** Owned minus placed in the active circuit. */
   available: number;
@@ -114,6 +116,8 @@ export interface SheetContent {
   title: string;
   levelLine: string;
   body: string;
+  /** The dimmer stacking line under the body ('' = none). */
+  stack: string;
   ownedLine: string;
   /** Requirement text for a locked block (then buy and upgrade are null). */
   lockText: string | null;
@@ -132,6 +136,7 @@ export function sheetContent(i: SheetInput): SheetContent {
     title: i.name,
     levelLine: hasLevels ? `Level ${i.level}/${i.maxLevel}` : '',
     body: i.desc,
+    stack: i.stack ?? '',
     ownedLine: i.showFree ? `${ownedText} · free ${Math.max(0, i.available)}` : ownedText,
     place: { label: 'Place', enabled: i.available > 0 },
   };
@@ -148,7 +153,7 @@ export function sheetContent(i: SheetInput): SheetContent {
 
 export function removeSheetContent(): SheetContent {
   return {
-    title: 'Remove', levelLine: '', body: 'Clears this cell and returns the block to your inventory.', ownedLine: '',
+    title: 'Remove', levelLine: '', body: 'Clears this cell and returns the block to your inventory.', stack: '', ownedLine: '',
     lockText: null, place: { label: 'Remove', enabled: true }, buy: null, upgrade: null,
   };
 }

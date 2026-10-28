@@ -247,7 +247,7 @@ async function lineAt(page, col, row, axis, ok = redish) {
   const onB = await border(9, 6), offB = await border(3, 5);
   check(onB > 80 && offB < onB * 0.9, `3: the off-path Flat+ is dimmed (border red channel ${offB}) against the on-path one (${onB})`);
   st = await state(page);
-  check(/No signal reaches this block\./.test(st.inspector.body) && !/rientation/.test(st.inspector.title), `3: inspector keeps its text: "${st.inspector.title}" / "${st.inspector.body}"`);
+  check(/No signal reaches it\./.test(st.inspector.stack) && !/rientation/.test(st.inspector.title), `3: inspector keeps its text: "${st.inspector.title}" / "${st.inspector.body}"`);
 
   // A hand-rotated block that stops the line keeps its warning triangle (and no padlock).
   await tap(page, ...cell(9, 6));

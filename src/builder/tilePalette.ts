@@ -101,6 +101,7 @@ export class TilePalette {
   private infoTitle = makeText('', 18, THEME.text, { fontWeight: 'bold' });
   private infoLevel = makeText('', 13, THEME.textDim, { fontWeight: 'bold' });
   private infoBody = makeText('', 12, THEME.text, { wordWrap: true, wordWrapWidth: 520, lineHeight: 15 });
+  private infoStack = makeText('', 11, THEME.textDim, { wordWrap: true, wordWrapWidth: 520, lineHeight: 14 });
   private infoOwned = makeText('', 13, THEME.textDim, { fontWeight: 'bold' });
   private infoButtons: Record<SheetButtonId, SheetButtonView>;
   private content: SheetContent | null = null;
@@ -125,8 +126,9 @@ export class TilePalette {
     this.infoLevel.anchor.set(1, 0);
     this.infoLevel.position.set(s.w - 14, 11);
     this.infoBody.position.set(14, 36);
+    this.infoStack.position.set(14, 54);
     this.infoOwned.position.set(14, g.sheet.h - 8 - (opts.buttons.length ? 66 + 6 : 0) - 18);
-    this.infoC.addChild(this.infoBg, this.infoTitle, this.infoLevel, this.infoBody, this.infoOwned);
+    this.infoC.addChild(this.infoBg, this.infoTitle, this.infoLevel, this.infoBody, this.infoStack, this.infoOwned);
     for (const b of Object.values(this.infoButtons)) this.infoC.addChild(b.c);
     this.infoC.position.set(g.sheet.x, g.sheet.y);
     this.infoC.visible = false;
@@ -309,6 +311,7 @@ export class TilePalette {
     this.infoTitle.text = c.title;
     this.infoLevel.text = c.levelLine;
     this.infoBody.text = c.body;
+    this.infoStack.text = c.stack;
     this.infoOwned.text = c.lockText ? `Locked: ${c.lockText}` : c.ownedLine;
     this.infoOwned.style.fill = c.lockText ? THEME.warn : THEME.textDim;
     const specs: Record<SheetButtonId, { label: string; enabled: boolean } | null> = { place: c.place, buy: c.buy, upgrade: c.upgrade };

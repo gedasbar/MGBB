@@ -199,7 +199,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   check(JSON.stringify(st.statsStrip) === statsOn, 'Flat+ off the line does not change the stats');
   await select(page, 3, 5);
   st = await state(page);
-  check(/No signal reaches this block/.test(st.inspector.body), `off-line block says: "${st.inspector.body}"`);
+  check(/No signal reaches it/.test(st.inspector.stack), `off-line block says: "${st.inspector.body}"`);
   await shot(page, 'b10_flat_plus_off_line_selected.png');
   const noSigN = await lib.countInRegion(page, OX + 2 * CELL + 9, OY + 4 * CELL + 39, 7, lib.NO_SIGNAL_PRED);
   check(noSigN === 0, `no red "no signal" mark at the corner of the off-line block: ${noSigN} mark pixels`);

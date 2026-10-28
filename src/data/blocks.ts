@@ -20,8 +20,8 @@ const FWD: Rel[] = ['F'];
 // Level scaling of the older blocks (level 1 is exactly what they always did).
 const turnSpeedMul = (l: number) => 1 + 0.1 * (l - 1);
 const splitterMul = (l: number) => 1 + 0.05 * (l - 1);
-const luckyProb = (l: number) => 0.33 + 0.05 * (l - 1);
-const jackpotProb = (l: number) => 0.04 + 0.01 * (l - 1);
+export const luckyProb = (l: number) => 0.33 + 0.05 * (l - 1);
+export const jackpotProb = (l: number) => 0.04 + 0.01 * (l - 1);
 /** Gambler's Gate: 40% at level 1 to 50% at level 3 (chunk 16c-2; it was 50% to 60%). */
 export const gamblerProb = (l: number) => 0.4 + 0.05 * (l - 1);
 /** Percent x per copy: x1.5 at level 1 to x3 at level 10, geometric in the level (chunk 16c-2; it was 1 + 0.5 L). */

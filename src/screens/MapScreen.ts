@@ -95,10 +95,11 @@ export class MapScreen implements Screen {
 
     const sheetBg = new Graphics().rect(0, SHEET_Y, VIEW_W, SHEET_H).fill(THEME.panel).rect(0, SHEET_Y, VIEW_W, 1).fill(THEME.border);
     this.title.position.set(14, SHEET_Y + 10);
-    this.hint.position.set(14, SHEET_Y + 40);
-    this.spikeLine.position.set(14, SHEET_Y + 96);
-    this.bestLine.position.set(14, SHEET_Y + 124);
-    this.earnLine.position.set(14, SHEET_Y + 150);
+    this.hint.position.set(14, SHEET_Y + 36);
+    // 160 px sheet above the tab bar: title, hint (up to 2 lines), spike, then best result and best earnings, all inside it (19b).
+    this.spikeLine.position.set(14, SHEET_Y + 76);
+    this.bestLine.position.set(14, SHEET_Y + 100);
+    this.earnLine.position.set(14, SHEET_Y + 124);
     this.startButton = textButton('mapStart', { x: VIEW_W - 14 - 150, y: SHEET_Y + SHEET_H - 14 - 56, w: 150, h: 56 }, 'START', () => this.start(), 24);
     this.buttons.push(this.startButton);
     this.sheet.addChild(sheetBg, this.title, this.hint, this.spikeLine, this.bestLine, this.earnLine, this.startButton.container);
