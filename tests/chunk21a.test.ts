@@ -113,16 +113,16 @@ describe('+1 Projectile: the compiler', () => {
 });
 
 describe('+1 Projectile: the lane', () => {
-  it('the shots of one ejector stand side by side, LANE_GAP apart, centred', () => {
-    expect(LANE_GAP).toBe(6);
-    expect([0, 1, 2].map(k => laneOffset(k, 3))).toEqual([-6, 0, 6]);
-    expect([0, 1].map(k => laneOffset(k, 2))).toEqual([-3, 3]);
+  it('the shots of one ejector stand side by side, LANE_GAP (8 px) apart, centred', () => {
+    expect(LANE_GAP).toBe(8);
+    expect([0, 1, 2].map(k => laneOffset(k, 3))).toEqual([-8, 0, 8]);
+    expect([0, 1].map(k => laneOffset(k, 2))).toEqual([-4, 4]);
     expect(laneOffset(0, 1)).toBe(0);
     const g = fanLine(times('plus_one', 2));
     const c = compile(g);
     const off = spawnOffsetsFor(c.recipes, g);
     const base = spawnOffsetsFor(compile(fanLine([])).recipes, g)[0];
-    expect(off.map(o => o.x - base.x)).toEqual([-6, 0, 6]);
+    expect(off.map(o => o.x - base.x)).toEqual([-8, 0, 8]);
     expect(off.every(o => o.y === base.y)).toBe(true);
   });
 
@@ -132,7 +132,7 @@ describe('+1 Projectile: the lane', () => {
     const east = c.recipes.map(r => ({ ...r, direction: 'E' as const }));
     const off = spawnOffsetsFor(east, g);
     expect(off[0].x).toBe(off[1].x);
-    expect(off[1].y - off[0].y).toBe(6);
+    expect(off[1].y - off[0].y).toBe(8);
   });
 
   function gunFor(g: Grid, poolMax = 400) {
@@ -152,7 +152,7 @@ describe('+1 Projectile: the lane', () => {
     const a = r.alive();
     expect(a.length).toBe(2);
     const byX = a.sort((p, q) => r.pool.x[p] - r.pool.x[q]);
-    expect(r.pool.x[byX[1]] - r.pool.x[byX[0]]).toBeCloseTo(6, 5);
+    expect(r.pool.x[byX[1]] - r.pool.x[byX[0]]).toBeCloseTo(8, 5);
     expect(r.pool.damage[byX[0]]).toBe(2); // the main shot is the first recipe, on the left
     expect(r.pool.damage[byX[1]]).toBe(1);
   });

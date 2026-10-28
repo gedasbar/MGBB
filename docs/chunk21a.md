@@ -8,7 +8,7 @@ Written before the code; "Deviations" at the end is updated when the code differ
 
 **Compiler.** `Packet.extras: Packet[]` holds the extra shots a lane has gained so far. At a block the compiler first applies the block to every existing extra (and appends the keyed op, the turn count, the alternator/router op to them), then, if the block is `addsShot`, pushes `newPacket(base)` as a new extra, then applies the block to the main packet. An extra therefore only holds what came after its own +1 block. At the ejector each extra becomes a recipe of its own (the same direction, cell and `packet` with no extras); `EjectorRecipe.lane` is the sideways offset. This is the whole feature: the Gun, the pool, Mirror, Fuse, Lone Shot, splitters, the stats strip and the damage estimate already work per recipe, so they see the extra shots as ordinary lanes.
 
-**Lane.** The shots of one ejector leave side by side, `LANE_GAP` = 6 px apart, centred on the ejector (offsets (k - (n-1)/2) x 6, sideways to the way the ejector fires). The main shot is the first of them.
+**Lane.** The shots of one ejector leave side by side, `LANE_GAP` = 8 px apart, centred on the ejector (offsets (k - (n-1)/2) x 8, sideways to the way the ejector fires). The main shot is the first of them.
 
 **Stats.** "Proj/pulse" is the sum of the recipes' pulse shares, so one +1 Projectile on a plain line shows 2, two copies 3. The estimate sums the recipes' expected damage, so it counts the weak extra shot at its own (smaller) damage.
 

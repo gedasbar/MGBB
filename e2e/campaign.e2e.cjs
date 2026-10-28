@@ -72,7 +72,7 @@ async function flyLane(page, { shots = false } = {}) {
 
 (async () => {
   const browser = await lib.chromium.launch({ headless: true });
-  const { page } = await lib.openGame(browser, { viewport: { width: 900, height: 960 } });
+  const { page } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, tiers: false });
   const mv = async (gx, gy) => { const p = await gameToClient(page, gx, gy); await page.mouse.move(p.x, p.y); };
 
   // ---- Build screen: CAMPAIGN opens the map

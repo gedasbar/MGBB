@@ -154,17 +154,17 @@ const readSquares = async (page, sqs, dx = 0, dy = 0) => {
   const rows = (await state(page)).rows;
   const rowOf = (k) => rows.find(r => r.key === k);
   check(rowOf('frontier_echo').buttons[0].lock === null, 'shop: Frontier Echo (ring 100 North reached) is unlocked');
-  check(rowOf('reverse').buttons[0].label === 'Pass tier 60' && !rowOf('cleaver').buttons[0].enabled, `shop: Reverse greyed "${rowOf('reverse').buttons[0].label}"`);
+  check(rowOf('persist').buttons[0].label === 'Pass tier 50' && !rowOf('cleaver').buttons[0].enabled, `shop: Persist greyed "${rowOf('persist').buttons[0].label}"`);
   check(/^Buy/.test(rowOf('overclock').buttons[0].label), 'shop: Overclock (left free) is for sale');
   const before = (await state(page)).credits;
   // Chunk 16b-fix: the Shop is a tile grid; a locked block shows its requirement in the info sheet and has no buy button.
-  await page.evaluate(() => window.__mgbm.shopScreen.palette.reveal('reverse'));
+  await page.evaluate(() => window.__mgbm.shopScreen.palette.reveal('persist'));
   await page.waitForTimeout(150);
-  const tile = await page.evaluate(() => window.__mgbm.shopScreen.palette.tileScreenRect('reverse'));
+  const tile = await page.evaluate(() => window.__mgbm.shopScreen.palette.tileScreenRect('persist'));
   await tap(page, tile.x + tile.w / 2, tile.y + tile.h / 2);
   const gate = await page.evaluate(() => { const p = window.__mgbm.shopScreen.palette; return { c: p.sheetContentNow, buy: p.sheetButtonVisible('buy'), up: p.sheetButtonVisible('upgrade') }; });
   const afterTap = await state(page);
-  check(gate.c && gate.c.lockText === 'Pass tier 60' && !gate.buy && !gate.up && afterTap.credits === before, `tapping it shows "${gate.c && gate.c.lockText}", offers no buy / upgrade and buys nothing`);
+  check(gate.c && gate.c.lockText === 'Pass tier 50' && !gate.buy && !gate.up && afterTap.credits === before, `tapping it shows "${gate.c && gate.c.lockText}", offers no buy / upgrade and buys nothing`);
   shots.push(await canvasShot(page)); caps.push('shop: gated blocks');
 
   // ---- Play a Free Fly square to a result (time x6, a real ship that only drifts a little), then back.

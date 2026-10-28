@@ -73,7 +73,7 @@ async function panFps(page, zoom) {
 
 (async () => {
   const browser = await lib.chromium.launch({ headless: true });
-  const { page } = await lib.openGame(browser, { rich: true });
+  const { page } = await lib.openGame(browser, { rich: true, tiers: false });
   const shots = [];
   const caps = [];
 

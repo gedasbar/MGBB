@@ -1,3 +1,5 @@
+> **Chunk 21a changed this document: Reverse (block 13) was removed; Curving Left / Right and Random Curve stack to four copies; Upturn now takes over from the other steering after its delay. The hit order of section 1 starts at Persist. See `docs/chunk21a.md`.**
+
 # Motion blocks (chunk 20b): design note
 
 Thirteen Modifier blocks that change how a shot MOVES. Written before the code; the "Deviations" section at the end is updated when the code differs. Numbers live in one section of `src/engine/effects.ts` ("Chunk 20b"); the trigger rows are in `src/engine/triggers.ts`.

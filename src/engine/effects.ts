@@ -249,8 +249,8 @@ export const scatterAfter = (w: number) => (w <= 0 ? SCATTER_BASE_DEG : Math.min
 export const clampSpeedMul = (m: number) => Math.min(MAX_SPEED_MUL, Math.max(BRAKE_FLOOR, m));
 
 // ---- Chunk 21a (docs/chunk21a.md)
-/** +1 Projectile: the sideways gap (px) between the shots of one lane; the lane is centred on its ejector. */
-export const LANE_GAP = 6;
+/** +1 Projectile: the sideways distance (px) between neighbouring shots of one lane; the lane is centred on its ejector. A shot bar is 6 px wide, so 8 leaves a 2 px gap (the prompt said about 6: at 6 the bars touch and look like one). */
+export const LANE_GAP = 8;
 /** Offset (px) of shot `k` of `n` in a lane from the lane's centre: a constant gap, centred. */
 export const laneOffset = (k: number, n: number) => (k - (n - 1) / 2) * LANE_GAP;
 /** Curving Left / Right: one copy turns CURVE_RATE_STEP_DEG per second until it has turned CURVE_TOTAL_STEP_DEG in all; every copy adds both. */
