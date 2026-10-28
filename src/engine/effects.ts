@@ -165,3 +165,50 @@ export const PIERCE_DAMAGE_KEEP = 1.0;
 // ---- Chunk 17b: the trigger table (engine/triggers.ts)
 /** Chain Lightning fires on every hit of a shot, but at most this many chains per shot. */
 export const CHAIN_ARCS_PER_SHOT = 3;
+
+// ---- Chunk 20a: legendary blocks (docs/legendaries.md). Every number of the twelve lives here; the Skills tree will change them later.
+/** Frontier Echo: share of the furthest Frontier ring added as flat damage (whole numbers: ring 300 = +30). */
+export const FRONTIER_ECHO_SHARE = 0.1;
+export const frontierEchoAdd = (furthestRing: number) => Math.floor(Math.max(0, furthestRing) * FRONTIER_ECHO_SHARE);
+/** Payload: flat damage. */
+export const PAYLOAD_ADD = 25;
+/** Lone Shot: x2 with one shot alive, falling in a straight line to x1 at LONE_SHOT_FULL shots alive (and above). */
+export const LONE_SHOT_BONUS = 1;
+export const LONE_SHOT_FULL = 10;
+export function loneShotMul(shotsAlive: number): number {
+  const n = Math.min(LONE_SHOT_FULL, Math.max(1, Math.floor(shotsAlive)));
+  return 1 + (LONE_SHOT_BONUS * (LONE_SHOT_FULL - n)) / (LONE_SHOT_FULL - 1);
+}
+/** Last Breath: damage multiplier on a hit in the last LAST_BREATH_WINDOW seconds of the shot's lifetime (its age limit is PROJECTILE_MAX_AGE). */
+export const LAST_BREATH_MUL = 2;
+export const LAST_BREATH_WINDOW = 1.0;
+export const lastBreathMul = (age: number, lifetime: number) => (age >= lifetime - LAST_BREATH_WINDOW ? LAST_BREATH_MUL : 1);
+/** Zigzag: seconds between direction changes, the angle off the heading each leg flies at, and the damage gained per change (additive). */
+export const ZIGZAG_PERIOD = 0.2;
+export const ZIGZAG_ANGLE_DEG = 25;
+export const ZIGZAG_GAIN = 0.05;
+export const zigzagMul = (changes: number) => 1 + ZIGZAG_GAIN * Math.max(0, changes);
+/** Heavy Round: x2 at normal shot speed up to x5 at HEAVY_SLOW_SPEED x normal, linear in the speed ratio in between, flat outside. */
+export const HEAVY_MUL_NORMAL = 2;
+export const HEAVY_MUL_SLOWEST = 5;
+export const HEAVY_SLOW_SPEED = 0.2;
+export function heavyRoundMul(speedRatio: number): number {
+  const r = Math.min(1, Math.max(HEAVY_SLOW_SPEED, speedRatio));
+  return HEAVY_MUL_NORMAL + ((HEAVY_MUL_SLOWEST - HEAVY_MUL_NORMAL) * (1 - r)) / (1 - HEAVY_SLOW_SPEED);
+}
+/** Hollow Core: damage gained per empty buildable cell of the hull (x(1 + share x cells)). */
+export const HOLLOW_CORE_PER_CELL = 0.1;
+export const hollowCoreMul = (emptyCells: number) => 1 + HOLLOW_CORE_PER_CELL * Math.max(0, emptyCells);
+/** Idle Barrels: flat damage per ejector no signal reaches. */
+export const IDLE_BARRELS_PER_EJECTOR = 3;
+export const idleBarrelsAdd = (idleEjectors: number) => IDLE_BARRELS_PER_EJECTOR * Math.max(0, idleEjectors);
+/** Waypoint: damage multiplier per turn or curve block the signal passed before it. */
+export const WAYPOINT_PER_TURN = 1.1;
+export const waypointMul = (turns: number) => Math.pow(WAYPOINT_PER_TURN, Math.max(0, turns));
+/** Rebound: multiplier when the previous shot through the block arrived with less damage. */
+export const REBOUND_MUL = 4;
+/** Mirror: sideways distance (px) of the clone from the shot. */
+export const MIRROR_OFFSET = 16;
+/** Fuse: shots collected per released shot and the multiplier on their summed damage (the Capacitor stage with other numbers). */
+export const FUSE_N = 10;
+export const FUSE_MUL = 2;

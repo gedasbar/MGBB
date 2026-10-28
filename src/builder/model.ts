@@ -5,6 +5,7 @@ import { BLOCKS } from '../data/blocks';
 import { cloneGrid, HULL_BUILDERS } from '../game/gridUtils';
 import { ProgressStore } from '../econ/progress';
 import { modifiersFor } from '../captains/modifiers';
+import { furthestRing } from '../frontier/unlocks';
 import {
   BlockEntry, decodeLayout, defaultSave, DEFAULT_HULL, encodeLayout, entriesFromGrid, gridFromEntries, LEGACY_KEY,
   loadBuilder, SavedBuilder, serializeBuilder, SlotId, STORAGE_KEY,
@@ -130,7 +131,8 @@ export class BuilderModel {
   /** The active captain's hero-level damage goes into the preview too, so the stats strip matches what a run fires. */
   private compileOpts() {
     const c = this.store.data.captains;
-    return { baseDamage: modifiersFor(c.selected, c.heroes[c.selected]).baseDamage };
+    const m = modifiersFor(c.selected, c.heroes[c.selected]);
+    return { baseDamage: m.baseDamage, furthestRing: furthestRing(this.store.frontierReach), projSpeedMul: m.projSpeedMul };
   }
 
   /** Recompiles after something outside the circuit changed (the captain's hero level or the selected captain). */

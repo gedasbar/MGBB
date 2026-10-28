@@ -1,10 +1,10 @@
 import { CONFIG } from '../config';
 import { BLOCKS } from '../data/blocks';
-import { fireRateMul } from '../data/hulls';
+import { fireRateMul, shotSpeedMul } from '../data/hulls';
 import {
-  clonePacket, Dir, DIRS, GENERATOR_BASE_DAMAGE, emitRate, evalDamage, newPacket, Packet, powerLevel, Rel, relToDir, Rotation, rotationToDir,
+  clonePacket, CompileContext, Dir, DIRS, GENERATOR_BASE_DAMAGE, emitRate, evalDamage, mulDamage, newPacket, Packet, powerLevel, Rel, relToDir, Rotation, rotationToDir,
 } from './compilerTypes';
-import { aoeEstimateMul } from './effects';
+import { aoeEstimateMul, heavyRoundMul } from './effects';
 
 export interface GridCell {
   x: number;
@@ -130,9 +130,24 @@ interface Signal {
 
 /** Pure and deterministic: the same grid always gives the same result. */
 /** Options of a compile: the extra base damage the active captain's hero level gives every packet (0 = none). */
-export interface CompileOptions { baseDamage?: number }
+export interface CompileOptions { baseDamage?: number; /** Furthest Frontier ring reached (Frontier Echo); 0 = none. */ furthestRing?: number; /** Captain projectile speed multiplier (Heavy Round reads the real shot speed). */ projSpeedMul?: number }
+
+/** Blocks whose damage needs to know which ejectors the circuit reaches: the compile runs twice for them. */
+const NEEDS_IDLE_COUNT = 'idle_barrels';
 
 export function compile(grid: Grid, opts: CompileOptions = {}): CompiledShip {
+  const emptyCells = grid.cells.reduce((n, c) => n + (c.type === 'empty' && !c.blockId ? 1 : 0), 0);
+  const ctx: CompileContext = { furthestRing: opts.furthestRing ?? 0, emptyCells, idleEjectors: 0 };
+  const first = compileOnce(grid, opts, ctx);
+  if (!grid.cells.some(c => c.blockId === NEEDS_IDLE_COUNT)) return first;
+  // Second pass: the ejectors the first pass did not reach are idle (reaching does not depend on damage).
+  const reached = new Set(first.recipes.map(r => r.y * grid.w + r.x));
+  const ejectors = grid.cells.filter(c => c.type === 'ejector').length;
+  ctx.idleEjectors = ejectors - reached.size;
+  return compileOnce(grid, opts, ctx);
+}
+
+function compileOnce(grid: Grid, opts: CompileOptions, ctx: CompileContext): CompiledShip {
   const baseDamage = GENERATOR_BASE_DAMAGE + (opts.baseDamage ?? 0);
   const { w, h, cells } = grid;
   const cellInfo: CellInfo[] = cells.map(c => ({
@@ -259,7 +274,9 @@ export function compile(grid: Grid, opts: CompileOptions = {}): CompiledShip {
         info.inDirs.push(dir);
 
         const packet = clonePacket(sig.packet);
-        def.transform?.(packet, powerLevel(def, cell.level));
+        def.transform?.(packet, powerLevel(def, cell.level), ctx);
+        if (def.isTurn) packet.turns++;
+        if (def.keyedOp) packet.ops.push(def.keyedOp(nidx));
         if (!info.ledger) info.ledger = ledgerOf(packet);
         const outs = [...def.outputs].sort((a, b) => REL_ORDER[a] - REL_ORDER[b]);
         if (outs.length === 0) {
@@ -297,6 +314,11 @@ export function compile(grid: Grid, opts: CompileOptions = {}): CompiledShip {
   for (let i = 0; i < cells.length; i++) {
     if (cells[i].type === 'empty' && cells[i].blockId && !cellInfo[i].onPath) wastedBlocks++;
   }
+  // Heavy Round (chunk 20a) pays for slow shots; the shot's final speed is only known at the ejector, so it is the last op of the packet.
+  const hullSpeed = shotSpeedMul(grid.hullId) * (opts.projSpeedMul ?? 1);
+  for (const r of recipes) {
+    if (r.packet.mods.some(m => m.type === 'heavy_round')) mulDamage(r.packet, heavyRoundMul(r.packet.speedMul * hullSpeed));
+  }
   const basePps = CONFIG.PULSE.BASE_RATE * fireRateMul(grid.hullId);
   // Every recipe fires on a share `rate` of the pulses (1 without Capacitor / Alternator). Expected projectiles per pulse
   // is the sum of the rates; a Capacitor stretches the interval between shots (Pulses/s falls, the shot grows); an
@@ -307,7 +329,8 @@ export function compile(grid: Grid, opts: CompileOptions = {}): CompiledShip {
   let pulseShare = 0; // the most frequent recipe sets how often the gun fires at all
   for (const r of recipes) {
     const er = emitRate(r.packet);
-    const rate = er.pulse * er.branch;
+    // A Mirror line fires two shots per pulse (the clone has the same damage).
+    const rate = er.pulse * er.branch * (r.packet.mods.some(m => m.type === 'mirror') ? 2 : 1);
     rateSum += rate;
     dmgSum += rate * r.packet.damage;
     ev += rate * evalDamage(r.packet) * aoeEstimateMul(r.packet.mods);

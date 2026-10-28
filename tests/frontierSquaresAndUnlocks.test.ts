@@ -172,17 +172,22 @@ describe('Free Fly HP growth (18b)', () => {
 });
 
 describe('Directional unlocks', () => {
-  it('table: 16 entries, rings [10, 25, 50, 100], 16 different blocks of the two newest batches, a spread of categories', () => {
-    expect([...UNLOCK_RINGS]).toEqual([10, 25, 50, 100]);
-    expect(UNLOCKS.length).toBe(16);
+  it('table (chunk 20a): 28 entries, rings [10, 25, 50, 100, 200, 300], 28 different blocks: 16 ordinary ones of the two newest batches + 12 legendary, a spread of categories', () => {
+    expect([...UNLOCK_RINGS]).toEqual([10, 25, 50, 100, 200, 300]);
+    expect(UNLOCKS.length).toBe(28);
     const ids = UNLOCKS.map(u => u.blockId);
-    expect(new Set(ids).size).toBe(16);
+    expect(new Set(ids).size).toBe(28);
+    const legendary = ids.filter(id => BLOCKS[id].category === 'legendary');
+    expect(legendary.length).toBe(12);
+    const ordinary = ids.filter(id => BLOCKS[id].category !== 'legendary');
     const batches = ['alternator', 'delay_line', 'overclock', 'capacitor', 'executioner', 'boomerang', 'orbit', 'chain_lightning', 'mine', 'ignite', 'frostbite', 'corrosion',
       'fission_catalyst', 'cauterize', 'cleaver', 'culling_bolt', 'residue_seed', 'overkill_spill', 'gravity_well', 'static_charge', 'random_router'];
-    expect([...ids, ...FREE_NEW_BLOCKS].sort()).toEqual([...batches].sort());
+    expect([...ordinary, ...FREE_NEW_BLOCKS].sort()).toEqual([...batches].sort());
     for (const sec of ['N', 'E', 'S', 'W']) {
-      const cats = new Set(UNLOCKS.filter(u => u.sector === sec).map(u => BLOCKS[u.blockId].category));
+      const cats = new Set(UNLOCKS.filter(u => u.sector === sec && BLOCKS[u.blockId].category !== 'legendary').map(u => BLOCKS[u.blockId].category));
       expect(cats.size).toBeGreaterThanOrEqual(3);
+      // Each direction: rings 100 / 200 / 300 hold exactly one legendary block each.
+      for (const r of [100, 200, 300]) expect(UNLOCKS.filter(u => u.sector === sec && u.ring === r).map(u => BLOCKS[u.blockId].category)).toEqual(['legendary']);
     }
   });
 
@@ -208,7 +213,7 @@ describe('Directional unlocks', () => {
     expect(store.frontierReach.E).toBe(0);
     lattice(14, 0); store.commit(); // East ring 14
     expect(store.takeUnlockNotices()).toEqual(['Unlocked: Overkill Spill']);
-    expect(newlyReached({ N: 0, E: 0, S: 0, W: 0 }, { N: 0, E: 0, S: 0, W: 100 }).map(u => u.blockId)).toEqual(['corrosion', 'gravity_well', 'residue_seed', 'alternator']);
+    expect(newlyReached({ N: 0, E: 0, S: 0, W: 0 }, { N: 0, E: 0, S: 0, W: 100 }).map(u => u.blockId)).toEqual(['corrosion', 'gravity_well', 'residue_seed', 'alternator', 'rebound']);
   });
 
   it('shop gating: a gated block is refused until reached; ungated and free blocks are not gated', () => {
@@ -216,8 +221,8 @@ describe('Directional unlocks', () => {
     p.credits = 1e9;
     expect(gateOf('flat_plus')).toBeUndefined();
     for (const id of FREE_NEW_BLOCKS) expect(gateOf(id)).toBeUndefined();
-    expect(blockLockReason(p, 'chain_lightning')).toBe('Reach ring 100 North');
-    expect(buyCopy(p, 'chain_lightning')).toEqual({ ok: false, error: 'Reach ring 100 North' });
+    expect(blockLockReason(p, 'chain_lightning')).toBe('Reach ring 50 North');
+    expect(buyCopy(p, 'chain_lightning')).toEqual({ ok: false, error: 'Reach ring 50 North' });
     expect(buyUpgrade(p, 'chain_lightning').ok).toBe(false);
     expect(buyCopy(p, 'overclock').ok).toBe(true);
     p.frontier.sq[sqKey(0, -10)] = 1; // North ring 10 passed: Random Router

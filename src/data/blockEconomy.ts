@@ -27,6 +27,8 @@ export const FIXED_LEVEL: Readonly<Record<string, number>> = {
 };
 
 export interface BlockEconomy {
+  /** Medals the copy costs on top of its credits (legendary blocks, chunk 20a); absent = none. */
+  medals?: number;
   /** Copies one can own; null = no cap (the stacking shape blocks, whose benefit falls off by itself). */
   cap: number | null;
   /** Price of the first copy. */
@@ -36,6 +38,17 @@ export interface BlockEconomy {
 }
 
 const one = (base: number): BlockEconomy => ({ cap: 1, base, growth: 1 });
+
+/**
+ * Legendary blocks (chunk 20a): one copy, paid in credits AND Medals, by the Frontier ring that unlocks them (frontier/unlocks.ts).
+ * Credits are about 3-6 runs of income at the point the ring is reached (report of chunk 20a); change the prices here.
+ */
+export const LEGENDARY_PRICE_BY_RING: Readonly<Record<number, { credits: number; medals: number }>> = {
+  100: { credits: 50_000, medals: 15 },
+  200: { credits: 200_000, medals: 25 },
+  300: { credits: 800_000, medals: 40 },
+};
+const legendary = (ring: number): BlockEconomy => ({ cap: 1, base: LEGENDARY_PRICE_BY_RING[ring].credits, growth: 1, medals: LEGENDARY_PRICE_BY_RING[ring].medals });
 /** A stacking shape block: no cap, normal growth. */
 const stack = (base: number): BlockEconomy => ({ cap: null, base, growth: GROWTH_NORMAL });
 
@@ -97,7 +110,15 @@ export const BLOCK_ECONOMY: Readonly<Record<string, BlockEconomy>> = {
   frostbite: one(1600),
   corrosion: one(1600),
   static_charge: one(1000),
+  // Legendary (one copy, credits + Medals; the ring is the one that unlocks the block)
+  frontier_echo: legendary(100), payload: legendary(200), lone_shot: legendary(300),
+  last_breath: legendary(100), zigzag: legendary(200), heavy_round: legendary(300),
+  hollow_core: legendary(100), idle_barrels: legendary(200), waypoint: legendary(300),
+  rebound: legendary(100), mirror: legendary(200), fuse: legendary(300),
 };
+
+/** Medals a copy of the block costs on top of its credit price (0 for every ordinary block). */
+export const medalPriceOf = (id: string): number => BLOCK_ECONOMY[id]?.medals ?? 0;
 
 /** Ownership cap of a block (Infinity when it has none). Unknown ids (hidden blocks) have no cap. */
 export const capOf = (id: string): number => BLOCK_ECONOMY[id]?.cap ?? Infinity;

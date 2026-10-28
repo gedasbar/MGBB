@@ -16,7 +16,8 @@ import { makeText, Toast, UIButton } from '../builder/ui';
 import { getProgressStore, isFrontierUnlocked } from '../econ/progress';
 import { CreditsBadge, textButton, TextButton } from '../ui/hud';
 import { fmtBig } from '../ui/format';
-import { THEME } from '../ui/theme';
+import { CATEGORY_COLOR, THEME } from '../ui/theme';
+import { BLOCKS } from '../data/blocks';
 import type { StatsInfo } from '../ui/stats';
 import {
   FAR_ZOOM, FREEFLY_SQUARE_SECONDS, FRONTIER_NAME, MAP_UNLOCK_TIER, MEDAL_DOT_ZOOM, PROGRESS_COLOR, TILE_STYLE, TileStyle,
@@ -24,7 +25,7 @@ import {
 } from '../frontier/constants';
 import { frontierLevel, isSpikeSquare, squareKind, squareLevel } from '../frontier/level';
 import { tileLook } from '../frontier/look';
-import { blockName, UNLOCK_RINGS, UNLOCK_SECTORS, UNLOCKS, unlockOnSquare } from '../frontier/unlocks';
+import { blockName, UNLOCK_RINGS, UNLOCK_SECTORS, UNLOCKS, unlocksOnSquare } from '../frontier/unlocks';
 import { frontierSession, frontierJump, selectionAfterTap } from '../frontier/session';
 import {
   canPlay, frontierCounts, frontierSquare, medalShown, nearestMedalSquare, SquareState, squareState,
@@ -373,10 +374,11 @@ export class FrontierScreen implements Screen {
       this.spikeText.text = lv.spike ? (kind === 'freefly' ? 'SPIKE: every enemy has 1.6x HP' : 'SPIKE: every block has 1.6x HP') : '';
     }
     // A square on a threshold ring names its unlock (in place of the counts line).
-    const u = unlockOnSquare(x, y);
-    if (u) {
+    const us = unlocksOnSquare(x, y);
+    if (us.length) {
+      const u = us[0];
       const got = this.store.frontierReach[u.sector] >= u.ring;
-      this.countText.text = `Ring ${u.ring} ${SECTOR_NAME[u.sector]} unlocks ${blockName(u.blockId)}${got ? ' (reached)' : ''}`;
+      this.countText.text = `Ring ${u.ring} ${SECTOR_NAME[u.sector]} unlocks ${us.map(e => blockName(e.blockId)).join(' and ')}${got ? ' (reached)' : ''}`;
       this.countText.style.fill = PROGRESS_COLOR;
     } else this.countText.style.fill = THEME.textDim;
     this.stateText.style.fill = STATE_COLOR[st];
@@ -473,7 +475,7 @@ export class FrontierScreen implements Screen {
   }
 
   // ------------------------------------------------------------------ unlocks panel
-  /** Lists the 16 directional unlocks (direction, ring, block, reached) and the furthest ring in each direction. */
+  /** Lists the 28 directional unlocks (direction, ring, block, reached; the legendary blocks in their colour) and the furthest ring in each direction, four quadrants. */
   openUnlocks() {
     for (const ch of this.unlocksC.removeChildren()) ch.destroy({ children: true });
     const m = FRONTIER_MAP;
@@ -482,29 +484,31 @@ export class FrontierScreen implements Screen {
     this.unlocksC.addChild(g);
     const title = makeText('Unlocks', 22, THEME.text, { fontWeight: 'bold' });
     title.position.set(m.x + 24, m.y + 20);
-    const sub = makeText('Go far in a direction to unlock blocks there (placeholders for later legendary blocks). Tap to close.', 13, THEME.textDim, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: m.w - 48 });
+    const sub = makeText('Go far in a direction to unlock blocks there. The lime ones are legendary: Medals and credits. Tap to close.', 13, THEME.textDim, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: m.w - 48 });
     sub.position.set(m.x + 24, m.y + 52);
     this.unlocksC.addChild(title, sub);
-    let y = m.y + 92;
-    for (const sec of UNLOCK_SECTORS) {
-      const h = makeText(`${SECTOR_NAME[sec]}  ·  furthest ring ${fmtBig(reach[sec])}`, 16, THEME.text, { fontWeight: 'bold' });
-      h.position.set(m.x + 24, y);
+    const colW = (m.w - 40) / 2;
+    UNLOCK_SECTORS.forEach((sec, qi) => {
+      const x0 = m.x + 20 + (qi % 2) * colW;
+      let y = m.y + 92 + Math.floor(qi / 2) * 232;
+      const h = makeText(`${SECTOR_NAME[sec]}  ·  furthest ring ${fmtBig(reach[sec])}`, 15, THEME.text, { fontWeight: 'bold' });
+      h.position.set(x0 + 6, y);
       this.unlocksC.addChild(h);
       y += 26;
       for (const u of UNLOCKS.filter(e => e.sector === sec)) {
         const got = reach[sec] >= u.ring;
-        const row = makeText(`Ring ${u.ring}`, 15, got ? PROGRESS_COLOR : THEME.textDim, { fontWeight: 'bold' });
-        row.position.set(m.x + 40, y);
-        const name = makeText(blockName(u.blockId), 15, got ? THEME.text : THEME.textDim, { fontWeight: 'bold' });
-        name.position.set(m.x + 140, y);
-        const st = makeText(got ? 'Unlocked' : 'Locked', 15, got ? PROGRESS_COLOR : THEME.textDim, { fontWeight: 'bold' });
+        const legendary = BLOCKS[u.blockId]?.category === 'legendary';
+        const row = makeText(`Ring ${u.ring}`, 13, got ? PROGRESS_COLOR : THEME.textDim, { fontWeight: 'bold' });
+        row.position.set(x0 + 12, y);
+        const name = makeText(blockName(u.blockId), 13, legendary ? CATEGORY_COLOR.legendary : got ? THEME.text : THEME.textDim, { fontWeight: 'bold' });
+        name.position.set(x0 + 76, y);
+        const st = makeText(got ? 'Unlocked' : 'Locked', 13, got ? PROGRESS_COLOR : THEME.textDim, { fontWeight: 'bold' });
         st.anchor.set(1, 0);
-        st.position.set(m.x + m.w - 30, y);
+        st.position.set(x0 + colW - 8, y);
         this.unlocksC.addChild(row, name, st);
-        y += 24;
+        y += 22;
       }
-      y += 10;
-    }
+    });
     this.unlocksC.visible = true;
     this.unlocksOpen = true;
   }

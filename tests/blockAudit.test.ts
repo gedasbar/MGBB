@@ -63,7 +63,10 @@ describe('block audit: the picker only offers blocks that compile and change Fly
       'fork_impact', 'frostbite', 'gamblers_gate', 'gravity_well', 'homing', 'ignite', 'jackpot', 'lucky_strike', 'mine',
       'orbit', 'overclock', 'overkill_spill', 'percent_mult', 'piercing', 'pure_converter', 'random_curve', 'random_router',
       'residue_seed', 'shield_breaker', 'splitter_2', 'splitter_3', 'static_charge', 'turn_l', 'turn_r',
-    ]);
+      // Chunk 20a: the twelve legendary blocks
+      'frontier_echo', 'fuse', 'heavy_round', 'hollow_core', 'idle_barrels', 'last_breath', 'lone_shot', 'mirror', 'payload', 'rebound',
+      'waypoint', 'zigzag',
+    ].sort());
   });
 
   it('every hidden block has a stated reason, and none is a fixed cell offered for placement', () => {

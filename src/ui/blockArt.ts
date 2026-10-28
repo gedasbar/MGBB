@@ -416,6 +416,55 @@ export const GLYPHS: Record<string, Glyph> = {
       p.fill(p.rect(-0.16, -0.16, 0.16, 0.16));
     },
   },
+  // Legendary blocks (chunk 20a): flat geometric symbols.
+  frontier_echo: {
+    rotatesWithBlock: false,
+    draw: (p) => { for (const y of [-0.55, 0, 0.55]) p.line([[-0.8, y + 0.4], [0, y - 0.3], [0.8, y + 0.4]], 1.1); },
+  },
+  payload: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.fill(p.rect(-0.7, -0.25, 0.7, 0.85)); p.fill(p.rect(-0.3, -0.85, 0.3, -0.45)); },
+  },
+  lone_shot: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.outline(p.rect(-0.85, -0.85, 0.85, 0.85)); p.fill([[0, -0.4], [0.4, 0], [0, 0.4], [-0.4, 0]]); },
+  },
+  last_breath: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.outline([[-0.7, -0.85], [0.7, -0.85], [0, 0]]); p.fill([[-0.7, 0.85], [0.7, 0.85], [0, 0.2]]); },
+  },
+  zigzag: {
+    rotatesWithBlock: false,
+    draw: (p) => p.line([[-0.55, 0.9], [0.5, 0.3], [-0.5, -0.3], [0.55, -0.9]], 1.4),
+  },
+  heavy_round: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.fill([[-0.9, 0.85], [-0.55, -0.05], [0.55, -0.05], [0.9, 0.85]]); p.fill(p.rect(-0.3, -0.85, 0.3, -0.3)); },
+  },
+  hollow_core: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.outline(p.rect(-0.85, -0.85, 0.85, 0.85), 1.4); p.outline(p.rect(-0.3, -0.3, 0.3, 0.3)); },
+  },
+  idle_barrels: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.fill(p.rect(-0.85, -0.2, -0.45, 0.85)); p.outline(p.rect(-0.2, -0.2, 0.2, 0.85)); p.outline(p.rect(0.45, -0.2, 0.85, 0.85)); },
+  },
+  waypoint: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.outline([[0, -0.9], [0.75, 0], [0, 0.9], [-0.75, 0]], 1.3); p.fill(p.rect(-0.2, -0.2, 0.2, 0.2)); },
+  },
+  rebound: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.line([[-0.9, -0.7], [-0.1, 0.7], [0.55, -0.35]], 1.2); p.head(0.9, -0.95, 0.5, -0.87, 0.55, 0.4); },
+  },
+  mirror: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.line([[0, -0.9], [0, 0.9]], 0.9); p.fill([[-0.15, -0.7], [-0.15, 0.7], [-0.85, 0]]); p.outline([[0.15, -0.7], [0.15, 0.7], [0.85, 0]]); },
+  },
+  fuse: {
+    rotatesWithBlock: false,
+    draw: (p) => { p.line([[0, 0.9], [0, 0.05]], 1.3); p.fill([[0, -0.9], [0.45, -0.4], [0, 0.05], [-0.45, -0.4]]); },
+  },
 };
 
 /** Fallback glyph: a small centred square. */

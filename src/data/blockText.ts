@@ -12,6 +12,10 @@ import {
   overclockGain, OVERCLOCK_CAP, RESIDUE_TIME, STATIC_HITS,
 } from '../engine/effects';
 import { armorPierceMul, shieldBreakMul } from '../engine/projectiles';
+import {
+  FRONTIER_ECHO_SHARE, FUSE_MUL, FUSE_N, HEAVY_MUL_NORMAL, HEAVY_MUL_SLOWEST, HOLLOW_CORE_PER_CELL, IDLE_BARRELS_PER_EJECTOR, LAST_BREATH_MUL, loneShotMul,
+  PAYLOAD_ADD, REBOUND_MUL, WAYPOINT_PER_TURN, ZIGZAG_GAIN,
+} from '../engine/effects';
 
 /** Longest short line and longest stacking line, in characters (the info panel is 360 px wide on a phone; checked by tests/blockText.test.ts). */
 export const SHORT_MAX = 60;
@@ -65,6 +69,19 @@ const SHORT: Record<string, string | ((l: number) => string)> = {
   frostbite: (l) => `Slows targets ${pct(frostSlow(l))}%; frozen ones take +${pct(frostBonus(l))}% damage.`,
   corrosion: (l) => `Each hit strips 5% of armor, up to ${pct(corrosionCap(l))}%.`,
   static_charge: () => `Every ${STATIC_HITS}rd hit on a target adds a bonus pulse.`,
+  // Legendary (chunk 20a)
+  frontier_echo: () => `Adds ${pct(FRONTIER_ECHO_SHARE)}% of your furthest Frontier ring as damage.`,
+  payload: () => `Adds +${PAYLOAD_ADD} damage to every shot.`,
+  lone_shot: () => `Up to ×${loneShotMul(1)} damage when few of your shots are in the air.`,
+  last_breath: () => `×${LAST_BREATH_MUL} damage in the last second of a shot's life.`,
+  zigzag: () => `Shots weave left and right and gain +${pct(ZIGZAG_GAIN)}% damage per turn.`,
+  heavy_round: () => `Slower shots hit harder: ×${HEAVY_MUL_NORMAL} at normal speed, up to ×${HEAVY_MUL_SLOWEST}.`,
+  hollow_core: () => `+${pct(HOLLOW_CORE_PER_CELL)}% damage for every empty buildable cell of the hull.`,
+  idle_barrels: () => `+${IDLE_BARRELS_PER_EJECTOR} damage for every ejector no signal reaches.`,
+  waypoint: () => `×${WAYPOINT_PER_TURN} damage for every turn the signal made before.`,
+  rebound: () => `×${REBOUND_MUL} damage if the last shot through here was weaker.`,
+  mirror: () => 'Every shot gets a clone flying beside it.',
+  fuse: () => `Absorbs ${FUSE_N} shots, fires one with ×${FUSE_MUL} their total damage.`,
 };
 
 /** The stacking line of the blocks whose extra copies do something. */

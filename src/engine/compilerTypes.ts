@@ -46,7 +46,7 @@ export interface ChanceGate {
 }
 
 /** Damage operations, kept in path order so the order of blocks matters. */
-type DamageOp =
+export type DamageOp =
   | { t: 'add'; v: number }
   | { t: 'mul'; v: number }
   | { t: 'gate'; gate: ChanceGate }
@@ -57,11 +57,15 @@ type DamageOp =
   | { t: 'alt'; key: number; branch: number; of: number }
   // Random Router (chunk 11a): each pulse picks one of `of` outputs at random, or (with chance `both`) all of them.
   | { t: 'rnd'; key: number; branch: number; of: number; both: number }
-  | { t: 'delay'; sec: number };
+  | { t: 'delay'; sec: number }
+  // Legendary blocks (chunk 20a). Lone Shot: x(1 + (10 - n) / 9) from the shots alive when it leaves. Rebound: x`mul` when the shot
+  // before it through block `key` arrived with less damage. The expected-value replay treats both as x1.
+  | { t: 'lone' }
+  | { t: 'rebound'; key: number; mul: number };
 
 /** True when a packet's damage depends on state that changes from pulse to pulse (needs the Gun's evaluator). */
 export function isDynamic(p: Packet): boolean {
-  for (const op of p.ops) if (op.t === 'oc' || op.t === 'cap' || op.t === 'alt' || op.t === 'rnd' || op.t === 'delay') return true;
+  for (const op of p.ops) if (op.t === 'oc' || op.t === 'cap' || op.t === 'alt' || op.t === 'rnd' || op.t === 'delay' || op.t === 'lone' || op.t === 'rebound') return true;
   return false;
 }
 
@@ -94,13 +98,15 @@ export interface Packet {
   gates: ChanceGate[];
   ops: DamageOp[];
   tags: Set<string>;
+  /** Turn and curve blocks the signal has passed so far (Waypoint reads it). */
+  turns: number;
 }
 
 /** Damage of a packet as it leaves the generator, before any block. */
 export const GENERATOR_BASE_DAMAGE = 1;
 
 export function newPacket(base: number = GENERATOR_BASE_DAMAGE): Packet {
-  return { base, damage: base, pure: 0, count: 1, speedMul: 1, lifeMul: 1, sizeMul: 1, mods: [], gates: [], ops: [], tags: new Set() };
+  return { base, damage: base, pure: 0, count: 1, speedMul: 1, lifeMul: 1, sizeMul: 1, mods: [], gates: [], ops: [], tags: new Set(), turns: 0 };
 }
 
 export function addDamage(p: Packet, v: number) {
@@ -129,14 +135,24 @@ export function evalDamage(p: Packet, roll?: () => number): number {
     else if (op.t === 'mul') d *= op.v;
     else if (op.t === 'oc') d *= op.avg;
     else if (op.t === 'cap') d *= op.n * op.mul;
-    else if (op.t === 'alt' || op.t === 'rnd' || op.t === 'delay') continue;
+    else if (op.t === 'alt' || op.t === 'rnd' || op.t === 'delay' || op.t === 'lone' || op.t === 'rebound') continue;
     else if (roll) d = mulSafe(d, roll() < op.gate.prob ? op.gate.mult : op.gate.elseMult);
     else d = mulSafe(d, op.gate.prob * op.gate.mult + (1 - op.gate.prob) * op.gate.elseMult);
   }
   return d;
 }
 
-export type BlockCategory = 'pathing' | 'damage' | 'modifier' | 'status' | 'mitosis' | 'passive';
+export type BlockCategory = 'pathing' | 'damage' | 'modifier' | 'status' | 'mitosis' | 'legendary' | 'passive';
+
+/** What a compile knows about the whole hull and the player, for the blocks that read more than their own signal (legendary blocks). */
+export interface CompileContext {
+  /** Highest ring of a passed or cleared Frontier square in any direction (0 = none). */
+  furthestRing: number;
+  /** Buildable cells of the hull with no block on them. */
+  emptyCells: number;
+  /** Ejectors no signal reaches. */
+  idleEjectors: number;
+}
 
 export interface BlockDef {
   id: string;
@@ -148,8 +164,12 @@ export interface BlockDef {
   fixedLevel?: number;
   /** Relative directions the signal leaves through, applied after `transform`. */
   outputs: Rel[];
-  /** Mutates the (already cloned) packet. */
-  transform?: (packet: Packet, level: number) => void;
+  /** Mutates the (already cloned) packet. `ctx` is the hull-wide context (legendary blocks). */
+  transform?: (packet: Packet, level: number, ctx: CompileContext) => void;
+  /** A block with per-instance run state (Rebound): the op to append to the packet, given the block's cell index. */
+  keyedOp?: (key: number) => DamageOp;
+  /** A turn or curve block: counted in `packet.turns` for Waypoint. */
+  isTurn?: boolean;
   /** The outputs take turns (Alternator): each output's packet is tagged with its branch, one fires per pulse. */
   alternates?: boolean;
   /** Random Router: each pulse the packet takes one output at random; `both(level)` is the chance it takes all of them. */
@@ -189,5 +209,6 @@ export function clonePacket(p: Packet): Packet {
     gates: [...p.gates],
     ops: [...p.ops],
     tags: new Set(p.tags),
+    turns: p.turns,
   };
 }

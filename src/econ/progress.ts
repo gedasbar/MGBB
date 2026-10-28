@@ -3,13 +3,14 @@ import { applySquareRun, defaultFrontier, FrontierSave, sanitizeFrontier, Square
 import { parseKey, sqKey } from '../frontier/world';
 import { MAP_UNLOCK_TIER } from '../frontier/constants';
 import { EncounterOutcome } from '../frontier/encounter';
-import { blockName, gateOf, isBlockUnlocked, newlyReached, Reach, reachBySector, requirementText } from '../frontier/unlocks';
+import { blockName, furthestRing, gateOf, isBlockUnlocked, newlyReached, Reach, reachBySector, requirementText } from '../frontier/unlocks';
 import { CaptainsState, defaultCaptains, sanitizeCaptains, addCaptainKills, buyOption, activateOption, claimFlyMilestone, rollMedals, selectCaptain, unlockCaptain, upgradeHero, CaptainResult, MedalAward } from '../captains/state';
 import { modifiersFor, RunModifiers } from '../captains/modifiers';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
 import { LEGACY_MAX_LEVEL, migrateEconomyV8, refundNotice } from './migrate';
 import { HULL_BUILDERS } from '../game/gridUtils';
 import { STARTER_HULL } from '../data/hulls';
+import { medalPriceOf } from '../data/blockEconomy';
 import {
   atCopyCap, copyPrice, DEFAULT_OWNED, HULL_PRICE, maxLevelOf, upgradePrice,
 } from './economy';
@@ -310,8 +311,12 @@ export function buyCopy(p: Progress, id: string): BuyResult {
   if (lock) return { ok: false, error: lock };
   if (atCopyCap(id, p.owned[id])) return { ok: false, error: `Max copies of ${BLOCKS[id]?.name ?? id}` };
   const price = copyPrice(id, p.owned[id]);
+  const medals = medalPriceOf(id);
   if (p.credits < price) return { ok: false, error: 'Not enough credits' };
+  // Legendary blocks (chunk 20a) cost Medals on top of the credits; both are checked before either is taken.
+  if (p.medals < medals) return { ok: false, error: 'Not enough Medals' };
   p.credits -= price;
+  p.medals -= medals;
   p.owned[id]++;
   return { ok: true, price };
 }
@@ -428,7 +433,7 @@ export class ProgressStore {
   /** The selected captain's effects for a run that starts now. */
   runModifiers(): RunModifiers {
     const c = this.data.captains;
-    return modifiersFor(c.selected, c.heroes[c.selected]);
+    return { ...modifiersFor(c.selected, c.heroes[c.selected]), furthestRing: furthestRing(this.reach) };
   }
 
   /** Adds one finished run to the totals. Call exactly once per run. */

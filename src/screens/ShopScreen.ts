@@ -14,6 +14,7 @@ import { makeText, Toast, UIButton } from '../builder/ui';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
 import { blockText } from '../data/blockText';
 import { copyCap, copyPrice, maxLevelOf, upgradePrice } from '../econ/economy';
+import { medalPriceOf } from '../data/blockEconomy';
 import { TilePalette, PaletteSource, SheetButtonId } from '../builder/tilePalette';
 import { copyAffordable, paletteIds, sheetContent, SheetContent } from '../builder/paletteLogic';
 import { fmtBig } from '../ui/format';
@@ -145,7 +146,7 @@ export class ShopScreen implements Screen {
     const owned = p.owned[id] ?? 0;
     return sheetContent({
       id, name: BLOCKS[id].name, desc: blockText(BLOCKS[id], level).short, stack: blockText(BLOCKS[id], level).stack, owned, available: owned, level, maxLevel: maxLevelOf(id), cap: copyCap(id),
-      credits: p.credits, copyPrice: copyPrice(id, owned), upgradePrice: upgradePrice(id, level),
+      credits: p.credits, copyPrice: copyPrice(id, owned), medalPrice: medalPriceOf(id), medals: p.medals, upgradePrice: upgradePrice(id, level),
       lock: blockLockReason(p, id, this.store.frontierReach),
     });
   }
@@ -155,7 +156,7 @@ export class ShopScreen implements Screen {
     const p = this.store.data;
     const owned = p.owned[id] ?? 0;
     return copyAffordable({
-      credits: p.credits, copyPrice: copyPrice(id, owned), owned, cap: copyCap(id), locked: !!blockLockReason(p, id, this.store.frontierReach),
+      credits: p.credits, copyPrice: copyPrice(id, owned), medalPrice: medalPriceOf(id), medals: p.medals, owned, cap: copyCap(id), locked: !!blockLockReason(p, id, this.store.frontierReach),
     });
   }
 
@@ -187,7 +188,7 @@ export class ShopScreen implements Screen {
       if (c.lockText) { this.toast.show(`Locked: ${c.lockText} on the Frontier`); return; }
       if (!btn?.enabled) {
         const atCap = kind === 'buy' && (this.store.data.owned[id] ?? 0) >= copyCap(id);
-        this.toast.show(atCap ? `Max copies of ${BLOCKS[id].name}` : kind === 'upgrade' && (this.store.data.levels[id] ?? 1) >= maxLevelOf(id) ? 'Already at max level' : 'Not enough credits');
+        this.toast.show(atCap ? `Max copies of ${BLOCKS[id].name}` : kind === 'upgrade' && (this.store.data.levels[id] ?? 1) >= maxLevelOf(id) ? 'Already at max level' : this.store.data.credits >= copyPrice(id, this.store.data.owned[id] ?? 0) ? 'Not enough Medals' : 'Not enough credits');
         return;
       }
       if (kind === 'buy') {

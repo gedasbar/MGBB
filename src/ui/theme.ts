@@ -6,6 +6,7 @@ export const CATEGORY_COLOR: Record<string, number> = {
   modifier: 0xd27bff,
   status: 0x22d3b0,
   mitosis: 0xffd24d,
+  legendary: 0xa8e63d,
   passive: 0xb0b0b0,
 };
 
