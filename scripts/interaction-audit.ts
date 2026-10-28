@@ -41,7 +41,9 @@ const SIGNATURE: Record<string, ((f: EffectCounters) => number) | null> = {
   mirror: f => f.mirrorClones, fuse: f => f.fuseEmits,
   // Chunk 20b: the thirteen motion blocks. Blocks that only aim or change speed or lifetime have no event to count (null); their effect shows in the score.
   curving_left: null, angle_left: null, angle_right: null, accelerator: null, brake: null, scatter: null, extender: null, centreline: null, magnetized: null,
-  upturn: f => f.upturnTurns, align: f => f.aligns, persist: f => f.persistContinues, reverse: f => f.reverseFlips,
+  upturn: f => f.upturnTurns, align: f => f.aligns, persist: f => f.persistContinues,
+  // Chunk 21a: +1 Projectile adds a shot to the lane (no event; the score shows it, and the pairs with Mirror, Fuse and Lone Shot are the interesting ones).
+  plus_one: null,
 };
 let IDS = Object.keys(SIGNATURE);
 if (process.env.ONLY) IDS = process.env.ONLY.split(',');

@@ -10,6 +10,7 @@ import { inRect, VIEW_W } from '../builder/layout';
 import { makeText, Toast, UIButton } from '../builder/ui';
 import { getProgressStore, RunResult } from '../econ/progress';
 import { fmtBig } from '../ui/format';
+import { shotLines } from '../ui/runStats';
 import { textButton } from '../ui/hud';
 import { THEME } from '../ui/theme';
 
@@ -116,9 +117,23 @@ export class RunSummaryScreen implements Screen {
       }
     });
 
+    // Chunk 21a: the run's largest hit and its average damage per second, in one band under the rows.
+    const lines = shotLines(result.shots, result.time);
+    if (lines) {
+      const bandY = 550;
+      const band = new Graphics().rect(40, bandY, VIEW_W - 80, 34).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
+      const left = makeText(`Best shot ${lines.bestShot}`, 18, THEME.text, { fontWeight: 'bold' });
+      left.anchor.set(0.5);
+      left.position.set(40 + (VIEW_W - 80) / 4, bandY + 17);
+      const right = makeText(`Average DPS ${lines.avgDps}`, 18, THEME.text, { fontWeight: 'bold' });
+      right.anchor.set(0.5);
+      right.position.set(40 + ((VIEW_W - 80) * 3) / 4, bandY + 17);
+      this.container.addChild(band, left, right);
+    }
+
     const total = makeText(`Total credits: ${fmtBig(getProgressStore().data.credits)}`, 20, THEME.currency, { fontWeight: 'bold' });
     total.anchor.set(0.5);
-    total.position.set(VIEW_W / 2, 580);
+    total.position.set(VIEW_W / 2, 600);
     this.container.addChild(total);
 
     const medals = captain?.medals ?? (wall?.medal ? 1 : 0);
@@ -138,7 +153,7 @@ export class RunSummaryScreen implements Screen {
       const line = `${captain.name}: +${captain.killsAdded} kills (${captain.killsTotal} in all)${captain.note ? `   ${captain.note}` : ''}`;
       const c = makeText(line, 16, THEME.textDim, { fontWeight: 'bold' });
       c.anchor.set(0.5);
-      c.position.set(VIEW_W / 2, 612);
+      c.position.set(VIEW_W / 2, 624);
       this.container.addChild(c);
     }
 
@@ -166,7 +181,7 @@ export class RunSummaryScreen implements Screen {
     if (import.meta.env.DEV) {
       (window as any).__mgbm = {
         screen: 'summary',
-        state: () => ({ title: title.text, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
+        state: () => ({ title: title.text, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
       };
     }
   }

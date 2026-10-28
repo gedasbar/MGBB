@@ -35,6 +35,7 @@ const SHORT: Record<string, string | ((l: number) => string)> = {
   alternator: (l) => `Left and right take turns; shots do ×${alternatorMul(l).toFixed(1)} damage.`,
   random_router: 'Sends each shot left, right or both, at random.',
   delay_line: (l) => `Holds each shot back for ${delaySeconds(l).toFixed(1)} s.`,
+  plus_one: 'Adds a new shot with base damage to the lane.',
   flat_plus: (l) => `Adds +${flatPlusAdd(l)} damage to every shot.`,
   percent_mult: (l) => `Multiplies shot damage by ×${Math.round(percentMul(l) * 100) / 100}.`,
   lucky_strike: (l) => `${pct(luckyProb(l))}% chance to double a shot's damage.`,
@@ -68,13 +69,12 @@ const SHORT: Record<string, string | ((l: number) => string)> = {
   accelerator: 'Shots fly 1.5 times as fast.',
   brake: 'Shots fly at 0.7 speed, never under 0.2.',
   scatter: 'Each shot leaves at a random angle, ±30°.',
-  upturn: 'After 0.4 s the shot turns back to straight up.',
+  upturn: 'After 0.4 s the shot turns straight up and stays there.',
   align: 'After a hit it survives, the shot flies straight up.',
   extender: 'Shots live twice as long.',
   centreline: 'Shots are pulled toward the line they were fired on.',
   magnetized: 'Shots are pulled toward your ship and swarm.',
   persist: 'The shot goes on through kills while damage is left.',
-  reverse: 'On a hit the shot flips and flies back.',
   homing: 'Shots steer toward the nearest enemy ahead.',
   fork_impact: 'The first hit splits off two weaker shots.',
   armor_piercer: (l) => `×${armorPierceMul(l)} damage to armored enemies.`,
@@ -99,6 +99,7 @@ const SHORT: Record<string, string | ((l: number) => string)> = {
 
 /** The stacking line of the blocks whose extra copies do something. */
 const STACK: Record<string, string> = {
+  plus_one: '+1 copy: one more shot',
   piercing: '+1 copy: one more target',
   bouncing: '+1 copy: one more bounce',
   aoe_circle: AOE_STACK,
@@ -109,16 +110,18 @@ const STACK: Record<string, string> = {
   boomerang: '+1 copy: longer range',
   orbit: '+1 copy: one more circle',
   mine: '+1 copy: bigger mine, one more mine',
+  curving_right: '+1 copy: curves harder',
+  curving_left: '+1 copy: curves harder',
+  random_curve: '+1 copy: weaves harder',
   angle_left: '+1 copy: 15° more',
   angle_right: '+1 copy: 15° more',
   accelerator: '+1 copy: 1.5 times faster',
   brake: '+1 copy: slower again, down to 0.2',
   scatter: '+1 copy: ±15° wider',
-  upturn: '+1 copy: turns back faster',
+  upturn: '+1 copy: starts sooner, turns faster',
   extender: '+1 copy: lives twice as long',
   centreline: '+1 copy: pulls harder',
   magnetized: '+1 copy: pulls harder',
-  reverse: '+1 copy: flips once more',
 };
 
 /** First sentence of the technical text, for a block without an entry (hidden blocks). */

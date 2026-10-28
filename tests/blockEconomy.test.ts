@@ -95,7 +95,7 @@ describe('copy caps and prices (step 4)', () => {
       percent_mult: 10, flat_plus: 10, lucky_strike: 6, jackpot: 6, gamblers_gate: 4, overclock: 3, turn_l: 20, turn_r: 20, splitter_2: 15,
       splitter_3: 15, alternator: 1, random_router: 1, capacitor: 1,
       ignite: 1, frostbite: 1, corrosion: 1, static_charge: 1, fission_catalyst: 1, cauterize: 1, cleaver: 1, culling_bolt: 1, residue_seed: 1, overkill_spill: 1,
-      curving_right: 1, random_curve: 1,
+      curving_right: 4, random_curve: 4, curving_left: 4, plus_one: 10,
     };
     for (const [id, cap] of Object.entries(caps)) expect(capOf(id), id).toBe(cap);
     // the shape blocks that stack have no cap
@@ -143,7 +143,8 @@ describe('copy caps and prices (step 4)', () => {
     expect(upgradePrice('percent_mult', 3)).toBe(968);
   });
   it('single-copy blocks cost twice their old base; the owner\'s expensive-from-the-start blocks cost at least that', () => {
-    for (const id of ['residue_seed', 'overkill_spill', 'aoe_circle', 'chain_lightning', 'homing', 'fork_impact', 'splitter_3']) expect(BASE_PRICE[id], id).toBeGreaterThanOrEqual(2 * LEGACY_BASE_PRICE[id]);
+    // (Residue Seed, Overkill Spill, Chain Lightning and the other tier-locked blocks were repriced in 21a: tests/chunk21a.test.ts.)
+    for (const id of ['aoe_circle', 'homing', 'fork_impact', 'splitter_3']) expect(BASE_PRICE[id], id).toBeGreaterThanOrEqual(2 * LEGACY_BASE_PRICE[id]);
     expect(BASE_PRICE.ignite).toBe(2 * LEGACY_BASE_PRICE.ignite);
   });
 });
@@ -371,9 +372,8 @@ describe('shape blocks stack (step 5)', () => {
     expect(0.3 / harmonic(2)).toBeCloseTo(0.2, 12);
   });
 
-  it('copies that cannot stack are capped at one in the table (Curving Right, Random Curve: their turn rates add, the shot would circle)', () => {
-    expect(capOf('curving_right')).toBe(1);
-    expect(capOf('random_curve')).toBe(1);
+  it('the curve blocks stack to 4 copies since 21a (each copy adds rate and total angle)', () => {
+    for (const id of ['curving_right', 'curving_left', 'random_curve']) expect(capOf(id), id).toBe(4);
   });
 });
 
@@ -487,8 +487,8 @@ describe('save version 8: upgrades and copies over the caps are refunded (step 8
   it('refunds levels of blocks that lost them at the OLD upgrade price and sets them to level 1', () => {
     const raw = { version: 7, credits: 1000, owned: { piercing: 2, homing: 1, flat_plus: 3, percent_mult: 2 }, levels: { piercing: 5, homing: 3, flat_plus: 4, percent_mult: 7 } };
     const p = loadProgress(JSON.stringify(raw));
-    expect(p.version).toBe(9);
-    expect(PROGRESS_VERSION).toBe(9);
+    expect(p.version).toBe(10);
+    expect(PROGRESS_VERSION).toBe(10);
     expect(p.levels.piercing).toBe(1);
     expect(p.levels.homing).toBe(1);
     expect(p.levels.flat_plus).toBe(4); // keeps upgrades
@@ -519,7 +519,7 @@ describe('save version 8: upgrades and copies over the caps are refunded (step 8
     expect(store.takeNotice()).toBeNull();
     const again = new ProgressStore(st);
     expect(again.data.credits).toBe(credits); // not refunded a second time
-    expect(again.data.version).toBe(9);
+    expect(again.data.version).toBe(10);
     expect(again.data.notice).toBeUndefined();
     const raw = { ...JSON.parse(serializeProgress(defaultProgress())), owned: { turn_l: 99 }, levels: { piercing: 1 } };
     expect(loadProgress(JSON.stringify(raw)).owned.turn_l).toBe(99); // v8 data is trusted (the cheat panel may exceed caps)

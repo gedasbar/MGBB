@@ -3,7 +3,9 @@ import { Grid } from '../engine/compiler';
 import { clientToGame } from '../input';
 import { makeText } from '../builder/ui';
 import { debugHooks } from '../debug/hooks';
-import { getProgressStore } from '../econ/progress';
+import { getProgressStore, RunResult } from '../econ/progress';
+import { shotLookFor, SHOT_LOOKS } from '../ui/shotLook';
+import { ShotTextures, shotTextures } from '../ui/shotTextures';
 import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { TOUCH_OFFSET_Y } from '../game/world';
@@ -27,7 +29,7 @@ import type { StatsInfo } from '../ui/stats';
 import { drawFieldFx } from '../ui/fieldFx';
 import { sfx } from '../audio';
 import { SfxFeed } from '../audio/feed';
-import { ARC_MAX, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_TRAVEL, PHASE_MINE_WAIT, PHASE_ORBIT } from '../engine/projectiles';
+import { ARC_MAX, PHASE_NORMAL, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_TRAVEL, PHASE_MINE_WAIT, PHASE_ORBIT } from '../engine/projectiles';
 
 const POPUPS = 40;
 const POPUP_LIFE = 0.6;
@@ -100,6 +102,7 @@ export class WallScreen implements Screen {
   private hudBox = new Container();
   private views: BlockView[] = [];
   private projSprites: Sprite[] = [];
+  private shotTex!: ShotTextures;
   private popups: Popup[] = [];
   private progressBg = new Graphics().rect(VIEW_W - 8, 20, 4, VIEW_H - 40).fill(THEME.border);
   private progressFg = new Graphics();
@@ -174,6 +177,7 @@ export class WallScreen implements Screen {
       this.views.push(v);
     }
 
+    this.shotTex = shotTextures(this.sm.app);
     for (let i = 0; i < this.world.pool.max; i++) {
       const s = new Sprite(Texture.WHITE);
       s.width = 6;
@@ -429,8 +433,12 @@ export class WallScreen implements Screen {
           s.tint = MINE_COLOR;
           s.rotation = Math.PI / 4;
         } else {
-          s.width = 6 * pool.size[i];
-          s.height = 14 * pool.size[i];
+          // Chunk 21a: a shot in plain flight is drawn by its damage band (ui/shotLook.ts); Orbit, Boomerang and Mine shots keep the plain bar.
+          const look = ph === PHASE_NORMAL ? shotLookFor(pool.damage[i]) : SHOT_LOOKS[0];
+          const tex = look.bolt ? this.shotTex.bolt : this.shotTex.bar;
+          if (s.texture !== tex) s.texture = tex;
+          s.width = look.w * pool.size[i];
+          s.height = look.h * pool.size[i];
           s.tint = ph === PHASE_ORBIT || ph === PHASE_BOOM_OUT || ph === PHASE_BOOM_BACK ? LOOP_COLOR : ph === PHASE_MINE_TRAVEL ? MINE_COLOR : 0x00ffff;
           s.rotation = Math.atan2(pool.vy[i], pool.vx[i]) + Math.PI / 2;
         }
@@ -464,7 +472,7 @@ export class WallScreen implements Screen {
     const store = getProgressStore();
     w.bank(store);
     this.banker.flush(w.destroyed);
-    const result = { credits: w.credits, kills: w.destroyed, time: w.time, tier: w.tier };
+    const result: RunResult = { credits: w.credits, kills: w.destroyed, time: w.time, tier: w.tier, shots: { ...w.projSys.runStats } };
     const marks = { newBestTier: false, newBestTime: false, newBestEarnings: w.newBestEarnings };
     const level = this.levelDef;
     const grid = this.grid;

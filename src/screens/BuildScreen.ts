@@ -23,6 +23,7 @@ import {
 } from '../builder/draw';
 import { InfoPanel, Inspector, makeText, StatsStrip, Toast, UIButton } from '../builder/ui';
 import { Picker, REMOVE_TILE } from '../builder/picker';
+import { BUILD_KEY_HELP, BuildKeyAction, keyAction } from '../builder/keys';
 import { THEME } from '../ui/theme';
 import { CreditsBadge } from '../ui/hud';
 import { makeTabButtons } from '../builder/tabs';
@@ -46,7 +47,8 @@ const HELP_TEXT =
   'Tap a cell to select and inspect it; tap it again to open the block picker. Tap a tile to preview it, tap it again to place it.\n\n' +
   'The red line is automatic: it leaves the generator and runs straight until a block changes it, ending at an ejector. ' +
   'A block you place turns to face the line that reaches it, once, and keeps that facing. Rotate turns the selected block; Auto-orient turns just that block to face the line again.\n\n' +
-  'Drag to pan, pinch or use the wheel to zoom, and use the corner-arrows button to fit the hull.';
+  'Drag to pan, pinch or use the wheel to zoom, and use the corner-arrows button to fit the hull.' +
+  '\n\nKeyboard:\n' + BUILD_KEY_HELP.join('\n');
 
 /**
  * The circuit builder. All state lives in BuilderModel; this screen only renders it and turns
@@ -124,7 +126,14 @@ export class BuildScreen implements Screen {
     this.gestures.attach();
     const offModel = this.model.onChange(() => this.refresh());
     const offStore = this.model.store.onChange(() => this.credits.set(this.model.store.data.credits));
-    this.unsubscribe = () => { offModel(); offStore(); };
+    // Keyboard shortcuts (chunk 21a, builder/keys.ts); a sheet or the help panel being open lets only Escape through.
+    const onKey = (e: KeyboardEvent) => {
+      const a = keyAction({ key: e.key, ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey, altKey: e.altKey, repeat: e.repeat, target: e.target as HTMLElement | null });
+      if (!a) return;
+      if (this.keyAction(a)) e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    this.unsubscribe = () => { offModel(); offStore(); window.removeEventListener('keydown', onKey); };
     // One-time messages: the economy refund of a migrated save, and blocks taken off a circuit that used more than is owned.
     const note = this.model.store.takeNotice();
     if (this.model.trimmed > 0) {
@@ -630,6 +639,27 @@ export class BuildScreen implements Screen {
 
   private clearAll() {
     this.report(this.model.clearAll() as any);
+  }
+
+  /** Carries out a keyboard action; true when it did something (the key press is then consumed). */
+  keyAction(a: BuildKeyAction): boolean {
+    if (a === 'escape') {
+      if (this.hullPicker.isOpen) { this.hullPicker.close(); return true; }
+      if (this.info.isOpen) { this.info.hide(); return true; }
+      if (this.picker.isOpen) { this.closePicker(); return true; }
+      if (this.selected) { this.selected = null; this.refresh(); return true; }
+      return false;
+    }
+    if (this.picker.isOpen || this.info.isOpen || this.hullPicker.isOpen) return false; // the sheet is up: touch rules apply
+    switch (a) {
+      case 'rotateRight': if (!this.selectedBlockCell()) return false; this.rotate(1); return true;
+      case 'rotateLeft': if (!this.selectedBlockCell()) return false; this.rotate(-1); return true;
+      case 'delete': if (!this.selectedBlockCell()) return false; this.clearCell(); return true;
+      case 'autoOrient': if (!this.selectedBlockCell()) return false; this.autoOrient(); return true;
+      case 'undo': this.undo(); return true;
+      case 'redo': this.redo(); return true;
+      case 'fly': this.fly(); return true;
+    }
   }
 
   private undo() { this.model.undo(); }

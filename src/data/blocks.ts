@@ -1,4 +1,4 @@
-import { aoeCircleRadius, randomCurveMaxDeg, shieldBreakMul, armorPierceMul, forkDamageFrac, CURVE_RATE_DEG, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG } from '../engine/projectiles';
+import { aoeCircleRadius, shieldBreakMul, armorPierceMul, forkDamageFrac, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG } from '../engine/projectiles';
 import { FIXED_LEVEL, UPGRADABLE } from './blockEconomy';
 import { PROJECTILE_MAX_AGE } from '../wall/constants';
 import { addDamage, BlockCategory, BlockDef, gateDamage, Modifier, mulDamage, Packet, Rarity, Rel } from '../engine/compilerTypes';
@@ -9,9 +9,9 @@ import {
   bounceCount, flatPlusAdd, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct, fissionCooldown, residueFrac,
   frontierEchoAdd, PAYLOAD_ADD, loneShotMul, LONE_SHOT_FULL, LAST_BREATH_MUL, LAST_BREATH_WINDOW, ZIGZAG_ANGLE_DEG, ZIGZAG_PERIOD, ZIGZAG_GAIN,
   HEAVY_MUL_NORMAL, HEAVY_MUL_SLOWEST, HEAVY_SLOW_SPEED, HOLLOW_CORE_PER_CELL, hollowCoreMul, IDLE_BARRELS_PER_EJECTOR, idleBarrelsAdd, WAYPOINT_PER_TURN,
-  waypointMul, REBOUND_MUL, FUSE_N, FUSE_MUL, FRONTIER_ECHO_SHARE,
+  waypointMul, REBOUND_MUL, FUSE_N, FUSE_MUL, FRONTIER_ECHO_SHARE, LANE_GAP,
   ACCELERATOR_MUL, angleAfter, ANGLE_MAX_DEG, ANGLE_STEP_DEG, BRAKE_FLOOR, BRAKE_MUL, CENTRE_ACCEL, clampSpeedMul, EXTENDER_MUL, harmonic, MAGNET_ACCEL,
-  MAX_SPEED_MUL, scatterAfter, SCATTER_BASE_DEG, SCATTER_MAX_DEG, SCATTER_STEP_DEG, UPTURN_DELAY, UPTURN_RATE_DEG,
+  MAX_SPEED_MUL, scatterAfter, SCATTER_BASE_DEG, SCATTER_MAX_DEG, SCATTER_STEP_DEG, UPTURN_DELAY, UPTURN_RATE_DEG, curveRateDeg, curveTotalDeg, randomCurveRateDeg, upturnDelay,
   CHAIN_ARCS_PER_SHOT, MINE_EXTRA_MAX, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, routerBoth, SPILL_CHAIN_DEPTH, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac, WELL_RADIUS, WELL_TIME, wellPull,
 } from '../engine/effects';
 
@@ -165,6 +165,11 @@ register({
   shown: true,
 });
 register({
+  id: 'plus_one', name: '+1 Projectile', category: 'damage', outputs: FWD, ...rare('epic'),
+  desc: `Adds one new shot to this lane. The new shot has base power: the damage that leaves the generator, none of the blocks before this one. Every block after it works on both shots. Each copy adds one more shot; the shots of a lane leave side by side (${LANE_GAP} px apart). Put it early.`,
+  addsShot: true,
+});
+register({
   id: 'percent_mult', name: 'Percent ×', category: 'damage', maxLevel: 10, outputs: FWD,
   desc: (l) => `Multiplies projectile damage by ×${Math.round(percentMul(l) * 100) / 100}.`,
   transform: (p, l) => { mulDamage(p, percentMul(l)); },
@@ -257,6 +262,8 @@ export const MORE: Record<string, string> = {
   fork: 'Each extra copy: one more pair of copies (each pair 20% weaker).',
   boomerang: 'Each extra copy: longer range.',
   orbit: 'Each extra copy: one more full pass round the ship.',
+  curve: `Each extra copy: +${curveRateDeg(1)}° per second and +${curveTotalDeg(1)}° in all (4 copies: ${curveRateDeg(4)}° per second, ${curveTotalDeg(4)}° in all). Left and Right copies cancel.`,
+  randomCurve: `Each extra copy: the weave turns up to +${randomCurveRateDeg(1)}° per second more (4 copies: ${randomCurveRateDeg(4)}°).`,
   mine: `Each extra copy: a bigger mine, and one more mine beside it (up to ${MINE_EXTRA_MAX} extra).`,
 };
 
@@ -293,11 +300,11 @@ newMod('gravity_well', 'Gravity Well', 'modifier', 'rare', 'gravity_well',
   (l) => `On the first impact of a shot, pulls rocks within ${WELL_RADIUS} px toward the impact point at ${wellPull(l)} px/s for ${WELL_TIME} s. Free Fly rocks only.`);
 
 levelMod('curving_right', 'Curving Right', 3, { type: 'curve', dir: 'right' },
-  (l) => `After launch, projectiles turn clockwise at ${CURVE_RATE_DEG * l}° per second.`);
+  () => `After launch, projectiles turn clockwise at ${curveRateDeg(1)}° per second, up to ${curveTotalDeg(1)}° in all. ${MORE.curve}`);
 levelMod('curving_left', 'Curving Left', 3, { type: 'curve', dir: 'left' },
-  (l) => `After launch, projectiles turn anticlockwise at ${CURVE_RATE_DEG * l}° per second. Mirror of Curving Right.`);
+  () => `After launch, projectiles turn anticlockwise at ${curveRateDeg(1)}° per second, up to ${curveTotalDeg(1)}° in all. Mirror of Curving Right. ${MORE.curve}`);
 levelMod('random_curve', 'Random Curve', 3, { type: 'random_curve' },
-  (l) => `Projectiles weave on smooth random steering, turning at most ${randomCurveMaxDeg(l)}° per second.`);
+  () => `Projectiles weave on smooth random steering, turning at most ${randomCurveRateDeg(1)}° per second. ${MORE.randomCurve}`);
 levelMod('homing', 'Homing', 5, { type: 'homing' },
   (l) => `Projectiles steer at ${HOMING_RATE_DEG * l}° per second toward the nearest enemy within ${HOMING_RANGE} px and a ${HOMING_CONE_DEG}° cone ahead (one copy is short-sighted). With no target they fly straight. ${MORE.homing}`);
 levelMod('aoe_rect', 'AoE - Rectangle', 5, { type: 'aoe_rect' },
@@ -332,9 +339,9 @@ motion('scatter', 'Scatter', 'uncommon',
   `Every shot leaves at a random straight angle within ±${deg(SCATTER_BASE_DEG)} of its line. Each extra copy widens it by ${deg(SCATTER_STEP_DEG)}, up to ±${deg(SCATTER_MAX_DEG)}. Adds to Angle blocks (they set the middle of the cone).`,
   (p) => { p.scatter = scatterAfter(p.scatter); });
 motion('upturn', 'Upturn', 'uncommon',
-  `After ${UPTURN_DELAY} s of flight the shot turns back to straight up at ${UPTURN_RATE_DEG}° per second: it cancels drift from angles, curves and bounces. Extra copies turn faster (${Math.round(harmonic(2) * 100) / 100}× with two, ${Math.round(harmonic(3) * 100) / 100}× with three).`);
+  `After ${UPTURN_DELAY} s of flight the shot turns back to straight up at ${UPTURN_RATE_DEG}° per second and stays straight: from then on Curving, Random Curve, Homing, Centreline, Ship Magnet and Zigzag no longer steer it. Orbit before launch, a waiting Mine and a Boomerang's way back are not affected. Extra copies start sooner (${upturnDelay(2).toFixed(2)} s with two, ${upturnDelay(3).toFixed(2)} s with three) and turn faster (${Math.round(harmonic(2) * 100) / 100}×, ${Math.round(harmonic(3) * 100) / 100}×).`);
 motion('align', 'Align', 'rare',
-  'After every hit it survives (a pass, a bounce or a Persist continue) the shot snaps back to straight up. It does not undo a Reverse flip.');
+  'After every hit it survives (a pass, a bounce or a Persist continue) the shot snaps back to straight up.');
 motion('extender', 'Extender', 'uncommon',
   `Shot lifetime ×${EXTENDER_MUL} per copy (3 s, 6 s, 12 s). Last Breath's window moves with it. Worth most with blocks that keep a shot in the air.`,
   (p) => { p.lifeMul *= EXTENDER_MUL; });
@@ -344,8 +351,6 @@ motion('magnetized', 'Ship Magnet', 'rare',
   `Shots are pulled toward the ship's CURRENT position (${MAGNET_ACCEL} px/s²) and swarm around it. Extra copies pull harder. A shot still ends at its lifetime (3 s; an Extender lengthens it).`);
 motion('persist', 'Persist', 'epic',
   'The shot keeps going through targets while it has damage left: each kill spends what that target had left (shield, armor and HP), and the shot ends at 0. A target it cannot kill ends it. Blasts, chains and forks spend nothing.');
-motion('reverse', 'Reverse', 'rare',
-  'On a hit the shot survives and flips its direction of travel, once per copy; then it behaves normally. Triggers on that hit fire as usual. A Boomerang returns at once.');
 
 // ---------------------------------------------------------------- Status & elemental
 newMod('ignite', 'Ignite', 'status', 'uncommon', 'ignite',
@@ -450,7 +455,7 @@ export const MOD_LABEL: Record<string, string> = {
   waypoint: 'Waypoint', rebound: 'Rebound', mirror: 'Mirror', fuse: 'Fuse',
   // Chunk 20b
   angle_left: 'Angle Left', angle_right: 'Angle Right', accelerator: 'Accelerator', brake: 'Brake', scatter: 'Scatter', upturn: 'Upturn', align: 'Align',
-  extender: 'Extender', centreline: 'Centreline', magnetized: 'Ship Magnet', persist: 'Persist', reverse: 'Reverse',
+  extender: 'Extender', centreline: 'Centreline', magnetized: 'Ship Magnet', persist: 'Persist',
 };
 
 for (const id of ['turn_l', 'turn_r', 'curving_right', 'curving_left', 'random_curve']) BLOCKS[id].isTurn = true;

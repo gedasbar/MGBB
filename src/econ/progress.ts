@@ -8,7 +8,7 @@ import { blockName, furthestRing, gateOf, isBlockUnlocked, newlyReached, Reach, 
 import { CaptainsState, defaultCaptains, sanitizeCaptains, addCaptainKills, buyOption, activateOption, claimFlyMilestone, rollMedals, selectCaptain, unlockCaptain, upgradeHero, CaptainResult, MedalAward } from '../captains/state';
 import { modifiersFor, RunModifiers } from '../captains/modifiers';
 import { BLOCKS, pickerBlocks } from '../data/blocks';
-import { LEGACY_MAX_LEVEL, migrateEconomyV8, refundNotice } from './migrate';
+import { LEGACY_MAX_LEVEL, migrateEconomyV8, migrateRemovedBlocks, refundNotice } from './migrate';
 import { HULL_BUILDERS } from '../game/gridUtils';
 import { STARTER_HULL } from '../data/hulls';
 import { medalPriceOf } from '../data/blockEconomy';
@@ -18,12 +18,12 @@ import {
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 9;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 10;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 9;
+  version: 10;
   /** A one-time message for the next screen that can show it (the economy refund of the version 8 migration); cleared when taken. */
   notice?: string;
   credits: number;
@@ -68,7 +68,7 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 9, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    version: 10, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, wallBestCredits: {}, squareBestCredits: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
     frontier: defaultFrontier(),
   };
@@ -157,6 +157,12 @@ export function sanitizeProgress(raw: unknown): Progress {
     const note = refundNotice(refund);
     if (note) out.notice = note;
   } else if (typeof r.notice === 'string' && r.notice.length < 400) out.notice = r.notice;
+  // Saves older than v10 (chunk 21a): copies of blocks taken out of the game are refunded (the block itself is not in `out.owned`, so it is gone).
+  if (!(typeof r.version === 'number' && r.version >= 10) && r.owned && typeof r.owned === 'object') {
+    const removed = migrateRemovedBlocks(r.owned as Record<string, unknown>);
+    out.credits += removed.credits;
+    if (removed.notice) out.notice = out.notice ? `${out.notice} ${removed.notice}` : removed.notice;
+  }
   const hulls = Array.isArray(r.ownedHulls) ? r.ownedHulls.filter((h: unknown) => typeof h === 'string' && h in HULL_BUILDERS) : [];
   // Every save owns the Dart; hulls it already owned (the Shuttle of old saves, a bought Fan) are kept.
   // Saves older than v4 owned the Shuttle for free; it stays owned (a save with no usable hull list is just garbage).
@@ -348,7 +354,7 @@ export function buyHull(p: Progress, id: string): BuyResult {
   return { ok: true, price };
 }
 
-export interface RunResult { credits: number; kills: number; time: number; tier: number; /** Free Fly wave reached. */ wave?: number }
+export interface RunResult { credits: number; kills: number; time: number; tier: number; /** Free Fly wave reached. */ wave?: number; /** Chunk 21a: the run's largest hit and total damage (shown on the summary, never saved). */ shots?: { bestShot: number; totalDamage: number } }
 
 /** The progress object plus its storage. Every change goes through `commit()`, which saves and notifies. */
 export class ProgressStore {

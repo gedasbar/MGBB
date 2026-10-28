@@ -380,8 +380,8 @@ describe('legendary blocks: two prices', () => {
 });
 
 describe('legendary blocks: saves', () => {
-  it('the save version stays 9; a v9 save without legendaries loads unchanged and the new blocks start at 0 copies', () => {
-    expect(PROGRESS_VERSION).toBe(9);
+  it('the save version is 10 now (21a); a v9 save without legendaries loads unchanged and the new blocks start at 0 copies', () => {
+    expect(PROGRESS_VERSION).toBe(10);
     const old = {
       version: 9, credits: 12345, medals: 7, owned: { chain_lightning: 1, flat_plus: 3 }, levels: { flat_plus: 4 }, ownedHulls: ['dart', 'twin'],
       frontier: { seed: 5, sq: { [sqKey(0, -120)]: 2 } },

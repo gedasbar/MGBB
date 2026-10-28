@@ -122,7 +122,6 @@ Design and numbers: `docs/motion-blocks.md`. Three new rows in `TRIGGERS` (`src/
 
 **What happens to a shot on a hit** (first match wins; every triggered effect of section 3 and 5 still fires first, on the hit that flips or continues the shot):
 
-1. **Reverse** (a flip is left, and the shot is in plain flight or on a Boomerang's way out): the shot survives, its velocity is negated (a Boomerang's outward leg becomes its way back at once), it skips the target it hit. It uses no pierce, bounce or damage.
 2. **Persist** (the target was killed with damage to spare): the shot goes on with the damage it did not need (`damageToKill`, in the units the damage code counts: shield, armor, HP).
 3. **Piercing**: a free pass while passes are left (section 5).
 4. **Bouncing**: a bounce while bounces are left.
@@ -135,3 +134,22 @@ After 2, 3 or 4, **Align** snaps the heading straight up.
 - Reverse + Align: the flip is not undone by Align; the next pass, bounce or persist after the flip snaps it up.
 - Reverse + Boomerang: the first hit turns the boomerang back. Reverse + Orbit / Mine: nothing (those phases own the velocity and a mine must detonate); no flip is used up.
 - Fast shots (Accelerator) are checked along the whole path they flew in a step (`ProjectileSystem.sweep`), so AoE, bounce and fork happen where the shot actually touched the target.
+
+## 8. Chunk 21a: +1 Projectile, Reverse removed, stacking curves, Upturn
+
+**Reverse is gone** (section 7's Reverse row and step 1 no longer apply; the hit order is Persist, Piercing, Bouncing, end; Align still snaps up after a pass, a bounce or a Persist continue).
+
+**+1 Projectile** is a compile-time block (no trigger): it makes the lane's shot count, not a hit effect. A shot it makes has no modifier from before the block. So Fork copies, Chain arcs and Mirror clones are unchanged: they are made from a shot, and an extra shot of a lane is a shot like any other (it can be mirrored, it can fork). Fuse / Capacitor / Overclock / Rebound keep one state per recipe, so each shot of a lane has its own. Lone Shot counts the lane's earlier shots as alive.
+
+**The steering table** (`ProjectileSystem.steer`; first match wins per step, only for a shot in plain flight):
+
+| order | who steers | rule |
+|---|---|---|
+| 0 | Orbit before launch, a waiting Mine, a Boomerang's way back | own the velocity; nothing below runs (unchanged) |
+| 1 | **Upturn**, once the shot is older than its delay (0.4 s, x0.75 per extra copy) | turns toward straight up at 120 degrees a second x harmonic(copies) and **nothing below runs**: the shot stays straight |
+| 2 | Zigzag | launch angle, then a turn of 2 x 25 degrees every 0.2 s |
+| 3 | Curving Left / Right, Random Curve | net copies of Right minus Left set the rate (30 degrees a second per copy) and the total angle (45 degrees per copy, `pool.curved`); Random Curve adds its weave (30 x copies) |
+| 4 | Homing | turns toward the nearest target in its cone |
+| 5 | Centreline, Ship Magnet | add an acceleration; the speed is capped at the launch speed |
+
+Before Upturn's delay everything in rows 2-5 works as before, so Upturn is how a build with Homing or a magnet gives the shot a straight finish. Hits still act on an Upturn shot (a bounce reflects it, Align snaps it up); Upturn turns it back up on the next step.

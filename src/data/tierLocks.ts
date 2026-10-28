@@ -13,7 +13,7 @@ import type { Sector } from '../frontier/world';
 /** THE TABLE TO EDIT: block id -> the campaign tier to pass. */
 export const TIER_LOCKS: Readonly<Record<string, number>> = {
   // New motion blocks (chunk 20b). Curving Left, Angle Left and Angle Right are free from the start (not listed).
-  accelerator: 5, brake: 15, scatter: 15, upturn: 20, align: 25, extender: 30, centreline: 40, magnetized: 45, persist: 50, reverse: 60,
+  plus_one: 10, accelerator: 5, brake: 15, scatter: 15, upturn: 20, align: 25, extender: 30, centreline: 40, magnetized: 45, persist: 50,
   // Moved from the Frontier's rings 10 / 25 / 50 (ordered by strength; the strongest are the last)
   cleaver: 5, mine: 10, random_router: 10, static_charge: 12, overkill_spill: 18, frostbite: 22, corrosion: 28, gravity_well: 32,
   culling_bolt: 35, residue_seed: 38, orbit: 42, capacitor: 48, executioner: 52, alternator: 55, fission_catalyst: 58, chain_lightning: 60,

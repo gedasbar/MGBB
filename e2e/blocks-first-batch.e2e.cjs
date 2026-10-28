@@ -80,8 +80,8 @@ async function fly(page, seconds, onTick) {
   const { page } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, rich: true });
 
   // ---- Shop: buy a copy of each block we will use (credits come from the debug button; the buys are real taps).
-  await page.click('#dbg-credits');
-  await page.click('#dbg-credits');
+  // (Chunk 21a: the repriced blocks cost more in total, so four clicks.)
+  for (let k = 0; k < 4; k++) await page.click('#dbg-credits');
   // Chunk 15b gates these blocks behind Frontier directions: reach them all first (dev cheat).
   await page.evaluate(() => document.getElementById('dbg-fr-reach-all').click());
   await tap(page, ...TAB.shop);

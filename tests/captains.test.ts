@@ -207,8 +207,8 @@ describe('save v6', () => {
   it('a v5 save loads with Cadet owned and selected, level 0, no kills, and the old Medal rule', () => {
     const v5 = { version: 5, credits: 40, clearedTiers: [1, 2, 3], passedTiers: [1, 2, 3], medals: 99, bestWave: 4 };
     const p = loadProgress(JSON.stringify(v5));
-    expect(PROGRESS_VERSION).toBe(9);
-    expect(p.version).toBe(9);
+    expect(PROGRESS_VERSION).toBe(10);
+    expect(p.version).toBe(10);
     expect(p.medals).toBe(3); // never more than cleared tiers for a pre-v6 save
     expect(p.captains.selected).toBe('cadet');
     expect(p.captains.owned).toEqual(['cadet']);

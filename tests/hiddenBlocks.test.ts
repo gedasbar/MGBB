@@ -76,7 +76,7 @@ const ROWS: Row[] = [
   {
     id: 'curving_right',
     mod: { type: 'curve', dir: 'right', level: 1 },
-    text: /clockwise at 90° per second/,
+    text: /clockwise at 30° per second, up to 45° in all/,
     fly: () => {
       const base = newWorld();
       const b = fireOne(base);
@@ -85,8 +85,8 @@ const ROWS: Row[] = [
       const w = newWorld('curving_right');
       const i = fireOne(w);
       const speed = Math.hypot(w.pool.vx[i], w.pool.vy[i]);
-      run(w, 30); // 0.5 s at 90 deg/s = 45 degrees clockwise: up (-90) becomes -45
-      expect(heading(w, i)).toBeCloseTo(-45, 0);
+      run(w, 30); // 0.5 s at 30 deg/s = 15 degrees clockwise: up (-90) becomes -75
+      expect(heading(w, i)).toBeCloseTo(-75, 0);
       expect(w.pool.vx[i]).toBeGreaterThan(0);
       expect(Math.hypot(w.pool.vx[i], w.pool.vy[i])).toBeCloseTo(speed, 1);
     },
@@ -123,7 +123,7 @@ const ROWS: Row[] = [
   {
     id: 'random_curve',
     mod: { type: 'random_curve', level: 1 },
-    text: /at most 120° per second/,
+    text: /at most 30° per second/,
     fly: () => {
       const trial = () => {
         rng.reset(7);
@@ -142,7 +142,7 @@ const ROWS: Row[] = [
       const b = trial();
       expect(a.vx).toBe(b.vx); // seeded combat RNG: same seed, same path
       expect(Math.abs(a.vx)).toBeGreaterThan(1);
-      expect(a.maxRate).toBeLessThanOrEqual(120.5);
+      expect(a.maxRate).toBeLessThanOrEqual(30.5);
       const base = newWorld();
       const k = fireOne(base);
       run(base, 60);

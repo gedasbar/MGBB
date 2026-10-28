@@ -247,3 +247,19 @@ export const angleAfter = (angle: number, dir: -1 | 1) => Math.max(-ANGLE_MAX_DE
 export const scatterAfter = (w: number) => (w <= 0 ? SCATTER_BASE_DEG : Math.min(SCATTER_MAX_DEG, w + SCATTER_STEP_DEG));
 /** A packet's speed multiplier after a speed block: the Brake floor and the ceiling apply. */
 export const clampSpeedMul = (m: number) => Math.min(MAX_SPEED_MUL, Math.max(BRAKE_FLOOR, m));
+
+// ---- Chunk 21a (docs/chunk21a.md)
+/** +1 Projectile: the sideways distance (px) between neighbouring shots of one lane; the lane is centred on its ejector. A shot bar is 6 px wide, so 8 leaves a 2 px gap (the prompt said about 6: at 6 the bars touch and look like one). */
+export const LANE_GAP = 8;
+/** Offset (px) of shot `k` of `n` in a lane from the lane's centre: a constant gap, centred. */
+export const laneOffset = (k: number, n: number) => (k - (n - 1) / 2) * LANE_GAP;
+/** Curving Left / Right: one copy turns CURVE_RATE_STEP_DEG per second until it has turned CURVE_TOTAL_STEP_DEG in all; every copy adds both. */
+export const CURVE_RATE_STEP_DEG = 30;
+export const CURVE_TOTAL_STEP_DEG = 45;
+export const curveRateDeg = (copies: number) => CURVE_RATE_STEP_DEG * copies;
+export const curveTotalDeg = (copies: number) => CURVE_TOTAL_STEP_DEG * copies;
+/** Random Curve: the most the weave turns per second grows the same way (4 copies = 120, what one copy was before 21a). */
+export const randomCurveRateDeg = (copies: number) => CURVE_RATE_STEP_DEG * copies;
+/** Upturn: each extra copy shortens the delay by this factor (0.4 s, 0.3 s, 0.225 s). */
+export const UPTURN_DELAY_FACTOR = 0.75;
+export const upturnDelay = (copies: number) => UPTURN_DELAY * Math.pow(UPTURN_DELAY_FACTOR, Math.max(0, copies - 1));

@@ -1,5 +1,5 @@
 // Chunk 20b end-to-end: the motion blocks in the real game. Angle Left + Right fan, Scatter, Upturn after Angle, Ship Magnet swarm,
-// Reverse + Upturn, Brake + Heavy Round (the damage number in the Build screen) and the Shop with a campaign-tier lock.
+// Brake + Heavy Round (the damage number in the Build screen) and the Shop with a campaign-tier lock.
 // Contact sheet: reports/chunk20b/sheet_motion.png. Needs the Vite dev server. Run: node e2e/motion-blocks.e2e.cjs
 const path = require('path');
 const fs = require('fs');
@@ -14,7 +14,7 @@ const { check, tap } = lib;
 const OUT = path.join(__dirname, '..', 'reports', 'chunk20b');
 fs.mkdirSync(OUT, { recursive: true });
 const TAB = { build: [54, 932], shop: [162, 932] };
-const NEW = ['curving_left', 'angle_left', 'angle_right', 'accelerator', 'brake', 'scatter', 'upturn', 'align', 'extender', 'centreline', 'magnetized', 'persist', 'reverse'];
+const NEW = ['curving_left', 'angle_left', 'angle_right', 'accelerator', 'brake', 'scatter', 'upturn', 'align', 'extender', 'centreline', 'magnetized', 'persist'];
 
 async function snap(page) {
   await page.evaluate(() => { const d = document.getElementById('debug-panel'); if (d) d.style.display = 'none'; });
@@ -66,7 +66,7 @@ async function flyFan(page, blocks) {
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.buildScreen);
   const placed = await page.evaluate((blocks) => {
     const m = window.__mgbm.model;
-    for (const id of ['flat_plus', 'splitter_3', 'turn_r', 'turn_l', 'curving_left', 'angle_left', 'angle_right', 'accelerator', 'brake', 'scatter', 'upturn', 'align', 'extender', 'centreline', 'magnetized', 'persist', 'reverse', 'heavy_round', 'mirror']) m.store.data.owned[id] = 9;
+    for (const id of ['flat_plus', 'splitter_3', 'turn_r', 'turn_l', 'curving_left', 'angle_left', 'angle_right', 'accelerator', 'brake', 'scatter', 'upturn', 'align', 'extender', 'centreline', 'magnetized', 'persist', 'heavy_round', 'mirror']) m.store.data.owned[id] = 9;
     m.store.commit();
     m.switchHull('fan');
     for (const c of m.grid.cells.filter(c => c.blockId)) m.remove(c.x, c.y);
@@ -137,19 +137,7 @@ const worldInfo = (page) => page.evaluate(() => {
   shots.push(await snap(page)); caps.push('Ship Magnet (1 + 3 + 1 copies):\na swarm round the ship');
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
 
-  // ---- 5. Reverse + Upturn against a wall of tough rocks: shots hit, flip, fly down, then Upturn bends them up again.
-  placed = await flyFan(page, [['flat_plus', 4, 8], ['reverse', 4, 7], ['upturn', 4, 6]]);
-  await page.evaluate(() => {
-    const w = window.__mgbm.world;
-    for (const x of [200, 270, 340]) w.spawnRock(x, 330, 1e9);
-    for (const sp of Object.values(window.__mgbm.species || {})) { sp.speed = 0; sp.sway = 0; }
-  });
-  await page.waitForTimeout(1900);
-  await page.evaluate(() => window.__mgbm.setTimeScale(0));
-  info = await worldInfo(page);
-  check(info.fx.reverseFlips > 3, `Reverse: ${info.fx.reverseFlips} flips (one per shot at the first rock it touched)`);
-  shots.push(await snap(page)); caps.push('Reverse + Upturn at rocks:\nflip on the hit, then bend back up');
-  await page.evaluate(() => window.__mgbm.setTimeScale(1));
+  // ---- (Reverse + Upturn was step 5 in chunk 20b; Reverse was removed in 21a.)
 
   // ---- 6. Brake x5 + Heavy Round: the damage number in the Build screen (x5 on a 2-damage shot = 10).
   await page.goto(url);
@@ -179,7 +167,7 @@ const worldInfo = (page) => page.evaluate(() => {
   await page.evaluate(() => {
     const s = window.__mgbm.shopScreen.store;
     s.data.credits = 5000;
-    for (const id of ['accelerator', 'brake', 'reverse', 'angle_left', 'cleaver']) s.data.owned[id] = 0;
+    for (const id of ['accelerator', 'brake', 'persist', 'angle_left', 'cleaver']) s.data.owned[id] = 0;
     s.data.passedTiers = [1, 2, 3, 4, 5];
     s.data.clearedTiers = [];
     s.commit();
@@ -188,10 +176,10 @@ const worldInfo = (page) => page.evaluate(() => {
   const st = await page.evaluate(() => window.__mgbm.state());
   const rows = Object.fromEntries(st.rows.map(r => [r.key, r]));
   const lockOf = (id) => rows[id] && rows[id].buttons[0].lock;
-  check(NEW.every(id => rows[id]), 'the Shop lists all thirteen motion blocks');
+  check(NEW.every(id => rows[id]), 'the Shop lists all twelve motion blocks');
   check(st.rows.filter(r => r.key).length === 66, `the Shop lists 66 blocks in all (${st.rows.filter(r => r.key).length})`);
   check(!lockOf('accelerator') && !lockOf('angle_left') && !lockOf('curving_left'), 'Accelerator (tier 5 passed) and the three free blocks are open');
-  check(lockOf('brake') === 'Pass tier 15' && lockOf('reverse') === 'Pass tier 60' && lockOf('cleaver') === null, `locked tiles say what to do: Brake "${lockOf('brake')}", Reverse "${lockOf('reverse')}"; Cleaver (tier 5) is open`);
+  check(lockOf('brake') === 'Pass tier 15' && lockOf('persist') === 'Pass tier 50' && lockOf('cleaver') === null, `locked tiles say what to do: Brake "${lockOf('brake')}", Persist "${lockOf('persist')}"; Cleaver (tier 5) is open`);
   await page.evaluate(() => window.__mgbm.shopScreen.palette.reveal('brake'));
   await page.waitForTimeout(200);
   shots.push(await snap(page)); caps.push('Shop after tier 5:\nBrake locked "Pass tier 15"');
