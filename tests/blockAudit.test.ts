@@ -87,7 +87,7 @@ describe('block audit: the picker only offers blocks that compile and change Fly
     expect(text('jackpot')).toContain('10');
     expect(text('gamblers_gate')).toContain('40%');
     expect(text('pure_converter')).toContain('15%');
-    expect(text('aoe_circle')).toContain('50 units');
+    expect(text('aoe_circle')).toContain('54 units');
     for (const b of pickerBlocks()) expect(text(b.id).length, b.id).toBeGreaterThan(10);
   });
 });

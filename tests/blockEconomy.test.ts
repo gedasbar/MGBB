@@ -15,11 +15,12 @@ import { Gun, spawnOffsetsFor } from '../src/game/fire';
 import { HULL_BUILDERS } from '../src/game/gridUtils';
 import { place } from '../src/game/starter';
 import { ProjectilePool } from '../src/engine/pools';
-import { PHASE_BOOM_BACK, PHASE_MINE_WAIT, ProjectileSystem, EnemyEntity } from '../src/engine/projectiles';
+import { aoeRectCells, PHASE_BOOM_BACK, PHASE_MINE_WAIT, ProjectileSystem, EnemyEntity } from '../src/engine/projectiles';
 import { Modifier } from '../src/engine/compilerTypes';
 import { SpatialHash } from '../src/engine/spatialHash';
 import { fmtBig, fmtDamage } from '../src/ui/format';
 import { boomerangRange, bounceCount, chainJumps, MINE_SIZE } from '../src/engine/effects';
+import { CELL } from '../src/wall/constants';
 
 const mem = (init: Record<string, string> = {}) => {
   const d = { ...init };
@@ -239,19 +240,28 @@ describe('shape blocks stack (step 5)', () => {
     expect(a[2].target).toBeCloseTo(100 * 0.9025, 4);
   });
 
-  it('AoE Rectangle: wider and taller per copy (same factors as the circle)', () => {
-    const wide = (k: number) => {
+  it('AoE Rectangle (19a): cells, centred on the hit block, growing alternately deeper and wider: 1x3, 2x3, 2x5, 3x5, 3x7', () => {
+    expect([1, 2, 3, 4, 5, 6].map(k => aoeRectCells(k))).toEqual([
+      { cols: 3, rows: 1 }, { cols: 3, rows: 2 }, { cols: 5, rows: 2 }, { cols: 5, rows: 3 }, { cols: 7, rows: 3 }, { cols: 7, rows: 4 },
+    ]);
+    // In the engine (Free Fly, same cell size in pixels): a grid of tiny rocks, one per cell round the hit rock; behind = up the screen.
+    const hitCells = (k: number) => {
       const r = rig();
       r.rock(270, 400, 100000, 5);
-      const row = Array.from({ length: 80 }, (_, j) => r.rock(270 + 2 + 4 * j, 400, 100000, 1));
-      r.launch(copiesOf('aoe_rect', k, 1), 270, 440, 0, -600, 100);
+      const cells: { dc: number; dr: number; e: EnemyEntity }[] = [];
+      for (let dc = -4; dc <= 4; dc++) for (let dr = -1; dr <= 4; dr++) if (dc !== 0 || dr !== 0) cells.push({ dc, dr, e: r.rock(270 + dc * CELL, 400 - dr * CELL, 100000, 1) });
+      r.launch(copiesOf('aoe_rect', k, 1), 270, 430, 0, -600, 100);
       r.step(60);
-      return row.filter(e => dmg(e) > 0).length;
+      return cells.filter(c => dmg(c.e) > 0).map(c => `${c.dc},${c.dr}`).sort();
     };
-    const w = [1, 2, 3].map(wide);
-    expect(w[1]).toBeGreaterThan(w[0]);
-    expect(w[2]).toBeGreaterThan(w[1]);
-    expect(w[1] / w[0]).toBeCloseTo(1.125, 1);
+    const expected = (k: number) => {
+      const { cols, rows } = aoeRectCells(k);
+      const out: string[] = [];
+      for (let dc = -(cols - 1) / 2; dc <= (cols - 1) / 2; dc++) for (let dr = 0; dr < rows; dr++) if (dc !== 0 || dr !== 0) out.push(`${dc},${dr}`);
+      return out.sort();
+    };
+    // dr = -1 (the row in front of the hit rock, nearer the ship) is never in the area; the shot's own column rocks dr >= 1 are in the way of nothing (the shot ends on the hit)
+    for (const k of [1, 2, 3, 4, 5]) expect(hitCells(k), `${k} copies`).toEqual(expected(k));
   });
 
   it('Chain Lightning: +1 jump per copy, each jump pays the same share', () => {

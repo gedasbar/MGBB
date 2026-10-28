@@ -14,6 +14,7 @@ import {
 } from './effects';
 import { RING } from './pools';
 import { TRIGGERS, triggerCarried, triggerDue } from './triggers';
+import { CELL } from '../wall/constants';
 import { wrapDx } from './wrap';
 
 export interface EnemyEntity extends EnemyStats {
@@ -131,8 +132,6 @@ export const RANDOM_CURVE_MAX_DEG = 120;
 export const randomCurveMaxDeg = (level: number) => RANDOM_CURVE_MAX_DEG * (1 + 0.25 * (level - 1));
 /** Seconds between new random-curve noise targets. */
 export const RANDOM_CURVE_PERIOD = 0.35;
-export const AOE_RECT_W = 160;
-export const AOE_RECT_H = 24;
 export const FORK_ANGLE_DEG = 35;
 export const FORK_SIZE = 0.6;
 
@@ -147,9 +146,17 @@ function wrapAngle(a: number): number {
 
 /** Armor-Piercer damage multiplier at a block level: x2 at level 1. */
 export const armorPierceMul = (level: number) => 1 + level;
-export const aoeRectSize = (level: number) => ({ w: AOE_RECT_W + 40 * (level - 1), h: AOE_RECT_H + 6 * (level - 1) });
-/** AoE - Circle blast radius in px: 50 at level 1, +10 per level. */
-export const aoeCircleRadius = (level: number) => 50 + 10 * (level - 1);
+/**
+ * AoE - Rectangle (chunk 19a) in wall cells: 1 copy = 1 row x 3 wide (the hit block and one each side), then alternately one row
+ * deeper (behind the hit) and two wider: 2 = 2 x 3, 3 = 2 x 5, 4 = 3 x 5, 5 = 3 x 7. Free Fly uses the same cell size in pixels.
+ */
+export const aoeRectCells = (copies: number) => {
+  const k = Math.max(1, copies);
+  return { cols: 3 + 2 * Math.floor((k - 1) / 2), rows: 1 + Math.floor(k / 2) };
+};
+/** AoE - Circle (19a): one copy's radius is this many cells (the shot sits on the hit block's edge, so it reaches the blocks beside it); +10 px per level as before. */
+export const AOE_CIRCLE_CELLS = 1;
+export const aoeCircleRadius = (level: number) => Math.round(CELL * AOE_CIRCLE_CELLS) + 10 * (level - 1);
 /** Shield-Breaker direct-damage multiplier: x1.5 at level 1, +0.5 per level. */
 export const shieldBreakMul = (level: number) => 1 + 0.5 * level;
 export const forkDamageFrac = (level: number) => 0.5 + 0.1 * (level - 1);
@@ -550,10 +557,9 @@ export class ProjectileSystem {
           field.collectCircle(px, py, radius, blast);
           this.blastOthers(blast, target, blastDamage * aoeFactor, pure, tier, armorPierce, isShieldBreaker, mi);
         } else {
-          // A horizontal bar centred on the hit.
-          const grow = stackGrowth(this.stk.aoeRect);
-          const { w, h } = aoeRectSize(rectMod!.level ?? 1);
-          field.collectRect(px, py, w * grow, h * grow, blast);
+          // A block of wall cells centred on the hit block, reaching behind it (aoeRectCells).
+          const { cols, rows } = aoeRectCells(this.stk.aoeRect);
+          field.collectArea(target, cols, rows, blast);
           this.blastOthers(blast, target, blastDamage * aoeFactor, pure, tier, armorPierce, isShieldBreaker, mi);
         }
       }
@@ -607,9 +613,9 @@ export class ProjectileSystem {
       this.fx.aoeBlasts++;
       if (aoeMod) field.collectCircle(b.x, b.y, (aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1)) * stackGrowth(this.stk.aoeCircle), this.blast);
       else if (rectMod) {
-        const grow = stackGrowth(this.stk.aoeRect);
-        const { w, h } = aoeRectSize(rectMod.level ?? 1);
-        field.collectRect(b.x, b.y, w * grow, h * grow, this.blast);
+        // No target to centre on (the rule that waits for the shot's end): the same cells around the point it last hit.
+        const { cols, rows } = aoeRectCells(this.stk.aoeRect);
+        field.collectRect(b.x, b.y - ((rows - 1) * CELL) / 2, cols * CELL, rows * CELL, this.blast);
       } else continue;
       for (const ce of this.blast) {
         if (ce.id === b.skip || ce.hp <= 0) continue;

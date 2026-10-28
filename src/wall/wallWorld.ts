@@ -104,6 +104,14 @@ class BlockField implements TargetField {
     });
   }
 
+  collectArea(t: EnemyEntity, cols: number, rows: number, out: EnemyEntity[]) {
+    out.length = 0;
+    const halfW = (cols * CELL) / 2;
+    this.forEachIn(t.x - halfW, t.y - (rows - 0.5) * CELL, t.x + halfW, t.y + CELL / 2, b => {
+      if (Math.abs(this.w.dxw(b.x, t.x)) < halfW && b.y <= t.y + CELL / 2 && b.y >= t.y - (rows - 1) * CELL - CELL / 2) out.push(b);
+    });
+  }
+
   collectNear(px: number, py: number, range: number, out: EnemyEntity[]) {
     out.length = 0;
     this.forEachIn(px - range, py - range, px + range, py + range, b => { out.push(b); });

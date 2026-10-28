@@ -152,7 +152,7 @@ const ROWS: Row[] = [
   {
     id: 'aoe_rect',
     mod: { type: 'aoe_rect', level: 3 }, // fixed level 3 since 16c-2
-    text: /240 px wide and 36 px tall/,
+    text: /1x3 blocks; each copy grows the area/,
     fly: () => {
       // Neighbours: inside the bar, outside it horizontally, outside it vertically.
       const near: [number, number][] = [[60, 0], [150, 0], [0, -60]];
