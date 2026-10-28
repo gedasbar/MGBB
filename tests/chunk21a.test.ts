@@ -310,6 +310,14 @@ describe('curves stack like angles', () => {
     expect(Math.hypot(r.pool.vx[i], r.pool.vy[i])).toBeCloseTo(600, 3);
   });
 
+  it('the total is a hard cap even when a time step does not divide it (0.07 s steps never overshoot)', () => {
+    const r = rig();
+    const i = r.launch(mods('curve', 1, { dir: 'right' }), 270, 500, 0, -600);
+    for (let k = 0; k < 100; k++) r.sys.steer(0.07, r.enemies);
+    expect(r.pool.curved[i]).toBeCloseTo(45, 4);
+    expect(heading(r.pool, i)).toBeCloseTo(-45, 3);
+  });
+
   it('four copies turn 120 degrees a second for 180 degrees in all; Left turns the other way', () => {
     const r = rig();
     const right = r.launch(mods('curve', 4, { dir: 'right' }), 270, 500, 0, -600);
