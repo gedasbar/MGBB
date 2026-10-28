@@ -5,7 +5,7 @@ import { BLOCK_ECONOMY, LEGENDARY_PRICE_BY_RING, medalPriceOf } from '../src/dat
 import { compile, Grid } from '../src/engine/compiler';
 import { Modifier } from '../src/engine/compilerTypes';
 import {
-  frontierEchoAdd, heavyRoundMul, hollowCoreMul, idleBarrelsAdd, lastBreathMul, loneShotMul, waypointMul, zigzagMul, MIRROR_OFFSET, ZIGZAG_PERIOD,
+  frontierEchoAdd, heavyRoundMul, hollowCoreMul, idleBarrelsAdd, lastBreathMul, loneShotMul, waypointMul, zigzagMul, MIRROR_OFFSET,
 } from '../src/engine/effects';
 import { ProjectilePool } from '../src/engine/pools';
 import { EnemyEntity, ProjectileSystem } from '../src/engine/projectiles';

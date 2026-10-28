@@ -124,6 +124,7 @@ export interface EffectCounters {
   loneBoosts: number;
   reboundBonuses: number;
   mirrorClones: number;
+  fuseEmits: number;
 }
 
 /** Base hit radius of a projectile (scaled by the pool's size). */
@@ -203,7 +204,7 @@ export class ProjectileSystem {
     corrosionStrips: 0, freezeApplied: 0, frozenBonusHits: 0, executionerHits: 0,
     bounces: 0, edgeBounces: 0, cleaverHits: 0, cullingHits: 0, residueClouds: 0, residueTicks: 0, wellsMade: 0, staticPulses: 0,
     cauterizeMarks: 0, fissionMarks: 0, spillMarks: 0, aoeBlasts: 0, forks: 0, pierceHits: 0, homingSteers: 0,
-    lastBreathHits: 0, zigzagFlips: 0, loneBoosts: 0, reboundBonuses: 0, mirrorClones: 0,
+    lastBreathHits: 0, zigzagFlips: 0, loneBoosts: 0, reboundBonuses: 0, mirrorClones: 0, fuseEmits: 0,
   };
 
   /** Residue Seed clouds (a ring): position, seconds left, damage per tick, seconds since the last tick. Drawn by the screens. */

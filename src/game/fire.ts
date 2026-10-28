@@ -1,6 +1,6 @@
 import { EjectorRecipe, Grid } from '../engine/compiler';
 import { evalDamage, isDynamic, mulSafe } from '../engine/compilerTypes';
-import { loneShotMul, MIRROR_OFFSET, OVERCLOCK_WINDOW } from '../engine/effects';
+import { FUSE_N, loneShotMul, MIRROR_OFFSET, OVERCLOCK_WINDOW } from '../engine/effects';
 import { ProjectilePool } from '../engine/pools';
 import { ProjectileSystem } from '../engine/projectiles';
 import { rng } from '../rng';
@@ -199,6 +199,7 @@ export class Gun {
           st[o] = 0;
           st[o + 1] = 0;
           this.fx.capacitorEmits++;
+          if (op.n === FUSE_N) this.projSys.fx.fuseEmits++;
           break;
         }
         case 'alt': {
