@@ -135,6 +135,7 @@ export class ProjectilePool {
 
   spawn(x: number, y: number, vx: number, vy: number, damage: number, pure: number = 0, modIndex: number = 0): number {
     if (this.count >= this.max) { this.refused.normal++; return -1; }
+    if (this.count === 0) this.freeFrom = 0; // an emptied pool (World.reset clears the arrays by hand) starts from the first slot again
     for (let i = this.freeFrom; i < this.max; i++) {
       if (this.active[i] === 0) {
         this.active[i] = 1;

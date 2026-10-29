@@ -18,6 +18,7 @@ import { CONFIG } from '../src/config';
 import { neutralModifiers } from '../src/captains/modifiers';
 import { OWNER_BUILD, perfGrid, PerfBuild, topUp } from './lib/perfBuild';
 
+if (process.env.POOL) CONFIG.CAPS.PROJECTILES = Number(process.env.POOL); // POOL=8000 tries a bigger pool limit
 const SECONDS = Number(process.env.SECS ?? 40);
 const MODE = process.env.MODE ?? 'both';
 const BUILD: PerfBuild = process.env.BUILD === 'light' ? { plusOne: 3, mirror: false, fork: false, bouncing: 2, homing: 3, extender: 2 } : OWNER_BUILD;
