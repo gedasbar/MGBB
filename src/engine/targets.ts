@@ -2,6 +2,13 @@ import type { EnemyEntity } from './projectiles';
 import { SpatialHash } from './spatialHash';
 import { CELL } from '../wall/constants';
 
+/** The answer of `nearestInCone`: the target and the vector from the shot to it (the short way round on a ring wall). */
+export interface HomePick { target: EnemyEntity | null; dx: number; dy: number }
+export const newHomePick = (): HomePick => ({ target: null, dx: 0, dy: 0 });
+
+/** How far past its query radius a hash cell search looks, so a rock that moved a few pixels since the hash was built is still found. */
+export const SPATIAL_MARGIN = 24;
+
 /** Where a ricochet leaves a surface: unit normal and how far to move the projectile out of the target. */
 export interface BounceInfo { nx: number; ny: number; push: number }
 
@@ -22,24 +29,46 @@ export interface TargetField {
    * reaching from its row `rows - 1` rows BEHIND it (up the screen, away from the ship).
    */
   collectArea(target: EnemyEntity, cols: number, rows: number, out: EnemyEntity[]): void;
-  /** Living targets that may lie within `range` of (x, y) (homing; the caller filters by distance and cone). */
+  /** Living targets that may lie within `range` of (x, y) (the caller filters by distance and cone). */
   collectNear(x: number, y: number, range: number, out: EnemyEntity[]): void;
+  /**
+   * Homing (chunk 21b): the nearest LIVING target within `range` of (px, py) whose direction lies inside the cone round the unit heading
+   * (hx, hy), the cone's half angle given as its cosine; ties go to the one the field visits last. No allocation. Fills `out` and returns
+   * true, or returns false (and leaves `out` alone) when there is none.
+   */
+  nearestInCone(px: number, py: number, range: number, hx: number, hy: number, cosHalf: number, out: HomePick): boolean;
+  /** The target with this id if it still exists (it may be dead: the caller checks hp), else null. */
+  byId(id: number): EnemyEntity | null;
   /** Ricochet surface at a hit; absent or null = the caller picks a random direction. */
   bounceInfo?(t: EnemyEntity, x: number, y: number, r: number): BounceInfo | null;
 }
 
-/** The rocks of Free Fly: circles found through the spatial hash. */
+/** The rocks of Free Fly: circles found through the spatial hash. Made once per world; `refresh()` follows the hash after every rebuild. */
 export class EnemyField implements TargetField {
-  private byId = new Map<number, EnemyEntity>();
+  private ids = new Map<number, EnemyEntity>();
+  /** Reused by every query (no list is made per shot). */
+  private buf: number[] = [];
 
   constructor(private enemies: EnemyEntity[], private spatial: SpatialHash) {
-    for (const e of enemies) this.byId.set(e.id, e);
+    this.refresh();
+  }
+
+  /** Re-reads the enemy list (call after the hash was rebuilt). */
+  refresh() {
+    this.ids.clear();
+    for (const e of this.enemies) this.ids.set(e.id, e);
+  }
+
+  byId(id: number): EnemyEntity | null {
+    return this.ids.get(id) ?? null;
   }
 
   hitCircle(px: number, py: number, hitR: number, skipId: number): EnemyEntity | null {
-    for (const id of this.spatial.query(px, py, 50)) {
+    const buf = this.spatial.queryInto(px, py, 50, this.buf);
+    for (let k = 0; k < buf.length; k++) {
+      const id = buf[k];
       if (id === skipId) continue;
-      const e = this.byId.get(id);
+      const e = this.ids.get(id);
       if (e && e.hp > 0 && (e.x - px) ** 2 + (e.y - py) ** 2 <= (e.radius + hitR) ** 2) return e;
     }
     return null;
@@ -47,10 +76,30 @@ export class EnemyField implements TargetField {
 
   collectCircle(px: number, py: number, radius: number, out: EnemyEntity[]) {
     out.length = 0;
-    for (const id of this.spatial.query(px, py, radius + 20)) {
-      const e = this.byId.get(id);
+    const buf = this.spatial.queryInto(px, py, radius + 20, this.buf);
+    for (let k = 0; k < buf.length; k++) {
+      const e = this.ids.get(buf[k]);
       if (e && e.hp > 0 && (e.x - px) ** 2 + (e.y - py) ** 2 <= (e.radius + radius) ** 2) out.push(e);
     }
+  }
+
+  nearestInCone(px: number, py: number, range: number, hx: number, hy: number, cosHalf: number, out: HomePick): boolean {
+    const buf = this.spatial.queryInto(px, py, range + SPATIAL_MARGIN, this.buf);
+    let best = range * range;
+    let found: EnemyEntity | null = null;
+    let bdx = 0, bdy = 0;
+    for (let k = 0; k < buf.length; k++) {
+      const e = this.ids.get(buf[k]);
+      if (!e || e.hp <= 0) continue;
+      const dx = e.x - px, dy = e.y - py;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > best) continue;
+      if (dx * hx + dy * hy < Math.sqrt(d2) * cosHalf) continue;
+      best = d2; found = e; bdx = dx; bdy = dy;
+    }
+    if (!found) return false;
+    out.target = found; out.dx = bdx; out.dy = bdy;
+    return true;
   }
 
   collectRect(px: number, py: number, w: number, h: number, out: EnemyEntity[]) {

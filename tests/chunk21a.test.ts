@@ -555,13 +555,9 @@ describe('shot looks by damage', () => {
     for (const [d, band] of cases) expect(shotBand(d), String(d)).toBe(band);
     for (const bad of [0, -5, NaN]) expect(shotBand(bad), String(bad)).toBe(0);
   });
-  it('each band is longer and thicker than the one before; the top two are bolts; band 0 is the old 6 x 14 bar', () => {
-    expect(SHOT_LOOKS[0]).toMatchObject({ w: 6, h: 14, bolt: false });
-    for (let b = 1; b < SHOT_LOOKS.length; b++) {
-      expect(SHOT_LOOKS[b].h).toBeGreaterThan(SHOT_LOOKS[b - 1].h);
-      expect(SHOT_LOOKS[b].w).toBeGreaterThan(SHOT_LOOKS[b - 1].w);
-    }
-    expect(SHOT_LOOKS.map(l => l.bolt)).toEqual([false, false, false, true, true]);
+  it('every band has its own shape or colour (chunk 21b redraw: dash, bar, diamond, bolt, star; see tests/chunk21b.test.ts)', () => {
+    expect(SHOT_LOOKS.map(l => l.shape)).toEqual(['bar', 'bar', 'diamond', 'bolt', 'star']);
+    expect(new Set(SHOT_LOOKS.map(l => l.color)).size).toBe(SHOT_LOOKS.length);
     expect(shotLookFor(5)).toBe(SHOT_LOOKS[0]);
     expect(shotLookFor(50000)).toBe(SHOT_LOOKS[4]);
   });

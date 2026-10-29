@@ -1,26 +1,43 @@
 import { Application, Graphics, Texture } from 'pixi.js';
+import { SHOT_LOOKS, ShotShape } from './shotLook';
 
-/** The two shapes a shot sprite can have (chunk 21a): the plain bar (a white rectangle) and the pointed bolt of the top damage bands. */
-export interface ShotTextures { bar: Texture; bolt: Texture }
+/** One white texture per shot shape (chunk 21b), tinted by the band's colour: the plain bar is the 1 x 1 white texture itself. */
+export type ShotTextures = Record<ShotShape, Texture>;
 
-const BOLT_W = 12;
-const BOLT_H = 32;
 const cache = new WeakMap<Application, ShotTextures>();
 
-/** Built once per app. Without a renderer (headless) both are the plain white texture, so a shot is simply drawn as a bar. */
+/** The outline of a shape inside a w x h box. */
+export function shotPolygon(shape: ShotShape, w: number, h: number): number[] {
+  switch (shape) {
+    case 'diamond': return [w / 2, 0, w, h / 2, w / 2, h, 0, h / 2];
+    case 'bolt': return [w / 2, 0, w, h * 0.28, w, h * 0.78, w / 2, h, 0, h * 0.78, 0, h * 0.28];
+    case 'star': {
+      // A four-pointed star: long points up, down, left and right, short notches between them.
+      const k = 0.2;
+      return [w / 2, 0, w * (0.5 + k), h * (0.5 - k), w, h / 2, w * (0.5 + k), h * (0.5 + k), w / 2, h, w * (0.5 - k), h * (0.5 + k), 0, h / 2, w * (0.5 - k), h * (0.5 - k)];
+    }
+    default: return [0, 0, w, 0, w, h, 0, h];
+  }
+}
+
+/** Built once per app. Without a renderer (headless) every shape is the plain white texture, so a shot is simply drawn as a coloured box. */
 export function shotTextures(app: Application | null | undefined): ShotTextures {
-  if (!app) return { bar: Texture.WHITE, bolt: Texture.WHITE };
+  const plain: ShotTextures = { bar: Texture.WHITE, diamond: Texture.WHITE, bolt: Texture.WHITE, star: Texture.WHITE };
+  if (!app) return plain;
   const hit = cache.get(app);
   if (hit) return hit;
-  let bolt: Texture = Texture.WHITE;
-  try {
-    const g = new Graphics().poly([BOLT_W / 2, 0, BOLT_W, 9, BOLT_W, BOLT_H - 7, BOLT_W / 2, BOLT_H, 0, BOLT_H - 7, 0, 9]).fill(0xffffff);
-    bolt = app.renderer.generateTexture({ target: g });
-    g.destroy();
-  } catch {
-    bolt = Texture.WHITE;
+  const t: ShotTextures = { ...plain };
+  for (const shape of ['diamond', 'bolt', 'star'] as const) {
+    const look = SHOT_LOOKS.find(l => l.shape === shape);
+    if (!look) continue;
+    try {
+      const g = new Graphics().poly(shotPolygon(shape, look.w, look.h)).fill(0xffffff);
+      t[shape] = app.renderer.generateTexture({ target: g });
+      g.destroy();
+    } catch {
+      t[shape] = Texture.WHITE;
+    }
   }
-  const t = { bar: Texture.WHITE, bolt };
   cache.set(app, t);
   return t;
 }

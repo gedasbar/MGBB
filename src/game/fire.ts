@@ -247,6 +247,8 @@ export class Gun {
 
   private spawn(ri: number, damage: number, shipX: number, shipY: number) {
     const r = this.recipes[ri];
+    // Graceful overload (chunk 21b): as the pool fills, the extra shots of +1 Projectile are refused before the lane's own shot.
+    if (r.extra && !this.pool.admits('extra')) return;
     const speed = PROJECTILE_SPEED * (r.packet.speedMul || 1) * this.speedMul;
     let vx = 0;
     let vy = 0;
@@ -275,7 +277,7 @@ export class Gun {
       this.projSys.shipY = shipY;
       this.projSys.init(i);
       // Mirror: a clone beside the shot, same damage and modifiers. Made here and nowhere else, so it is never cloned again; a full pool skips it.
-      if (this.mirror[ri]) {
+      if (this.mirror[ri] && this.pool.admits('mirror')) {
         const c = this.pool.spawn(shipX + off.x + (-vy / speed) * MIRROR_OFFSET, shipY + off.y + (vx / speed) * MIRROR_OFFSET, vx, vy, damage, r.packet.pure || 0, ri);
         if (c >= 0) {
           this.pool.life[c] = life;

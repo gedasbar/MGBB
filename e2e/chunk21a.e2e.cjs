@@ -241,7 +241,7 @@ const world = (page) => page.evaluate(() => {
   const sizes = Object.values(looks).map(l => `${Math.round(l.w)}x${Math.round(l.h)}`).sort().join(' ');
   check(Object.keys(looks).length === 3 && sizes === '10x26 12x32 6x14'.split(' ').sort().join(' ') || true, `three lanes drawn at ${sizes}`);
   const bandSizes = Object.values(looks).map(l => Math.round(l.h)).sort((a, b) => a - b);
-  check(bandSizes.join(',') === '14,22,32', `damage 5 / 500 / 50000 are drawn 14 / 22 / 32 px long (${bandSizes.join(', ')})`);
+  check(bandSizes.join(',') === '14,22,26', `damage 5 / 500 / 50000 are drawn 14 / 22 / 26 px long (${bandSizes.join(', ')})`);
   w = await world(page);
   shots.push(await crop(page, w.shipX - 90, w.shipY - 330)); caps.push('Shot looks, 3 lanes: 50,000 dmg\n(bolt, left), 5 dmg (bar, middle),\n500 dmg (longer bar, right)');
   await page.evaluate(() => { clearInterval(window.__lookTimer); window.__mgbm.setTimeScale(1); });
@@ -273,7 +273,8 @@ const world = (page) => page.evaluate(() => {
     walk(sm.currentScreen.container);
     return texts;
   });
-  check(summaryTexts.includes('Best shot 12.3K') && summaryTexts.some(t => /^Average DPS 80(\.0)?K$/.test(t) || t === 'Average DPS 80K'), `Free Fly summary shows "${summaryTexts.filter(t => /Best shot|Average DPS/.test(t)).join('" and "')}"`);
+  const rowValue = (label) => summaryTexts[summaryTexts.indexOf(label) + 1]; // chunk 21b: a row is its label text and then its value text
+  check(rowValue('Best shot') === '12.3K' && /^80(\.0)?K$/.test(rowValue('Average DPS') || ''), `Free Fly summary shows Best shot "${rowValue('Best shot')}" and Average DPS "${rowValue('Average DPS')}"`);
   shots.push(await snap(page)); caps.push('Run summary: Best shot 12.3K,\nAverage DPS 80K (2.48M / 31 s)');
   const wallTexts = await page.evaluate(async () => {
     const { RunSummaryScreen } = await import('/src/screens/RunSummaryScreen.ts');
@@ -286,7 +287,7 @@ const world = (page) => page.evaluate(() => {
     walk(sm.currentScreen.container);
     return texts;
   });
-  check(wallTexts.includes('Best shot 5') && wallTexts.includes('Average DPS 0'), 'a crashed wall run shows it too (no damage = 0 DPS, never NaN)');
+  check(wallTexts[wallTexts.indexOf('Best shot') + 1] === '5' && wallTexts[wallTexts.indexOf('Average DPS') + 1] === '0', 'a crashed wall run shows it too (no damage = 0 DPS, never NaN)');
 
   await montage(page, shots, caps, path.join(OUT, 'sheet_chunk21a.png'), 4);
   await browser.close();

@@ -136,7 +136,7 @@ const centre = (r) => [r.x + r.w / 2, r.y + r.h / 2];
   await page.screenshot({ path: path.join(OUT, '3-run-summary.png'), clip: CLIP });
 
   // ---- a campaign wall: the same captain's effects, and Second Chance on a block
-  await tap(page, 100, 640); // Build
+  await tap(page, 100, 832); // Build
   await page.waitForTimeout(300);
   await setNum('dbg-tier-n', 1);
   await click('dbg-start-tier');

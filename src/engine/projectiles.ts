@@ -3,7 +3,7 @@ import { ProjectilePool } from './pools';
 import { Modifier } from './compilerTypes';
 import { SpatialHash } from './spatialHash';
 import { EnemyStats, applyDamage, DamageResult, damageToKill } from './damage';
-import { EnemyField, TargetField } from './targets';
+import { EnemyField, HomePick, newHomePick, TargetField } from './targets';
 import {
   BOOMERANG_CATCH, boomerangRange, BURN_TICK, CHAIN_FRAC, CHAIN_RANGE, CHAIN_ARC_LIFE, chainJumps, corrosionCap, CORROSION_STEP,
   executionerMul, EXECUTIONER_BELOW, frostBonus, frostSlow, frostTime, igniteFrac, IGNITE_TIME, mineDistance, MINE_SIZE, MINE_WAIT,
@@ -11,10 +11,11 @@ import {
   bounceCount, BOUNCE_SPREAD_DEG, cauterizeBonus, cauterizeTime, cleaverBonus, cleaverPenalty, CULLING_CAP, cullingPct,
   FRAGMENT_GENERATION, residueFrac, RESIDUE_RADIUS, RESIDUE_TICK, RESIDUE_TIME, spillFrac, STATIC_HITS, STATIC_WINDOW, staticFrac,
   WELL_TIME, wellPull, stackGrowth, homingRange, HOMING_RANGE_BASE, PIERCE_DAMAGE_KEEP, HOMING_CONE_BASE_DEG, homingConeDeg, mineExtra, MINE_SPREAD, orbitPassTime, harmonic, aoeStackDamage, FORK_PAIR_DAMAGE, MAX_BOUNCES, CHAIN_STACK_FALL,
-  lastBreathMul, ZIGZAG_ANGLE_DEG, ZIGZAG_PERIOD, zigzagMul,
+  HOMING_RETARGET, lastBreathMul, ZIGZAG_ANGLE_DEG, ZIGZAG_PERIOD, zigzagMul,
   CENTRE_ACCEL, CENTRE_SOFT, MAGNET_ACCEL, MAGNET_SOFT, SWEEP_MAX, SWEEP_MIN, SWEEP_MIN_SPACING, upturnDelay, UPTURN_RATE_DEG, curveRateDeg, curveTotalDeg, randomCurveRateDeg,
 } from './effects';
 import { RING } from './pools';
+import { CONFIG } from '../config';
 import { TRIGGERS, triggerCarried, triggerDue } from './triggers';
 import { CELL } from '../wall/constants';
 import { wrapDx } from './wrap';
@@ -137,6 +138,9 @@ export interface EffectCounters {
   aligns: number;
   upturnTurns: number;
   sweepHits: number;
+  // Chunk 21b: shots the overload rule removed (stale and off-screen) and fork fragments it refused
+  expired: number;
+  forksRefused: number;
 }
 
 /** Base hit radius of a projectile (scaled by the pool's size). */
@@ -177,6 +181,61 @@ export const aoeCircleRadius = (level: number) => Math.round(CELL * AOE_CIRCLE_C
 export const shieldBreakMul = (level: number) => 1 + 0.5 * level;
 export const forkDamageFrac = (level: number) => 0.5 + 0.1 * (level - 1);
 
+/** What Homing asks of a field: the two steering queries (ListField has only these; every TargetField has them). */
+export type TargetHoming = Pick<TargetField, 'nearestInCone' | 'byId'>;
+
+/**
+ * Everything the hot loops need to know about one modifier list, read once and kept (chunk 21b): the per-shot `find` and counting loops of
+ * steer() and processField() ran every shot, every frame, over a list that never changes. Valid while `mods` is the same array of the same length.
+ */
+interface ModInfo {
+  mods: Modifier[];
+  len: number;
+  mi: EffectLevels;
+  stk: StackCounts;
+  mv: MotionCounts;
+  pierce: Modifier | undefined; bounce: Modifier | undefined; aoe: Modifier | undefined; rect: Modifier | undefined;
+  fork: Modifier | undefined; homing: Modifier | undefined;
+  /** Armor-Piercer multiplier (0 = none) and Shield-Breaker multiplier (false = none). */
+  armorPierce: number;
+  shieldBreaker: number | false;
+  /** Steering: copies of Upturn, Centreline, Ship Magnet, Curving (left / right), Random Curve, Homing; Zigzag present; anything that steers at all. */
+  upK: number; cenK: number; magK: number; curveL: number; curveR: number; randK: number; homingK: number; zigzag: boolean; steers: boolean;
+  /** Last Breath or Zigzag present (a hit's damage factor). */
+  hitFactor: boolean;
+}
+const EMPTY_MODS: Modifier[] = [];
+
+/**
+ * A plain list of targets as a TargetField for the two steering queries (tests and tools that call steer(dt, enemies)); the brute-force
+ * search every other implementation is checked against. Only `nearestInCone` and `byId` exist.
+ */
+export class ListField {
+  items: EnemyEntity[] = [];
+  wrapW = 0;
+  nearestInCone(px: number, py: number, range: number, hx: number, hy: number, cosHalf: number, out: HomePick): boolean {
+    let best = range * range;
+    let found: EnemyEntity | null = null;
+    let bdx = 0, bdy = 0;
+    for (const e of this.items) {
+      if (e.hp <= 0) continue;
+      const dx = this.wrapW > 0 ? wrapDx(e.x, px, this.wrapW) : e.x - px;
+      const dy = e.y - py;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > best) continue;
+      if (dx * hx + dy * hy < Math.sqrt(d2) * cosHalf) continue;
+      best = d2; found = e; bdx = dx; bdy = dy;
+    }
+    if (!found) return false;
+    out.target = found; out.dx = bdx; out.dy = bdy;
+    return true;
+  }
+  byId(id: number): EnemyEntity | null {
+    for (const e of this.items) if (e.id === id) return e;
+    return null;
+  }
+}
+
 export class ProjectileSystem {
   pool: ProjectilePool;
 
@@ -185,8 +244,10 @@ export class ProjectileSystem {
   /** Ring walls: width of the ring in px, so homing takes the short way round; 0 (Free Fly, flat walls) keeps plain x maths. */
   wrapW = 0;
 
-  /** Scratch lists reused by every projectile (no per-shot allocation). */
-  private near: EnemyEntity[] = [];
+  /** Scratch objects reused by every projectile (no per-shot allocation). */
+  private pick: HomePick = newHomePick();
+  private list = new ListField();
+  private infoCache: (ModInfo | undefined)[] = [];
   private blast: EnemyEntity[] = [];
   private chainBuf: EnemyEntity[] = [];
   private chainSeen: number[] = [];
@@ -194,6 +255,15 @@ export class ProjectileSystem {
   private affected: EnemyEntity[] = [];
   /** Seconds of steer() time so far: Orbit's per-target re-hit timers compare against it. */
   private clock = 0;
+
+  /**
+   * The part of the world the player can see, for the overload rule's "off-screen": x within `viewHalfW` of `viewCx` (the short way round on a
+   * ring wall) and y between `viewTop` and `viewBottom`. The default sees everything sideways; the wall screen moves it with the camera.
+   */
+  viewCx = 0;
+  viewHalfW = Infinity;
+  viewTop = -50;
+  viewBottom = CONFIG.VIEW.H + 50;
 
   /** Where the ship is: Orbit circles it and Boomerang returns to it. Set by the world before steer(). */
   shipX = 0;
@@ -215,7 +285,7 @@ export class ProjectileSystem {
     bounces: 0, edgeBounces: 0, cleaverHits: 0, cullingHits: 0, residueClouds: 0, residueTicks: 0, wellsMade: 0, staticPulses: 0,
     cauterizeMarks: 0, fissionMarks: 0, spillMarks: 0, aoeBlasts: 0, forks: 0, pierceHits: 0, homingSteers: 0,
     lastBreathHits: 0, zigzagFlips: 0, loneBoosts: 0, reboundBonuses: 0, mirrorClones: 0, fuseEmits: 0,
-    persistContinues: 0, aligns: 0, upturnTurns: 0, sweepHits: 0,
+    persistContinues: 0, aligns: 0, upturnTurns: 0, sweepHits: 0, expired: 0, forksRefused: 0,
   };
 
   /** Residue Seed clouds (a ring): position, seconds left, damage per tick, seconds since the last tick. Drawn by the screens. */
@@ -232,15 +302,9 @@ export class ProjectileSystem {
   readonly wellS = new Float32Array(WELL_MAX);
   private wellNext = 0;
 
-  /** Levels of the effect modifiers on the projectile being processed (0 = absent); one reused object. */
-  private mi: EffectLevels = {
-    chain: 0, boomerang: 0, orbit: 0, mine: 0, ignite: 0, corrosion: 0, frostbite: 0, executioner: 0,
-    fission: 0, cauterize: 0, cleaver: 0, culling: 0, residue: 0, spill: 0, gravity: 0, staticCharge: 0,
-  };
-
-  /** Copies of the stacking shape blocks on the projectile being processed (filled by scan(); one reused object). */
+  /** Copies of the stacking shape blocks on the projectile being processed (the cached object of its modifier list, set by use()). */
   private stk: StackCounts = { pierce: 0, bounce: 0, aoeCircle: 0, aoeRect: 0, chain: 0, homing: 0, fork: 0, boomerang: 0, orbit: 0, mine: 0 };
-  /** Copies of the motion blocks on the projectile being processed (filled by scan()). */
+  /** Copies of the motion blocks on the projectile being processed (set by use()). */
   private mv: MotionCounts = { upturn: 0, centreline: 0, magnet: 0, align: 0, persist: 0 };
   /** Persist: the share of the last direct hit's damage the target did NOT need (0 when it survived); written by strike() while `trackLeft` is on. */
   private leftFrac = 0;
@@ -256,20 +320,15 @@ export class ProjectileSystem {
     this.pool = pool;
   }
 
-  private modsOf(i: number): Modifier[] {
-    return this.modifiersTable[this.pool.modIndex[i]] || [];
-  }
-
   /** Called once right after a projectile is spawned: seeds the random-curve noise from the combat RNG stream. */
   init(i: number) {
-    const mods = this.modsOf(i);
-    const bounce = mods.find(m => m.type === 'bouncing');
+    const info = this.use(this.pool.modIndex[i]);
+    const bounce = info.bounce;
     if (bounce) {
-      this.scan(mods);
       // Each extra Bouncing block on the path adds one bounce.
       this.pool.bounces[i] = Math.min(MAX_BOUNCES, bounceCount(bounce.level ?? 1) + this.stk.bounce - 1);
     }
-    if (mods.some(m => m.type === 'random_curve')) {
+    if (info.randK > 0) {
       this.pool.aux1[i] = rng.combat.next() * 2 - 1;
       this.pool.aux2[i] = rng.combat.next() * 2 - 1;
       this.pool.aux3[i] = 0;
@@ -277,7 +336,7 @@ export class ProjectileSystem {
     // Movement phases: Orbit first, then (or instead) Mine or Boomerang. Fork copies fly plain.
     const pool = this.pool;
     if (pool.copy[i]) return;
-    const mi = this.scan(mods);
+    const mi = info.mi;
     if (mi.orbit || mi.mine || mi.boomerang) {
       pool.s3[i] = Math.hypot(pool.vx[i], pool.vy[i]);
       pool.s2[i] = 0;
@@ -286,23 +345,41 @@ export class ProjectileSystem {
     }
   }
 
-  /** Reads the effect levels off a modifier list into the reused `mi` object. */
-  private scan(mods: Modifier[]) {
-    const mi = this.mi;
-    mi.chain = mi.boomerang = mi.orbit = mi.mine = mi.ignite = mi.corrosion = mi.frostbite = mi.executioner = 0;
-    mi.fission = mi.cauterize = mi.cleaver = mi.culling = mi.residue = mi.spill = mi.gravity = mi.staticCharge = 0;
-    const stk = this.stk;
-    stk.pierce = stk.bounce = stk.aoeCircle = stk.aoeRect = stk.chain = stk.homing = stk.fork = stk.boomerang = stk.orbit = stk.mine = 0;
-    const mv = this.mv;
-    mv.upturn = mv.centreline = mv.magnet = mv.align = mv.persist = 0;
+  /** The cached facts of a modifier list (chunk 21b), also pointing `mi`, `stk` and `mv` at its effect levels, stack counts and motion counts. */
+  private use(idx: number): ModInfo {
+    const mods = this.modifiersTable[idx] || EMPTY_MODS;
+    let info = this.infoCache[idx];
+    if (!info || info.mods !== mods || info.len !== mods.length) {
+      info = this.readMods(mods);
+      this.infoCache[idx] = info;
+    }
+    this.stk = info.stk;
+    this.mv = info.mv;
+    return info;
+  }
+
+  /** Reads the effect levels, stack counts and steering facts off a modifier list. */
+  private readMods(mods: Modifier[]): ModInfo {
+    const mi: EffectLevels = {
+      chain: 0, boomerang: 0, orbit: 0, mine: 0, ignite: 0, corrosion: 0, frostbite: 0, executioner: 0,
+      fission: 0, cauterize: 0, cleaver: 0, culling: 0, residue: 0, spill: 0, gravity: 0, staticCharge: 0,
+    };
+    const stk: StackCounts = { pierce: 0, bounce: 0, aoeCircle: 0, aoeRect: 0, chain: 0, homing: 0, fork: 0, boomerang: 0, orbit: 0, mine: 0 };
+    const mv: MotionCounts = { upturn: 0, centreline: 0, magnet: 0, align: 0, persist: 0 };
+    const info: ModInfo = {
+      mods, len: mods.length, mi, stk, mv,
+      pierce: undefined, bounce: undefined, aoe: undefined, rect: undefined, fork: undefined, homing: undefined,
+      armorPierce: 0, shieldBreaker: false,
+      upK: 0, cenK: 0, magK: 0, curveL: 0, curveR: 0, randK: 0, homingK: 0, zigzag: false, steers: false, hitFactor: false,
+    };
     for (const m of mods) {
       switch (m.type) {
-        case 'piercing': stk.pierce++; break;
-        case 'bouncing': stk.bounce++; break;
-        case 'aoe_circle': stk.aoeCircle++; break;
-        case 'aoe_rect': stk.aoeRect++; break;
-        case 'homing': stk.homing++; break;
-        case 'fork_impact': stk.fork++; break;
+        case 'piercing': stk.pierce++; info.pierce ??= m; break;
+        case 'bouncing': stk.bounce++; info.bounce ??= m; break;
+        case 'aoe_circle': stk.aoeCircle++; info.aoe ??= m; break;
+        case 'aoe_rect': stk.aoeRect++; info.rect ??= m; break;
+        case 'homing': stk.homing++; info.homing ??= m; info.homingK++; break;
+        case 'fork_impact': stk.fork++; info.fork ??= m; break;
         case 'chain_lightning': mi.chain = m.level ?? 1; stk.chain++; break;
         case 'boomerang': mi.boomerang = m.level ?? 1; stk.boomerang++; break;
         case 'orbit': mi.orbit = m.level ?? 1; stk.orbit++; break;
@@ -319,14 +396,21 @@ export class ProjectileSystem {
         case 'overkill_spill': mi.spill = m.level ?? 1; break;
         case 'gravity_well': mi.gravity = m.level ?? 1; break;
         case 'static_charge': mi.staticCharge = m.level ?? 1; break;
-        case 'upturn': mv.upturn++; break;
-        case 'centreline': mv.centreline++; break;
-        case 'magnetized': mv.magnet++; break;
+        case 'upturn': mv.upturn++; info.upK++; break;
+        case 'centreline': mv.centreline++; info.cenK++; break;
+        case 'magnetized': mv.magnet++; info.magK++; break;
         case 'align': mv.align++; break;
         case 'persist': mv.persist++; break;
+        case 'armor_piercer': if (info.armorPierce === 0) info.armorPierce = armorPierceMul(m.level ?? 1); break;
+        case 'shield_breaker': if (info.shieldBreaker === false) info.shieldBreaker = shieldBreakMul(m.level ?? 1); break;
+        case 'curve': if (m.dir === 'left') info.curveL++; else info.curveR++; break;
+        case 'random_curve': info.randK++; break;
+        case 'zigzag': info.zigzag = true; info.hitFactor = true; break;
+        case 'last_breath': info.hitFactor = true; break;
       }
     }
-    return mi;
+    info.steers = info.upK + info.cenK + info.magK + info.curveL + info.curveR + info.randK + info.homingK > 0 || info.zigzag;
+    return info;
   }
 
   /**
@@ -336,7 +420,7 @@ export class ProjectileSystem {
   private stepPhase(i: number, dt: number) {
     const pool = this.pool;
     const ph = pool.phase[i];
-    const mi = this.scan(this.modsOf(i));
+    const mi = this.use(pool.modIndex[i]).mi;
     const speed = pool.s3[i];
     if (ph === PHASE_ORBIT) {
       pool.s2[i] += dt;
@@ -438,11 +522,14 @@ export class ProjectileSystem {
     pool.vy[i] = vx * s + vy * c;
   }
 
-  /** Path modifiers: curving, homing and random curve turn a projectile's velocity (speed is kept). */
-  steer(dt: number, targets: EnemyEntity[] | TargetField) {
+  /**
+   * Path modifiers: curving, homing and random curve turn a projectile's velocity (speed is kept). `targets` is the field Homing looks in
+   * (the world's own, for a world) or a plain list (tests: searched by brute force).
+   */
+  steer(dt: number, targets: EnemyEntity[] | TargetHoming) {
     const pool = this.pool;
-    const field = Array.isArray(targets) ? null : targets;
-    const near = this.near;
+    let field: TargetHoming;
+    if (Array.isArray(targets)) { this.list.items = targets; this.list.wrapW = this.wrapW; field = this.list; } else field = targets;
     this.clock += dt;
     for (let i = 0; i < pool.max; i++) {
       if (!pool.active[i]) continue;
@@ -456,22 +543,14 @@ export class ProjectileSystem {
         // These phases own the velocity: no curving or homing on top.
         if (ph === PHASE_ORBIT || ph === PHASE_BOOM_BACK || ph === PHASE_MINE_WAIT) continue;
       }
-      const mods = this.modsOf(i);
-      if (mods.length === 0) continue;
-      let upK = 0, cenK = 0, magK = 0; // copies of Upturn, Centreline and Ship Magnet (chunk 20b)
-      let curveR = 0, curveL = 0, randK = 0, zigzag = false; // chunk 21a: curves are counted by copies
-      for (const m of mods) {
-        if (m.type === 'upturn') upK++;
-        else if (m.type === 'curve') { if (m.dir === 'left') curveL++; else curveR++; }
-        else if (m.type === 'random_curve') randK++;
-        else if (m.type === 'zigzag') zigzag = true;
-        else if (m.type === 'centreline') cenK++;
-        else if (m.type === 'magnetized') magK++;
-      }
+      const info = this.use(pool.modIndex[i]);
+      if (!info.steers) continue;
+      const upK = info.upK, cenK = info.cenK, magK = info.magK; // copies of Upturn, Centreline and Ship Magnet (chunk 20b)
+      const curveR = info.curveR, curveL = info.curveL, randK = info.randK; // chunk 21a: curves are counted by copies
       // Chunk 21a, Upturn takes over: after its delay no other steering (curves, Random Curve, Homing, Centreline, Ship Magnet, Zigzag) acts on the
       // shot; it turns to straight up and stays straight. (Orbit before launch, a waiting Mine and a Boomerang's way back never reach this point.)
       if (upK > 0 && pool.age[i] >= upturnDelay(upK)) { this.upturn(i, upK, dt); continue; }
-      if (zigzag) this.stepZigzag(i, dt);
+      if (info.zigzag) this.stepZigzag(i, dt);
       let turn = 0; // radians per second, clockwise on screen
       if (randK > 0) {
         let phase = pool.aux3[i] + dt / RANDOM_CURVE_PERIOD;
@@ -495,38 +574,8 @@ export class ProjectileSystem {
           curveRot = Math.sign(netCurve) * step * RAD;
         }
       }
-      const homing = mods.find(m => m.type === 'homing');
-      let homingK = 0;
-      if (homing) for (const m of mods) if (m.type === 'homing') homingK++;
-      const hFactor = harmonic(homingK);
       let rotate = turn * dt + curveRot;
-      if (homing) {
-        const vx = pool.vx[i];
-        const vy = pool.vy[i];
-        const heading = Math.atan2(vy, vx);
-        const range = homingRange(homingK);
-        let best = range * range;
-        let bestDiff = 0;
-        let found = false;
-        if (field) field.collectNear(pool.x[i], pool.y[i], range, near);
-        for (const e of field ? near : (targets as EnemyEntity[])) {
-          if (e.hp <= 0) continue;
-          const dx = this.wrapW > 0 ? wrapDx(e.x, pool.x[i], this.wrapW) : e.x - pool.x[i];
-          const dy = e.y - pool.y[i];
-          const d2 = dx * dx + dy * dy;
-          if (d2 > best) continue;
-          const diff = wrapAngle(Math.atan2(dy, dx) - heading);
-          if (Math.abs(diff) > Math.min(Math.PI, (homingConeDeg(homingK) / 2) * RAD)) continue;
-          best = d2;
-          bestDiff = diff;
-          found = true;
-        }
-        if (found) {
-          const maxStep = HOMING_RATE_DEG * (homing.level ?? 1) * hFactor * RAD * dt;
-          rotate += Math.max(-maxStep, Math.min(maxStep, bestDiff));
-          this.fx.homingSteers++;
-        }
-      }
+      if (info.homing) rotate += this.homingTurn(i, field, info.homingK, info.homing.level ?? 1, dt);
       if (rotate !== 0) {
         const c = Math.cos(rotate);
         const s = Math.sin(rotate);
@@ -537,6 +586,72 @@ export class ProjectileSystem {
       }
       if (cenK > 0 || magK > 0) this.pull(i, cenK, magK, dt);
     }
+  }
+
+  /**
+   * Homing (chunk 21b): the turn this frame, in radians (0 when the shot has no target). A shot keeps the target it locked on while that
+   * target is alive, in range and inside the cone; with none it looks for the nearest one in its cone, at most every HOMING_RETARGET seconds
+   * (the first search of a shot is staggered by its pool slot, so a volley does not search on one frame). The search is a radius query on the
+   * field (spatial hash in Free Fly, cell lookup on the wall), not a scan of every target.
+   */
+  private homingTurn(i: number, field: TargetHoming, copies: number, level: number, dt: number): number {
+    const pool = this.pool;
+    const px = pool.x[i], py = pool.y[i];
+    const vx = pool.vx[i], vy = pool.vy[i];
+    const speed = Math.hypot(vx, vy);
+    const hx = speed > 0 ? vx / speed : 1;
+    const hy = speed > 0 ? vy / speed : 0;
+    const range = homingRange(copies);
+    const cosHalf = Math.cos(Math.min(Math.PI, (homingConeDeg(copies) / 2) * RAD));
+    let dx = 0, dy = 0;
+    let found = false;
+    if (pool.homeId[i] >= 0) {
+      const t = field.byId(pool.homeId[i]);
+      if (t && t.hp > 0) {
+        dx = this.dxw(t.x, px);
+        dy = t.y - py;
+        const d2 = dx * dx + dy * dy;
+        found = d2 <= range * range && dx * hx + dy * hy >= Math.sqrt(d2) * cosHalf;
+      }
+      if (!found) pool.homeId[i] = -1;
+    }
+    pool.homeT[i] -= dt;
+    if (!found && pool.homeT[i] <= 0) {
+      pool.homeT[i] = HOMING_RETARGET;
+      const pick = this.pick;
+      if (field.nearestInCone(px, py, range, hx, hy, cosHalf, pick) && pick.target) {
+        pool.homeId[i] = pick.target.id;
+        dx = pick.dx; dy = pick.dy;
+        found = true;
+      }
+    }
+    if (!found) return 0;
+    const diff = wrapAngle(Math.atan2(dy, dx) - Math.atan2(vy, vx));
+    const maxStep = HOMING_RATE_DEG * level * harmonic(copies) * RAD * dt;
+    this.fx.homingSteers++;
+    return Math.max(-maxStep, Math.min(maxStep, diff));
+  }
+
+  /**
+   * Graceful overload (chunk 21b). With the pool at CONFIG.OVERLOAD.EXPIRE_FROM of its size or more, removes plain shots that are off-screen
+   * (see viewCx) and have hit nothing for CONFIG.OVERLOAD.STALE_AGE seconds, at most EXPIRE_PER_FRAME of them, and stops as soon as the pool
+   * is under the threshold again. A shot with an AoE blast owed still pays it (retire). Returns how many were removed.
+   */
+  expireStale(): number {
+    const pool = this.pool;
+    const o = CONFIG.OVERLOAD;
+    const floor = pool.max * o.EXPIRE_FROM;
+    if (pool.count < floor) return 0;
+    let n = 0;
+    for (let i = 0; i < pool.max; i++) {
+      if (!pool.active[i] || pool.phase[i] !== PHASE_NORMAL) continue;
+      if (pool.age[i] - pool.hitAge[i] < o.STALE_AGE) continue;
+      if (pool.y[i] >= this.viewTop && pool.y[i] <= this.viewBottom && Math.abs(this.dxw(pool.x[i], this.viewCx)) <= this.viewHalfW) continue;
+      this.retire(i);
+      this.fx.expired++;
+      if (++n >= o.EXPIRE_PER_FRAME || pool.count < floor) break;
+    }
+    return n;
   }
 
   /** Upturn (chunk 20b): turns the heading toward straight up, the short way, at UPTURN_RATE_DEG x harmonic(copies) degrees per second. */
@@ -597,21 +712,18 @@ export class ProjectileSystem {
       let py = this.pool.y[i];
       let damage = this.pool.damage[i];
       const pure = this.pool.pure[i];
-      const mods = this.modsOf(i);
+      const info = this.use(this.pool.modIndex[i]);
 
-      const pierceMod = mods.find(m => m.type === 'piercing');
-      const isPiercing = !!pierceMod;
-      const bounceMod = mods.find(m => m.type === 'bouncing');
-      const aoeMod = mods.find(m => m.type === 'aoe_circle');
-      const rectMod = mods.find(m => m.type === 'aoe_rect');
-      const forkMod = mods.find(m => m.type === 'fork_impact');
-      const apMod = mods.find(m => m.type === 'armor_piercer');
-      const armorPierce = apMod ? armorPierceMul(apMod.level ?? 1) : 0;
-      const sbMod = mods.find(m => m.type === 'shield_breaker');
-      const isShieldBreaker = sbMod ? shieldBreakMul(sbMod.level ?? 1) : false;
+      const isPiercing = !!info.pierce;
+      const bounceMod = info.bounce;
+      const aoeMod = info.aoe;
+      const rectMod = info.rect;
+      const forkMod = info.fork;
+      const armorPierce = info.armorPierce;
+      const isShieldBreaker = info.shieldBreaker;
       const hitR = PROJECTILE_RADIUS * this.pool.size[i];
 
-      const mi = this.scan(mods);
+      const mi = info.mi;
       const phase = this.pool.phase[i];
       let target: EnemyEntity | null = null;
       if (phase === PHASE_ORBIT) {
@@ -633,7 +745,8 @@ export class ProjectileSystem {
       const kAlign = this.mv.align, kPersist = this.mv.persist;
       // Legendary hit-time factors (Last Breath, Zigzag). `shotDamage` is what the shot carries on; `damage` is this hit's.
       const shotDamage = damage;
-      damage *= this.hitFactor(i, mods);
+      if (info.hitFactor) damage *= this.hitFactor(i, info.mods);
+      this.pool.hitAge[i] = this.pool.age[i];
 
       // ---- 1. the direct hit (every hit)
       const pool = this.pool;
@@ -782,9 +895,9 @@ export class ProjectileSystem {
   retire(i: number) {
     const pool = this.pool;
     if (pool.active[i] && pool.aoePending[i]) {
-      const mods = this.modsOf(i);
-      const circle = mods.filter(m => m.type === 'aoe_circle').length;
-      const rect = mods.filter(m => m.type === 'aoe_rect').length;
+      const info = this.use(pool.modIndex[i]);
+      const circle = info.stk.aoeCircle;
+      const rect = info.stk.aoeRect;
       const f = circle ? aoeStackDamage(circle) : aoeStackDamage(rect);
       this.exitBlasts.push({ x: pool.lastX[i], y: pool.lastY[i], dmg: pool.firstDamage[i] * f, pure: pool.pure[i], mod: pool.modIndex[i], skip: pool.skipId[i] });
     }
@@ -794,14 +907,12 @@ export class ProjectileSystem {
   private flushExitBlasts(field: TargetField, tier: number) {
     const list = this.exitBlasts;
     for (const b of list) {
-      const mods = this.modifiersTable[b.mod] || [];
-      const mi = this.scan(mods);
-      const aoeMod = mods.find(m => m.type === 'aoe_circle');
-      const rectMod = mods.find(m => m.type === 'aoe_rect');
-      const apMod = mods.find(m => m.type === 'armor_piercer');
-      const sbMod = mods.find(m => m.type === 'shield_breaker');
-      const armorPierce = apMod ? armorPierceMul(apMod.level ?? 1) : 0;
-      const shieldBreaker = sbMod ? shieldBreakMul(sbMod.level ?? 1) : false;
+      const info = this.use(b.mod);
+      const mi = info.mi;
+      const aoeMod = info.aoe;
+      const rectMod = info.rect;
+      const armorPierce = info.armorPierce;
+      const shieldBreaker = info.shieldBreaker;
       this.fx.aoeBlasts++;
       if (aoeMod) field.collectCircle(b.x, b.y, (aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1)) * stackGrowth(this.stk.aoeCircle), this.blast);
       else if (rectMod) {
@@ -1190,6 +1301,7 @@ export class ProjectileSystem {
     for (let j = 1; j <= pairs; j++) {
       const dmg = shotDamage * forkDamageFrac(level) * Math.pow(FORK_PAIR_DAMAGE, j - 1);
       for (const sign of [-1, 1]) {
+        if (!pool.admits('fork')) { this.fx.forksRefused++; return; } // chunk 21b: the cheapest shots are refused first as the pool fills
         const a = heading + sign * Math.min(FORK_ANGLE_DEG * j, 85) * RAD;
         const k = pool.spawn(pool.x[i], pool.y[i], Math.cos(a) * speed, Math.sin(a) * speed, dmg, pool.pure[i], pool.modIndex[i]);
         if (k < 0) return; // the pool is full: no more forks this hit

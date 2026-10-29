@@ -195,7 +195,7 @@ const readSquares = async (page, sqs, dx = 0, dy = 0) => {
   check(sum.wall.result === expect && sum.title.toLowerCase().includes(expect), `result "${sum.title}" after ${t.toFixed(1)} s matches the rule (${expect})`);
   shots.push(await canvasShot(page)); caps.push(`result: ${sum.title}`);
   // Back to the Frontier (the x6 time scale only speeds up the map's redraws from here on).
-  await tap(page, 100, 672);
+  await tap(page, 100, 832);
   await waitScreen(page, 'frontier');
   await page.waitForTimeout(200);
   const back = await state(page);

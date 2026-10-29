@@ -34,6 +34,8 @@ export interface EjectorRecipe {
   packet: Packet;
   /** Sideways offset (px) of this shot from the ejector's centre line: the shots of a +1 Projectile lane stand side by side (0 = alone). */
   lane: number;
+  /** True for a shot a +1 Projectile block added (not the lane's own first shot): the overload rule refuses these before normal shots. */
+  extra?: boolean;
 }
 
 type SegmentKind = 'live' | 'dead-end' | 'loop-cut' | 'overlap';
@@ -228,7 +230,7 @@ function compileOnce(grid: Grid, opts: CompileOptions, ctx: CompileContext): Com
           if (!info.ledger) info.ledger = ledgerOf(sig.packet);
           // One recipe per shot of the lane: the packet itself and the extras +1 Projectile blocks made (each only knows the blocks after its own).
           const shots = [sig.packet, ...sig.packet.extras];
-          shots.forEach((shot, k) => recipes.push({ direction: eFacing, x: nx, y: ny, packet: { ...shot, extras: [] }, lane: laneOffset(k, shots.length) }));
+          shots.forEach((shot, k) => recipes.push({ direction: eFacing, x: nx, y: ny, packet: { ...shot, extras: [] }, lane: laneOffset(k, shots.length), extra: k > 0 }));
           break;
         }
 

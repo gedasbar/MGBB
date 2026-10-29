@@ -149,7 +149,7 @@ After 2, 3 or 4, **Align** snaps the heading straight up.
 | 1 | **Upturn**, once the shot is older than its delay (0.4 s, x0.75 per extra copy) | turns toward straight up at 120 degrees a second x harmonic(copies) and **nothing below runs**: the shot stays straight |
 | 2 | Zigzag | launch angle, then a turn of 2 x 25 degrees every 0.2 s |
 | 3 | Curving Left / Right, Random Curve | net copies of Right minus Left set the rate (30 degrees a second per copy) and the total angle (45 degrees per copy, `pool.curved`); Random Curve adds its weave (30 x copies) |
-| 4 | Homing | turns toward the nearest target in its cone |
+| 4 | Homing | turns toward the nearest target in its cone; since 21b it locks on and keeps that target until it dies or leaves the cone or the range, and searches again at most every 0.1 s (DECISIONS 373) |
 | 5 | Centreline, Ship Magnet | add an acceleration; the speed is capped at the launch speed |
 
 Before Upturn's delay everything in rows 2-5 works as before, so Upturn is how a build with Homing or a magnet gives the shot a straight finish. Hits still act on an Upturn shot (a bounce reflects it, Align snaps it up); Upturn turns it back up on the next step.

@@ -1,11 +1,12 @@
+import { CONFIG } from '../config';
 import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { Grid } from '../engine/compiler';
 import { clientToGame } from '../input';
 import { makeText } from '../builder/ui';
 import { debugHooks } from '../debug/hooks';
 import { getProgressStore, RunResult } from '../econ/progress';
-import { shotLookFor, SHOT_LOOKS } from '../ui/shotLook';
-import { ShotTextures, shotTextures } from '../ui/shotTextures';
+import { ShotSprites } from '../ui/shotSprites';
+import { shotTextures } from '../ui/shotTextures';
 import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { TOUCH_OFFSET_Y } from '../game/world';
@@ -29,7 +30,7 @@ import type { StatsInfo } from '../ui/stats';
 import { drawFieldFx } from '../ui/fieldFx';
 import { sfx } from '../audio';
 import { SfxFeed } from '../audio/feed';
-import { ARC_MAX, PHASE_NORMAL, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_TRAVEL, PHASE_MINE_WAIT, PHASE_ORBIT } from '../engine/projectiles';
+import { ARC_MAX } from '../engine/projectiles';
 
 const POPUPS = 40;
 const POPUP_LIFE = 0.6;
@@ -47,8 +48,6 @@ const BURN_TINT = 0xff7a1a;
 const FROZEN_TINT = 0xbfe6ff;
 const OVERLAY_ALPHA = 0.42;
 const ARC_COLOR = 0xe8f4ff;
-const MINE_COLOR = 0xff5050;
-const LOOP_COLOR = 0xffe14d;
 
 /** Block art: a frame, a dark well and a green square that shrinks with the HP left. */
 const GAP = 1;
@@ -101,8 +100,9 @@ export class WallScreen implements Screen {
   /** The HUD text and its plate; moved down while the stats overlay is on. */
   private hudBox = new Container();
   private views: BlockView[] = [];
-  private projSprites: Sprite[] = [];
-  private shotTex!: ShotTextures;
+  private shots!: ShotSprites;
+  /** The shot sprites, one per pool slot (the e2e scripts read them). */
+  get projSprites(): Sprite[] { return this.shots.sprites; }
   private popups: Popup[] = [];
   private progressBg = new Graphics().rect(VIEW_W - 8, 20, 4, VIEW_H - 40).fill(THEME.border);
   private progressFg = new Graphics();
@@ -177,17 +177,7 @@ export class WallScreen implements Screen {
       this.views.push(v);
     }
 
-    this.shotTex = shotTextures(this.sm.app);
-    for (let i = 0; i < this.world.pool.max; i++) {
-      const s = new Sprite(Texture.WHITE);
-      s.width = 6;
-      s.height = 14;
-      s.tint = 0x00ffff;
-      s.anchor.set(0.5);
-      s.visible = false;
-      this.projLayer.addChild(s);
-      this.projSprites.push(s);
-    }
+    this.shots = new ShotSprites(this.projLayer, this.world.pool.max, shotTextures(this.sm.app), VIEW_W, VIEW_H);
 
     for (let i = 0; i < POPUPS; i++) {
       const t = new Text({ text: '', style: { fill: THEME.currency, fontSize: 14, fontWeight: 'bold', stroke: { color: 0x000000, width: 3 } } });
@@ -285,6 +275,12 @@ export class WallScreen implements Screen {
       else target = { x: shipSx + this.camera.x, y: p.y };
     }
     w.god = debugHooks.god;
+    // The overload rule's idea of "off-screen" follows the camera (chunk 21b).
+    const ps = w.projSys;
+    ps.viewCx = this.camera.x + VIEW_W / 2;
+    ps.viewHalfW = VIEW_W / 2 + CONFIG.OVERLOAD.VIEW_MARGIN;
+    ps.viewTop = -CONFIG.OVERLOAD.VIEW_MARGIN;
+    ps.viewBottom = VIEW_H + CONFIG.OVERLOAD.VIEW_MARGIN;
     w.update(dt, target);
     const fx = w.projSys.fx;
     this.sfxFeed.frame({ shots: w.gun.shots, chainJumps: fx.chainJumps, wellsMade: fx.wellsMade, bounces: fx.bounces + fx.edgeBounces });
@@ -420,33 +416,7 @@ export class WallScreen implements Screen {
   }
 
   private drawProjectiles() {
-    const pool = this.world.pool;
-    for (let i = 0; i < pool.max; i++) {
-      const s = this.projSprites[i];
-      if (pool.active[i]) {
-        const sx = this.sx(pool.x[i]);
-        if (sx < -20 || sx > VIEW_W + 20) { s.visible = false; continue; }
-        s.position.set(sx, pool.y[i]);
-        const ph = pool.phase[i];
-        if (ph === PHASE_MINE_WAIT) {
-          s.width = s.height = 14 * pool.size[i];
-          s.tint = MINE_COLOR;
-          s.rotation = Math.PI / 4;
-        } else {
-          // Chunk 21a: a shot in plain flight is drawn by its damage band (ui/shotLook.ts); Orbit, Boomerang and Mine shots keep the plain bar.
-          const look = ph === PHASE_NORMAL ? shotLookFor(pool.damage[i]) : SHOT_LOOKS[0];
-          const tex = look.bolt ? this.shotTex.bolt : this.shotTex.bar;
-          if (s.texture !== tex) s.texture = tex;
-          s.width = look.w * pool.size[i];
-          s.height = look.h * pool.size[i];
-          s.tint = ph === PHASE_ORBIT || ph === PHASE_BOOM_OUT || ph === PHASE_BOOM_BACK ? LOOP_COLOR : ph === PHASE_MINE_TRAVEL ? MINE_COLOR : 0x00ffff;
-          s.rotation = Math.atan2(pool.vy[i], pool.vx[i]) + Math.PI / 2;
-        }
-        s.visible = true;
-      } else if (s.visible) {
-        s.visible = false;
-      }
-    }
+    this.shots.sync(this.world.pool, (x) => this.sx(x));
   }
 
   /** Chain-lightning arcs, from the arc ring (world x -> screen x through the camera). */

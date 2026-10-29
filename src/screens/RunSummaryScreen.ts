@@ -19,10 +19,20 @@ export function fmtTime(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** Layout of the four Free Fly rows (the three wall rows keep the old 310 / 74 / 66). */
-const ROWS4_TOP = 296;
-const ROWS4_STEP = 62;
-const ROWS4_H = 56;
+/**
+ * Layout (chunk 21b): every row of the list has the same look (a panel with the label on the left and the value on the right), whether it is
+ * Destroyed / Time / Result, the four Free Fly rows or Best shot / Average DPS. Under the last row come the Total credits line and the captain
+ * line, and the buttons sit low with a clear gap above them. All of it fits 540 x 960 (a 360 x 740 phone shows it at 0.67).
+ */
+const ROWS_TOP = 300;
+const ROW_STEP = 60;
+const ROW_H = 54;
+const MEDAL_Y = 278;
+/** Gap between the last row and the Total credits line, and between that and the captain line. */
+const TOTAL_GAP = 28;
+const CAPTAIN_GAP = 30;
+/** Top of the buttons (they are 64 high); the e2e scripts tap their centre. */
+export const SUMMARY_BUTTONS_Y = 800;
 
 /** The wall-level variant of the summary: replaces the Free Fly rows and the "Fly again" button with "Retry". */
 export interface WallSummary {
@@ -98,16 +108,21 @@ export class RunSummaryScreen implements Screen {
       { label: 'Kills', value: String(result.kills), best: false },
       { label: 'Highest tier', value: String(result.tier), best: marks.newBestTier },
     ];
-    const four = this.rows.length > 3;
-    const top = four ? ROWS4_TOP : 310, step = four ? ROWS4_STEP : 74, rowH = four ? ROWS4_H : 66;
+    // Chunk 21a / 21b: the run's largest hit and its average damage per second are two more rows of the same style.
+    const lines = shotLines(result.shots, result.time);
+    if (lines) {
+      this.rows.push({ label: 'Best shot', value: lines.bestShot, best: false });
+      this.rows.push({ label: 'Average DPS', value: lines.avgDps, best: false });
+    }
+    const top = ROWS_TOP, step = ROW_STEP, rowH = ROW_H;
     this.rows.forEach((r, i) => {
       const y = top + i * step;
       const row = new Graphics().rect(40, y, VIEW_W - 80, rowH).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
       const label = makeText(r.label, 20, THEME.textDim, { fontWeight: 'bold' });
-      label.position.set(58, y + rowH / 2 - 13);
+      label.position.set(58, y + rowH / 2 - 12);
       const value = makeText(r.value, 30, THEME.text, { fontWeight: 'bold' });
       value.anchor.set(1, 0);
-      value.position.set(VIEW_W - 58, y + rowH / 2 - 19);
+      value.position.set(VIEW_W - 58, y + rowH / 2 - 18);
       this.container.addChild(row, label, value);
       if (r.best) {
         const mark = makeText('New best!', 16, THEME.good, { fontWeight: 'bold' });
@@ -117,35 +132,22 @@ export class RunSummaryScreen implements Screen {
       }
     });
 
-    // Chunk 21a: the run's largest hit and its average damage per second, in one band under the rows.
-    const lines = shotLines(result.shots, result.time);
-    if (lines) {
-      const bandY = 550;
-      const band = new Graphics().rect(40, bandY, VIEW_W - 80, 34).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
-      const left = makeText(`Best shot ${lines.bestShot}`, 18, THEME.text, { fontWeight: 'bold' });
-      left.anchor.set(0.5);
-      left.position.set(40 + (VIEW_W - 80) / 4, bandY + 17);
-      const right = makeText(`Average DPS ${lines.avgDps}`, 18, THEME.text, { fontWeight: 'bold' });
-      right.anchor.set(0.5);
-      right.position.set(40 + ((VIEW_W - 80) * 3) / 4, bandY + 17);
-      this.container.addChild(band, left, right);
-    }
-
     const total = makeText(`Total credits: ${fmtBig(getProgressStore().data.credits)}`, 20, THEME.currency, { fontWeight: 'bold' });
     total.anchor.set(0.5);
-    total.position.set(VIEW_W / 2, 600);
+    const rowsEnd = top + (this.rows.length - 1) * step + rowH;
+    total.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP);
     this.container.addChild(total);
 
     const medals = captain?.medals ?? (wall?.medal ? 1 : 0);
     if (medals > 0) {
       const m = makeText(`+${medals} Medal${medals === 1 ? '' : 's'}`, 22, THEME.currency, { fontWeight: 'bold' });
       m.anchor.set(0.5);
-      m.position.set(VIEW_W / 2, four ? 276 : 284);
+      m.position.set(VIEW_W / 2, MEDAL_Y);
       this.container.addChild(m);
       if (captain?.doubled) {
         const d = makeText('DOUBLED!', 16, THEME.good, { fontWeight: 'bold' });
         d.anchor.set(0, 0.5);
-        d.position.set(VIEW_W / 2 + m.width / 2 + 10, four ? 276 : 284);
+        d.position.set(VIEW_W / 2 + m.width / 2 + 10, MEDAL_Y);
         this.container.addChild(d);
       }
     }
@@ -153,7 +155,7 @@ export class RunSummaryScreen implements Screen {
       const line = `${captain.name}: +${captain.killsAdded} kills (${captain.killsTotal} in all)${captain.note ? `   ${captain.note}` : ''}`;
       const c = makeText(line, 16, THEME.textDim, { fontWeight: 'bold' });
       c.anchor.set(0.5);
-      c.position.set(VIEW_W / 2, 624);
+      c.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + CAPTAIN_GAP);
       this.container.addChild(c);
     }
 
@@ -163,14 +165,14 @@ export class RunSummaryScreen implements Screen {
         const w = n === 3 ? 160 : 210;
         const xs = n === 3 ? [20, 190, 360] : [40, 290];
         return wall.buttons.map((b, i) => {
-          const tb = textButton(b.id, { x: xs[i], y: 640, w, h: 64 }, b.label, b.onTap, n === 3 ? 20 : 24);
+          const tb = textButton(b.id, { x: xs[i], y: SUMMARY_BUTTONS_Y, w, h: 64 }, b.label, b.onTap, n === 3 ? 20 : 24);
           if (b.enabled === false) tb.setEnabled(false);
           return tb;
         });
       })()
       : [
-        textButton('summaryBuild', { x: 40, y: 640, w: 210, h: 64 }, 'Build', () => this.sm.switchTo(new BuildScreen(this.sm)), 24),
-        textButton('summaryFly', { x: 290, y: 640, w: 210, h: 64 }, 'Fly again', () => this.flyAgain(), 24),
+        textButton('summaryBuild', { x: 40, y: SUMMARY_BUTTONS_Y, w: 210, h: 64 }, 'Build', () => this.sm.switchTo(new BuildScreen(this.sm)), 24),
+        textButton('summaryFly', { x: 290, y: SUMMARY_BUTTONS_Y, w: 210, h: 64 }, 'Fly again', () => this.flyAgain(), 24),
       ];
     for (const b of buttons) {
       this.buttons.push(b);

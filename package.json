@@ -24,6 +24,7 @@
     "blocks-doc": "vite-node scripts/blocks-doc.ts",
     "interaction-audit": "vite-node scripts/interaction-audit.ts",
     "perf-legendary": "vite-node scripts/perf-legendary.ts",
+    "perf-profile": "vite-node scripts/perf-profile.ts",
     "difficulty-audit": "vite-node scripts/difficulty-audit.ts"
   },
   "devDependencies": {
