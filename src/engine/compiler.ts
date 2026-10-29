@@ -4,7 +4,8 @@ import { fireRateMul, shotSpeedMul } from '../data/hulls';
 import {
   clonePacket, CompileContext, Dir, DIRS, eachShot, GENERATOR_BASE_DAMAGE, emitRate, evalDamage, mulDamage, newPacket, Packet, powerLevel, Rel, relToDir, Rotation, rotationToDir,
 } from './compilerTypes';
-import { aoeEstimateMul, heavyRoundMul, laneOffset } from './effects';
+import { NO_SKILLS, SkillEffects } from '../skills/effects';
+import { ANGLE_MAX_DEG, aoeEstimateMul, heavyRoundMul, laneOffset } from './effects';
 
 export interface GridCell {
   x: number;
@@ -134,14 +135,14 @@ interface Signal {
 
 /** Pure and deterministic: the same grid always gives the same result. */
 /** Options of a compile: the extra base damage the active captain's hero level gives every packet (0 = none). */
-export interface CompileOptions { baseDamage?: number; /** Furthest Frontier ring reached (Frontier Echo); 0 = none. */ furthestRing?: number; /** Captain projectile speed multiplier (Heavy Round reads the real shot speed). */ projSpeedMul?: number }
+export interface CompileOptions { skills?: SkillEffects; baseDamage?: number; /** Furthest Frontier ring reached (Frontier Echo); 0 = none. */ furthestRing?: number; /** Captain projectile speed multiplier (Heavy Round reads the real shot speed). */ projSpeedMul?: number }
 
 /** Blocks whose damage needs to know which ejectors the circuit reaches: the compile runs twice for them. */
 const NEEDS_IDLE_COUNT = 'idle_barrels';
 
 export function compile(grid: Grid, opts: CompileOptions = {}): CompiledShip {
   const emptyCells = grid.cells.reduce((n, c) => n + (c.type === 'empty' && !c.blockId ? 1 : 0), 0);
-  const ctx: CompileContext = { furthestRing: opts.furthestRing ?? 0, emptyCells, idleEjectors: 0 };
+  const ctx: CompileContext = { furthestRing: opts.furthestRing ?? 0, emptyCells, idleEjectors: 0, skills: opts.skills ?? NO_SKILLS };
   const first = compileOnce(grid, opts, ctx);
   if (!grid.cells.some(c => c.blockId === NEEDS_IDLE_COUNT)) return first;
   // Second pass: the ejectors the first pass did not reach are idle (reaching does not depend on damage).
@@ -285,12 +286,12 @@ function compileOnce(grid: Grid, opts: CompileOptions, ctx: CompileContext): Com
         for (const e of packet.extras) {
           def.transform?.(e, level, ctx);
           if (def.isTurn) e.turns++;
-          if (def.keyedOp) e.ops.push(def.keyedOp(nidx));
+          if (def.keyedOp) e.ops.push(def.keyedOp(nidx, ctx));
         }
-        if (def.addsShot) packet.extras.push(newPacket(packet.base));
+        if (def.addsShot) packet.extras.push(newPacket(packet.base + ctx.skills.plusOneBase));
         def.transform?.(packet, level, ctx);
         if (def.isTurn) packet.turns++;
-        if (def.keyedOp) packet.ops.push(def.keyedOp(nidx));
+        if (def.keyedOp) packet.ops.push(def.keyedOp(nidx, ctx));
         if (!info.ledger) info.ledger = ledgerOf(packet);
         const outs = [...def.outputs].sort((a, b) => REL_ORDER[a] - REL_ORDER[b]);
         if (outs.length === 0) {
@@ -304,7 +305,7 @@ function compileOnce(grid: Grid, opts: CompileOptions, ctx: CompileContext): Com
           // An alternating block gives each output its own turn: the packet carries (block, branch) and the Gun lets one fire.
           if (def.alternates) eachShot(child, s => s.ops.push({ t: 'alt', key: nidx, branch: oi, of: outs.length }));
           // A random router: the Gun picks the output (or both) at random each pulse, from the seeded combat RNG.
-          if (def.router) eachShot(child, s => s.ops.push({ t: 'rnd', key: nidx, branch: oi, of: outs.length, both: def.router!.both(level) }));
+          if (def.router) eachShot(child, s => s.ops.push({ t: 'rnd', key: nidx, branch: oi, of: outs.length, both: Math.min(1, def.router!.both(level) + ctx.skills.routerBoth) }));
           children.push({ x: nx, y: ny, dir: od, packet: child, seen: new Set(sig.seen) });
         });
         // Reverse so the left branch is walked first.
@@ -330,8 +331,18 @@ function compileOnce(grid: Grid, opts: CompileOptions, ctx: CompileContext): Com
   }
   // Heavy Round (chunk 20a) pays for slow shots; the shot's final speed is only known at the ejector, so it is the last op of the packet.
   const hullSpeed = shotSpeedMul(grid.hullId) * (opts.projSpeedMul ?? 1);
+  const sk = ctx.skills;
   for (const r of recipes) {
-    if (r.packet.mods.some(m => m.type === 'heavy_round')) mulDamage(r.packet, heavyRoundMul(r.packet.speedMul * hullSpeed));
+    const p = r.packet;
+    if (p.mods.some(m => m.type === 'heavy_round')) mulDamage(p, heavyRoundMul(p.speedMul * hullSpeed, sk.heavyTop));
+    // Flight skills (chunk 22a): damage for shots aimed off straight (linear in the angle, full at ANGLE_MAX_DEG), for Scatter and for Accelerator copies.
+    const lean = Math.min(1, Math.abs(p.angle) / ANGLE_MAX_DEG);
+    const angleBonus = lean * (p.angle < 0 ? sk.angleLeftBonus : p.angle > 0 ? sk.angleRightBonus : 0);
+    const scatterBonus = p.mods.some(m => m.type === 'scatter') ? sk.scatterBonus : 0;
+    const accel = p.mods.reduce((n, m) => n + (m.type === 'accelerator' ? 1 : 0), 0) * sk.acceleratorBonus;
+    if (angleBonus + scatterBonus + accel > 0) mulDamage(p, 1 + angleBonus + scatterBonus + accel);
+    // Extender skill: a shot that passed an Extender lives longer still.
+    if (sk.extenderLife > 0 && p.mods.some(m => m.type === 'extender')) p.lifeMul *= 1 + sk.extenderLife;
   }
   const basePps = CONFIG.PULSE.BASE_RATE * fireRateMul(grid.hullId);
   // Every recipe fires on a share `rate` of the pulses (1 without Capacitor / Alternator). Expected projectiles per pulse
@@ -344,10 +355,10 @@ function compileOnce(grid: Grid, opts: CompileOptions, ctx: CompileContext): Com
   for (const r of recipes) {
     const er = emitRate(r.packet);
     // A Mirror line fires two shots per pulse (the clone has the same damage).
-    const rate = er.pulse * er.branch * (r.packet.mods.some(m => m.type === 'mirror') ? 2 : 1);
+    const rate = er.pulse * er.branch * (r.packet.mods.some(m => m.type === 'mirror') ? 2 + sk.mirrorMul : 1);
     rateSum += rate;
     dmgSum += rate * r.packet.damage;
-    ev += rate * evalDamage(r.packet) * aoeEstimateMul(r.packet.mods);
+    ev += rate * evalDamage(r.packet) * aoeEstimateMul(r.packet.mods, sk);
     if (er.pulse > pulseShare) pulseShare = er.pulse;
   }
   const pps = basePps * (recipes.length ? pulseShare : 1);

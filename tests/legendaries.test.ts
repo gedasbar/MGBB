@@ -58,7 +58,7 @@ describe('legendary blocks: data', () => {
 
 describe('legendary blocks: the formulas', () => {
   it('Frontier Echo: 10% of the furthest ring, whole numbers (ring 300 = +30)', () => {
-    expect([0, 9, 10, 99, 100, 199, 300].map(frontierEchoAdd)).toEqual([0, 0, 1, 9, 10, 19, 30]);
+    expect([0, 9, 10, 99, 100, 199, 300].map(r => frontierEchoAdd(r))).toEqual([0, 0, 1, 9, 10, 19, 30]);
     expect(firstDamage(dartWith('frontier_echo'), { furthestRing: 300 })).toBe(1 + 30);
     expect(firstDamage(dartWith('frontier_echo'), { furthestRing: 109 })).toBe(1 + 10);
     expect(firstDamage(dartWith('frontier_echo'))).toBe(1); // no Frontier progress: +0
@@ -110,7 +110,7 @@ describe('legendary blocks: the formulas', () => {
     expect(firstDamage(h)).toBeCloseTo(((1 + 1) * (1 + 0.1 * (empty - 1))) + 25, 9);
   });
   it('Idle Barrels: +3 per ejector no signal reaches; 0 when every ejector is used', () => {
-    expect([0, 1, 4].map(idleBarrelsAdd)).toEqual([0, 3, 12]);
+    expect([0, 1, 4].map(n => idleBarrelsAdd(n))).toEqual([0, 3, 12]);
     const g = fanLine(['idle_barrels']);
     const ejectors = g.cells.filter(c => c.type === 'ejector').length;
     expect(ejectors).toBeGreaterThan(1);
@@ -381,7 +381,7 @@ describe('legendary blocks: two prices', () => {
 
 describe('legendary blocks: saves', () => {
   it('the save version is 10 now (21a); a v9 save without legendaries loads unchanged and the new blocks start at 0 copies', () => {
-    expect(PROGRESS_VERSION).toBe(10);
+    expect(PROGRESS_VERSION).toBe(11);
     const old = {
       version: 9, credits: 12345, medals: 7, owned: { chain_lightning: 1, flat_plus: 3 }, levels: { flat_plus: 4 }, ownedHulls: ['dart', 'twin'],
       frontier: { seed: 5, sq: { [sqKey(0, -120)]: 2 } },

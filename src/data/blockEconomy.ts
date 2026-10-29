@@ -140,3 +140,11 @@ export const medalPriceOf = (id: string): number => BLOCK_ECONOMY[id]?.medals ??
 
 /** Ownership cap of a block (Infinity when it has none). Unknown ids (hidden blocks) have no cap. */
 export const capOf = (id: string): number => BLOCK_ECONOMY[id]?.cap ?? Infinity;
+
+/** Chunk 22a: the copy limits the Volley / Firepower skills raise, and the skill key that raises each. */
+export const SKILL_CAP_KEYS: Record<string, 'percentCap' | 'splitter3Cap' | 'plusOneCap'> = { percent_mult: 'percentCap', splitter_3: 'splitter3Cap', plus_one: 'plusOneCap' };
+/** Ownership cap with the skills' extra copies (Infinity stays Infinity). */
+export const capWithSkills = (id: string, skills: Readonly<Record<string, number>>): number => {
+  const key = SKILL_CAP_KEYS[id];
+  return capOf(id) + (key ? skills[key] ?? 0 : 0);
+};

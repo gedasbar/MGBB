@@ -467,7 +467,7 @@ export class WallScreen implements Screen {
     const captain: CaptainSummary = {
       name: CAPTAIN_BY_ID[id]?.name ?? id, killsAdded: this.banker.added, killsTotal: store.data.captains.heroes[id]?.kills ?? 0,
       medals: w.medalsEarned, doubled: w.medalDoubled,
-      note: w.fx.passBonus > 0 ? `pass bonus +${fmtBig(Math.floor(w.fx.passBonus))}` : undefined,
+      note: [w.fx.passBonus > 0 ? `pass bonus +${fmtBig(Math.floor(w.fx.passBonus))}` : '', w.fx.skillBonus > 0 ? `skill bonus +${fmtBig(Math.floor(w.fx.skillBonus))}` : ''].filter(Boolean).join('  ') || undefined,
     };
     sm.switchTo(new RunSummaryScreen(sm, result, marks, { result: outcome, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }, captain));
   }

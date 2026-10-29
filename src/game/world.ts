@@ -140,7 +140,8 @@ export class World {
     this.director = this.makeDirector();
     this.startWave = Math.max(1, Math.floor(opts.startWave ?? 1));
     this.applyStartWave();
-    const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage, furthestRing: this.mods.furthestRing, projSpeedMul: this.mods.projSpeedMul });
+    const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage, furthestRing: this.mods.furthestRing, projSpeedMul: this.mods.projSpeedMul, skills: this.mods.skills });
+    this.projSys.skills = this.mods.skills;
     const hull = opts.grid ?? buildStarterGrid();
     this.recipes = compiled.recipes;
     this.fireRateMul = fireRateMul(hull.hullId) * this.mods.fireRateMul;
@@ -536,7 +537,7 @@ export class World {
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       if (e.hp <= 0) {
-        let reward = rockReward(freeFlyRewardTier(e.tier), e.generation) * speciesOf(e.defId).rewardMul * FREEFLY_REWARD_MUL * this.mods.creditMul;
+        let reward = rockReward(freeFlyRewardTier(e.tier), e.generation) * speciesOf(e.defId).rewardMul * FREEFLY_REWARD_MUL * this.mods.creditMul * (1 + this.mods.skills.freeFlyCredits);
         // Cauterize: a kill inside the window leaves no children (the mitosis system's rule) and pays extra, if it would have split.
         const cauterized = (e.cauterizedTimer ?? 0) > 0 && this.canSplit(e);
         if (cauterized) { reward *= 1 + (e.cauterizeBonus ?? 0); this.fx.cauterizedKills++; }

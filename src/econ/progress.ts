@@ -12,18 +12,19 @@ import { LEGACY_MAX_LEVEL, migrateEconomyV8, migrateRemovedBlocks, refundNotice 
 import { HULL_BUILDERS } from '../game/gridUtils';
 import { STARTER_HULL } from '../data/hulls';
 import { medalPriceOf } from '../data/blockEconomy';
+import { buySkill, respecSkills, sanitizeSkillList, skillEffects, skillPointsFor, SkillResult } from '../skills/rules';
 import {
   atCopyCap, copyPrice, DEFAULT_OWNED, HULL_PRICE, maxLevelOf, upgradePrice,
 } from './economy';
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 10;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 11;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 10;
+  version: 11;
   /** A one-time message for the next screen that can show it (the economy refund of the version 8 migration); cleared when taken. */
   notice?: string;
   credits: number;
@@ -55,6 +56,8 @@ export interface Progress {
   highestCleared: number;
   /** Frontier grid map (chunk 15a): world seed and the passed / cleared squares, sparse. */
   frontier: FrontierSave;
+  /** Chunk 22a: owned skill-tree node ids (the free start node is implicit). Points come from the furthest Frontier ring. */
+  skills: string[];
 }
 
 export interface StorageLike {
@@ -68,9 +71,9 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 10, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    version: 11, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, wallBestCredits: {}, squareBestCredits: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
-    frontier: defaultFrontier(),
+    frontier: defaultFrontier(), skills: [],
   };
 }
 
@@ -136,6 +139,8 @@ export function sanitizeProgress(raw: unknown): Progress {
   out.captains = sanitizeCaptains(r.captains);
   // v1-v6 saves have no frontier: it starts empty (only the free origin).
   out.frontier = sanitizeFrontier(r.frontier);
+  // v11 (chunk 22a): owned skill nodes, kept only if real, joined to the start and paid for by the furthest ring.
+  out.skills = sanitizeSkillList(r.skills, skillPointsFor(furthestRing(reachBySector(out.frontier))));
   out.highestCleared = out.clearedTiers.length ? out.clearedTiers[out.clearedTiers.length - 1] : 0;
   // A save older than v8 still holds the levels of blocks that lost them: read them with the old ceiling so the migration can refund them.
   const migrating = !(typeof r.version === 'number' && r.version >= 8);
@@ -318,7 +323,7 @@ export function buyCopy(p: Progress, id: string): BuyResult {
   if (!(id in p.owned)) return { ok: false, error: 'Not for sale' };
   const lock = blockLockReason(p, id);
   if (lock) return { ok: false, error: lock };
-  if (atCopyCap(id, p.owned[id])) return { ok: false, error: `Max copies of ${BLOCKS[id]?.name ?? id}` };
+  if (atCopyCap(id, p.owned[id], skillEffects(p.skills))) return { ok: false, error: `Max copies of ${BLOCKS[id]?.name ?? id}` };
   const price = copyPrice(id, p.owned[id]);
   const medals = medalPriceOf(id);
   if (p.credits < price) return { ok: false, error: 'Not enough credits' };
@@ -422,7 +427,7 @@ export class ProgressStore {
 
   /** Books a Frontier Free Fly encounter (chunk 15b). Returns the square outcome (Medal paid on a first clear). */
   recordFrontierFly(run: { x: number; y: number; credits: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number }): SquareRunOutcome & { newBestEarnings: boolean } {
-    const r = applyFrontierOutcome(this.data, { ...run, ...outcomeFlags(run.outcome) });
+    const r = applyFrontierOutcome(this.data, { ...run, medalDouble: this.squareMedalChance(run.medalDouble), ...outcomeFlags(run.outcome) });
     this.commit();
     return r;
   }
@@ -453,7 +458,34 @@ export class ProgressStore {
   /** The selected captain's effects for a run that starts now. */
   runModifiers(): RunModifiers {
     const c = this.data.captains;
-    return { ...modifiersFor(c.selected, c.heroes[c.selected]), furthestRing: furthestRing(this.reach) };
+    const m = modifiersFor(c.selected, c.heroes[c.selected]);
+    const skills = skillEffects(this.data.skills);
+    // Salvage (chunk 22a): +x% credits per legendary block owned, in every mode.
+    const legendary = Object.keys(this.data.owned).filter(id => BLOCKS[id]?.category === 'legendary' && this.data.owned[id] > 0).length;
+    m.creditMul += skills.legendaryCredits * legendary;
+    return { ...m, furthestRing: furthestRing(this.reach), skills };
+  }
+
+  /** Medal squares (chunk 22a, Salvage): the captain's double chance plus the skill's chance of one extra Medal. */
+  private squareMedalChance(captain = 0): number { return Math.min(1, captain + skillEffects(this.data.skills).medalSquareExtra); }
+
+  // ---- Skills (chunk 22a): rules live in skills/rules.ts, the store commits and notifies.
+  /** The ring that pays skill points: the furthest passed or cleared Frontier square in any direction (what Frontier Echo reads). */
+  get skillRing(): number { return furthestRing(this.reach); }
+  buySkill(id: string): SkillResult { const r = buySkill(this.data, this.skillRing, id); if (r.ok) this.commit(); return r; }
+  respecSkills(): SkillResult { const r = respecSkills(this.data); if (r.ok) this.commit(); return r; }
+
+  /**
+   * Salvage credit bonus (chunk 22a) for a finished level: a replay of a level cleared before pays more, and so does a run that beats the
+   * level's best earnings (the first run has nothing to beat). Both add. `key` is the tier number or the square key.
+   */
+  creditBonusMul(kind: 'tier' | 'square', key: string, credits: number): number {
+    const sk = skillEffects(this.data.skills);
+    if (sk.replayCredits === 0 && sk.recordCredits === 0) return 1;
+    const d = this.data;
+    const cleared = kind === 'tier' ? d.clearedTiers.includes(Number(key)) : d.frontier.sq[key] === 2;
+    const best = (kind === 'tier' ? d.wallBestCredits : d.squareBestCredits)[key] ?? 0;
+    return 1 + (cleared ? sk.replayCredits : 0) + (best > 0 && credits > best ? sk.recordCredits : 0);
   }
 
   /** Adds one finished run to the totals. Call exactly once per run. */
@@ -483,7 +515,7 @@ export class ProgressStore {
     let medals = 0;
     let medalDoubled = false;
     if (run.square && run.destroyed !== undefined && run.total !== undefined) {
-      const r = applyFrontierRun(this.data, { ...run.square, destroyed: run.destroyed, total: run.total, credits: run.credits, kills: run.kills, passed: run.passed, medalDouble: run.medalDouble, rand: run.rand });
+      const r = applyFrontierRun(this.data, { ...run.square, medalDouble: this.squareMedalChance(run.medalDouble), destroyed: run.destroyed, total: run.total, credits: run.credits, kills: run.kills, passed: run.passed, rand: run.rand });
       medal = r.medals > 0; medals = r.medals; medalDoubled = r.medalDoubled; newBestEarnings = r.newBestEarnings;
     } else if (run.tier !== undefined && run.destroyed !== undefined && run.total !== undefined) {
       const r = applyWallRun(this.data, { tier: run.tier, destroyed: run.destroyed, total: run.total, time: run.time ?? 0, credits: run.credits, kills: run.kills, passed: run.passed, medalDouble: run.medalDouble, rand: run.rand });

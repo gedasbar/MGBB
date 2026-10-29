@@ -1,6 +1,6 @@
 import { EjectorRecipe, Grid } from '../engine/compiler';
 import { evalDamage, isDynamic, mulSafe } from '../engine/compilerTypes';
-import { FUSE_N, loneShotMul, MIRROR_OFFSET, OVERCLOCK_WINDOW } from '../engine/effects';
+import { CAPACITOR_N, loneShotMul, MIRROR_OFFSET, OVERCLOCK_WINDOW } from '../engine/effects';
 import { ProjectilePool } from '../engine/pools';
 import { ProjectileSystem } from '../engine/projectiles';
 import { rng } from '../rng';
@@ -201,7 +201,7 @@ export class Gun {
           st[o] = 0;
           st[o + 1] = 0;
           this.fx.capacitorEmits++;
-          if (op.n === FUSE_N) this.projSys.fx.fuseEmits++;
+          if (op.n !== CAPACITOR_N) this.projSys.fx.fuseEmits++;
           break;
         }
         case 'alt': {
@@ -225,7 +225,7 @@ export class Gun {
         case 'delay': this.curDelay += op.sec; break;
         case 'lone': {
           // Lone Shot: the fewer of the player's shots are alive, the harder this one hits (x2 alone, x1 from ten).
-          const m = loneShotMul(this.pool.count);
+          const m = loneShotMul(this.pool.count, this.projSys.skills.loneShotTop);
           if (m > 1) this.projSys.fx.loneBoosts++;
           d *= m;
           break;
@@ -278,7 +278,7 @@ export class Gun {
       this.projSys.init(i);
       // Mirror: a clone beside the shot, same damage and modifiers. Made here and nowhere else, so it is never cloned again; a full pool skips it.
       if (this.mirror[ri] && this.pool.admits('mirror')) {
-        const c = this.pool.spawn(shipX + off.x + (-vy / speed) * MIRROR_OFFSET, shipY + off.y + (vx / speed) * MIRROR_OFFSET, vx, vy, damage, r.packet.pure || 0, ri);
+        const c = this.pool.spawn(shipX + off.x + (-vy / speed) * MIRROR_OFFSET, shipY + off.y + (vx / speed) * MIRROR_OFFSET, vx, vy, damage * (1 + this.projSys.skills.mirrorMul), r.packet.pure || 0, ri);
         if (c >= 0) {
           this.pool.life[c] = life;
           this.pool.anchorX[c] = shipX;

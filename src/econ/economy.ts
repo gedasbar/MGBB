@@ -1,6 +1,6 @@
 import { CONFIG } from '../config';
 import { BLOCKS } from '../data/blocks';
-import { BLOCK_ECONOMY, capOf, UPGRADE_GROWTH, UPGRADE_MUL } from '../data/blockEconomy';
+import { BLOCK_ECONOMY, capWithSkills, UPGRADE_GROWTH, UPGRADE_MUL } from '../data/blockEconomy';
 import { HULL_PRICES } from '../data/hulls';
 
 /** Seconds of survival per tier step inside one run. */
@@ -58,6 +58,6 @@ export const copyPrice = (id: string, owned: number) => {
 export const upgradePrice = (id: string, level: number) =>
   Math.max(1, Math.round((BASE_PRICE[id] ?? 100) * UPGRADE_MUL * Math.pow(UPGRADE_GROWTH, level - 1)));
 /** Copies one can own (Infinity = no cap) and whether the cap is reached. */
-export const copyCap = capOf;
-export const atCopyCap = (id: string, owned: number) => owned >= capOf(id);
+export const copyCap = (id: string, skills: Readonly<Record<string, number>> = {}) => capWithSkills(id, skills);
+export const atCopyCap = (id: string, owned: number, skills: Readonly<Record<string, number>> = {}) => owned >= capWithSkills(id, skills);
 export const maxLevelOf = (id: string) => BLOCKS[id]?.maxLevel ?? 1;

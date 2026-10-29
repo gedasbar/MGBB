@@ -1,3 +1,4 @@
+import { NO_SKILLS, SkillEffects } from '../skills/effects';
 import { CAPTAIN_BY_ID, Effect, HERO_LEVEL_BASE_DAMAGE, MEDAL_DOUBLE_MAX, OPTION_BY_ID } from './data';
 
 /**
@@ -37,13 +38,15 @@ export interface RunModifiers {
   boostZone: number;
   /** Furthest Frontier ring reached in any direction (Frontier Echo, chunk 20a; not a captain effect: the progress store fills it in). */
   furthestRing: number;
+  /** Chunk 22a: what the owned skill nodes change (the progress store fills it in; neutral = no change). */
+  skills: SkillEffects;
 }
 
 export function neutralModifiers(): RunModifiers {
   return {
     baseDamage: 0, damageMul: 1, fireRateMul: 1, projSpeedMul: 1, vsArmor: 0, vsShield: 0, vsFragment: 0, wallDamageMul: 1,
     creditMul: 1, wallCreditMul: 1, waveBonusMul: 1, passCredits: 0, medalDouble: 0, secondChances: 0, spawnInvuln: 0,
-    hullMul: 1, killHeal: 0, boostZone: 1, furthestRing: 0,
+    hullMul: 1, killHeal: 0, boostZone: 1, furthestRing: 0, skills: NO_SKILLS,
   };
 }
 

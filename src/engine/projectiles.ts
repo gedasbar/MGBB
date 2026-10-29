@@ -1,3 +1,4 @@
+import { NO_SKILLS, SkillEffects } from '../skills/effects';
 import { rng } from '../rng';
 import { ProjectilePool } from './pools';
 import { Modifier } from './compilerTypes';
@@ -316,6 +317,9 @@ export class ProjectileSystem {
   /** Optional hook fired once per enemy damaged (used for hit flash / damage numbers). */
   onHit: HitCallback | null = null;
 
+  /** Chunk 22a: what the owned skill nodes change (set by the world; read here and by the Gun). */
+  skills: SkillEffects = NO_SKILLS;
+
   constructor(pool: ProjectilePool) {
     this.pool = pool;
   }
@@ -327,7 +331,10 @@ export class ProjectileSystem {
     if (bounce) {
       // Each extra Bouncing block on the path adds one bounce.
       this.pool.bounces[i] = Math.min(MAX_BOUNCES, bounceCount(bounce.level ?? 1) + this.stk.bounce - 1);
+      // Impact skill: a chance, rolled once at launch, of one more bounce.
+      if (this.skills.bounceChance > 0 && !this.pool.copy[i] && rng.combat.next() < this.skills.bounceChance) this.pool.bounces[i] = Math.min(MAX_BOUNCES, this.pool.bounces[i] + 1);
     }
+    if (info.pierce && this.skills.pierceChance > 0 && !this.pool.copy[i] && rng.combat.next() < this.skills.pierceChance) this.pool.pierceBonus[i] = 1;
     if (info.randK > 0) {
       this.pool.aux1[i] = rng.combat.next() * 2 - 1;
       this.pool.aux2[i] = rng.combat.next() * 2 - 1;
@@ -375,7 +382,7 @@ export class ProjectileSystem {
     for (const m of mods) {
       switch (m.type) {
         case 'piercing': stk.pierce++; info.pierce ??= m; break;
-        case 'bouncing': stk.bounce++; info.bounce ??= m; break;
+        case 'bouncing': stk.bounce++; info.bounce ??= m; if (this.skills.bounceDamage > 0) info.hitFactor = true; break;
         case 'aoe_circle': stk.aoeCircle++; info.aoe ??= m; break;
         case 'aoe_rect': stk.aoeRect++; info.rect ??= m; break;
         case 'homing': stk.homing++; info.homing ??= m; info.homingK++; break;
@@ -425,7 +432,7 @@ export class ProjectileSystem {
     if (ph === PHASE_ORBIT) {
       pool.s2[i] += dt;
       const t = pool.s2[i];
-      if (t >= orbitTime(mi.orbit) + (this.stk.orbit - 1) * orbitPassTime(speed)) {
+      if (t >= orbitTime(mi.orbit) + (this.stk.orbit - 1 + this.skills.orbitPass) * orbitPassTime(speed)) {
         const a = pool.s1[i];
         pool.vx[i] = Math.cos(a) * speed;
         pool.vy[i] = Math.sin(a) * speed;
@@ -442,7 +449,7 @@ export class ProjectileSystem {
       pool.vy[i] = (this.shipY + Math.sin(th) * r - pool.y[i]) / dt;
     } else if (ph === PHASE_BOOM_OUT) {
       pool.s1[i] += Math.hypot(pool.vx[i], pool.vy[i]) * dt;
-      if (pool.s1[i] >= boomerangRange(mi.boomerang) * stackGrowth(this.stk.boomerang)) {
+      if (pool.s1[i] >= boomerangRange(mi.boomerang) * stackGrowth(this.stk.boomerang) * (1 + this.skills.boomerangRange)) {
         pool.phase[i] = PHASE_BOOM_BACK;
         pool.skipId[i] = -1; // the way back may hit what the way out hit
         pool.age[i] = 0;
@@ -471,7 +478,7 @@ export class ProjectileSystem {
         const hx = pool.vx[i], hy = pool.vy[i];
         const hl = Math.hypot(hx, hy) || 1;
         const endX = pool.x[i] + hx * dt * k, endY = pool.y[i] + hy * dt * k;
-        const extra = mineExtra(this.stk.mine);
+        const extra = mineExtra(this.stk.mine) + this.skills.mineExtra;
         for (let e = 1; e <= extra; e++) {
           const side = (e % 2 ? 1 : -1) * Math.ceil(e / 2) * MINE_SPREAD;
           const m = pool.spawn(endX + (-hy / hl) * side, endY + (hx / hl) * side, 0, 0, pool.damage[i], pool.pure[i], pool.modIndex[i]);
@@ -549,7 +556,7 @@ export class ProjectileSystem {
       const curveR = info.curveR, curveL = info.curveL, randK = info.randK; // chunk 21a: curves are counted by copies
       // Chunk 21a, Upturn takes over: after its delay no other steering (curves, Random Curve, Homing, Centreline, Ship Magnet, Zigzag) acts on the
       // shot; it turns to straight up and stays straight. (Orbit before launch, a waiting Mine and a Boomerang's way back never reach this point.)
-      if (upK > 0 && pool.age[i] >= upturnDelay(upK)) { this.upturn(i, upK, dt); continue; }
+      if (upK > 0 && pool.age[i] >= upturnDelay(upK, this.skills.upturnDelay)) { this.upturn(i, upK, dt); continue; }
       if (info.zigzag) this.stepZigzag(i, dt);
       let turn = 0; // radians per second, clockwise on screen
       if (randK > 0) {
@@ -755,7 +762,7 @@ export class ProjectileSystem {
       if (first) pool.firstDamage[i] = damage;
       if (pool.hits[i] < 255) pool.hits[i]++;
       // A stacked AoE costs the whole shot 5% damage per extra copy (direct hit and blast alike, so the builder's estimate can show it).
-      const aoeFactor = isCopy ? 1 : aoeMod ? aoeStackDamage(this.stk.aoeCircle) : rectMod ? aoeStackDamage(this.stk.aoeRect) : 1;
+      const aoeFactor = isCopy ? 1 : aoeMod ? aoeStackDamage(this.stk.aoeCircle, this.skills.aoeCirclePenalty) : rectMod ? aoeStackDamage(this.stk.aoeRect, this.skills.aoeRectPenalty) : 1;
       this.leftFrac = 0;
       this.trackLeft = kPersist > 0;
       this.strike(target, damage * aoeFactor, pure, tier, armorPierce, isShieldBreaker, mi, px, py, HIT_NORMAL);
@@ -779,7 +786,7 @@ export class ProjectileSystem {
       } else if (isPiercing) {
         // Chunk 19a: pierce by count. A piercing shot passes through what it hit and cannot hit it again; every Piercing copy on the
         // path lets it through ONE more target (1 copy: 2 targets). Damage stays PIERCE_DAMAGE_KEEP of the hit before (1.0: full).
-        const canPierce = pool.pierced[i] < this.stk.pierce;
+        const canPierce = pool.pierced[i] < this.stk.pierce + pool.pierceBonus[i];
         pierceDamage = shotDamage * PIERCE_DAMAGE_KEEP;
         // Piercing first; a Bouncing block turns the shot that Piercing would have used up into a bounce, at full damage.
         bounceOnPierceEnd = !canPierce && !!bounceMod && this.bouncesLeft(i, bounceMod.level ?? 1) > 0;
@@ -876,11 +883,13 @@ export class ProjectileSystem {
    */
   private hitFactor(i: number, mods: Modifier[]): number {
     let f = 1;
+    // Impact skill: +x% damage for every bounce this shot has made (once, however many Bouncing copies it has).
+    if (this.skills.bounceDamage > 0) f *= 1 + this.skills.bounceDamage * this.pool.bounceN[i];
     for (const m of mods) {
       if (m.type === 'last_breath') {
-        const k = lastBreathMul(this.pool.age[i], this.pool.life[i]);
+        const k = lastBreathMul(this.pool.age[i], this.pool.life[i], this.skills.lastBreathMul);
         if (k > 1) { f *= k; this.fx.lastBreathHits++; }
-      } else if (m.type === 'zigzag') f *= zigzagMul(this.pool.zigN[i]);
+      } else if (m.type === 'zigzag') f *= zigzagMul(this.pool.zigN[i], this.skills.zigzagGain);
     }
     return f;
   }
@@ -898,7 +907,7 @@ export class ProjectileSystem {
       const info = this.use(pool.modIndex[i]);
       const circle = info.stk.aoeCircle;
       const rect = info.stk.aoeRect;
-      const f = circle ? aoeStackDamage(circle) : aoeStackDamage(rect);
+      const f = circle ? aoeStackDamage(circle, this.skills.aoeCirclePenalty) : aoeStackDamage(rect, this.skills.aoeRectPenalty);
       this.exitBlasts.push({ x: pool.lastX[i], y: pool.lastY[i], dmg: pool.firstDamage[i] * f, pure: pool.pure[i], mod: pool.modIndex[i], skip: pool.skipId[i] });
     }
     pool.free(i);
@@ -972,6 +981,7 @@ export class ProjectileSystem {
     pool.vy[i] = Math.sin(a) * speed;
     pool.skipId[i] = target.id;
     pool.bounces[i]--;
+    if (pool.bounceN[i] < 255) pool.bounceN[i]++;
     this.fx.bounces++;
   }
 
@@ -986,6 +996,7 @@ export class ProjectileSystem {
     else if (pool.y[i] > maxY && pool.vy[i] > 0) { pool.y[i] = maxY; pool.vy[i] = -pool.vy[i]; hit = true; }
     if (!hit) return false;
     pool.bounces[i]--;
+    if (pool.bounceN[i] < 255) pool.bounceN[i]++;
     pool.skipId[i] = -1;
     this.fx.bounces++;
     this.fx.edgeBounces++;
@@ -1045,13 +1056,13 @@ export class ProjectileSystem {
     }
     // Culling Bolt: a share of the target's max HP on top of the hit, at most CULLING_CAP times the packet's damage.
     if (mi.culling) { d += Math.min(cullingPct(mi.culling) * t.maxHp, CULLING_CAP * dmg); this.fx.cullingHits++; }
-    if (mi.executioner && t.hp < t.maxHp * EXECUTIONER_BELOW) { d *= executionerMul(mi.executioner); this.fx.executionerHits++; }
+    if (mi.executioner && t.hp < t.maxHp * (EXECUTIONER_BELOW + this.skills.executionerBelow)) { d *= executionerMul(mi.executioner); this.fx.executionerHits++; }
     if ((t.freezeT ?? 0) > 0) { d *= 1 + (t.freezeBonus ?? 0); this.fx.frozenBonusHits++; }
     if (this.trackLeft) {
       // Persist: how much of this hit the target needed to die (the shot keeps the rest); 0 left when it survives.
       this.trackLeft = false;
       const need = damageToKill(t, pure, tier, armorPierce, shieldBreaker);
-      this.leftFrac = d > 0 && need < d ? 1 - need / d : 0;
+      this.leftFrac = d > 0 && need < d ? 1 - (need * (1 + this.skills.persistSpend)) / d : 0;
     }
     const res = applyDamage(t, d, pure, tier, armorPierce, shieldBreaker);
     this.noteDamage(d);
@@ -1240,7 +1251,7 @@ export class ProjectileSystem {
       if (!best) break;
       seen.push(best.id);
       this.addArc(cur.x, cur.y, cur.x + this.dxw(best.x, cur.x), best.y);
-      this.strike(best, damage * CHAIN_FRAC * (j < baseJumps ? 1 : Math.pow(CHAIN_STACK_FALL, j - baseJumps + 1)), pure, tier, armorPierce, shieldBreaker, mi, best.x, best.y, HIT_CHAIN);
+      this.strike(best, damage * (CHAIN_FRAC + this.skills.chainFrac) * (j < baseJumps ? 1 : Math.pow(CHAIN_STACK_FALL, j - baseJumps + 1)), pure, tier, armorPierce, shieldBreaker, mi, best.x, best.y, HIT_CHAIN);
       this.fx.chainJumps++;
       cur = best;
     }
@@ -1299,7 +1310,7 @@ export class ProjectileSystem {
     const speed = Math.hypot(pool.vx[i], pool.vy[i]);
     const heading = Math.atan2(pool.vy[i], pool.vx[i]);
     for (let j = 1; j <= pairs; j++) {
-      const dmg = shotDamage * forkDamageFrac(level) * Math.pow(FORK_PAIR_DAMAGE, j - 1);
+      const dmg = shotDamage * (forkDamageFrac(level) + this.skills.forkFrac) * Math.pow(FORK_PAIR_DAMAGE, j - 1);
       for (const sign of [-1, 1]) {
         if (!pool.admits('fork')) { this.fx.forksRefused++; return; } // chunk 21b: the cheapest shots are refused first as the pool fills
         const a = heading + sign * Math.min(FORK_ANGLE_DEG * j, 85) * RAD;

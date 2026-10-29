@@ -51,6 +51,9 @@ export class ProjectilePool {
   chains: Uint8Array;
   /** Chunk 19a: targets this shot has passed through since launch (or since its last bounce): the Piercing count. */
   pierced: Uint8Array;
+  /** Chunk 22a (Impact skills): 1 when this shot rolled a bonus pierce at launch; bounces made so far. */
+  pierceBonus: Uint8Array;
+  bounceN: Uint8Array;
   /** 1 = an AoE blast is still owed where the shot last hit (it flew on; the blast comes when it leaves play: ProjectileSystem.retire). */
   aoePending: Uint8Array;
   /** The shot's damage at its first hit: an AoE blast owed to the end of a piercing shot keeps it (piercing only pays for the direct hits). */
@@ -106,6 +109,8 @@ export class ProjectilePool {
     this.hits = new Uint8Array(max);
     this.chains = new Uint8Array(max);
     this.pierced = new Uint8Array(max);
+    this.pierceBonus = new Uint8Array(max);
+    this.bounceN = new Uint8Array(max);
     this.aoePending = new Uint8Array(max);
     this.firstDamage = new Float64Array(max);
     this.lastX = new Float32Array(max);
@@ -162,6 +167,8 @@ export class ProjectilePool {
         this.hits[i] = 0;
         this.chains[i] = 0;
         this.pierced[i] = 0;
+        this.pierceBonus[i] = 0;
+        this.bounceN[i] = 0;
         this.aoePending[i] = 0;
         this.zigN[i] = 0;
         this.zigT[i] = -1;
