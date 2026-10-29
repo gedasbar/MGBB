@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture, Text } from 'pixi.js';
+import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import { CONFIG } from '../config';
 import { World } from '../game/world';
 import { specialKind } from '../data/waves';
@@ -11,8 +11,8 @@ import { HIT_CLOUD } from '../engine/projectiles';
 import { fmtBig, fmtDamage } from '../ui/format';
 import { makeText } from '../builder/ui';
 import { getProgressStore, RunResult } from '../econ/progress';
-import { shotLookFor, SHOT_LOOKS } from '../ui/shotLook';
-import { ShotTextures, shotTextures } from '../ui/shotTextures';
+import { ShotSprites } from '../ui/shotSprites';
+import { shotTextures } from '../ui/shotTextures';
 import { debugHooks } from '../debug/hooks';
 import { RunSummaryScreen, fmtTime, CaptainSummary } from './RunSummaryScreen';
 import { KillBanker } from '../captains/state';
@@ -31,15 +31,13 @@ import { FREEFLY_PASS_SHARE, FRONTIER_NAME, PROGRESS_COLOR } from '../frontier/c
 import { FrontierScreen } from './FrontierScreen';
 import { BuildScreen } from './BuildScreen';
 import { RESULT_DELAY_CLEARED, RESULT_DELAY_FAILED } from '../wall/constants';
-import { ARC_MAX, PHASE_NORMAL, PHASE_BOOM_BACK, PHASE_BOOM_OUT, PHASE_MINE_WAIT, PHASE_MINE_TRAVEL, PHASE_ORBIT } from '../engine/projectiles';
+import { ARC_MAX } from '../engine/projectiles';
 
 /** Status tints of a rock: burning is a redder orange, frozen a pale blue. */
 const BURN_COLOR = 0xff4a1a;
 const FROZEN_COLOR = 0xbfe6ff;
 const BURN_FROZEN_COLOR = 0xe6bfc8;
 const ARC_COLOR = 0xe8f4ff;
-const MINE_COLOR = 0xff5050;
-const LOOP_COLOR = 0xffe14d;
 const FLASH_TIME = 0.08;
 /** Free Fly background scroll in px/s (before each layer's parallax). */
 const BG_SCROLL = 60;
@@ -72,8 +70,9 @@ export class FlyScreen implements Screen {
   hullBarBg = new Graphics().rect(0, 0, 100, 10).fill(0xff0000);
   hullBarFg = new Graphics().rect(0, 0, 100, 10).fill(0x00ff00);
   
-  projSprites: Sprite[] = [];
-  private shotTex!: ShotTextures;
+  private shots!: ShotSprites;
+  /** The shot sprites, one per pool slot (the e2e scripts read them). */
+  get projSprites(): Sprite[] { return this.shots.sprites; }
   enemySprites = new Map<number, RockView>();
   fragments = new FragmentPool();
   /** One fragment pool per species look (the basic rock's is `fragments`), made on first use. */
@@ -176,17 +175,7 @@ export class FlyScreen implements Screen {
       this.uiLayer.addChild(this.timeBarBg, this.timeBarFg);
     }
 
-    this.shotTex = shotTextures(this.screenManager.app);
-    for (let i = 0; i < this.world.pool.max; i++) {
-      const s = new Sprite(Texture.WHITE);
-      s.width = 6;
-      s.height = 14;
-      s.tint = 0x00ffff;
-      s.anchor.set(0.5);
-      s.visible = false;
-      this.projLayer.addChild(s);
-      this.projSprites.push(s);
-    }
+    this.shots = new ShotSprites(this.projLayer, this.world.pool.max, shotTextures(this.screenManager.app), CONFIG.VIEW.W, CONFIG.VIEW.H);
 
     for (let i = 0; i < CONFIG.CAPS.DAMAGE_NUMBERS; i++) {
       const t = new Text({ text: '', style: { fill: 0xffffff, fontSize: 18, fontWeight: 'bold', stroke: { color: 0x000000, width: 3 } } });
@@ -390,32 +379,7 @@ export class FlyScreen implements Screen {
     const hudDy = this.screenManager.stats.hudOffset;
     if (this.uiLayer.y !== hudDy) this.uiLayer.y = hudDy;
 
-    const pool = this.world.pool;
-    for (let i = 0; i < pool.max; i++) {
-      const s = this.projSprites[i];
-      if (pool.active[i]) {
-        s.position.set(pool.x[i], pool.y[i]);
-        const ph = pool.phase[i];
-        if (ph === PHASE_MINE_WAIT) {
-          // A waiting mine is a small red square.
-          s.width = s.height = 14 * pool.size[i];
-          s.tint = MINE_COLOR;
-          s.rotation = Math.PI / 4;
-        } else {
-          // Chunk 21a: a shot in plain flight is drawn by its damage band (ui/shotLook.ts); Orbit, Boomerang and Mine shots keep the plain bar.
-          const look = ph === PHASE_NORMAL ? shotLookFor(pool.damage[i]) : SHOT_LOOKS[0];
-          const tex = look.bolt ? this.shotTex.bolt : this.shotTex.bar;
-          if (s.texture !== tex) s.texture = tex;
-          s.width = look.w * pool.size[i];
-          s.height = look.h * pool.size[i];
-          s.tint = ph === PHASE_ORBIT || ph === PHASE_BOOM_OUT || ph === PHASE_BOOM_BACK ? LOOP_COLOR : ph === PHASE_MINE_TRAVEL ? MINE_COLOR : 0x00ffff;
-          s.rotation = Math.atan2(pool.vy[i], pool.vx[i]) + Math.PI / 2;
-        }
-        s.visible = true;
-      } else if (s.visible) {
-        s.visible = false;
-      }
-    }
+    this.shots.sync(this.world.pool);
 
     const alive = new Set<number>();
     for (const e of this.world.mitosis.enemies) {

@@ -1,5 +1,9 @@
 import { CONFIG } from '../config';
 import { PROJECTILE_MAX_AGE } from '../wall/constants';
+import { HOMING_RETARGET, HOMING_STAGGER } from './effects';
+
+/** What a new shot is, for the overload rule (CONFIG.OVERLOAD.REFUSE_FROM): the cheapest kinds are refused first. */
+export type SpawnKind = keyof typeof CONFIG.OVERLOAD.REFUSE_FROM;
 
 /** Remembered recent targets per projectile (Orbit). */
 export const RING = 4;
@@ -65,6 +69,13 @@ export class ProjectilePool {
   prevY: Float32Array;
   /** The speed the shot was launched at: the pull of Centreline and Ship Magnet may slow it and turn it, never speed it past this. */
   vmax: Float32Array;
+  /** Chunk 21b, Homing: the id of the target the shot is locked on (-1 = none) and the seconds until it may search again. */
+  homeId: Int32Array;
+  homeT: Float32Array;
+  /** Chunk 21b: the shot's age at its last hit (a shot that has not hit anything for a while is the first to go when the pool is nearly full). */
+  hitAge: Float32Array;
+  /** Lowest slot that may be free: spawn() looks from here instead of from 0 (the slot it picks is still the lowest free one). */
+  private freeFrom = 0;
 
   constructor(max: number = CONFIG.CAPS.PROJECTILES) {
     this.max = max;
@@ -107,11 +118,24 @@ export class ProjectilePool {
     this.prevX = new Float32Array(max);
     this.prevY = new Float32Array(max);
     this.vmax = new Float32Array(max);
+    this.homeId = new Int32Array(max).fill(-1);
+    this.homeT = new Float32Array(max);
+    this.hitAge = new Float32Array(max);
+  }
+
+  /** Shots refused by the overload rule, by kind (a refusal is counted by `admits`; normal shots count when the pool is completely full). */
+  readonly refused: Record<SpawnKind, number> = { fork: 0, mirror: 0, extra: 0, normal: 0 };
+
+  /** True when a shot of this kind may still be made (chunk 21b: the pool refuses the cheapest kinds first as it fills). A refusal is counted. */
+  admits(kind: SpawnKind): boolean {
+    if (this.count < this.max * CONFIG.OVERLOAD.REFUSE_FROM[kind]) return true;
+    this.refused[kind]++;
+    return false;
   }
 
   spawn(x: number, y: number, vx: number, vy: number, damage: number, pure: number = 0, modIndex: number = 0): number {
-    if (this.count >= this.max) return -1;
-    for (let i = 0; i < this.max; i++) {
+    if (this.count >= this.max) { this.refused.normal++; return -1; }
+    for (let i = this.freeFrom; i < this.max; i++) {
       if (this.active[i] === 0) {
         this.active[i] = 1;
         this.x[i] = x;
@@ -146,10 +170,15 @@ export class ProjectilePool {
         this.prevX[i] = x;
         this.prevY[i] = y;
         this.vmax[i] = Math.hypot(vx, vy);
+        this.homeId[i] = -1;
+        this.homeT[i] = (i % HOMING_STAGGER) * (HOMING_RETARGET / HOMING_STAGGER);
+        this.hitAge[i] = 0;
         this.count++;
+        this.freeFrom = i + 1;
         return i;
       }
     }
+    if (this.freeFrom > 0) { this.freeFrom = 0; return this.spawn(x, y, vx, vy, damage, pure, modIndex); } // slots were cleared behind the hint
     return -1;
   }
 
@@ -157,6 +186,7 @@ export class ProjectilePool {
     if (this.active[i]) {
       this.active[i] = 0;
       this.count--;
+      if (i < this.freeFrom) this.freeFrom = i;
     }
   }
 }

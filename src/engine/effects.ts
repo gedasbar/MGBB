@@ -67,6 +67,13 @@ export const homingRange = (copies: number) => HOMING_RANGE_BASE * stackGrowth(c
 /** Homing: total opening angle of the cone (degrees) of one copy; extra copies widen it logarithmically (harmonic). */
 export const HOMING_CONE_BASE_DEG = 33;
 export const homingConeDeg = (copies: number) => HOMING_CONE_BASE_DEG * harmonic(copies);
+/**
+ * Homing (chunk 21b): a shot keeps its target while it is alive, in range and in the cone, and when it has none it looks again at most
+ * every HOMING_RETARGET seconds. The first search of a shot is spread over HOMING_STAGGER frames (by its pool slot), so the searches of
+ * a volley do not all land on one frame.
+ */
+export const HOMING_RETARGET = 0.1;
+export const HOMING_STAGGER = 6;
 /** Orbit: every extra copy adds one more full pass round the ship, which takes 2 pi r / speed seconds. */
 export const orbitPassTime = (speed: number) => (2 * Math.PI * ORBIT_RADIUS) / Math.max(1, speed);
 export const mineDistance = (l: number) => 220 + 40 * (l - 1);

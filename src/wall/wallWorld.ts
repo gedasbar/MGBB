@@ -2,7 +2,7 @@ import { CONFIG } from '../config';
 import { compile, EjectorRecipe, Grid } from '../engine/compiler';
 import { ProjectilePool } from '../engine/pools';
 import { EnemyEntity, ProjectileSystem } from '../engine/projectiles';
-import { BounceInfo, TargetField } from '../engine/targets';
+import { BounceInfo, HomePick, TargetField } from '../engine/targets';
 import { Gun, spawnOffsetsFor } from '../game/fire';
 import { HIT_BURN, HIT_CLOUD } from '../engine/projectiles';
 import { buildStarterGrid } from '../game/starter';
@@ -80,14 +80,56 @@ class BlockField implements TargetField {
   }
 
   hitCircle(px: number, py: number, hitR: number, skipId: number): EnemyEntity | null {
+    // The same cell walk as forEachIn, written out: this runs for every shot every frame, so no closure is made.
+    const w = this.w;
+    const cols = w.level.cols;
+    let c0 = Math.floor((px - hitR) / CELL);
+    let c1 = Math.floor((px + hitR) / CELL);
+    if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
+    const r0 = Math.max(0, w.level.rows + Math.floor((py - hitR - w.wallOffsetY) / CELL));
+    const r1 = Math.min(w.level.rows - 1, w.level.rows + Math.floor((py + hitR - w.wallOffsetY) / CELL));
     let best: Block | null = null;
     let bestD = hitR * hitR;
-    this.forEachIn(px - hitR, py - hitR, px + hitR, py + hitR, b => {
-      if (b.id === skipId) return;
-      const d = this.w.boxDistSq(px, py, b.col, b.row);
-      if (d <= bestD) { bestD = d; best = b; }
-    });
+    for (let r = r1; r >= r0; r--) {
+      for (let c = c0; c <= c1; c++) {
+        const b = w.blocks[r * cols + (w.ring ? ((c % cols) + cols) % cols : c)];
+        if (!b || b.id === skipId) continue;
+        const d = w.boxDistSq(px, py, b.col, b.row);
+        if (d <= bestD) { bestD = d; best = b; }
+      }
+    }
     return best;
+  }
+
+  byId(id: number): EnemyEntity | null {
+    return this.w.blocks[id] ?? null;
+  }
+
+  nearestInCone(px: number, py: number, range: number, hx: number, hy: number, cosHalf: number, out: HomePick): boolean {
+    const w = this.w;
+    const cols = w.level.cols;
+    let c0 = Math.floor((px - range) / CELL);
+    let c1 = Math.floor((px + range) / CELL);
+    if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
+    const r0 = Math.max(0, w.level.rows + Math.floor((py - range - w.wallOffsetY) / CELL));
+    const r1 = Math.min(w.level.rows - 1, w.level.rows + Math.floor((py + range - w.wallOffsetY) / CELL));
+    let best = range * range;
+    let found: Block | null = null;
+    let bdx = 0, bdy = 0;
+    for (let r = r1; r >= r0; r--) {
+      for (let c = c0; c <= c1; c++) {
+        const b = w.blocks[r * cols + (w.ring ? ((c % cols) + cols) % cols : c)];
+        if (!b || b.hp <= 0) continue;
+        const dx = w.dxw(b.x, px), dy = b.y - py;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > best) continue;
+        if (dx * hx + dy * hy < Math.sqrt(d2) * cosHalf) continue;
+        best = d2; found = b; bdx = dx; bdy = dy;
+      }
+    }
+    if (!found) return false;
+    out.target = found; out.dx = bdx; out.dy = bdy;
+    return true;
   }
 
   collectCircle(px: number, py: number, r: number, out: EnemyEntity[]) {
@@ -447,6 +489,7 @@ export class WallWorld {
 
     // --- Projectiles: steer, move, keep inside the world, drop the ones that left or flew too long
     const pool = this.pool;
+    this.projSys.expireStale(); // chunk 21b: with a nearly full pool, shots off the screen that hit nothing for a while go first
     this.projSys.steer(dt, this.field);
     const wallTop = this.wallOffsetY - this.level.rows * CELL - 100;
     for (let i = 0; i < pool.max; i++) {

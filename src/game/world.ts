@@ -104,6 +104,11 @@ export class World {
   /** Encounter only: the ship survived the whole duration (the run ends then, gameOver is set too). */
   survived = false;
   private due: PlannedSpawn[] = [];
+  /** The rocks' spatial hash and the field over it, made once (chunk 21b: they used to be built new every frame); rebuilt twice per update. */
+  private readonly spatial = new SpatialHash(CONFIG.VIEW.W, CONFIG.VIEW.H, 64);
+  private readonly field = new EnemyField(this.mitosis.enemies, this.spatial);
+  /** Reused by the separation query of the enemy loop. */
+  private readonly nearIds: number[] = [];
   bonusCredits = 0;
   /** Waves that started during the last update() calls (the screen shows a banner); consumers clear it. */
   waveEvents: { wave: number; bonus: number }[] = [];
@@ -398,7 +403,8 @@ export class World {
 
     // --- Projectile movement (path modifiers steer first)
     const pool = this.pool;
-    this.projSys.steer(dt, this.mitosis.enemies);
+    this.projSys.expireStale(); // chunk 21b: with a nearly full pool, shots off the screen that hit nothing for a while go first
+    this.projSys.steer(dt, this.field);
     for (let i = 0; i < pool.max; i++) {
       if (!pool.active[i]) continue;
       pool.x[i] += pool.vx[i] * dt;
@@ -419,9 +425,10 @@ export class World {
 
     // --- Enemy movement (drift + sway + soft separation via spatial hash)
     const enemies = this.mitosis.enemies;
-    const byId = new Map<number, (typeof enemies)[number]>();
-    const spatial = new SpatialHash(VW, CONFIG.VIEW.H, 64);
-    for (const e of enemies) { byId.set(e.id, e); spatial.insert(e.id, e.x, e.y); }
+    const spatial = this.spatial;
+    spatial.clear();
+    for (const e of enemies) spatial.insert(e.id, e.x, e.y);
+    this.field.refresh();
 
     const budsDue: MitosisEnemy[] = [];
     for (const e of enemies) {
@@ -447,9 +454,11 @@ export class World {
         kick.vy *= decay;
         if (Math.abs(kick.vx) + Math.abs(kick.vy) < 1) this.kicks.delete(e.id);
       }
-      for (const nid of spatial.query(e.x, e.y, e.radius * 2)) {
+      const near = spatial.queryInto(e.x, e.y, e.radius * 2, this.nearIds);
+      for (let q = 0; q < near.length; q++) {
+        const nid = near[q];
         if (nid === e.id) continue;
-        const o = byId.get(nid);
+        const o = this.field.byId(nid);
         if (!o) continue;
         const dx = e.x - o.x;
         const dy = e.y - o.y;
@@ -518,9 +527,9 @@ export class World {
     // --- Projectile hits (rebuild hash with post-move positions)
     spatial.clear();
     for (const e of enemies) spatial.insert(e.id, e.x, e.y);
-    const field = new EnemyField(enemies, spatial);
-    this.projSys.processField(field, 1);
-    this.projSys.updateClouds(dt, field, 1); // Residue Seed ticks and the age of Gravity Wells
+    this.field.refresh();
+    this.projSys.processField(this.field, 1);
+    this.projSys.updateClouds(dt, this.field, 1); // Residue Seed ticks and the age of Gravity Wells
     this.applyFission();
 
     // --- Death → mitosis
