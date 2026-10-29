@@ -77,7 +77,7 @@ const setScale = async (page, n) => { await page.fill('#dbg-time-scale', String(
   // ---- 4. Armored + shielded wall being hit: blocks lose HP and the green squares shrink
   await page.evaluate(() => { window.__mgbm.wall.state = 'crashed'; }); // leave the first wall quietly
   await page.waitForFunction(() => window.__mgbm.screen === 'summary', null, { timeout: 5000 });
-  await tap(page, 145, 672); // Build
+  await tap(page, 145, 832); // Build
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.buildScreen, null, { timeout: 5000 });
   await startWall(page, { tier: 1, armor: 0.5, shield: 0.4 });
   await setScale(page, 4);
@@ -122,7 +122,7 @@ const setScale = async (page, n) => { await page.fill('#dbg-time-scale', String(
   check(!(after.passedTiers || []).length && !(after.clearedTiers || []).length, 'a debug wall never touches the campaign progress');
 
   // ---- 6. Retry starts a fresh wall; clearing it with the helper shows "Tier cleared"
-  await tap(page, 395, 672); // Retry
+  await tap(page, 395, 832); // Retry
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.screen === 'wall', null, { timeout: 5000 });
   s = await state(page);
   check(s.alive === s.total && s.time < 3, 'Retry starts the same wall again');
@@ -132,7 +132,7 @@ const setScale = async (page, n) => { await page.fill('#dbg-time-scale', String(
   check(s.title === 'Tier cleared' && /^100% /.test(s.rows[0].value), `clearing shows "${s.title}", ${s.rows[0].label} ${s.rows[0].value}`);
 
   // ---- 7. Free Fly still works
-  await tap(page, 145, 672);
+  await tap(page, 145, 832);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.buildScreen, null, { timeout: 5000 });
   await tap(page, 478, 789, { pause: 400 });
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world, null, { timeout: 5000 });

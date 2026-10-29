@@ -138,7 +138,7 @@ async function flyLane(page, { shots = false } = {}) {
   await snap(page, 'summary_crashed.png');
 
   // ---- Retry, destroy every block: Tier cleared with the first Medal
-  await press(page, 100, 672, 300);
+  await press(page, 100, 832, 300);
   await waitScreen(page, 'wall');
   s = await state(page);
   check(s.alive === s.total && s.time < 3, 'Retry restarts the tier straight away');

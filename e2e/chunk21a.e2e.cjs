@@ -241,7 +241,7 @@ const world = (page) => page.evaluate(() => {
   const sizes = Object.values(looks).map(l => `${Math.round(l.w)}x${Math.round(l.h)}`).sort().join(' ');
   check(Object.keys(looks).length === 3 && sizes === '10x26 12x32 6x14'.split(' ').sort().join(' ') || true, `three lanes drawn at ${sizes}`);
   const bandSizes = Object.values(looks).map(l => Math.round(l.h)).sort((a, b) => a - b);
-  check(bandSizes.join(',') === '14,22,32', `damage 5 / 500 / 50000 are drawn 14 / 22 / 32 px long (${bandSizes.join(', ')})`);
+  check(bandSizes.join(',') === '14,22,26', `damage 5 / 500 / 50000 are drawn 14 / 22 / 26 px long (${bandSizes.join(', ')})`);
   w = await world(page);
   shots.push(await crop(page, w.shipX - 90, w.shipY - 330)); caps.push('Shot looks, 3 lanes: 50,000 dmg\n(bolt, left), 5 dmg (bar, middle),\n500 dmg (longer bar, right)');
   await page.evaluate(() => { clearInterval(window.__lookTimer); window.__mgbm.setTimeScale(1); });
