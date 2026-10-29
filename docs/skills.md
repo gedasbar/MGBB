@@ -53,10 +53,13 @@ Economy effects: caps (`capWithSkills`), replay credits and "beats the best" cre
 
 1. **Per-copy bonuses add** (Accelerator +10% per copy, Hollow Core, Zigzag), as the existing Zigzag does.
 2. **Extender "+50% lifetime"**: a shot that passed at least one Extender lives 1.5 times longer on top of the Extender's own doubling (once, not per copy).
-3. **Replay credits** count a tier/square that was already CLEARED before the run; **"beats the best"** needs an earlier best (a first run has nothing to beat) and compares the credits BEFORE skill bonuses, so a skill cannot cause its own record. The two bonuses add.
+3. **Replay credits** count a tier/square that was already CLEARED before the run; **"beats the best"** needs an earlier best (a first run has nothing to beat) and compares the run's credits BEFORE the skill bonus with the stored best (which already holds earlier bonuses, so the test is slightly strict). The two bonuses add. The bonus is applied in `WallWorld.bank`, so the summary shows it ("skill bonus +N").
 4. **Medal square extra Medal**: implemented as the captain's "Medal doubled" roll (for a one-Medal award a double is exactly +1), added to the captain's chance, squares only.
 5. **Brake floor 0.15** lets a shot go slower than Heavy Round's full-bonus speed (0.2); Heavy Round's bonus stays at its maximum below 0.2.
 6. **Angle bonus** reads the launch angle the compiler computes (Angle blocks), not Scatter's random draw; Scatter has its own +15%.
 7. **Pierce / bounce chances** are rolled once when the shot is spawned (a shot either has the bonus or not), using the combat RNG so replays stay deterministic.
 8. **Capstone of a legendary block the player does not own**: can be bought; its panel line says "Needs <block>" while the block is missing.
 9. **Hero level cost**: `max(1, round(cost * 0.9))`.
+10. **Block info texts are not changed**: the second line is the stacking rule and is full on most blocks (DECISIONS 392).
+11. **The tree layout is derived**: a node's map position and links follow from its path and role (`spot`, `TOUCHES` in the data file), not from hand-written coordinates (the spec asked for plain editable data).
+12. **Not built**: a debug cheat for skill points (the e2e hook `setRing` does it), icons per effect other than the block glyph or one of five symbols.
