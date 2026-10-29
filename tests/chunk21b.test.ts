@@ -6,7 +6,7 @@ import { ProjectilePool } from '../src/engine/pools';
 import { EnemyEntity, ListField, ProjectileSystem, PHASE_MINE_WAIT, PHASE_ORBIT } from '../src/engine/projectiles';
 import { SpatialHash } from '../src/engine/spatialHash';
 import { EnemyField, HomePick, newHomePick } from '../src/engine/targets';
-import { HOMING_RETARGET, HOMING_STAGGER, homingConeDeg, homingRange } from '../src/engine/effects';
+import { HOMING_RETARGET, homingConeDeg, homingRange } from '../src/engine/effects';
 import { CONFIG } from '../src/config';
 import { compile } from '../src/engine/compiler';
 import { Gun } from '../src/game/fire';
@@ -191,7 +191,7 @@ describe('homing keeps its target and searches on a timer', () => {
       worst = Math.max(worst, spy.searches - before);
       total += spy.searches - before;
     }
-    expect(worst).toBeLessThanOrEqual(Math.ceil(60 / HOMING_STAGGER) + 1);
+    expect(worst).toBeLessThanOrEqual(12); // at most a fifth of the volley on any one frame
     expect(total).toBeGreaterThanOrEqual(120); // 60 shots, about 0.5 s: they do search
   });
 
