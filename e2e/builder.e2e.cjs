@@ -329,7 +329,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   await page.evaluate(() => { window.__mgbm.world.gameOver = true; });
   await page.waitForTimeout(1200); // the Run Summary replaces the old game-over button (chunk 5)
   await shot(page, 'b21_game_over_back_button.png');
-  await tap(page, 145, 672); // Run Summary "Build" button
+  await tap(page, 145, 832); // Run Summary "Build" button
   await page.waitForTimeout(300);
   st = await state(page);
   check(st.recipes === expected.projectilesPerPulse && JSON.stringify(st.stats) === JSON.stringify(expected), 'Back to Build shows the same circuit the player left');

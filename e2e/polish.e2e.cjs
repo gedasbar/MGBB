@@ -112,7 +112,7 @@ const times = {};
   shots.push(await canvasShot(page)); caps.push(`wall CLEARED: summary ${(times.cleared / 1000).toFixed(2)} s after the last block`);
   times.clearedAlive = times.cleared;
 
-  await tap(page, 270, 672); // Map
+  await tap(page, 270, 832); // Map
   await waitScreen(page, 'map');
   await tap(page, ...START, { pause: 300 });
   await waitScreen(page, 'wall');
@@ -127,7 +127,7 @@ const times = {};
   s = await state(page);
   check(s.title === 'Tier passed', `PASSED summary: "${s.title}" after ${(times.passed / 1000).toFixed(2)} s from "the last row just passed the ship" (ship held at the top, wall boosted)`);
   // The same, but with the ship at the pass line already: only the result delay is left.
-  await tap(page, 270, 672);
+  await tap(page, 270, 832);
   await waitScreen(page, 'map');
   await tap(page, ...START, { pause: 300 });
   await waitScreen(page, 'wall');
@@ -136,7 +136,7 @@ const times = {};
   check(times.passedDelay > 0, `PASSED, ship already at the pass line: summary after ${(times.passedDelay / 1000).toFixed(2)} s`);
 
   // CRASHED: a live block on the ship.
-  await tap(page, 270, 672);
+  await tap(page, 270, 832);
   await waitScreen(page, 'map');
   await tap(page, ...START, { pause: 300 });
   await waitScreen(page, 'wall');
@@ -146,7 +146,7 @@ const times = {};
 
   // ------------------------------------------------------------------ Frontier: holes, wall square, Free Fly square
   await page.evaluate(() => { const b = document.getElementById('dbg-fr-unlock'); if (b) b.click(); });
-  await tap(page, 270, 672); // summary -> Map
+  await tap(page, 270, 832); // summary -> Map
   await waitScreen(page, 'map');
   await page.evaluate(() => window.__mgbm.openFrontier());
   await waitScreen(page, 'frontier');
@@ -188,7 +188,7 @@ const times = {};
   times.sqWallCleared = await timeToSummary(page, 'window.__mgbm.wall.destroyAll()');
   s = await state(page);
   check(s.wall && s.wall.result === 'cleared', `Frontier wall square CLEARED: summary after ${(times.sqWallCleared / 1000).toFixed(2)} s`);
-  await tap(page, 100, 672); // Frontier
+  await tap(page, 100, 832); // Frontier
   await waitScreen(page, 'frontier');
 
   // Free Fly square: reaching the full time, then a death.
@@ -202,7 +202,7 @@ const times = {};
   times.ffCleared = await timeToSummary(page, 'const w = window.__mgbm.world; w.god = true; w.time = w.encounter.duration - 0.02;');
   s = await state(page);
   check(s.wall && s.wall.result === 'cleared', `Free Fly square reaching the full time: "${s.title}" after ${(times.ffCleared / 1000).toFixed(2)} s`);
-  await tap(page, 100, 672);
+  await tap(page, 100, 832);
   await waitScreen(page, 'frontier');
   await page.evaluate((q) => { window.__mgbm.jump(q.x, q.y, 44); window.__mgbm.select(q.x, q.y); }, setup.ffSq);
   await tap(page, 451, 864);

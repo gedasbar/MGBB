@@ -120,7 +120,7 @@ async function aim(page, s) {
   check(s.credits === run.credits, `credits were banked exactly once (store ${s.credits}, run ${run.credits})`);
 
   // ---- Build: top-bar currency equals the summary
-  await tap(page, 145, 672);
+  await tap(page, 145, 832);
   s = await state(page);
   check(s.active === 'A' && s.credits === credits, `Build is back with the same circuit; store credits ${s.credits}`);
   check(s.creditsText === String(credits), `top-bar currency "${s.creditsText}" equals the summary's ${credits}`);

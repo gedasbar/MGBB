@@ -196,7 +196,7 @@ async function panFps(page, zoom) {
   const sum = await state(page);
   check(sum.wall.result === 'cleared' && sum.captain.medals === 1, `result CLEARED, Medal paid once: ${sum.captain.medals}`);
   shots.push(await canvasShot(page)); caps.push('result: CLEARED, +1 Medal');
-  await tap(page, 100, 672); // Frontier button of the summary
+  await tap(page, 100, 832); // Frontier button of the summary
   await waitScreen(page, 'frontier');
   await page.waitForTimeout(200);
   const back = await state(page);

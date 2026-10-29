@@ -102,7 +102,7 @@ async function flyLane(page, { shots = false } = {}) {
   check(p.credits > 0, `credits paid for the blocks destroyed (${p.credits})`);
 
   // ---- Map: tier 1 passed (hollow pip), tier 2 open
-  await tap(page, 270, 672);
+  await tap(page, 270, 832);
   await waitScreen(page, 'map');
   s = await state(page);
   check(s.tiles[0].state === 'passed' && s.tiles[1].state === 'open' && s.tiles[2].state === 'locked', `map: tier 1 ${s.tiles[0].state}, tier 2 ${s.tiles[1].state}, tier 3 ${s.tiles[2].state}`);
@@ -151,7 +151,7 @@ async function flyLane(page, { shots = false } = {}) {
   check(p.medals === 1 && JSON.stringify(p.clearedTiers) === '[1]' && JSON.stringify(p.passedTiers) === '[1]', `medals ${p.medals}, cleared ${JSON.stringify(p.clearedTiers)}`);
 
   // ---- Replays never give another Medal
-  await tap(page, 270, 672);
+  await tap(page, 270, 832);
   await waitScreen(page, 'map');
   await tap(page, ...centre(await rect(page, 1)));
   await press(page, ...START, 300);
@@ -163,7 +163,7 @@ async function flyLane(page, { shots = false } = {}) {
   check(s.wall.medal === false && p.medals === 1, `replay clear: medal ${s.wall.medal}, medals ${p.medals}`);
 
   // ---- Tier 2 passed (no medal) -> the map shows both pip types
-  await tap(page, 270, 672);
+  await tap(page, 270, 832);
   await waitScreen(page, 'map');
   await tap(page, ...centre(await rect(page, 2)));
   await press(page, ...START, 300);
@@ -172,7 +172,7 @@ async function flyLane(page, { shots = false } = {}) {
   await waitScreen(page, 'summary', 20000);
   s = await state(page);
   check(s.title === 'Tier passed' && s.wall.medal === false, `tier 2: "${s.title}", medal ${s.wall.medal}`);
-  await tap(page, 270, 672);
+  await tap(page, 270, 832);
   await waitScreen(page, 'map');
   s = await state(page);
   check(s.tiles[0].state === 'cleared' && s.tiles[1].state === 'passed' && s.tiles[2].state === 'open' && s.medals === 1, `map: tier 1 ${s.tiles[0].state}, tier 2 ${s.tiles[1].state}, tier 3 ${s.tiles[2].state}, medals ${s.medals}`);
