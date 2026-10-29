@@ -408,6 +408,8 @@ export class SkillsScreen implements Screen {
       openRespec: () => this.openRespec(),
       confirmRespec: () => this.confirmRespec(),
       closeRespec: () => this.closeRespec(),
+      /** Dev: passes a square at this ring (east) so the furthest ring is `r`. */
+      setRing: (r: number) => { store.data.frontier.sq[`${r},0`] = 2; store.commit(); },
       progress: store,
     };
   }
