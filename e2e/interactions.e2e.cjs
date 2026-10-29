@@ -102,9 +102,8 @@ const freeze = (page) => page.evaluate(() => window.__mgbm.setTimeScale(0));
   // ---- 3: AoE + Fork on Impact on a plain shot: the blast and the two fragments.
   await stage(page, [[270, 480, 1e7, 20], [320, 480, 1e7, 12], [230, 440, 1e7, 12], [270, 300, 1e7, 14], [150, 340, 1e7, 14], [390, 340, 1e7, 14]],
     [{ type: 'fork_impact', level: 1 }, { type: 'aoe_circle', level: 1 }], { x: 270, y: 700, speed: 400, damage: 100 });
-  await until(page, 'fx.forks >= 1');
-  await page.waitForTimeout(120);
-  await freeze(page);
+  await until(page, 'fx.forks >= 1 && fx.aoeBlasts >= 1');
+  await freeze(page); // no wait: the fragments of a hit that happened a moment ago can already have hit a neighbour and be gone (it failed on main under load)
   const fork = await fxNow(page);
   const shot3 = await snap(page);
   check(fork.forks === 1 && fork.aoeBlasts === 1 && fork.alive >= 1, `AoE + Fork: ${fork.forks} fork, ${fork.aoeBlasts} blast, ${fork.alive} fragments in flight`);
