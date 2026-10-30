@@ -1,6 +1,7 @@
 import { getProgressStore, PROGRESS_KEY } from '../econ/progress';
 import { debugHooks } from './hooks';
 import { BACKGROUND_IDS } from '../ui/background';
+import { DEBUG_ON } from './enabled';
 
 /**
  * Small DOM panel shown with ?debug=1, on the right of the window (the stats side panel uses the left; on a viewport
@@ -92,7 +93,7 @@ export class DebugPanel {
     body.appendChild(row);
     void import('./soundLab').then(m => m.addSoundLab(body));
     // Cheats are a dev-build feature: this branch (and the module) is removed from production builds.
-    if (import.meta.env.DEV) void import('./cheatPanel').then(m => m.addCheats(body));
+    if (DEBUG_ON) void import('./cheatPanel').then(m => m.addCheats(body));
     document.body.appendChild(box);
     let folded = false;
     try { folded = sessionStorage.getItem('mgbm.dbgFolded') === '1'; } catch { /* ignore */ }

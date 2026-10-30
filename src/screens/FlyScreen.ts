@@ -32,6 +32,7 @@ import { FrontierScreen } from './FrontierScreen';
 import { BuildScreen } from './BuildScreen';
 import { RESULT_DELAY_CLEARED, RESULT_DELAY_FAILED } from '../wall/constants';
 import { ARC_MAX } from '../engine/projectiles';
+import { DEBUG_ON } from '../debug/enabled';
 
 /** Status tints of a rock: burning is a redder orange, frozen a pale blue. */
 const BURN_COLOR = 0xff4a1a;
@@ -210,7 +211,7 @@ export class FlyScreen implements Screen {
     this.uiLayer.addChild(this.medalBanner, this.hint);
 
     // Dev-only hook
-    if (import.meta.env.DEV) {
+    if (DEBUG_ON) {
       (window as any).__mgbm = {
         state: () => ({
           shipX: this.world.shipX, shipY: this.world.shipY, viewW: CONFIG.VIEW.W,

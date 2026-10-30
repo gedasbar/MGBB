@@ -16,7 +16,18 @@ function buildInfo() {
   };
 }
 
+/** Short git hash of the build: the host's variable (Cloudflare Pages sets CF_PAGES_COMMIT_SHA), else git, else "dev". */
+function buildHash(): string {
+  const sha = process.env.CF_PAGES_COMMIT_SHA;
+  if (sha) return sha.slice(0, 7);
+  try { return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || 'dev'; } catch { return 'dev'; }
+}
+
 export default defineConfig({
+  define: {
+    __BUILD_HASH__: JSON.stringify(buildHash()),
+    __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+  },
   plugins: [viteSingleFile(), buildInfo()],
   build: {
     target: 'esnext',

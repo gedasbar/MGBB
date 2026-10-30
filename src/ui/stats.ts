@@ -1,4 +1,5 @@
 import { Container, Graphics, Text } from 'pixi.js';
+import { VERSION_LABEL } from '../version';
 
 /** What a screen reports to the overlay, filled in at the overlay's refresh rate (about 4 per second). */
 export interface StatsInfo {
@@ -71,8 +72,8 @@ export class StatsOverlay {
   provider: ((out: StatsInfo) => void) | null = null;
 
   private text = new Text({ text: '', style: { fill: 0xc8e6c8, fontSize: 10, fontFamily: 'Consolas, Menlo, monospace', lineHeight: LINE_H } });
-  /** Git branch and commit of the dev server's checkout (dev only, from /__build). */
-  private build = '';
+  /** Version label of the build; a dev server replaces it with the live git branch and commit (from /__build). */
+  private build = VERSION_LABEL;
   private info: StatsInfo = { name: '', proj: 0, projCap: 0, enemies: 0, fx: 0, kills: 0, extra: '' };
 
   // Window accumulators (numbers only: no allocation per frame).
@@ -198,7 +199,7 @@ export class StatsOverlay {
       `sim ${f2(this.simMs)}  render ${f2(this.renderMs)}  ovh ${f2(this.ovhMs)} ms\n` +
       `proj ${i.proj}/${i.projCap}  enemies ${i.enemies}  fx ${i.fx}\n` +
       i.extra + '\n' +
-      (this.build ? `build ${this.build}` : '');
+      `build ${this.build}`;
     // Only the visible version is written.
     if (this.placement === 'side') { if (this.side) this.side.textContent = out; } else this.text.text = out;
     this.shownText = out;
