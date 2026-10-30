@@ -33,6 +33,7 @@ import {
 } from '../frontier/state';
 import { getWorld, parseKey, sector, SECTOR_NAME, sqKey } from '../frontier/world';
 import { clearFrontierRing, clearFrontierSquare, unlockFrontier } from '../debug/cheats';
+import { DEBUG_ON } from '../debug/enabled';
 
 const TOP = 52;
 const PANEL_Y = 704;
@@ -551,7 +552,7 @@ export class FrontierScreen implements Screen {
   }
 
   private installDevHook() {
-    if (!import.meta.env.DEV) return;
+    if (!DEBUG_ON) return;
     const store = this.store;
     (window as any).__mgbm = {
       screen: 'frontier',

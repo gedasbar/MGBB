@@ -23,6 +23,7 @@ import { fmtBig } from '../ui/format';
 import { CreditsBadge } from '../ui/hud';
 import { THEME } from '../ui/theme';
 import { blockLockReason } from '../econ/progress';
+import { DEBUG_ON } from '../debug/enabled';
 
 /** The Shop's tile palette fills the screen between the title bar and the tab bar (chunk 17a: the Shop is blocks only, hulls are bought in the Build screen's hull picker). */
 const LIST_TOP = LAYOUT.top.h;
@@ -103,7 +104,7 @@ export class ShopScreen implements Screen {
   }
 
   private installDevHook() {
-    if (!import.meta.env.DEV) return;
+    if (!DEBUG_ON) return;
     (window as any).__mgbm = {
       screen: 'shop',
       shopScreen: this,

@@ -2,12 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Mitosis Gun Builder</title>
+    <meta name="theme-color" content="#1c1c1e" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="MGB" />
     <style>
-      body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
-      #game-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-      canvas { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+      /* Touch: no pull-to-refresh, no bounce, no double-tap zoom, no text selection or long-press menu on the game. */
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000;
+        overscroll-behavior: none; touch-action: manipulation; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+        -webkit-user-select: none; user-select: none; }
+      #game-container { touch-action: none; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+      canvas { display: block; max-width: 100%; max-height: 100%; object-fit: contain; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
     </style>
   </head>
   <body>

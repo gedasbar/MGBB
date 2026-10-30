@@ -14,6 +14,7 @@ import { getBuilderModel } from './builder/session';
 import { buildStarterGrid } from './game/starter';
 import { makeTestWall } from './wall/level';
 import { installAudioUnlock, sfx } from './audio';
+import { DEBUG_ON } from './debug/enabled';
 
 (async () => {
   const app = new Application();
@@ -49,7 +50,7 @@ import { installAudioUnlock, sfx } from './audio';
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Backquote') stats.toggle();
   });
-  if (import.meta.env.DEV) {
+  if (DEBUG_ON) {
     (window as any).__mgbmStats = stats;
     (window as any).__mgbmSm = screenManager;
     (window as any).__mgbmSfx = sfx;
@@ -63,7 +64,7 @@ import { installAudioUnlock, sfx } from './audio';
     const level = makeTestWall({ tier: o.tier, rows: o.rows ?? 8, armorFraction: o.armorFraction, shieldFraction: o.shieldFraction, gaps: 6 });
     screenManager.switchTo(new WallScreen(screenManager, level, grid));
   };
-  if (import.meta.env.DEV) {
+  if (DEBUG_ON) {
     // Cheat panel hooks: Free Fly from a given wave, and any campaign tier whether or not it is unlocked.
     debugHooks.startFly = (wave) => {
       const model = getBuilderModel();

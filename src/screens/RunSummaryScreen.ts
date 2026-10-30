@@ -13,6 +13,7 @@ import { fmtBig } from '../ui/format';
 import { shotLines } from '../ui/runStats';
 import { textButton } from '../ui/hud';
 import { THEME } from '../ui/theme';
+import { DEBUG_ON } from '../debug/enabled';
 
 export function fmtTime(seconds: number): string {
   const s = Math.floor(seconds);
@@ -180,7 +181,7 @@ export class RunSummaryScreen implements Screen {
     }
     this.container.addChild(this.toast.container);
 
-    if (import.meta.env.DEV) {
+    if (DEBUG_ON) {
       (window as any).__mgbm = {
         screen: 'summary',
         state: () => ({ title: title.text, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),

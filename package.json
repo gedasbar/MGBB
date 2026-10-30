@@ -3,10 +3,13 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "build:single": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit -p tsconfig.build.json && vite build",
+    "build:single": "tsc --noEmit -p tsconfig.build.json && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "balance": "vitest run tests/balance.test.ts",
@@ -25,7 +28,8 @@
     "interaction-audit": "vite-node scripts/interaction-audit.ts",
     "perf-legendary": "vite-node scripts/perf-legendary.ts",
     "perf-profile": "vite-node scripts/perf-profile.ts",
-    "difficulty-audit": "vite-node scripts/difficulty-audit.ts"
+    "difficulty-audit": "vite-node scripts/difficulty-audit.ts",
+    "make-icons": "node scripts/make-icons.cjs"
   },
   "devDependencies": {
     "@vitest/ui": "^2.1.2",

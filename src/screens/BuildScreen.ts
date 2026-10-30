@@ -32,6 +32,7 @@ import { SkillsScreen } from './SkillsScreen';
 import { CaptainScreen } from './CaptainScreen';
 import { sfx } from '../audio';
 import { fmtDamage } from '../ui/format';
+import { DEBUG_ON } from '../debug/enabled';
 
 const HOVER_MS = 800;
 
@@ -352,7 +353,7 @@ export class BuildScreen implements Screen {
   }
 
   private installDevHook() {
-    if (!import.meta.env.DEV) return;
+    if (!DEBUG_ON) return;
     (window as any).__mgbm = {
       screen: 'build',
       buildScreen: this,

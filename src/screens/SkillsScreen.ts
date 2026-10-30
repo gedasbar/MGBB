@@ -23,6 +23,7 @@ import { buyBlocker, freePoints, pointRingBounds, respecCost, skillPointsFor } f
 import { SKILL_START_ID } from '../skills/constants';
 import { CAPSTONE_SCALE, HEX_RADIUS, hexCentre, hexCorners, nodeAt, nodeRadius, SKILL_ZOOM_MAX, SKILL_ZOOM_MIN, treeBounds } from '../skills/layout';
 import type { StatsInfo } from '../ui/stats';
+import { DEBUG_ON } from '../debug/enabled';
 
 const TOP = 52;
 const BAR_Y = 636;
@@ -382,7 +383,7 @@ export class SkillsScreen implements Screen {
   }
 
   private installDevHook() {
-    if (!import.meta.env.DEV) return;
+    if (!DEBUG_ON) return;
     const store = this.store;
     (window as any).__mgbm = {
       screen: 'skills',

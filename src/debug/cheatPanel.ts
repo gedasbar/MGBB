@@ -6,8 +6,7 @@ import { addCaptainKillsCheat, setHeroLevel, unlockAllCaptains, addCredits, addM
 import { frontierJump } from '../frontier/session';
 
 /**
- * The Cheats section of the ?debug=1 panel. Dev builds only: the panel imports this module behind `import.meta.env.DEV`,
- * so a production build does not contain it. Every button works from any screen; each one reports what it did in the
+ * The Cheats section of the ?debug=1 panel. Only with ?debug=1 on a dev server, or in a production build while ALLOW_DEBUG_IN_PROD is on (src/debug/enabled.ts). Every button works from any screen; each one reports what it did in the
  * status line at the top of the section.
  */
 const BTN = 'font:11px monospace;padding:3px 6px;text-align:left;background:#222;color:#ccc;border:1px solid #666;cursor:pointer';

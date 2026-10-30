@@ -31,6 +31,7 @@ import { drawFieldFx } from '../ui/fieldFx';
 import { sfx } from '../audio';
 import { SfxFeed } from '../audio/feed';
 import { ARC_MAX } from '../engine/projectiles';
+import { DEBUG_ON } from '../debug/enabled';
 
 const POPUPS = 40;
 const POPUP_LIFE = 0.6;
@@ -203,7 +204,7 @@ export class WallScreen implements Screen {
 
     this.updateTexts();
 
-    if (import.meta.env.DEV) {
+    if (DEBUG_ON) {
       (window as any).__mgbm = {
         screen: 'wall',
         state: () => this.debugState(),
@@ -399,7 +400,7 @@ export class WallScreen implements Screen {
         } else {
           v.shield.visible = false;
         }
-        if (import.meta.env.DEV) this.lastDrawn.push({ col: c, row: r, inner });
+        if (DEBUG_ON) this.lastDrawn.push({ col: c, row: r, inner });
       }
     }
     for (let i = used; i < this.views.length; i++) {

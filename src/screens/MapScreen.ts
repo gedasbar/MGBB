@@ -20,6 +20,7 @@ import { fmtTime } from './RunSummaryScreen';
 import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { generateLevel, MAX_TIER } from '../wall/generator';
+import { DEBUG_ON } from '../debug/enabled';
 
 const MAP_COLS = 5;
 const GRID_TOP = 52;
@@ -266,7 +267,7 @@ export class MapScreen implements Screen {
   }
 
   private installDevHook() {
-    if (!import.meta.env.DEV) return;
+    if (!DEBUG_ON) return;
     (window as any).__mgbm = {
       screen: 'map',
       state: () => ({

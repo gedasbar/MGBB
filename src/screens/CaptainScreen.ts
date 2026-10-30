@@ -21,6 +21,7 @@ import {
 import { drawEmblem } from '../ui/captainArt';
 import { THEME } from '../ui/theme';
 import { fmtBig, fmtDamage } from '../ui/format';
+import { DEBUG_ON } from '../debug/enabled';
 
 /** The content area between the top bar and the tabs. */
 const TOP = 52;
@@ -120,7 +121,7 @@ export class CaptainScreen implements Screen {
   }
 
   private installDevHook() {
-    if (!import.meta.env.DEV) return;
+    if (!DEBUG_ON) return;
     (window as any).__mgbm = {
       screen: 'captain',
       captainScreen: this,

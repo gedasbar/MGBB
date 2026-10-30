@@ -7,6 +7,8 @@ import { WEAPON_SOUNDS } from './settings';
 import type { ScreenManager } from '../screens/ScreenManager';
 import { PROGRESS_KEY } from '../econ/progress';
 import { LEGACY_KEY, STORAGE_KEY } from '../builder/persist';
+import { VERSION_LABEL } from '../version';
+import { openExportSave, openImportSave } from './saveTransferUi';
 
 const W = CONFIG.VIEW.W;
 const H = CONFIG.VIEW.H;
@@ -179,7 +181,7 @@ export class Overlays {
   }
 
   private buildSettings() {
-    const pw = 440, ph = 580;
+    const pw = 440, ph = 720;
     const { x, y } = this.panelBox(pw, ph, 'SETTINGS');
     let cy = y + 74;
     const stepper = (id: 'master' | 'sfx', label: string, get: () => number, set: (v: number) => void) => {
@@ -212,9 +214,16 @@ export class Overlays {
     toggle('statsToggle', () => `Stats panel: ${this.sm.stats.enabled ? 'ON' : 'OFF'}`, () => this.sm.stats.toggle());
     this.addButton('testSound', x + 24, cy, pw - 48, 48, 'Test sound', () => { sfx.unlock(); if (!sfx.playShot()) sfx.play('rockPop'); });
     cy += 60;
+    this.addButton('exportSave', x + 24, cy, (pw - 60) / 2, 48, 'Export save', () => openExportSave());
+    this.addButton('importSave', x + 36 + (pw - 60) / 2, cy, (pw - 60) / 2, 48, 'Import save', () => openImportSave());
+    cy += 60;
     this.addButton('resetSave', x + 24, cy, pw - 48, 48, 'Reset save...', () => this.show('confirm'));
     cy += 60;
     this.addButton('settingsBack', x + 24, cy, pw - 48, 48, 'Back', () => this.closeSettings());
+    const ver = makeText(VERSION_LABEL, 14, THEME.textDim);
+    ver.anchor.set(0.5, 0);
+    ver.position.set(W / 2, cy + 58);
+    this.panel.addChild(ver);
   }
 
   private buildConfirm() {
