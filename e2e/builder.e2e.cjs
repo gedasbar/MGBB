@@ -304,8 +304,11 @@ async function placeViaPicker(page, col, row, tileKey) {
   await page.waitForTimeout(100);
   await shot(page, 'b18_stats_panel.png');
   await tap(page, 270, 500);
-  await tap(page, 54 + 324, 932); // Skills tab: still a stub (the Shop is real since chunk 5, the Captain tab since chunk 13a)
-  check(/Coming soon/.test((await state(page)).toast), 'stub tab shows "Coming soon"');
+  await tap(page, 54 + 324, 932); // Skills tab: a real screen since chunk 22a
+  await page.waitForFunction(() => window.__mgbm && window.__mgbm.screen === 'skills', null, { timeout: 5000 }).catch(() => {});
+  check(await page.evaluate(() => window.__mgbm.screen) === 'skills', 'the Skills tab opens the Skills screen');
+  await tap(page, 54, 932); // back to Build
+  await page.waitForFunction(() => window.__mgbm && window.__mgbm.screen === 'build', null, { timeout: 5000 });
   await shot(page, 'b19_coming_soon_toast.png');
 
   // ------------------------------------------------------------------ 12. FLY

@@ -47,6 +47,8 @@ export function scrollSpeed(base: number, shipY: number, zoneMul = 1): number {
 /** What the world needs from the progress store at the end of a level. */
 export interface WallBank {
   recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number }): { medal: boolean; medals?: number; medalDoubled?: boolean; newBestEarnings?: boolean } | void;
+  /** Chunk 22a (Salvage skills): the multiplier on a finished level's credits (replay, beats the best). Absent = 1. */
+  creditBonusMul?(kind: 'tier' | 'square', key: string, credits: number): number;
 }
 
 /** Ship position the pointer asks for, in world px (x) and screen px (y). */
@@ -207,7 +209,7 @@ export class WallWorld {
   /** Second Chance charges left: the next live block the ship touches is destroyed instead of ending the run. */
   secondChancesLeft = 0;
   /** Counters of the captain effects (debug hook and tests). */
-  readonly fx = { secondChance: 0, passBonus: 0 };
+  readonly fx = { secondChance: 0, passBonus: 0, skillBonus: 0 };
   /** Every block ever created, for iteration. */
   readonly all: Block[] = [];
   /** Blocks with a shield pool (regeneration only walks these). */
@@ -264,7 +266,8 @@ export class WallWorld {
     this.projSys.wrapW = this.ring ? this.worldW : 0;
     const hullGrid = opts.grid ?? buildStarterGrid();
     this.fireRateMul = fireRateMul(hullGrid.hullId) * this.mods.fireRateMul;
-    const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage, furthestRing: this.mods.furthestRing, projSpeedMul: this.mods.projSpeedMul });
+    const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage, furthestRing: this.mods.furthestRing, projSpeedMul: this.mods.projSpeedMul, skills: this.mods.skills });
+    this.projSys.skills = this.mods.skills;
     this.recipes = compiled.recipes;
     this.warnings = compiled.warnings;
     this.spawnOffsets = spawnOffsetsFor(this.recipes, hullGrid);
@@ -401,6 +404,11 @@ export class WallWorld {
     this.banked = true;
     const campaign = this.level.campaign;
     const square = this.level.frontier;
+    const bonusKey = campaign ? (['tier', String(this.level.tier)] as const) : square ? (['square', `${square.x},${square.y}`] as const) : null;
+    if (bonusKey && store.creditBonusMul) {
+      const m = store.creditBonusMul(bonusKey[0], bonusKey[1], this.credits);
+      if (m > 1) { this.fx.skillBonus = this.creditsExact * (m - 1); this.creditsExact *= m; }
+    }
     const res = store.recordWallRun({
       credits: this.credits, kills: this.destroyed,
       ...(campaign ? { tier: this.level.tier, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed', medalDouble: this.mods.medalDouble } : {}),

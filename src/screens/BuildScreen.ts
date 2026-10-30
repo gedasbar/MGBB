@@ -28,6 +28,7 @@ import { THEME } from '../ui/theme';
 import { CreditsBadge } from '../ui/hud';
 import { makeTabButtons } from '../builder/tabs';
 import { ShopScreen } from './ShopScreen';
+import { SkillsScreen } from './SkillsScreen';
 import { CaptainScreen } from './CaptainScreen';
 import { sfx } from '../audio';
 import { fmtDamage } from '../ui/format';
@@ -458,7 +459,7 @@ export class BuildScreen implements Screen {
     if (id === 'tabShop') { this.sm.switchTo(new ShopScreen(this.sm)); return; }
     if (id === 'tabMap') { this.sm.switchTo(new MapScreen(this.sm)); return; }
     if (id === 'tabCaptain') { this.sm.switchTo(new CaptainScreen(this.sm)); return; }
-    this.toast.show('Coming soon');
+    if (id === 'tabSkills') { this.sm.switchTo(new SkillsScreen(this.sm)); return; }
   }
 
   private disabledHint(id: string) {

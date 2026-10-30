@@ -3,6 +3,9 @@ import { CONFIG } from '../config';
 import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
 import { BuildScreen } from './BuildScreen';
+import { heroCostWith } from '../captains/state';
+import { skillEffects } from '../skills/rules';
+import { SkillsScreen } from './SkillsScreen';
 import { ShopScreen } from './ShopScreen';
 import { MapScreen } from './MapScreen';
 import { GestureTracker } from '../builder/gestures';
@@ -11,7 +14,7 @@ import { inRect, LAYOUT, Rect, VIEW_H, VIEW_W } from '../builder/layout';
 import { makeTabButtons } from '../builder/tabs';
 import { sfx } from '../audio';
 import { makeText, Toast, UIButton } from '../builder/ui';
-import { CAPTAINS, CaptainDef, CAPTAIN_BY_ID, describeOption, HERO_LEVEL_BASE_DAMAGE, heroLevelCost, TIER_COUNT } from '../captains/data';
+import { CAPTAINS, CaptainDef, CAPTAIN_BY_ID, describeOption, HERO_LEVEL_BASE_DAMAGE, TIER_COUNT } from '../captains/data';
 import {
   isCaptainOwned, nextTierGoal, optionCost, optionState, tierKillsNeeded, isTierUnlocked,
 } from '../captains/state';
@@ -165,7 +168,7 @@ export class CaptainScreen implements Screen {
     if (id === 'tabBuild') { this.sm.switchTo(new BuildScreen(this.sm)); return; }
     if (id === 'tabShop') { this.sm.switchTo(new ShopScreen(this.sm)); return; }
     if (id === 'tabMap') { this.sm.switchTo(new MapScreen(this.sm)); return; }
-    this.toast.show('Coming soon');
+    if (id === 'tabSkills') { this.sm.switchTo(new SkillsScreen(this.sm)); return; }
   }
 
   private show(v: View, id?: string) {
@@ -296,7 +299,7 @@ export class CaptainScreen implements Screen {
     this.panel(L, hR);
     this.label(L, `Hero level ${fmtBig(hero.level)}`, hR.x + 12, hR.y + 10, 20, THEME.text);
     this.label(L, `+${fmtDamage(hero.level * HERO_LEVEL_BASE_DAMAGE)} base damage now`, hR.x + 12, hR.y + 40, 14, THEME.textDim);
-    const cost = heroLevelCost(hero.level);
+    const cost = heroCostWith(hero.level, skillEffects(this.store.data.skills).heroDiscount);
     this.label(L, `Each level: +${HERO_LEVEL_BASE_DAMAGE} base damage`, hR.x + 12, hR.y + 62, 13, THEME.textDim);
     const upLabel = `Upgrade +${HERO_LEVEL_BASE_DAMAGE} - ${fmtBig(cost)} Medal${cost === 1 ? '' : 's'}`;
     this.button(L, 'hero', { x: hR.x + hR.w - 232, y: hR.y + 28, w: 220, h: 44 }, upLabel, owned && medals >= cost, () => this.upgradeHero(def.id));

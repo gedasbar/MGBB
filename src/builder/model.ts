@@ -6,6 +6,7 @@ import { cloneGrid, HULL_BUILDERS } from '../game/gridUtils';
 import { ProgressStore } from '../econ/progress';
 import { modifiersFor } from '../captains/modifiers';
 import { furthestRing } from '../frontier/unlocks';
+import { skillEffects } from '../skills/rules';
 import {
   BlockEntry, decodeLayout, defaultSave, DEFAULT_HULL, encodeLayout, entriesFromGrid, gridFromEntries, LEGACY_KEY,
   loadBuilder, SavedBuilder, serializeBuilder, SlotId, STORAGE_KEY,
@@ -141,7 +142,7 @@ export class BuilderModel {
   private compileOpts() {
     const c = this.store.data.captains;
     const m = modifiersFor(c.selected, c.heroes[c.selected]);
-    return { baseDamage: m.baseDamage, furthestRing: furthestRing(this.store.frontierReach), projSpeedMul: m.projSpeedMul };
+    return { baseDamage: m.baseDamage, furthestRing: furthestRing(this.store.frontierReach), projSpeedMul: m.projSpeedMul, skills: skillEffects(this.store.data.skills) };
   }
 
   /** Recompiles after something outside the circuit changed (the captain's hero level or the selected captain). */

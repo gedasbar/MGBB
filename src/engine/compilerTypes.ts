@@ -1,3 +1,5 @@
+import type { SkillEffects } from '../skills/effects';
+
 export type Dir = 'N' | 'E' | 'S' | 'W';
 export const DIRS: Dir[] = ['N', 'E', 'S', 'W'];
 
@@ -167,6 +169,8 @@ export interface CompileContext {
   emptyCells: number;
   /** Ejectors no signal reaches. */
   idleEjectors: number;
+  /** Chunk 22a: what the owned skill nodes change (all zeros = nothing). */
+  skills: SkillEffects;
 }
 
 export interface BlockDef {
@@ -182,7 +186,7 @@ export interface BlockDef {
   /** Mutates the (already cloned) packet. `ctx` is the hull-wide context (legendary blocks). */
   transform?: (packet: Packet, level: number, ctx: CompileContext) => void;
   /** A block with per-instance run state (Rebound): the op to append to the packet, given the block's cell index. */
-  keyedOp?: (key: number) => DamageOp;
+  keyedOp?: (key: number, ctx: CompileContext) => DamageOp;
   /** +1 Projectile (chunk 21a): adds one new shot to the lane, at the generator's base damage, that only the blocks after this one touch. */
   addsShot?: boolean;
   /** A turn or curve block: counted in `packet.turns` for Waypoint. */

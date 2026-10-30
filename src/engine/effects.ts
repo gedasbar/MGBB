@@ -22,10 +22,10 @@ export const OVERCLOCK_WINDOW = 1;
 /** Stats strip: Overclock is shown at its average over this many packets of an unbroken streak. */
 const OVERCLOCK_AVG_PACKETS = 60;
 /** The average multiplier of an unbroken streak over OVERCLOCK_AVG_PACKETS packets (packet n has streak n). */
-export function overclockAverage(l: number): number {
+export function overclockAverage(l: number, capBonus = 0): number {
   const g = overclockGain(l);
   let s = 0;
-  for (let n = 0; n < OVERCLOCK_AVG_PACKETS; n++) s += 1 + Math.min(OVERCLOCK_CAP, g * n);
+  for (let n = 0; n < OVERCLOCK_AVG_PACKETS; n++) s += 1 + Math.min(OVERCLOCK_CAP + capBonus, g * n);
   return s / OVERCLOCK_AVG_PACKETS;
 }
 /** Capacitor: packets absorbed per emitted shot, and the bonus on the sum. */
@@ -151,12 +151,13 @@ export function harmonic(k: number): number {
 }
 /** AoE damage factor of k copies: each extra copy deals this much of the one before. */
 const AOE_STACK_DAMAGE = 0.95;
-export const aoeStackDamage = (k: number) => Math.pow(AOE_STACK_DAMAGE, Math.max(0, k - 1));
+/** `penaltyDelta` (skills, chunk 22a) is added to the 5% penalty: -0.02 makes the penalty 3% per extra copy. */
+export const aoeStackDamage = (k: number, penaltyDelta = 0) => Math.pow(AOE_STACK_DAMAGE - penaltyDelta, Math.max(0, k - 1));
 /** The estimate's factor for the AoE penalty of a shot's modifier list (a Circle wins over a Rectangle, as in the hit pipeline). */
-export function aoeEstimateMul(mods: { type: string }[]): number {
+export function aoeEstimateMul(mods: { type: string }[], sk: { aoeCirclePenalty: number; aoeRectPenalty: number } = { aoeCirclePenalty: 0, aoeRectPenalty: 0 }): number {
   let circle = 0, rect = 0;
   for (const m of mods) { if (m.type === 'aoe_circle') circle++; else if (m.type === 'aoe_rect') rect++; }
-  return circle ? aoeStackDamage(circle) : rect ? aoeStackDamage(rect) : 1;
+  return circle ? aoeStackDamage(circle, sk.aoeCirclePenalty) : rect ? aoeStackDamage(rect, sk.aoeRectPenalty) : 1;
 }
 /** Fork on Impact: the j-th pair of forks deals this much of the pair before it. */
 export const FORK_PAIR_DAMAGE = 0.8;
@@ -176,42 +177,42 @@ export const CHAIN_ARCS_PER_SHOT = 3;
 // ---- Chunk 20a: legendary blocks (docs/legendaries.md). Every number of the twelve lives here; the Skills tree will change them later.
 /** Frontier Echo: share of the furthest Frontier ring added as flat damage (whole numbers: ring 300 = +30). */
 export const FRONTIER_ECHO_SHARE = 0.1;
-export const frontierEchoAdd = (furthestRing: number) => Math.floor(Math.max(0, furthestRing) * FRONTIER_ECHO_SHARE);
+export const frontierEchoAdd = (furthestRing: number, extraShare = 0) => Math.floor(Math.max(0, furthestRing) * (FRONTIER_ECHO_SHARE + extraShare));
 /** Payload: flat damage. */
 export const PAYLOAD_ADD = 25;
 /** Lone Shot: x2 with one shot alive, falling in a straight line to x1 at LONE_SHOT_FULL shots alive (and above). */
 export const LONE_SHOT_BONUS = 1;
 export const LONE_SHOT_FULL = 10;
-export function loneShotMul(shotsAlive: number): number {
+export function loneShotMul(shotsAlive: number, extraTop = 0): number {
   const n = Math.min(LONE_SHOT_FULL, Math.max(1, Math.floor(shotsAlive)));
-  return 1 + (LONE_SHOT_BONUS * (LONE_SHOT_FULL - n)) / (LONE_SHOT_FULL - 1);
+  return 1 + ((LONE_SHOT_BONUS + extraTop) * (LONE_SHOT_FULL - n)) / (LONE_SHOT_FULL - 1);
 }
 /** Last Breath: damage multiplier on a hit in the last LAST_BREATH_WINDOW seconds of the shot's lifetime (its age limit is PROJECTILE_MAX_AGE). */
 export const LAST_BREATH_MUL = 2;
 export const LAST_BREATH_WINDOW = 1.0;
-export const lastBreathMul = (age: number, lifetime: number) => (age >= lifetime - LAST_BREATH_WINDOW ? LAST_BREATH_MUL : 1);
+export const lastBreathMul = (age: number, lifetime: number, extra = 0) => (age >= lifetime - LAST_BREATH_WINDOW ? LAST_BREATH_MUL + extra : 1);
 /** Zigzag: seconds between direction changes, the angle off the heading each leg flies at, and the damage gained per change (additive). */
 export const ZIGZAG_PERIOD = 0.2;
 export const ZIGZAG_ANGLE_DEG = 25;
 export const ZIGZAG_GAIN = 0.05;
-export const zigzagMul = (changes: number) => 1 + ZIGZAG_GAIN * Math.max(0, changes);
+export const zigzagMul = (changes: number, extraGain = 0) => 1 + (ZIGZAG_GAIN + extraGain) * Math.max(0, changes);
 /** Heavy Round: x2 at normal shot speed up to x5 at HEAVY_SLOW_SPEED x normal, linear in the speed ratio in between, flat outside. */
 export const HEAVY_MUL_NORMAL = 2;
 export const HEAVY_MUL_SLOWEST = 5;
 export const HEAVY_SLOW_SPEED = 0.2;
-export function heavyRoundMul(speedRatio: number): number {
+export function heavyRoundMul(speedRatio: number, extraTop = 0): number {
   const r = Math.min(1, Math.max(HEAVY_SLOW_SPEED, speedRatio));
-  return HEAVY_MUL_NORMAL + ((HEAVY_MUL_SLOWEST - HEAVY_MUL_NORMAL) * (1 - r)) / (1 - HEAVY_SLOW_SPEED);
+  return HEAVY_MUL_NORMAL + ((HEAVY_MUL_SLOWEST + extraTop - HEAVY_MUL_NORMAL) * (1 - r)) / (1 - HEAVY_SLOW_SPEED);
 }
 /** Hollow Core: damage gained per empty buildable cell of the hull (x(1 + share x cells)). */
 export const HOLLOW_CORE_PER_CELL = 0.1;
-export const hollowCoreMul = (emptyCells: number) => 1 + HOLLOW_CORE_PER_CELL * Math.max(0, emptyCells);
+export const hollowCoreMul = (emptyCells: number, extra = 0) => 1 + (HOLLOW_CORE_PER_CELL + extra) * Math.max(0, emptyCells);
 /** Idle Barrels: flat damage per ejector no signal reaches. */
 export const IDLE_BARRELS_PER_EJECTOR = 3;
-export const idleBarrelsAdd = (idleEjectors: number) => IDLE_BARRELS_PER_EJECTOR * Math.max(0, idleEjectors);
+export const idleBarrelsAdd = (idleEjectors: number, extra = 0) => (IDLE_BARRELS_PER_EJECTOR + extra) * Math.max(0, idleEjectors);
 /** Waypoint: damage multiplier per turn or curve block the signal passed before it. */
 export const WAYPOINT_PER_TURN = 1.1;
-export const waypointMul = (turns: number) => Math.pow(WAYPOINT_PER_TURN, Math.max(0, turns));
+export const waypointMul = (turns: number, extra = 0) => Math.pow(WAYPOINT_PER_TURN + extra, Math.max(0, turns));
 /** Rebound: multiplier when the previous shot through the block arrived with less damage. */
 export const REBOUND_MUL = 4;
 /** Mirror: sideways distance (px) of the clone from the shot. */
@@ -253,7 +254,7 @@ export const angleAfter = (angle: number, dir: -1 | 1) => Math.max(-ANGLE_MAX_DE
 /** Scatter half-width after one more Scatter block (0 = none yet). */
 export const scatterAfter = (w: number) => (w <= 0 ? SCATTER_BASE_DEG : Math.min(SCATTER_MAX_DEG, w + SCATTER_STEP_DEG));
 /** A packet's speed multiplier after a speed block: the Brake floor and the ceiling apply. */
-export const clampSpeedMul = (m: number) => Math.min(MAX_SPEED_MUL, Math.max(BRAKE_FLOOR, m));
+export const clampSpeedMul = (m: number, floorDelta = 0) => Math.min(MAX_SPEED_MUL, Math.max(BRAKE_FLOOR + floorDelta, m));
 
 // ---- Chunk 21a (docs/chunk21a.md)
 /** +1 Projectile: the sideways distance (px) between neighbouring shots of one lane; the lane is centred on its ejector. A shot bar is 6 px wide, so 8 leaves a 2 px gap (the prompt said about 6: at 6 the bars touch and look like one). */
@@ -269,4 +270,4 @@ export const curveTotalDeg = (copies: number) => CURVE_TOTAL_STEP_DEG * copies;
 export const randomCurveRateDeg = (copies: number) => CURVE_RATE_STEP_DEG * copies;
 /** Upturn: each extra copy shortens the delay by this factor (0.4 s, 0.3 s, 0.225 s). */
 export const UPTURN_DELAY_FACTOR = 0.75;
-export const upturnDelay = (copies: number) => UPTURN_DELAY * Math.pow(UPTURN_DELAY_FACTOR, Math.max(0, copies - 1));
+export const upturnDelay = (copies: number, delta = 0) => Math.max(0.05, UPTURN_DELAY * Math.pow(UPTURN_DELAY_FACTOR, Math.max(0, copies - 1)) + delta);

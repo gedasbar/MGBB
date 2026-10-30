@@ -1,7 +1,7 @@
 import { aoeCircleRadius, shieldBreakMul, armorPierceMul, forkDamageFrac, FORK_ANGLE_DEG, HOMING_CONE_DEG, HOMING_RANGE, HOMING_RATE_DEG } from '../engine/projectiles';
 import { FIXED_LEVEL, UPGRADABLE } from './blockEconomy';
 import { PROJECTILE_MAX_AGE } from '../wall/constants';
-import { addDamage, BlockCategory, BlockDef, gateDamage, Modifier, mulDamage, Packet, Rarity, Rel } from '../engine/compilerTypes';
+import { addDamage, BlockCategory, BlockDef, CompileContext, gateDamage, Modifier, mulDamage, Packet, Rarity, Rel } from '../engine/compilerTypes';
 import {
   alternatorMul, boomerangRange, capacitorMul, CAPACITOR_N, chainJumps, CHAIN_ARC_LIFE, CHAIN_FRAC, CHAIN_RANGE, corrosionCap,
   CORROSION_STEP, delaySeconds, executionerMul, EXECUTIONER_BELOW, frostBonus, frostSlow, frostTime, igniteFrac, IGNITE_TIME,
@@ -87,25 +87,25 @@ register({
 register({
   id: 'turn_l', name: 'Turn Left', category: 'pathing', maxLevel: 3, outputs: ['L'],
   desc: (l) => `Turns the signal 90° to the left.${l > 1 ? ` Projectiles fly ${pct(turnSpeedMul(l) - 1)}% faster.` : ''}`,
-  transform: (p, l) => { if (l > 1) p.speedMul *= turnSpeedMul(l); },
+  transform: (p, l, ctx) => { if (l > 1) p.speedMul *= turnSpeedMul(l); if (ctx.skills.turnLeftAdd) addDamage(p, ctx.skills.turnLeftAdd); },
   shown: true,
 });
 register({
   id: 'turn_r', name: 'Turn Right', category: 'pathing', maxLevel: 3, outputs: ['R'],
   desc: (l) => `Turns the signal 90° to the right.${l > 1 ? ` Projectiles fly ${pct(turnSpeedMul(l) - 1)}% faster.` : ''}`,
-  transform: (p, l) => { if (l > 1) p.speedMul *= turnSpeedMul(l); },
+  transform: (p, l, ctx) => { if (l > 1) p.speedMul *= turnSpeedMul(l); if (ctx.skills.turnRightAdd) addDamage(p, ctx.skills.turnRightAdd); },
   shown: true,
 });
 register({
   id: 'splitter_2', name: 'Splitter 2', category: 'pathing', maxLevel: 5, outputs: ['L', 'R'],
   desc: (l) => `Splits the signal into two ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}, one to the left and one to the right.`,
-  transform: (p, l) => { if (l > 1) mulDamage(p, splitterMul(l)); },
+  transform: (p, l, ctx) => { if (l > 1) mulDamage(p, splitterMul(l)); if (ctx.skills.splitter2Mul) mulDamage(p, 1 + ctx.skills.splitter2Mul); },
   shown: true,
 });
 register({
   id: 'splitter_3', name: 'Splitter 3', category: 'pathing', maxLevel: 5, outputs: ['L', 'F', 'R'],
   desc: (l) => `Splits the signal into three ${l > 1 ? `copies at ×${splitterMul(l).toFixed(2)} damage` : 'full copies'}: left, straight on and right.`,
-  transform: (p, l) => { if (l > 1) mulDamage(p, splitterMul(l)); },
+  transform: (p, l, ctx) => { if (l > 1) mulDamage(p, splitterMul(l)); if (ctx.skills.splitter3Mul) mulDamage(p, 1 + ctx.skills.splitter3Mul); },
   shown: true,
 });
 register({
@@ -139,7 +139,7 @@ register({
 register({
   id: 'delay_line', name: 'Delay Line', category: 'pathing', outputs: FWD, ...rare('uncommon'),
   desc: (l) => `Holds each packet for ${delaySeconds(l).toFixed(1)} s, then releases it: the projectile leaves the ship late (timed volleys). The rate of fire is unchanged.`,
-  transform: (p, l) => { p.ops.push({ t: 'delay', sec: delaySeconds(l) }); p.mods.push({ type: 'delay_line', level: l }); },
+  transform: (p, l, ctx) => { if (ctx.skills.delayMul) mulDamage(p, 1 + ctx.skills.delayMul); p.ops.push({ t: 'delay', sec: delaySeconds(l) }); p.mods.push({ type: 'delay_line', level: l }); },
 });
 register({
   id: 'portal_pair', name: 'Portal Pair', category: 'pathing', maxLevel: 1, outputs: FWD,
@@ -161,7 +161,7 @@ register({
 register({
   id: 'flat_plus', name: 'Flat +', category: 'damage', maxLevel: 10, outputs: FWD,
   desc: (l) => `Adds +${flatPlusAdd(l)} damage to each projectile.`,
-  transform: (p, l) => { addDamage(p, flatPlusAdd(l)); },
+  transform: (p, l, ctx) => { addDamage(p, flatPlusAdd(l) + ctx.skills.flatPlusPer); },
   shown: true,
 });
 register({
@@ -178,28 +178,29 @@ register({
 register({
   id: 'lucky_strike', name: 'Lucky Strike', category: 'damage', maxLevel: 3, outputs: FWD,
   desc: (l) => `${pct(luckyProb(l))}% chance to double projectile damage.`,
-  transform: (p, l) => { gateDamage(p, { prob: luckyProb(l), mult: 2, elseMult: 1 }); },
+  transform: (p, l, ctx) => { gateDamage(p, { prob: Math.min(1, luckyProb(l) + ctx.skills.luckyChance), mult: 2, elseMult: 1 }); },
   shown: true,
 });
 register({
   id: 'jackpot', name: 'Jackpot', category: 'damage', maxLevel: 3, outputs: FWD,
   desc: (l) => `${pct(jackpotProb(l))}% chance to multiply projectile damage by 10.`,
-  transform: (p, l) => { gateDamage(p, { prob: jackpotProb(l), mult: 10, elseMult: 1 }); },
+  transform: (p, l, ctx) => { gateDamage(p, { prob: jackpotProb(l), mult: 10 + ctx.skills.jackpotMul, elseMult: 1 }); },
   shown: true,
 });
 register({
   id: 'gamblers_gate', name: 'Gambler’s Gate', category: 'damage', maxLevel: 3, outputs: FWD,
   desc: (l) => `${pct(gamblerProb(l))}% chance to triple projectile damage, otherwise the projectile is lost.`,
-  transform: (p, l) => { gateDamage(p, { prob: gamblerProb(l), mult: 3, elseMult: 0 }); },
+  transform: (p, l, ctx) => { gateDamage(p, { prob: Math.min(1, gamblerProb(l) + ctx.skills.gamblerChance), mult: 3, elseMult: 0 }); },
   shown: true,
 });
 register({
   id: 'overclock', name: 'Overclock', category: 'damage', outputs: FWD, ...rare('uncommon'),
   desc: (l) => `Each consecutive packet that passes on this lane adds +${Math.round(overclockGain(l) * 1000) / 10}% damage (up to +${pct(OVERCLOCK_CAP)}%). The streak resets after ${OVERCLOCK_WINDOW} s without a packet (1.5 pulses on a slow hull).`,
-  transform: (p, l) => {
-    const avg = overclockAverage(l);
+  transform: (p, l, ctx) => {
+    const cap = OVERCLOCK_CAP + ctx.skills.overclockCap;
+    const avg = overclockAverage(l, ctx.skills.overclockCap);
     p.damage *= avg;
-    p.ops.push({ t: 'oc', gain: overclockGain(l), cap: OVERCLOCK_CAP, avg });
+    p.ops.push({ t: 'oc', gain: overclockGain(l), cap, avg });
     p.mods.push({ type: 'overclock', level: l });
   },
 });
@@ -316,10 +317,10 @@ levelMod('armor_piercer', 'Armor-Piercer Tip', 3, { type: 'armor_piercer' },
 
 // ---------------------------------------------------------------- Motion blocks (chunk 20b, docs/motion-blocks.md)
 /** A shown, non-upgradable Modifier that changes how the shot moves: it tags the packet with its own id and may change the packet. */
-function motion(id: string, name: string, rarity: Rarity, desc: string, change?: (p: Packet) => void) {
+function motion(id: string, name: string, rarity: Rarity, desc: string, change?: (p: Packet, ctx: CompileContext) => void) {
   register({
     id, name, category: 'modifier', outputs: FWD, ...rare(rarity), desc,
-    transform: (p) => { change?.(p); p.mods.push({ type: id }); },
+    transform: (p, _l, ctx) => { change?.(p, ctx); p.mods.push({ type: id }); },
   });
 }
 const deg = (v: number) => `${v}°`;
@@ -334,7 +335,7 @@ motion('accelerator', 'Accelerator', 'uncommon',
   (p) => { p.speedMul = clampSpeedMul(p.speedMul * ACCELERATOR_MUL); });
 motion('brake', 'Brake', 'uncommon',
   `Shot speed ×${BRAKE_MUL} per copy, never below ×${BRAKE_FLOOR}. Slow shots stay in the air and under Heavy Round hit harder (×5 at ×${BRAKE_FLOOR}).`,
-  (p) => { p.speedMul = clampSpeedMul(p.speedMul * BRAKE_MUL); });
+  (p, ctx) => { p.speedMul = clampSpeedMul(p.speedMul * BRAKE_MUL, ctx.skills.brakeFloor); });
 motion('scatter', 'Scatter', 'uncommon',
   `Every shot leaves at a random straight angle within ±${deg(SCATTER_BASE_DEG)} of its line. Each extra copy widens it by ${deg(SCATTER_STEP_DEG)}, up to ±${deg(SCATTER_MAX_DEG)}. Adds to Angle blocks (they set the middle of the cone).`,
   (p) => { p.scatter = scatterAfter(p.scatter); });
@@ -370,12 +371,12 @@ const LEGENDARY = { maxLevel: 1, shown: true, unlock: 'shop' as const, outputs: 
 register({
   id: 'frontier_echo', name: 'Frontier Echo', category: 'legendary', ...LEGENDARY,
   desc: `Adds ${pct(FRONTIER_ECHO_SHARE)}% of your furthest Frontier ring to each shot as flat damage (whole numbers; ring 300 = +30). Counts the furthest passed or cleared square in any direction.`,
-  transform: (p, _l, ctx) => { addDamage(p, frontierEchoAdd(ctx.furthestRing)); p.mods.push({ type: 'frontier_echo' }); },
+  transform: (p, _l, ctx) => { addDamage(p, frontierEchoAdd(ctx.furthestRing, ctx.skills.echoShare)); p.mods.push({ type: 'frontier_echo' }); },
 });
 register({
   id: 'payload', name: 'Payload', category: 'legendary', ...LEGENDARY,
   desc: `Adds +${PAYLOAD_ADD} damage to each shot: a flat bonus, worth most on a lean line.`,
-  transform: (p) => { addDamage(p, PAYLOAD_ADD); },
+  transform: (p, _l, ctx) => { addDamage(p, PAYLOAD_ADD + ctx.skills.payloadAdd); },
 });
 register({
   id: 'lone_shot', name: 'Lone Shot', category: 'legendary', ...LEGENDARY,
@@ -400,23 +401,23 @@ register({
 register({
   id: 'hollow_core', name: 'Hollow Core', category: 'legendary', ...LEGENDARY,
   desc: `Damage +${pct(HOLLOW_CORE_PER_CELL)}% for every empty buildable cell of the hull (a cell with no block on it, whether or not a line runs through it). It shrinks as you place blocks. Counted when the circuit is compiled.`,
-  transform: (p, _l, ctx) => { mulDamage(p, hollowCoreMul(ctx.emptyCells)); p.mods.push({ type: 'hollow_core' }); },
+  transform: (p, _l, ctx) => { mulDamage(p, hollowCoreMul(ctx.emptyCells, ctx.skills.hollowPerCell)); p.mods.push({ type: 'hollow_core' }); },
 });
 register({
   id: 'idle_barrels', name: 'Idle Barrels', category: 'legendary', ...LEGENDARY,
   desc: `+${IDLE_BARRELS_PER_EJECTOR} flat damage for every ejector of the hull that no signal reaches. All ejectors used = +0.`,
-  transform: (p, _l, ctx) => { addDamage(p, idleBarrelsAdd(ctx.idleEjectors)); },
+  transform: (p, _l, ctx) => { addDamage(p, idleBarrelsAdd(ctx.idleEjectors, ctx.skills.idleBarrels)); },
 });
 register({
   id: 'waypoint', name: 'Waypoint', category: 'legendary', ...LEGENDARY,
   desc: `×${WAYPOINT_PER_TURN} damage for every Turn Left, Turn Right, Curving Right, Curving Left or Random Curve block the signal passed before it reaches this one (×${Math.round(waypointMul(5) * 100) / 100} after five).`,
-  transform: (p) => { mulDamage(p, waypointMul(p.turns)); },
+  transform: (p, _l, ctx) => { mulDamage(p, waypointMul(p.turns, ctx.skills.waypointPer)); },
 });
 register({
   id: 'rebound', name: 'Rebound', category: 'legendary', ...LEGENDARY,
   desc: `×${REBOUND_MUL} damage when the previous shot through this block arrived with less damage than this one. The first shot gets ×1. Needs damage that changes from shot to shot (chance blocks, Overclock, Lone Shot). The builder's estimate counts ×1.`,
   transform: (p) => { p.mods.push({ type: 'rebound' }); },
-  keyedOp: (key) => ({ t: 'rebound', key, mul: REBOUND_MUL }),
+  keyedOp: (key, ctx) => ({ t: 'rebound', key, mul: REBOUND_MUL + ctx.skills.reboundMul }),
 });
 register({
   id: 'mirror', name: 'Mirror', category: 'legendary', ...LEGENDARY,
@@ -426,9 +427,10 @@ register({
 register({
   id: 'fuse', name: 'Fuse', category: 'legendary', ...LEGENDARY,
   desc: `Collects ${FUSE_N} shots and releases ONE shot with ×${FUSE_MUL} the total damage of the ${FUSE_N} (the other ${FUSE_N - 1} are absorbed): the Capacitor with a longer fuse and a better rate (×${FUSE_N * FUSE_MUL} every ${FUSE_N}th pulse).`,
-  transform: (p) => {
-    p.damage *= FUSE_N * FUSE_MUL;
-    p.ops.push({ t: 'cap', n: FUSE_N, mul: FUSE_MUL });
+  transform: (p, _l, ctx) => {
+    const n = FUSE_N + ctx.skills.fuseN;
+    p.damage *= n * FUSE_MUL;
+    p.ops.push({ t: 'cap', n, mul: FUSE_MUL });
     p.mods.push({ type: 'fuse' });
   },
 });
@@ -459,6 +461,11 @@ export const MOD_LABEL: Record<string, string> = {
 };
 
 for (const id of ['turn_l', 'turn_r', 'curving_right', 'curving_left', 'random_curve']) BLOCKS[id].isTurn = true;
+// Routing skill (chunk 22a): every Curving Left / Right and Random Curve block adds flat damage.
+for (const id of ['curving_right', 'curving_left', 'random_curve']) {
+  const base = BLOCKS[id].transform!;
+  BLOCKS[id].transform = (p, l, ctx) => { base(p, l, ctx); if (ctx.skills.curveAdd) addDamage(p, ctx.skills.curveAdd); };
+}
 
 // Chunk 16c-2: only the blocks in UPGRADABLE have levels. Every other block has one level and runs at its fixed level.
 for (const b of Object.values(BLOCKS)) {

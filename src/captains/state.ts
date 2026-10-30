@@ -1,3 +1,4 @@
+import { skillEffects } from '../skills/rules';
 import {
   CAPTAIN_BY_ID, CAPTAINS, FLY_MEDAL_MILESTONES, HERO_LEVEL_SANITY_MAX, heroLevelCost, OPTION_BY_ID, STARTER_CAPTAIN, TIER_COSTS, TIER_COUNT,
   TIER_KILLS, OptionDef,
@@ -24,7 +25,10 @@ export interface CaptainsState {
 }
 
 /** The slice of the progress object the captain rules read and write. */
-export interface CaptainHolder { medals: number; captains: CaptainsState }
+export interface CaptainHolder { medals: number; captains: CaptainsState; /** Chunk 22a: owned skill nodes (Salvage: cheaper hero levels). */ skills?: string[] }
+
+/** Medals for the next hero level with the Salvage discount (chunk 22a): the usual cost less `discount`, rounded, at least 1. */
+export const heroCostWith = (level: number, discount: number) => Math.max(1, Math.round(heroLevelCost(level) * (1 - discount)));
 
 export type CaptainResult = { ok: true; cost: number } | { ok: false; error: string };
 
@@ -117,7 +121,7 @@ export function upgradeHero(p: CaptainHolder, id: string): CaptainResult {
   if (!CAPTAIN_BY_ID[id]) return { ok: false, error: 'Unknown captain' };
   if (!isCaptainOwned(p.captains, id)) return { ok: false, error: 'Unlock this captain first' };
   const hero = p.captains.heroes[id];
-  const cost = heroLevelCost(hero.level);
+  const cost = heroCostWith(hero.level, skillEffects(p.skills ?? []).heroDiscount);
   if (p.medals < cost) return { ok: false, error: 'Not enough Medals' };
   p.medals -= cost;
   hero.level++;

@@ -2,7 +2,7 @@
 
 The living plan for Mitosis Gun Builder: how we work, what the design is trying to be, what was decided and why, and what comes next. Any new planning chat or agent should read this first, then `CLAUDE.md` (current state of the code) and `DECISIONS.md` (numbered implementation decisions).
 
-Last updated: 2026-10-29, after chunk 21b (performance: Homing keeps its target, allocation-free hit tests, overload rule, five distinct shot looks, run summary rows) and 21a (+1 Projectile, stacking curves, Upturn override, builder keys, run stats, shot looks, Reverse removed, 16 blocks repriced), 20b (thirteen motion blocks, campaign-tier locks, Frontier legendary-only) and 20a (twelve legendary blocks; 19a was best earnings, Homing nerf, Piercing by count, AoE shapes; 18b the difficulty curves). `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
+Last updated: 2026-10-29, after chunk 22a (the Skill tree) and chunk 21b (performance: Homing keeps its target, allocation-free hit tests, overload rule, five distinct shot looks, run summary rows) and 21a (+1 Projectile, stacking curves, Upturn override, builder keys, run stats, shot looks, Reverse removed, 16 blocks repriced), 20b (thirteen motion blocks, campaign-tier locks, Frontier legendary-only) and 20a (twelve legendary blocks; 19a was best earnings, Homing nerf, Piercing by count, AoE shapes; 18b the difficulty curves). `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
 
 ---
 
@@ -91,10 +91,10 @@ Next, in order:
 6. ~~**New block batch** (owner's list)~~ **Done (20b):** Curve Left, Angle Left / Right, speed up / slow, Scatter, Upturn, Align, Extender, Centreline, Ship Magnet, Persist, Reverse. Still open from the list: the straight-line spread ejectors (left, right, wide forward) were covered by Angle / Scatter and not built as separate hull pieces.
 
 ### Backlog (parked)
-- Frontier: special squares, named combos for the directional unlocks, per-direction themes. (Legendary blocks: done in 20a; the Skills tree is next and will upgrade them.)
+- Frontier: special squares, named combos for the directional unlocks, per-direction themes. (Legendary blocks: done in 20a; the Skills tree upgrades them, done in 22a.)
 - Captains: replace the spawn-invulnerability perks (owner called them pointless), hero unlock balance, character art.
 - Bosses (a wall boss spanning the width), bigger enemies and more enemy types.
-- Skills tab (currently "coming soon"), quests, new-player tutorial.
+- Quests, new-player tutorial. (The Skills tab was built in 22a; open: playtest the tree numbers, a debug cheat for skill points, Heavy Round following the Brake floor.)
 - Sound quality (owner does not care for now), music.
 - Real phone testing of touch and looks.
 
@@ -103,6 +103,8 @@ Next, in order:
 ## 7. Decision log (design level)
 
 The numbered implementation log is `DECISIONS.md`. The big design turns, newest first:
+
+- **22a** Skill tree: 55 hexagonal nodes in six paths (Routing, Flight, Volley, Impact, Firepower, Salvage), 7 normal nodes and 2 legendary capstones each; points from the furthest Frontier ring (1 per 25 rings to ring 250, then 1 per 50); a node must touch an owned one; respec 10 Medals; save v11. Every effect is an additive number in one record (`SkillEffects`) that compile, the hit pipeline, the Gun and the store read. Details: `docs/skills.md`, DECISIONS 385-395.
 
 - **21b** Performance, run summary, shot looks. The owner's slow build (10 +1 Projectile, Mirror, Fork, 2 Extender, 2 Bouncing, 3 Homing) was profiled before any change (`docs/performance.md`): on the tier-100 wall Homing listed every block in range for every shot every frame (21 of 22 ms at 4,000 shots). Homing now keeps its target and searches at most every 0.1 s (a gameplay change: a shot no longer swaps to a nearer target); target queries are radius queries; hash, field and modifier facts are no longer rebuilt per frame or per shot. Wall at 4K shots 22.5 -> 3 ms, Free Fly 3.5 -> 2.3 ms; wall at a full pool in the browser 3 -> 26 fps. Overload: new shots are refused fork fragments first, then Mirror clones, then +1 Projectile extras, normal shots last; stale off-screen shots expire first. The pool limit stays 4,000. Shot looks: dash / bar / diamond / bolt / star in cyan, pale cyan, yellow, orange, magenta. The run summary lists everything as rows of one style. Details: `DECISIONS.md` 372-384.
 - **21a** +1 Projectile (adds a base-power shot to the lane; every later block works on both; cap 10, tier 10); Curving Left / Right and Random Curve stack to 4 copies (30 deg/s and 45 deg in all per copy); Upturn takes over from the other steering after its delay; Reverse removed (save v10, refund by the price formula); builder keyboard shortcuts; Best shot and Average DPS on the run summary; shot look steps up with damage; the 16 blocks that moved to campaign tiers repriced to about 2.5 runs. Details: `docs/chunk21a.md`, DECISIONS 351 onwards.

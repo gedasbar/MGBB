@@ -1,6 +1,7 @@
 import { BLOCKS, pickerBlocks } from '../data/blocks';
 import { BuilderModel } from './model';
 import { LAYOUT } from './layout';
+import { skillEffects } from '../skills/rules';
 import { copyCap, copyPrice, maxLevelOf, upgradePrice } from '../econ/economy';
 import { blockLockReason } from '../econ/progress';
 import { blockText } from '../data/blockText';
@@ -49,7 +50,7 @@ export class Picker extends TilePalette {
         const level = model.levelOf(id);
         return sheetContent({
           id, name: BLOCKS[id].name, desc: blockText(BLOCKS[id], level).short, stack: blockText(BLOCKS[id], level).stack, owned: p.owned[id] ?? 0, available: model.available(id),
-          level, maxLevel: maxLevelOf(id), cap: copyCap(id), credits: p.credits, copyPrice: copyPrice(id, p.owned[id] ?? 0), upgradePrice: upgradePrice(id, level),
+          level, maxLevel: maxLevelOf(id), cap: copyCap(id, skillEffects(p.skills)), credits: p.credits, copyPrice: copyPrice(id, p.owned[id] ?? 0), upgradePrice: upgradePrice(id, level),
           lock: blockLockReason(p, id, model.store.frontierReach), showFree: true,
         });
       },
