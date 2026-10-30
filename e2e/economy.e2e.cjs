@@ -63,6 +63,7 @@ async function aim(page, s) {
   const sp = await page.evaluate(() => window.__mgbm.buildScreen.picker.tileScreenRect('splitter_2'));
   await tap(page, ...centre(sp));
   await tap(page, ...centre(sp));
+  await page.waitForFunction(() => /No Splitter 2 left/.test(window.__mgbm.state().toast), null, { timeout: 3000, polling: 30 }).catch(() => {}); // the toast fades after 2.2 s: read it as soon as it shows
   s = await state(page);
   check(/No Splitter 2 left/.test(s.toast) && s.pickerOpen, `second tap on an unowned tile only toasts: "${s.toast}"`);
   await tap(page, 270, 130); // close the sheet (a tap outside it, on the circuit)
@@ -150,6 +151,7 @@ async function aim(page, s) {
   check(sh.c.buy.label === 'Buy +1\n120' && sh.c.buy.enabled, `buy button "${sh.c.buy.label}" is enabled`);
   check(sh.c.upgrade === null && sh.c.levelLine === '', 'Splitter 2 has no upgrade levels (16c-2: only eight blocks have levels)');
   await press('buy');
+  await page.waitForFunction(() => /Bought Splitter 2/.test(window.__mgbm.state().toast), null, { timeout: 3000, polling: 30 }).catch(() => {});
   s = await state(page);
   check(s.credits === credBeforeBuy - 120, `buying Splitter 2 cost exactly 120 (${credBeforeBuy} -> ${s.credits})`);
   check(/Bought Splitter 2/.test(s.toast), `purchase toast: "${s.toast}"`);
