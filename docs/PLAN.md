@@ -2,7 +2,7 @@
 
 The living plan for Mitosis Gun Builder: how we work, what the design is trying to be, what was decided and why, and what comes next. Any new planning chat or agent should read this first, then `CLAUDE.md` (current state of the code) and `DECISIONS.md` (numbered implementation decisions).
 
-Last updated: 2026-10-29, after chunk 22a (the Skill tree) and chunk 21b (performance: Homing keeps its target, allocation-free hit tests, overload rule, five distinct shot looks, run summary rows) and 21a (+1 Projectile, stacking curves, Upturn override, builder keys, run stats, shot looks, Reverse removed, 16 blocks repriced), 20b (thirteen motion blocks, campaign-tier locks, Frontier legendary-only) and 20a (twelve legendary blocks; 19a was best earnings, Homing nerf, Piercing by count, AoE shapes; 18b the difficulty curves). `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
+Last updated: 2026-10-31, after chunk 24a (phone fixes: capped ship speed with swept collision, relative touch drag, edge push follows the ship, pause from the start, frame-rate-independent steps, time played, unlock notices and NEW marks, captain tiers 2K / 10K / 40K, HUD badge; save v12) and 23a (production build) and chunk 22a (the Skill tree) and chunk 21b (performance: Homing keeps its target, allocation-free hit tests, overload rule, five distinct shot looks, run summary rows) and 21a (+1 Projectile, stacking curves, Upturn override, builder keys, run stats, shot looks, Reverse removed, 16 blocks repriced), 20b (thirteen motion blocks, campaign-tier locks, Frontier legendary-only) and 20a (twelve legendary blocks; 19a was best earnings, Homing nerf, Piercing by count, AoE shapes; 18b the difficulty curves). `docs/archive/SPEC.md` is the original master prompt and is out of date; this file and `CLAUDE.md` are the truth.
 
 ---
 
@@ -96,7 +96,7 @@ Next, in order:
 - Bosses (a wall boss spanning the width), bigger enemies and more enemy types.
 - Quests, new-player tutorial. (The Skills tab was built in 22a; open: playtest the tree numbers, a debug cheat for skill points, Heavy Round following the Brake floor.)
 - Sound quality (owner does not care for now), music.
-- Real phone testing of touch and looks.
+- Real phone testing of touch and looks (24a made the controls phone-first; the owner's verdict on speed cap / drag gain is pending).
 
 ---
 
@@ -104,6 +104,7 @@ Next, in order:
 
 The numbered implementation log is `DECISIONS.md`. The big design turns, newest first:
 
+- **24a** Phone fixes after the first real-phone tests. The ship flies toward the pointer at a capped speed (the screen width in 0.2 s) and its hit test is swept, so it can no longer teleport through blocks; touch steers by the finger's movement (a setting brings the old "direct" mode back); the camera's edge push follows the ship, which fixes the bounce-back from the sides; the pause button shows from the start and a press on a control never steers; the loop is no longer a fixed 60 Hz step (a 120 Hz screen gets a new picture every frame at the same speed; iPhone Safari's own 60 fps cap is a browser flag, `docs/DEPLOY.md`); time played in Settings; the run summary lists what a run unlocked, NEW marks and tab dots replace the toast burst; captain option tiers need 2K / 10K / 40K kills (older saves keep what they opened); the HUD box holds the SPIKE badge and "Wall: <name>". Save v12. Details: DECISIONS 403-415. Still open: the feel of the speed cap, the drag gain and 120 Hz need the owner's phone.
 - **22a** Skill tree: 55 hexagonal nodes in six paths (Routing, Flight, Volley, Impact, Firepower, Salvage), 7 normal nodes and 2 legendary capstones each; points from the furthest Frontier ring (1 per 25 rings to ring 250, then 1 per 50); a node must touch an owned one; respec 10 Medals; save v11. Every effect is an additive number in one record (`SkillEffects`) that compile, the hit pipeline, the Gun and the store read. Details: `docs/skills.md`, DECISIONS 385-395.
 
 - **21b** Performance, run summary, shot looks. The owner's slow build (10 +1 Projectile, Mirror, Fork, 2 Extender, 2 Bouncing, 3 Homing) was profiled before any change (`docs/performance.md`): on the tier-100 wall Homing listed every block in range for every shot every frame (21 of 22 ms at 4,000 shots). Homing now keeps its target and searches at most every 0.1 s (a gameplay change: a shot no longer swaps to a nearer target); target queries are radius queries; hash, field and modifier facts are no longer rebuilt per frame or per shot. Wall at 4K shots 22.5 -> 3 ms, Free Fly 3.5 -> 2.3 ms; wall at a full pool in the browser 3 -> 26 fps. Overload: new shots are refused fork fragments first, then Mirror clones, then +1 Projectile extras, normal shots last; stale off-screen shots expire first. The pool limit stays 4,000. Shot looks: dash / bar / diamond / bolt / star in cyan, pale cyan, yellow, orange, magenta. The run summary lists everything as rows of one style. Details: `DECISIONS.md` 372-384.

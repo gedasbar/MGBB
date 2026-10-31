@@ -145,7 +145,7 @@ async function montage(page, shots, captions, file) {
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('mgbm.progress.v1')));
   console.log('INFO  summary rows:', JSON.stringify(sum.rows));
   check(sum.rows[0].label === 'Wave reached' && Number(sum.rows[0].value) === s.wave && sum.rows[0].best, `summary: wave reached ${sum.rows[0].value} (new best ${sum.rows[0].best})`);
-  check(saved.version === 11 && saved.bestWave === s.wave, `saved progress v${saved.version}, bestWave ${saved.bestWave}`);
+  check(saved.version === 12 && saved.bestWave === s.wave, `saved progress v${saved.version}, bestWave ${saved.bestWave}`);
   await browser.close();
   const { passes, failures } = lib.counts();
   console.log(`\n${passes} passed, ${failures} failed`);
