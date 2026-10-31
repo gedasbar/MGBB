@@ -1,17 +1,19 @@
-import { CONFIG } from '../config';
+import { CONFIG, shipHalfW } from '../config';
 import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { Grid } from '../engine/compiler';
 import { clientToGame } from '../input';
 import { makeText } from '../builder/ui';
 import { debugHooks } from '../debug/hooks';
-import { getProgressStore, RunResult } from '../econ/progress';
+import { getProgressStore, RunResult, unlockSummary } from '../econ/progress';
 import { ShotSprites } from '../ui/shotSprites';
 import { shotTextures } from '../ui/shotTextures';
 import { fmtBig } from '../ui/format';
+import { makeSpikeBadge, SPIKE_BADGE } from '../ui/hud';
 import { THEME } from '../ui/theme';
-import { TOUCH_OFFSET_Y } from '../game/world';
-import { clampShipX, ringScreenX, WallCamera } from '../wall/camera';
-import { CELL, RESULT_DELAY_CLEARED, RESULT_DELAY_CRASHED, RESULT_DELAY_PASSED, VIEW_H, VIEW_W } from '../wall/constants';
+import { ShipSteer } from '../engine/steer';
+import { touchMode } from '../ui/touchMode';
+import { pushShipX, ringScreenX, WallCamera } from '../wall/camera';
+import { CELL, RESULT_DELAY_CLEARED, RESULT_DELAY_CRASHED, RESULT_DELAY_PASSED, SHIP_START_Y, VIEW_H, VIEW_W } from '../wall/constants';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 import { BuildScreen } from './BuildScreen';
 import { MapScreen } from './MapScreen';
@@ -33,6 +35,12 @@ import { SfxFeed } from '../audio/feed';
 import { ARC_MAX } from '../engine/projectiles';
 import { DEBUG_ON } from '../debug/enabled';
 
+/** The HUD box (top-left): plate position, first text column, row height and the narrowest the plate goes. */
+const HUD_PLATE_X = 10;
+const HUD_X = 20;
+const HUD_Y = 12;
+const HUD_ROW = 20;
+const HUD_MIN_W = 190;
 const POPUPS = 40;
 const POPUP_LIFE = 0.6;
 /** Seconds the SECOND CHANCE hint blinks. */
@@ -110,7 +118,12 @@ export class WallScreen implements Screen {
   private creditsText = makeText('Credits +0', 16, THEME.currency, { fontWeight: 'bold' });
   private tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
   private nameText = makeText('', 15, THEME.textDim, { fontWeight: 'bold' });
-  private spikeText = makeText('SPIKE', 16, THEME.bad, { fontWeight: 'bold' });
+  private spikeBadge = makeSpikeBadge();
+  /** The Frontier square line of the HUD box (hidden in the campaign). */
+  private squareText = makeText('', 15, THEME.textDim, { fontWeight: 'bold' });
+  private hudPlate = new Graphics();
+  private hudKey = '';
+  private hudSize = { x: HUD_PLATE_X, y: HUD_Y, w: 0, h: 0 };
   private blocksText = makeText('Destroyed 0%', 16, THEME.textDim, { fontWeight: 'bold' });
 
   private shownCredits = 0;
@@ -118,6 +131,7 @@ export class WallScreen implements Screen {
   private endTimer = 0;
   private finished = false;
   private gate = new PointerGate();
+  private steer = new ShipSteer(VIEW_W / 2, SHIP_START_Y, { minX: shipHalfW(VIEW_W), maxX: VIEW_W - shipHalfW(VIEW_W), minY: CONFIG.PLAYER.MARGIN, maxY: VIEW_H - CONFIG.PLAYER.MARGIN });
   private sfxFeed = new SfxFeed(sfx);
   private endSounded = false;
   /** The captain flying this level: the hand-over of its kills, and the Second Chance hint. */
@@ -131,8 +145,8 @@ export class WallScreen implements Screen {
 /** The pause menu's view of this level: pausable from the first move until the level ends. */
   readonly pausable: Pausable = {
     persist: () => { if (!this.finished) this.banker.flush(this.world.destroyed); },
-    canPause: () => this.world.controlStarted && this.world.state === 'playing' && !this.finished,
-    resume: () => this.world.resumeEase(),
+    canPause: () => this.world.state === 'playing' && !this.finished,
+    resume: () => { this.world.resumeEase(); this.steer.release(); },
     restart: () => {
       if (this.finished) return;
       this.finished = true;
@@ -188,15 +202,10 @@ export class WallScreen implements Screen {
       this.popups.push({ t, life: 0 });
     }
 
-    this.creditsText.position.set(20, 20);
-    this.tierText.position.set(20, 40);
-    this.nameText.position.set(20, 60);
-    this.blocksText.position.set(20, 80);
-    this.spikeText.visible = !!levelDef.spike;
-    this.nameText.text = levelDef.name ?? '';
-    // A dim plate behind the HUD text so it stays readable over the blocks.
-    this.hudBox.addChild(new Graphics().rect(10, 12, 190, 92).fill({ color: THEME.bg, alpha: 0.72 }));
-    this.hudBox.addChild(this.creditsText, this.tierText, this.spikeText, this.nameText, this.blocksText);
+    this.spikeBadge.visible = !!levelDef.spike;
+    this.nameText.text = levelDef.name ? `Wall: ${levelDef.name}` : '';
+    // A dim plate behind the HUD text so it stays readable over the blocks. Everything, the SPIKE badge too, sits inside it.
+    this.hudBox.addChild(this.hudPlate, this.creditsText, this.tierText, this.spikeBadge, this.squareText, this.nameText, this.blocksText);
     this.hint.anchor.set(0.5);
     this.hint.position.set(VIEW_W / 2, 250);
     this.hint.visible = false;
@@ -224,7 +233,7 @@ export class WallScreen implements Screen {
       state: w.state, time: w.time, finishY: w.finishY, progress: w.progress, alive: w.alive, total: w.total, destroyed: w.destroyed,
       credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), scrollSpeed: w.scroll, cameraX: this.camera.x, cameraSpeed: this.camera.speed,
       controlStarted: w.controlStarted, invuln: w.invuln, shipWorldX: w.shipX, shipScreenX: this.sx(w.shipX), camTravel: this.camera.travel, worldW: w.worldW, ring: w.ring, shipY: w.shipY, projectiles: w.pool.count,
-      hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.nameText.text, spike: this.spikeText.visible, blocks: this.blocksText.text },
+      hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.levelDef.name ?? '', nameLabel: this.nameText.text, square: this.squareText.text, spike: this.spikeBadge.visible, spikeBox: this.spikeBadge.visible ? { x: this.spikeBadge.x, w: SPIKE_BADGE.w } : null, plate: this.hudSize, blocks: this.blocksText.text },
       drawn: this.lastDrawn.length,
       effects: { ...w.projSys.fx, ...w.gun.fx, ...w.fx },
       captain: { id: this.banker.captainId, mods: w.mods, secondChancesLeft: w.secondChancesLeft, killsHanded: this.banker.added },
@@ -245,14 +254,41 @@ export class WallScreen implements Screen {
     o.extra = `blocks ${w.alive}/${w.total}  scroll ${Math.round(w.scroll)}  camX ${Math.round(this.camera.x)}`;
   }
 
+  /** Stacks the HUD rows (credits, tier + SPIKE badge, Frontier square, wall name, destroyed) and sizes the plate to the widest one. */
+  private layoutHud() {
+    const rows: (Container)[] = [this.creditsText, this.tierText];
+    const sq = this.squareText.text !== '';
+    const nm = this.nameText.text !== '';
+    if (sq) rows.push(this.squareText);
+    if (nm) rows.push(this.nameText);
+    rows.push(this.blocksText);
+    this.squareText.visible = sq;
+    this.nameText.visible = nm;
+    let right = 0;
+    rows.forEach((r, i) => { r.position.set(HUD_X, HUD_Y + 8 + i * HUD_ROW); right = Math.max(right, HUD_X + r.width); });
+    const badge = this.spikeBadge.visible;
+    if (badge) {
+      this.spikeBadge.position.set(Math.max(right, HUD_X + this.tierText.width + 12), HUD_Y + 8 + HUD_ROW + (this.tierText.height - SPIKE_BADGE.h) / 2);
+      right = Math.max(right, this.spikeBadge.x + SPIKE_BADGE.w);
+    }
+    const w = Math.max(HUD_MIN_W, right + HUD_X - HUD_PLATE_X + 4);
+    const h = rows.length * HUD_ROW + 12;
+    const key = `${Math.round(w)}x${h}`;
+    if (key === this.hudKey) return;
+    this.hudKey = key;
+    this.hudSize = { x: HUD_PLATE_X, y: HUD_Y, w, h };
+    this.hudPlate.clear().rect(HUD_PLATE_X, HUD_Y, w, h).fill({ color: THEME.bg, alpha: 0.72 });
+  }
+
   private updateTexts() {
     const w = this.world;
     const hudDy = this.sm.stats.hudOffset;
     if (this.hudBox.y !== hudDy) this.hudBox.y = hudDy;
     this.creditsText.text = `Credits +${fmtBig(w.credits)}`;
     const sq = this.levelDef.frontier;
-    this.tierText.text = sq ? `${FRONTIER_NAME} (${fmtBig(sq.x)}, ${fmtBig(sq.y)}) · Tier ${w.tier}` : `Tier ${w.tier}`;
-    this.spikeText.position.set(20 + this.tierText.width + 10, 56);
+    this.tierText.text = `Tier ${w.tier}`;
+    this.squareText.text = sq ? `${FRONTIER_NAME} (${fmtBig(sq.x)}, ${fmtBig(sq.y)})` : '';
+    this.layoutHud();
     this.blocksText.text = `Destroyed ${Math.floor(w.percentDestroyed)}%`;
     const h = (VIEW_H - 40) * w.progress;
     this.progressFg.clear();
@@ -263,18 +299,14 @@ export class WallScreen implements Screen {
     const w = this.world;
     const p = this.sm.input.pointer;
 
-    // Camera first (edge push), then the ship follows the pointer in screen space: world x = screen x + camera x.
     // Spawn safety: nothing follows the pointer (ship and camera alike) until the first move or press after the run started.
     if (!w.controlStarted && this.gate.observe(p, p.seen)) w.beginControl();
-    const pushing = w.state === 'playing' && w.controlStarted && p.seen && (p.type !== 'touch' || p.active);
-    // The pointer may sit outside the canvas (tracked at window level); the ship's screen x is clamped so it is fully visible.
-    const shipSx = clampShipX(p.x);
-    this.camera.update(dt, pushing ? shipSx : null);
-    let target: { x: number; y: number } | null = null;
-    if (w.controlStarted && p.seen) {
-      if (p.type === 'touch') { if (p.active) target = { x: shipSx + this.camera.x, y: p.y + TOUCH_OFFSET_Y }; }
-      else target = { x: shipSx + this.camera.x, y: p.y };
-    }
+    // Chunk 24a: the pointer sets the ship's target (touch: by the finger's movement), the ship flies there at a capped speed, and the
+    // camera's edge push follows the SHIP's place on the screen, so a ship held at a side keeps scrolling even after the finger is lifted.
+    this.steer.mode = touchMode();
+    this.steer.update(p);
+    this.camera.update(dt, pushShipX(w.state === 'playing', w.controlStarted, this.sx(w.shipX)));
+    const target = w.controlStarted ? { x: this.steer.x + this.camera.x, y: this.steer.y } : null;
     w.god = debugHooks.god;
     // The overload rule's idea of "off-screen" follows the camera (chunk 21b).
     const ps = w.projSys;
@@ -443,6 +475,8 @@ export class WallScreen implements Screen {
     const store = getProgressStore();
     w.bank(store);
     this.banker.flush(w.destroyed);
+    const unlocks = store.takeRunUnlocks();
+    const unlocked = unlockSummary(unlocks.blocks, unlocks.skillPoints);
     const result: RunResult = { credits: w.credits, kills: w.destroyed, time: w.time, tier: w.tier, shots: { ...w.projSys.runStats } };
     const marks = { newBestTier: false, newBestTime: false, newBestEarnings: w.newBestEarnings };
     const level = this.levelDef;
@@ -470,7 +504,7 @@ export class WallScreen implements Screen {
       medals: w.medalsEarned, doubled: w.medalDoubled,
       note: [w.fx.passBonus > 0 ? `pass bonus +${fmtBig(Math.floor(w.fx.passBonus))}` : '', w.fx.skillBonus > 0 ? `skill bonus +${fmtBig(Math.floor(w.fx.skillBonus))}` : ''].filter(Boolean).join('  ') || undefined,
     };
-    sm.switchTo(new RunSummaryScreen(sm, result, marks, { result: outcome, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }, captain));
+    sm.switchTo(new RunSummaryScreen(sm, result, marks, { result: outcome, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }, captain, unlocked));
   }
 
   destroy() {

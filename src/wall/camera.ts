@@ -9,6 +9,14 @@ export function clampShipX(x: number, viewW = VIEW_W): number {
 }
 
 /**
+ * What the camera's edge push reads (chunk 24a): the SHIP's screen x, clamped to the screen, once the run is under way and until it ends;
+ * never the pointer, so a ship held against a side keeps the wall scrolling even after the finger is lifted. null = no push.
+ */
+export function pushShipX(playing: boolean, controlStarted: boolean, shipScreenX: number, viewW = VIEW_W): number | null {
+  return playing && controlStarted ? clampShipX(shipScreenX, viewW) : null;
+}
+
+/**
  * Target camera speed in px/s for a ship at screen x (negative = scroll left).
  * 0 at the inner edge of the outer zone, rising linearly to maxSpeed exactly at the clamp edge m (or viewW - m).
  */

@@ -46,25 +46,34 @@ export class InputManager {
   /** Called with game coordinates for every tap (a press and release that barely moved), whatever screen is up. */
   private tapListeners: ((x: number, y: number) => void)[] = [];
   private down: { cx: number; cy: number; t: number } | null = null;
+  /** Set by the overlays: true when a game point is on a UI control (pause button, open panel). */
+  uiHit: ((x: number, y: number) => boolean) | null = null;
+  /** The current press started on a UI control: the ship ignores it until it ends. */
+  private captured = false;
 
   constructor(private element: HTMLElement) {
     element.style.touchAction = 'none';
     element.addEventListener('pointerdown', (e) => {
-      this.pointer.active = true;
       this.down = { cx: e.clientX, cy: e.clientY, t: performance.now() };
+      // Chunk 24a: a press that lands on a UI control (the pause button, an open panel) belongs to the control: it never steers the ship.
+      const p = clientToGame(e.clientX, e.clientY, this.element.getBoundingClientRect());
+      this.captured = !!this.uiHit && this.uiHit(p.x, p.y);
+      if (this.captured) return;
+      this.pointer.active = true;
       this.updatePointer(e);
     });
     window.addEventListener('pointerup', (e) => {
       const d = this.down;
       this.down = null;
+      this.captured = false;
       if (!d || performance.now() - d.t > TAP_MAX_MS || Math.hypot(e.clientX - d.cx, e.clientY - d.cy) > TAP_MAX_MOVE) return;
       const p = clientToGame(e.clientX, e.clientY, this.element.getBoundingClientRect());
       for (const f of this.tapListeners) f(p.x, p.y);
     });
     // Track on window so the ship keeps following when the cursor is in the letterbox.
-    window.addEventListener('pointermove', (e) => this.updatePointer(e));
+    window.addEventListener('pointermove', (e) => { if (!this.captured) this.updatePointer(e); });
     window.addEventListener('pointerup', () => { this.pointer.active = false; });
-    window.addEventListener('pointercancel', () => { this.pointer.active = false; });
+    window.addEventListener('pointercancel', () => { this.pointer.active = false; this.captured = false; });
   }
 
   /** Registers a tap listener (game coordinates). */

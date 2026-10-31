@@ -44,6 +44,8 @@ export class Picker extends TilePalette {
       badge: (id) => (id === REMOVE_TILE ? null : model.available(id)),
       lock: (id) => blockLockReason(model.store.data, id, model.store.frontierReach),
       current: (id) => id === cell()?.blockId,
+      isNew: (id) => model.store.data.newBlocks.includes(id),
+      opened: (id) => { if (id !== REMOVE_TILE) model.store.markBlockSeen(id); },
       content: (id) => {
         if (id === REMOVE_TILE) return removeSheetContent();
         const p = model.store.data;

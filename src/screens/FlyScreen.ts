@@ -1,16 +1,19 @@
 import { Container, Graphics, Sprite, Text } from 'pixi.js';
-import { CONFIG } from '../config';
+import { CONFIG, shipHalfW } from '../config';
+import { ShipSteer } from '../engine/steer';
+import { touchMode } from '../ui/touchMode';
 import { World } from '../game/world';
 import { specialKind } from '../data/waves';
 import type { StatsInfo } from '../ui/stats';
-import { clientToGame } from '../input';
+import { clientToGame, PointerState } from '../input';
 import { Pausable, Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
 import { CATEGORY_COLOR, THEME } from '../ui/theme';
 import { HIT_CLOUD } from '../engine/projectiles';
 import { fmtBig, fmtDamage } from '../ui/format';
 import { makeText } from '../builder/ui';
-import { getProgressStore, RunResult } from '../econ/progress';
+import { makeSpikeBadge, SPIKE_BADGE } from '../ui/hud';
+import { getProgressStore, RunResult, unlockSummary } from '../econ/progress';
 import { ShotSprites } from '../ui/shotSprites';
 import { shotTextures } from '../ui/shotTextures';
 import { debugHooks } from '../debug/hooks';
@@ -86,6 +89,10 @@ export class FlyScreen implements Screen {
   tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
   waveText = makeText('Wave 1', 16, THEME.text, { fontWeight: 'bold' });
   killsText = makeText('Kills 0', 16, THEME.textDim, { fontWeight: 'bold' });
+  /** Chunk 24a: a dim plate behind the HUD rows (like the wall's), and the SPIKE badge of a Frontier spike square inside it. */
+  private hudPlate = new Graphics();
+  private hudPlateW = 0;
+  private spikeBadge = makeSpikeBadge();
   /** "WAVE N" banner (theme panel, no effects) shown for BANNER_TIME on each new wave. */
   private banner = new Container();
   private bannerTitle = makeText('WAVE 1', 30, THEME.text, { fontWeight: 'bold' });
@@ -110,6 +117,9 @@ export class FlyScreen implements Screen {
   private endTimer = 0;
   private finished = false;
   private gate = new PointerGate();
+  private steer = new ShipSteer(CONFIG.VIEW.W / 2, CONFIG.VIEW.H * 0.8, { minX: shipHalfW(CONFIG.VIEW.W), maxX: CONFIG.VIEW.W - shipHalfW(CONFIG.VIEW.W), minY: CONFIG.PLAYER.MARGIN, maxY: CONFIG.VIEW.H - CONFIG.PLAYER.MARGIN });
+  /** What World.update reads: the steered target, as a mouse-like pointer (the touch offsets are already in the steering). */
+  private steerPointer: PointerState = { x: 0, y: 0, active: true, type: 'mouse', seen: false };
   private sfxFeed = new SfxFeed(sfx);
   private crashSounded = false;
   /** Galaxy first, then the next theme every 3 minutes (3 s crossfade); ?bg=<id> forces one, ?bg=off hides it. */
@@ -119,8 +129,8 @@ export class FlyScreen implements Screen {
   /** The pause menu's view of this run: it may pause once the ship is under control and until the run ends. */
   readonly pausable: Pausable = {
     persist: () => { if (!this.finished) this.banker.flush(this.world.kills); },
-    canPause: () => this.world.controlStarted && !this.world.gameOver && !this.finished,
-    resume: () => this.world.resumeEase(),
+    canPause: () => !this.world.gameOver && !this.finished,
+    resume: () => { this.world.resumeEase(); this.steer.release(); },
     restart: () => {
       if (this.finished) return;
       this.finished = true;
@@ -166,7 +176,7 @@ export class FlyScreen implements Screen {
 
     this.hullBarBg.position.set(20, 20);
     this.hullBarFg.position.set(20, 20);
-    this.uiLayer.addChild(this.hullBarBg, this.hullBarFg);
+    this.uiLayer.addChild(this.hudPlate, this.hullBarBg, this.hullBarFg);
     if (fr) {
       // Countdown: the bar empties as time runs out; the tick marks the half-way point (survive past it = PASSED).
       const W = CONFIG.VIEW.W - 40;
@@ -190,7 +200,8 @@ export class FlyScreen implements Screen {
     this.tierText.position.set(20, 56);
     this.waveText.position.set(20, 76);
     this.killsText.position.set(20, 96);
-    this.uiLayer.addChild(this.creditsText, this.tierText, this.waveText, this.killsText);
+    this.spikeBadge.visible = !!opts.frontier?.spike;
+    this.uiLayer.addChild(this.creditsText, this.tierText, this.spikeBadge, this.waveText, this.killsText);
     const panel = new Graphics().rect(-BANNER_W / 2, -BANNER_H / 2, BANNER_W, BANNER_H).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
     this.bannerTitle.anchor.set(0.5);
     this.bannerTitle.position.set(0, -8);
@@ -221,7 +232,7 @@ export class FlyScreen implements Screen {
           projectiles: this.world.pool.count, recipes: this.world.recipes.length,
           damagePerShot: this.world.recipes.map(r => r.packet.damage),
           hull: this.world.hull, credits: this.world.credits, tier: this.world.tier, kills: this.world.kills, time: this.world.time,
-          hud: { credits: this.creditsText.text, tier: this.tierText.text, wave: this.waveText.text, kills: this.killsText.text },
+          hud: { credits: this.creditsText.text, tier: this.tierText.text, wave: this.waveText.text, kills: this.killsText.text, spike: this.spikeBadge.visible, plateW: this.hudPlateW },
           wave: this.world.wave, waveTimeLeft: this.world.waveTimeLeft, seed: this.world.seed,
           banner: this.banner.visible ? { title: this.bannerTitle.text, sub: this.bannerSub.text, alpha: this.banner.alpha } : null,
           species: this.world.mitosis.enemies.map(e => e.defId),
@@ -282,7 +293,13 @@ export class FlyScreen implements Screen {
     // Spawn safety: the ship waits where it starts until the player's first pointer move or press.
     if (!this.world.controlStarted && this.gate.observe(pointer, pointer.seen)) this.world.beginControl();
     this.world.god = debugHooks.god;
-    this.world.update(dt, pointer);
+    // Chunk 24a: the world follows the steered target (touch: moved by the finger's movement), at a capped speed.
+    this.steer.mode = touchMode();
+    this.steer.update(pointer);
+    this.steerPointer.x = this.steer.x;
+    this.steerPointer.y = this.steer.y;
+    this.steerPointer.seen = pointer.seen;
+    this.world.update(dt, this.steerPointer);
     const fx = this.world.projSys.fx;
     this.sfxFeed.frame({ shots: this.world.gun.shots, chainJumps: fx.chainJumps, wellsMade: fx.wellsMade, bounces: fx.bounces + fx.edgeBounces });
     if (this.world.gameOver && !this.crashSounded) { this.crashSounded = true; sfx.play(this.world.survived ? 'medal' : 'crash'); }
@@ -329,6 +346,9 @@ export class FlyScreen implements Screen {
       this.timeBarFg.clear().rect(0, 0, (CONFIG.VIEW.W - 40) * (left / enc.duration), 6).fill(this.world.time >= enc.duration * FREEFLY_PASS_SHARE ? PROGRESS_COLOR : THEME.currency);
     } else this.waveText.text = `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
     this.killsText.text = `Kills ${this.world.kills}`;
+    this.spikeBadge.position.set(20 + this.tierText.width + 12, 56 + (this.tierText.height - SPIKE_BADGE.h) / 2);
+    const plateW = Math.round(Math.max(190, this.spikeBadge.visible ? this.spikeBadge.x + SPIKE_BADGE.w + 14 : 0, ...[this.creditsText, this.tierText, this.waveText, this.killsText].map(t => 20 + t.width + 14)));
+    if (plateW !== this.hudPlateW) { this.hudPlateW = plateW; this.hudPlate.clear().rect(10, 14, plateW - 10, 108).fill({ color: THEME.bg, alpha: 0.72 }); }
     for (const ev of this.world.waveEvents) {
       sfx.play('wave');
       const kind = specialKind(ev.wave);
@@ -457,13 +477,15 @@ export class FlyScreen implements Screen {
       name: CAPTAIN_BY_ID[id]?.name ?? id, killsAdded: this.banker.added, killsTotal: store.data.captains.heroes[id]?.kills ?? 0,
       medals: this.medalsRun, doubled: this.medalsDoubled,
     };
-    this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks, undefined, captain));
+    const u = store.takeRunUnlocks();
+    this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks, undefined, captain, unlockSummary(u.blocks, u.skillPoints)));
   }
 
   private finishEncounter() {
     this.finished = true;
     const store = getProgressStore();
     const paid = this.bankEncounter();
+    const u = store.takeRunUnlocks();
     const w = this.world;
     const sm = this.screenManager;
     const grid = this.grid;
@@ -482,7 +504,7 @@ export class FlyScreen implements Screen {
         { id: 'summaryRetry', label: 'Retry', onTap: () => sm.switchTo(new FlyScreen(sm, grid, opts)) },
         { id: 'summaryBuild', label: 'Build', onTap: () => sm.switchTo(new BuildScreen(sm)) },
       ],
-    }, captain));
+    }, captain, unlockSummary(u.blocks, u.skillPoints)));
   }
 
   destroy() {

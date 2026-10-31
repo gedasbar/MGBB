@@ -59,7 +59,7 @@ async function mouseTest(browser, viewport, label) {
   process.stdout.write(`\n[${label}] viewport ${viewport.width}x${viewport.height}, canvas rect ${JSON.stringify(rect)}, scale ${s.toFixed(4)}\n`);
   for (const [sx, sy] of screenPts) {
     await page.mouse.move(sx, sy);
-    await page.waitForTimeout(120);
+    await page.waitForTimeout(700); // chunk 24a: the ship flies to the cursor at a capped speed (about 0.3 s across the screen)
     const st = await page.evaluate(() => window.__mgbm.state());
     const ex = (sx - offX) / s;
     const ey = (sy - offY) / s;

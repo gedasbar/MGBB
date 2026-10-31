@@ -8,6 +8,16 @@ const VIEW_W_REF = 540;
 /** Leftmost / rightmost ship-centre x so the whole ship stays on screen (scaled with the viewport). */
 export const shipHalfW = (viewW: number): number => SHIP_HALF_W_REF * (viewW / VIEW_W_REF);
 
+/**
+ * Chunk 24a: the ship never jumps to the pointer. It flies toward its target at most this fast (px/s): the screen width in 0.2 s,
+ * quick but not a teleport. The hit test sweeps the whole path moved in a step, so a fast ship cannot pass through a block.
+ */
+export const SHIP_MAX_SPEED = 540 / 0.2;
+/** Touch, relative mode: the ship moves this many px for every px the finger moves (1 = the finger drags the ship 1:1). */
+export const TOUCH_DRAG_GAIN = 1;
+/** Touch, direct mode: the ship sits this many px above the finger (negative = above, so the finger does not hide it). */
+export const TOUCH_DIRECT_OFFSET_Y = -40;
+
 export const CONFIG = {
   GAME_TITLE: "Mitosis Gun Builder",
   VIEW: { W: 540, H: 960 },                 // logical 9:16, letterboxed to fit any screen

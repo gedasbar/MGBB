@@ -5,6 +5,7 @@ import { ringScreenX, WallCamera } from '../src/wall/camera';
 import { CELL, VIEW_W, WALL_COLS } from '../src/wall/constants';
 import { BlockDef, LevelDef } from '../src/wall/level';
 import { WallWorld } from '../src/wall/wallWorld';
+import { jump } from './helpers/jump';
 
 const W = WALL_COLS * CELL;
 const plain: BlockDef = { hp: 100, armor: 0, shield: 0 };
@@ -63,15 +64,15 @@ describe('ring walls', () => {
 
   it('the ship x wraps and the ship collides with a block on the other side of the seam', () => {
     const w = wall(3, (r, c) => r === 2 && c === 0);
-    w.update(1 / 60, { x: W + 20, y: 300 - 27 });
+    jump(w, { x: W + 20, y: 300 - 27 }, 1 / 60);
     expect(w.shipX).toBeCloseTo(20, 6);
     expect(w.state).toBe('crashed');
     const v = wall(3, (r, c) => r === 2 && c === 0);
-    v.update(1 / 60, { x: W - 5, y: 300 - 27 });   // 5 px left of the seam is inside column 20, which is empty; column 0 starts at the seam
+    jump(v, { x: W - 5, y: 300 - 27 }, 1 / 60);   // 5 px left of the seam is inside column 20, which is empty; column 0 starts at the seam
     expect(v.shipX).toBeCloseTo(W - 5, 6);
     expect(v.state).toBe('crashed');   // the ship's hit circle (8 px) reaches over the seam into column 0
     const u = wall(3, (r, c) => r === 2 && c === 0);
-    u.update(1 / 60, { x: W - 12, y: 300 - 27 });
+    jump(u, { x: W - 12, y: 300 - 27 }, 1 / 60);
     expect(u.state).toBe('playing');
   });
 
@@ -121,7 +122,7 @@ describe('ring walls', () => {
     for (let k = 0; k < 600; k++) cam.update(1 / 60, 539);
     expect(cam.x).toBe(W - VIEW_W);
     const w = wall(3, () => false, false);
-    w.update(1 / 60, { x: W + 50, y: 700 });
+    jump(w, { x: W + 50, y: 700 }, 1 / 60);
     expect(w.shipX).toBe(W);
   });
 });

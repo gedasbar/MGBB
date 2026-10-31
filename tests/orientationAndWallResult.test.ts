@@ -16,6 +16,7 @@ import { planEncounter } from '../src/frontier/encounter';
 import { World } from '../src/game/world';
 import { rng } from '../src/rng';
 import '../src/data/blocks';
+import { jump } from './helpers/jump';
 
 const plain: BlockDef = { hp: 100, armor: 0, shield: 0 };
 function wall(rows: number, f: (r: number, c: number) => boolean): WallWorld {
@@ -51,22 +52,22 @@ describe('wall results are instant and final', () => {
     const w = wall(4, (_r, c) => c === 0);
     const topOfWall = w.wallOffsetY - 4 * CELL;
     expect(w.finishY).toBeCloseTo(topOfWall - CELL, 9);
-    w.update(1 / 60, { x: LANE, y: topOfWall - CELL + 2 }); // still inside the margin
+    jump(w, { x: LANE, y: topOfWall - CELL + 2 }, 1 / 60); // still inside the margin
     expect(w.state).toBe('playing');
-    w.update(1 / 60, { x: LANE, y: topOfWall - CELL - 2 }); // past it: well before the old 8 cells
+    jump(w, { x: LANE, y: topOfWall - CELL - 2 }, 1 / 60); // past it: well before the old 8 cells
     expect(w.state).toBe('passed');
   });
 
   it('CLEARED: the world stops, the ship ignores the pointer, shots in flight are dropped, credits stay', () => {
     const w = wall(3, (r, c) => r === 2 && c === 0);
-    w.update(1 / 60, { x: LANE, y: 600 });
+    jump(w, { x: LANE, y: 600 }, 1 / 60);
     const b = w.blocks[2 * WALL_COLS]!;
     w.projSys.modifiersTable = [[]];
     const i = w.pool.spawn(LANE, 650, 0, -10, 1, 0, 0);
     w.projSys.init(i);
     expect(w.pool.count).toBe(1);
     w.destroyBlock(b);
-    w.update(1 / 60, { x: LANE, y: 600 });
+    jump(w, { x: LANE, y: 600 }, 1 / 60);
     expect(w.state).toBe('cleared');
     expect(w.pool.count).toBe(0);
     const credits = w.credits;
@@ -80,7 +81,7 @@ describe('wall results are instant and final', () => {
   it('PASSED: locks input, and the ship can no longer crash even if the pointer is dragged onto a block', () => {
     const w = wall(3, (_r, c) => c === 0);
     const topOfWall = w.wallOffsetY - 3 * CELL;
-    w.update(1 / 60, { x: LANE, y: topOfWall - CELL - 5 });
+    jump(w, { x: LANE, y: topOfWall - CELL - 5 }, 1 / 60);
     expect(w.state).toBe('passed');
     const y = w.shipY;
     w.update(1 / 60, { x: 0, y: w.wallOffsetY - CELL });
@@ -92,7 +93,7 @@ describe('wall results are instant and final', () => {
   it('a clear and a pass in the same step is a clear', () => {
     const w = wall(2, (r, c) => r === 1 && c === 0);
     w.destroyBlock(w.blocks[1 * WALL_COLS]!);
-    w.update(1 / 60, { x: LANE, y: w.finishY - 10 });
+    jump(w, { x: LANE, y: w.finishY - 10 }, 1 / 60);
     expect(w.state).toBe('cleared');
   });
 

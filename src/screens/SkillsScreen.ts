@@ -73,6 +73,7 @@ export class SkillsScreen implements Screen {
   private stateText = makeText('', 15, THEME.textDim, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: VIEW_W - 28 });
 
   constructor(private sm: ScreenManager) {
+    this.store.markSkillsSeen(); // chunk 24a: opening the tab shows the new points, so its dot goes
     const bg = new Graphics().rect(0, 0, VIEW_W, CONFIG.VIEW.H).fill(THEME.bg);
     const chrome = new Graphics()
       .rect(0, 0, VIEW_W, TOP).fill(THEME.panel).rect(0, TOP - 1, VIEW_W, 1).fill(THEME.border)

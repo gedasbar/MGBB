@@ -50,3 +50,15 @@ export function textButton(id: string, rect: Rect, label: string, onTap: () => v
   b.redraw();
   return b;
 }
+
+/** Chunk 24a: the "SPIKE" badge of a harder level, a small red tag that sits inside the HUD box (WALL / Free Fly squares). */
+export const SPIKE_BADGE = { w: 54, h: 18 };
+export function makeSpikeBadge(): Container {
+  const c = new Container();
+  const bg = new Graphics().rect(0, 0, SPIKE_BADGE.w, SPIKE_BADGE.h).fill(THEME.bad);
+  const t = makeText('SPIKE', 12, THEME.hullDark, { fontWeight: 'bold' });
+  t.anchor.set(0.5);
+  t.position.set(SPIKE_BADGE.w / 2, SPIKE_BADGE.h / 2);
+  c.addChild(bg, t);
+  return c;
+}

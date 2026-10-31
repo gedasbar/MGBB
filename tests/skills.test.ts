@@ -114,10 +114,10 @@ describe('buying and respec', () => {
 
 describe('save version 11', () => {
   it('an older save starts with no skills; a saved list round-trips; floating, unknown and unpaid nodes are dropped', () => {
-    expect(PROGRESS_VERSION).toBe(11);
+    expect(PROGRESS_VERSION).toBe(12);
     expect(defaultProgress().skills).toEqual([]);
     const old = loadProgress(JSON.stringify({ version: 10, credits: 77, owned: {}, levels: {}, ownedHulls: ['dart'] }));
-    expect(old.version).toBe(11);
+    expect(old.version).toBe(12);
     expect(old.skills).toEqual([]);
     expect(old.credits).toBe(77);
     const frontier = { seed: 15015, sq: { [sqKey(0, 25)]: 2 as const, [sqKey(0, -50)]: 2 as const } }; // rings 25 and 50: 2 points

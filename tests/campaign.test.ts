@@ -191,6 +191,7 @@ import { CAMERA_MAX_X, CELL, MIN_START_GAP_CELLS, SHIP_START_Y, WORLD_WIDTH } fr
 import { makeTestWall } from '../src/wall/level';
 import { WallWorld } from '../src/wall/wallWorld';
 import { buildStarterGrid } from '../src/game/starter';
+import { jump } from './helpers/jump';
 
 describe('Edge columns', () => {
   /** Holds the dot where a pointer at `pointerX` puts it (camera at an end) and lets the gun fire for 1.5 s. */
@@ -199,7 +200,7 @@ describe('Edge columns', () => {
     const cam = new WallCamera();
     cam.x = cameraAtMax ? CAMERA_MAX_X : 0;
     w.setWallOffset(300);
-    for (let i = 0; i < 90; i++) w.update(1 / 60, { x: pointerX + cam.x, y: 700 });
+    for (let i = 0; i < 90; i++) jump(w, { x: pointerX + cam.x, y: 700 }, 1 / 60);
     return w;
   }
 
@@ -220,9 +221,9 @@ describe('Edge columns', () => {
   it('a flat wall (wrap: false) still clamps the dot to 0 .. the wall width', () => {
     const level = { ...makeTestWall({ tier: 1, rows: 3, approachSpeed: 0 }), wrap: false };
     const w = new WallWorld(level, { grid: buildStarterGrid() });
-    for (let i = 0; i < 5; i++) w.update(1 / 60, { x: 5000, y: 700 });
+    for (let i = 0; i < 5; i++) jump(w, { x: 5000, y: 700 }, 1 / 60);
     expect(w.shipX).toBe(WORLD_WIDTH);
-    for (let i = 0; i < 5; i++) w.update(1 / 60, { x: -300, y: 700 });
+    for (let i = 0; i < 5; i++) jump(w, { x: -300, y: 700 }, 1 / 60);
     expect(w.shipX).toBe(0);
   });
 });

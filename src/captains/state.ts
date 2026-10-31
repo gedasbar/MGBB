@@ -1,7 +1,7 @@
 import { skillEffects } from '../skills/rules';
 import {
   CAPTAIN_BY_ID, CAPTAINS, FLY_MEDAL_MILESTONES, HERO_LEVEL_SANITY_MAX, heroLevelCost, OPTION_BY_ID, STARTER_CAPTAIN, TIER_COSTS, TIER_COUNT,
-  TIER_KILLS, OptionDef,
+  TIER_KILLS, LEGACY_TIER_KILLS, OptionDef,
 } from './data';
 
 /** What the save keeps about one captain. */
@@ -9,6 +9,11 @@ export interface HeroState {
   level: number;
   /** Lifetime kills made while this captain was active (rocks incl. fragments, wall blocks). */
   kills: number;
+  /**
+   * Chunk 24a: the highest option tier ever opened (1..4). The kill thresholds were raised; a tier a save had already opened stays open
+   * (a save without this field gets it from the OLD thresholds), and every tier the kills reach opens it from then on.
+   */
+  tiersOpened: number;
   /** Ids of the options bought, forever. */
   owned: string[];
   /** The option in use per tier (key "1".."4"); at most one per tier, always an owned option of that tier. */
@@ -33,7 +38,7 @@ export const heroCostWith = (level: number, discount: number) => Math.max(1, Mat
 export type CaptainResult = { ok: true; cost: number } | { ok: false; error: string };
 
 function defaultHero(): HeroState {
-  return { level: 0, kills: 0, owned: [], active: {} };
+  return { level: 0, kills: 0, tiersOpened: 1, owned: [], active: {} };
 }
 
 export function defaultCaptains(): CaptainsState {
@@ -61,6 +66,7 @@ export function sanitizeCaptains(raw: unknown): CaptainsState {
     const hero = out.heroes[c.id];
     hero.level = isInt(h.level, 0, HERO_LEVEL_SANITY_MAX) ? h.level : 0;
     hero.kills = isInt(h.kills, 0, Number.MAX_SAFE_INTEGER) ? h.kills : 0;
+    hero.tiersOpened = Math.max(isInt(h.tiersOpened, 1, TIER_COUNT) ? h.tiersOpened : tiersReached(hero.kills, LEGACY_TIER_KILLS), tiersReached(hero.kills, TIER_KILLS));
     const mine = new Set(c.tiers.flat().map(opt => opt.id));
     hero.owned = Array.from(new Set((Array.isArray(h.owned) ? h.owned : []).filter((id: unknown) => typeof id === 'string' && mine.has(id)))) as string[];
     for (const [k, id] of Object.entries(h.active ?? {})) {
@@ -80,7 +86,14 @@ export const isCaptainOwned = (c: CaptainsState, id: string) => c.owned.includes
 
 /** Kills the hero needs for a tier (1-based). */
 export const tierKillsNeeded = (tier: number) => TIER_KILLS[tier - 1] ?? Infinity;
-export const isTierUnlocked = (hero: HeroState, tier: number) => hero.kills >= tierKillsNeeded(tier);
+/** The highest tier (1..4) that `kills` reach with a table of thresholds. */
+export function tiersReached(kills: number, table: readonly number[]): number {
+  let t = 1;
+  for (let i = 1; i < table.length; i++) if (kills >= table[i]) t = i + 1;
+  return t;
+}
+/** Open when the kills reach it, or when the save had opened it already (tiersOpened, chunk 24a). */
+export const isTierUnlocked = (hero: HeroState, tier: number) => tier <= hero.tiersOpened || hero.kills >= tierKillsNeeded(tier);
 
 /** The next tier still locked for this hero (null when all four are open) and the kills it needs. */
 export function nextTierGoal(hero: HeroState): { tier: number; kills: number } | null {
@@ -159,6 +172,7 @@ export function addCaptainKills(p: CaptainHolder, id: string, n: number) {
   const hero = p.captains.heroes[id];
   if (!hero || !(n > 0)) return;
   hero.kills += Math.floor(n);
+  hero.tiersOpened = Math.max(hero.tiersOpened, tiersReached(hero.kills, TIER_KILLS));
 }
 
 // ---------------------------------------------------------------- Medals

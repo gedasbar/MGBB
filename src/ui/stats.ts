@@ -1,5 +1,6 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { VERSION_LABEL } from '../version';
+import { RefreshEstimator } from './refreshRate';
 
 /** What a screen reports to the overlay, filled in at the overlay's refresh rate (about 4 per second). */
 export interface StatsInfo {
@@ -91,6 +92,8 @@ export class StatsOverlay {
   private renderMs = 0;
   private ovhMs = 0;
   private lastRefresh = 0;
+  /** Chunk 24a: the display's refresh rate, measured from the gaps between frames. */
+  private readonly refreshHz = new RefreshEstimator();
 
   constructor() {
     this.enabled = initialStatsEnabled();
@@ -149,6 +152,7 @@ export class StatsOverlay {
     const t0 = performance.now();
     if (this.winStart === 0) { this.winStart = now; this.worstA = this.worstB = 0; }
     this.winFrames++;
+    this.refreshHz.add(frameMs);
     this.winSum += frameMs;
     this.simAcc += simMs;
     if (frameMs > this.worstA) this.worstA = frameMs;
@@ -184,7 +188,7 @@ export class StatsOverlay {
 
   /** Last figures (e2e and reports). */
   get numbers() {
-    return { fps: this.fps, frameMs: this.avgFrame, worstMs: Math.max(this.worstA, this.worstB), simMs: this.simMs, renderMs: this.renderMs, overheadMs: this.ovhMs, last: this.info };
+    return { fps: this.fps, displayHz: this.refreshHz.hz, frameMs: this.avgFrame, worstMs: Math.max(this.worstA, this.worstB), simMs: this.simMs, renderMs: this.renderMs, overheadMs: this.ovhMs, last: this.info };
   }
 
   private refresh() {
@@ -195,7 +199,7 @@ export class StatsOverlay {
     const f2 = (n: number) => n.toFixed(2);
     const out =
       `${i.name}   kills ${i.kills}\n` +
-      `FPS ${Math.round(this.fps)}  worst ${f1(Math.max(this.worstA, this.worstB))}ms  frame ${f1(this.avgFrame)}ms\n` +
+      `FPS ${Math.round(this.fps)}  display ${this.refreshHz.hz || '?'} Hz  worst ${f1(Math.max(this.worstA, this.worstB))}ms  frame ${f1(this.avgFrame)}ms\n` +
       `sim ${f2(this.simMs)}  render ${f2(this.renderMs)}  ovh ${f2(this.ovhMs)} ms\n` +
       `proj ${i.proj}/${i.projCap}  enemies ${i.enemies}  fx ${i.fx}\n` +
       i.extra + '\n' +

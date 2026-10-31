@@ -15,6 +15,9 @@ import { buildStarterGrid } from './game/starter';
 import { makeTestWall } from './wall/level';
 import { installAudioUnlock, sfx } from './audio';
 import { DEBUG_ON } from './debug/enabled';
+import { FRAME_MAX, planSteps } from './game/timestep';
+import { PlayTimeTracker } from './econ/playTime';
+import { getProgressStore } from './econ/progress';
 
 (async () => {
   const app = new Application();
@@ -80,22 +83,26 @@ import { DEBUG_ON } from './debug/enabled';
   new DebugPanel().init();
   screenManager.switchTo(new BuildScreen(screenManager));
 
-  const dt = 1 / 60;
-  let accumulator = 0;
   let lastTime = performance.now();
+  // Chunk 24a: time played, counted while the page is visible; saved every 15 s of play and when the page is hidden or closed.
+  const store = getProgressStore();
+  const playTime = new PlayTimeTracker((s) => store.addPlayTime(s), () => store.flushPlayTime());
+  document.addEventListener('visibilitychange', () => { if (document.hidden) playTime.save(); });
+  window.addEventListener('pagehide', () => playTime.save());
+  app.ticker.maxFPS = 0; // 0 = no cap: one render per requestAnimationFrame, whatever the display's rate
 
+  // Chunk 24a: no frame-rate cap (the ticker has no maxFPS) and no fixed 60 Hz step: every frame is simulated with the time that really
+  // passed, in steps of at most 1/60 s (src/game/timestep.ts), so a 120 Hz screen gets a new picture on every frame at the same game speed.
   app.ticker.add(() => {
     const now = performance.now();
     const rawMs = now - lastTime;
-    let frameTime = rawMs / 1000;
+    const frameTime = Math.min(rawMs / 1000, FRAME_MAX);
     lastTime = now;
-    if (frameTime > 0.25) frameTime = 0.25;
-    accumulator += frameTime;
-    
-    while (accumulator >= dt) {
-      // debugHooks.timeScale > 1 (?debug=1 only) runs extra simulation steps per tick.
-      for (let k = 0; k < debugHooks.timeScale; k++) screenManager.update(dt, k === 0 ? frameTime : 0, now);
-      accumulator -= dt;
+    playTime.tick(frameTime, !document.hidden);
+    const plan = planSteps(frameTime);
+    // debugHooks.timeScale > 1 (?debug=1 only) runs extra simulation steps per tick.
+    for (let i = 0; i < plan.steps; i++) {
+      for (let k = 0; k < debugHooks.timeScale; k++) screenManager.update(plan.dt, i === 0 && k === 0 ? frameTime : 0, now);
     }
 
     if (stats.enabled) {

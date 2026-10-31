@@ -227,7 +227,11 @@ async function fly(page, seconds, onTick) {
     shoot(A, table.length - 2);
     shoot(D, table.length - 1);
     shoot(E, table.length - 1);
-    await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+    // Wait until the shot has made its arcs (a slow frame can let them expire between two frames; they live 0.12 s of simulated time).
+    for (let f = 0; f < 12; f++) {
+      await new Promise(res => requestAnimationFrame(res));
+      if (w.projSys.arcT.some(t => t > 0)) break;
+    }
     // Hold the arcs on screen for the screenshot (they live 0.12 s in play).
     let held = 0;
     for (let k = 0; k < w.projSys.arcT.length; k++) if (w.projSys.arcT[k] > 0) { w.projSys.arcT[k] = 5; held++; }

@@ -31,7 +31,9 @@ const HERO_COST_RATIO = 1.2;
 /** Tiers per captain and the options in each. */
 export const TIER_COUNT = 4;
 /** Lifetime kills of a captain that unlock each option tier (rocks incl. fragments, and wall blocks, in every mode). */
-export const TIER_KILLS = [0, 300, 1500, 6000];
+export const TIER_KILLS = [0, 2000, 10000, 40000];
+/** Chunk 24a: the thresholds before they were raised. A save made then keeps every tier those kills had opened (HeroState.tiersOpened). */
+export const LEGACY_TIER_KILLS = [0, 300, 1500, 6000];
 /** Medals one option costs, by tier. */
 export const TIER_COSTS = [2, 4, 7, 11];
 
