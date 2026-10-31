@@ -148,7 +148,7 @@ async function open(browser, url, init) {
     await p3.evaluate(() => window.__mgbmSm.overlays.openSettings(false));
     await p3.waitForTimeout(300);
     // The time-played counter may be saved between two reads (every 15 s); it is not part of what an import must leave alone.
-    const readSave = () => p3.evaluate(() => { const o = JSON.parse(localStorage.getItem('mgbm.progress.v1')); delete o.timePlayed; return JSON.stringify(o); });
+    const readSave = () => p3.evaluate(() => { const o = JSON.parse(localStorage.getItem('mgbm.progress.v1')); if (o) delete o.timePlayed; return JSON.stringify(o); });
     const before = await readSave();
     await tapBtn(p3, 'importSave');
     await p3.waitForSelector('#import-text');

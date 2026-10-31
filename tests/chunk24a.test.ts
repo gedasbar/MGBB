@@ -18,6 +18,7 @@ import { LEGACY_TIER_KILLS, TIER_KILLS } from '../src/captains/data';
 import { TIER_LOCKS } from '../src/data/tierLocks';
 import { skillPointsFor } from '../src/skills/rules';
 import { jump } from './helpers/jump';
+import { PointerGate } from '../src/engine/control';
 
 const DT = 1 / 60;
 const plain: BlockDef = { hp: 1000, armor: 0, shield: 0 };
@@ -212,6 +213,13 @@ describe('UI taps are consumed (24a)', () => {
       b.fire('pointermove', { clientX: 210, clientY: 310, pointerType: 'touch' });
       expect([b.input.pointer.x, b.input.pointer.y]).toEqual([210, 310]);
     } finally { b.restore(); }
+  });
+});
+
+describe('touch press starts the run (24a)', () => {
+  it('a finger already down at the first reading fires the gate; a parked mouse does not', () => {
+    expect(new PointerGate().observe({ x: 10, y: 10, active: true })).toBe(true);
+    expect(new PointerGate().observe({ x: 10, y: 10, active: false })).toBe(false);
   });
 });
 
