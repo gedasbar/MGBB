@@ -14,6 +14,8 @@ const W = CONFIG.VIEW.W;
 const H = CONFIG.VIEW.H;
 /** The pause button in the top-right corner of the fly screens. */
 const PAUSE_BTN = { x: W - 46, y: 8, w: 38, h: 38 };
+/** A finger is bigger than the button: a press this close to it still belongs to the button, not to the ship. */
+const PAUSE_HIT_PAD = 10;
 /** Volume buttons move the volume this much per tap. */
 const VOLUME_STEP = 0.1;
 /** Taps this soon after the panel was closed are still treated as part of the closing tap (the screen below ignores them). */
@@ -64,6 +66,14 @@ export class Overlays {
 
   /** True while the screen underneath must ignore taps and drags (a panel is open, or just closed with this tap). */
   get blocking(): boolean { return this.view !== 'none' || this.now() - this.closedAt < CLOSE_GUARD_MS; }
+
+  /** Chunk 24a: true when a game point is on a UI control: the pause button while it shows, or anything while a panel is open. The press never steers the ship. */
+  hitsUi(x: number, y: number): boolean {
+    if (this.view !== 'none') return true;
+    if (!this.pauseBtn.visible) return false;
+    const pad = PAUSE_HIT_PAD;
+    return x >= PAUSE_BTN.x - pad && x <= PAUSE_BTN.x + PAUSE_BTN.w + pad && y >= PAUSE_BTN.y - pad && y <= PAUSE_BTN.y + PAUSE_BTN.h + pad;
+  }
 
   /** Per-frame sync: the pause button follows whether the current screen can be paused right now. */
   update() {
@@ -120,7 +130,7 @@ export class Overlays {
   tap(x: number, y: number): boolean {
     if (this.view === 'none') {
       if (!this.pauseBtn.visible) return false;
-      if (x >= PAUSE_BTN.x && x <= PAUSE_BTN.x + PAUSE_BTN.w && y >= PAUSE_BTN.y && y <= PAUSE_BTN.y + PAUSE_BTN.h) {
+      if (this.hitsUi(x, y)) {
         sfx.play('uiTap');
         this.sm.pause();
         return true;
@@ -181,7 +191,7 @@ export class Overlays {
   }
 
   private buildSettings() {
-    const pw = 440, ph = 720;
+    const pw = 440, ph = 780;
     const { x, y } = this.panelBox(pw, ph, 'SETTINGS');
     let cy = y + 74;
     const stepper = (id: 'master' | 'sfx', label: string, get: () => number, set: (v: number) => void) => {
@@ -211,6 +221,7 @@ export class Overlays {
       sfx.unlock();
       sfx.playShot();
     });
+    toggle('touchControl', () => `Touch control: ${sfx.settings.touchControl === 'direct' ? 'Direct' : 'Relative'}`, () => sfx.setTouchControl(sfx.settings.touchControl === 'direct' ? 'relative' : 'direct'));
     toggle('statsToggle', () => `Stats panel: ${this.sm.stats.enabled ? 'ON' : 'OFF'}`, () => this.sm.stats.toggle());
     this.addButton('testSound', x + 24, cy, pw - 48, 48, 'Test sound', () => { sfx.unlock(); if (!sfx.playShot()) sfx.play('rockPop'); });
     cy += 60;

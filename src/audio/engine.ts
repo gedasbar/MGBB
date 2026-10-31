@@ -1,4 +1,4 @@
-import { loadSettings, MAX_SOUND_MULT, saveSettings, Settings, WeaponSound } from '../ui/settings';
+import { loadSettings, MAX_SOUND_MULT, saveSettings, Settings, TouchControl, WeaponSound } from '../ui/settings';
 import { PEAK_CAP, PEAK_CAP_PROTECTED, SFX_BOOST, SFX_ORDER, SfxId, SoundDef, SOUNDS } from './sounds';
 
 /** At most this many sounds sound at once; the lowest-priority, oldest one is stolen for a newer one. */
@@ -137,6 +137,7 @@ export class SfxEngine {
   setSfxVolume(v: number) { this.settings.sfxVolume = clamp01(v); this.changed(); }
   setMuted(m: boolean) { this.settings.muted = m; this.changed(); }
   setWeaponSound(w: WeaponSound) { this.settings.weaponSound = w; this.changed(); }
+  setTouchControl(t: TouchControl) { this.settings.touchControl = t; this.changed(); }
 
   /** Tuning multiplier of one sound (1 = untouched). */
   soundMult(id: string): number { return this.settings.soundMult[id] ?? 1; }

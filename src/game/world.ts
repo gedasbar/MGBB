@@ -1,4 +1,5 @@
-import { CONFIG, HIT_RADIUS, shipHalfW } from '../config';
+import { CONFIG, HIT_RADIUS, shipHalfW, TOUCH_DIRECT_OFFSET_Y } from '../config';
+import { segDistSq, stepToward } from '../engine/steer';
 import { ProjectilePool } from '../engine/pools';
 import { MitosisSystem } from '../engine/mitosis';
 import { ProjectileSystem } from '../engine/projectiles';
@@ -24,7 +25,7 @@ import type { MitosisEnemy } from '../engine/mitosis';
 import { neutralModifiers, RunModifiers } from '../captains/modifiers';
 import { SECOND_CHANCE_INVULN } from '../captains/data';
 
-export const TOUCH_OFFSET_Y = -40; // finger sits below the ship on touch
+export const TOUCH_OFFSET_Y = TOUCH_DIRECT_OFFSET_Y; // finger sits below the ship on touch (direct mode)
 export { PX_PER_CELL };
 const CONTACT_DAMAGE = 10;
 /** Hull of an unmodified ship. Leak damage always uses this base (a captain's extra hull does not make leaks hurt more). */
@@ -332,6 +333,13 @@ export class World {
     this.invuln = Math.max(this.invuln, GRACE_TIME + this.mods.spawnInvuln);
   }
 
+  /** Tests and debugging: puts the ship at a place at once (the pointer cannot: it flies at SHIP_MAX_SPEED at most). */
+  teleportShip(x: number, y: number) {
+    const mx = shipHalfW(CONFIG.VIEW.W);
+    this.shipX = Math.max(mx, Math.min(CONFIG.VIEW.W - mx, x));
+    this.shipY = Math.max(CONFIG.PLAYER.MARGIN, Math.min(CONFIG.VIEW.H - CONFIG.PLAYER.MARGIN, y));
+  }
+
   /** Fire one pulse: one projectile per compiled ejector recipe (chance gates may drop or boost it). */
   fire() {
     this.gun.fire(this.shipX, this.shipY);
@@ -364,7 +372,15 @@ export class World {
       baseY = this.easeFrom.y + (baseY - this.easeFrom.y) * k;
       this.controlT += dt;
     }
+    // Chunk 24a: the ship flies toward the pointer at SHIP_MAX_SPEED at most (never a jump); the contact test below sweeps the path flown.
+    const fromX = this.shipX, fromY = this.shipY;
     if (!this.controlStarted) { baseX = this.shipX; baseY = this.shipY; }
+    else {
+      const cx = this.shipX - this.knockX, cy = this.shipY - this.knockY;
+      const s = stepToward(cx, cy, baseX, baseY, dt);
+      baseX = cx + s.dx;
+      baseY = cy + s.dy;
+    }
     const decay = Math.exp(-12 * dt);
     this.knockX *= decay;
     this.knockY *= decay;
@@ -492,10 +508,21 @@ export class World {
       } else if (this.aboveT.size) this.aboveT.delete(e.id);
 
       // Contact damage + knockback (none while invulnerable: the first second of control and 0.5 s after a hit)
-      const sx = this.shipX - e.x;
-      const sy = this.shipY - e.y;
+      // Swept (chunk 24a): the closest the ship's path this step came to the rock, so a fast ship cannot pass through one.
+      const reach = e.radius + this.hitR;
+      const near2 = segDistSq(fromX, fromY, this.shipX, this.shipY, e.x, e.y);
+      let sx = this.shipX - e.x;
+      let sy = this.shipY - e.y;
+      if (near2 < reach * reach && sx * sx + sy * sy >= reach * reach) {
+        // Touched on the way and already past: push away from where it was touched (the segment's closest point).
+        const vx = this.shipX - fromX, vy = this.shipY - fromY;
+        const len2 = vx * vx + vy * vy;
+        const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((e.x - fromX) * vx + (e.y - fromY) * vy) / len2));
+        sx = fromX + vx * t - e.x;
+        sy = fromY + vy * t - e.y;
+      }
       const d = Math.sqrt(sx * sx + sy * sy) || 1;
-      if (d < e.radius + this.hitR && this.invuln <= 0 && !this.god) {
+      if (near2 < reach * reach && this.invuln <= 0 && !this.god) {
         if (this.secondChancesLeft > 0) {
           // Second Chance: this contact deals no damage; the ship is untouchable for a second.
           this.secondChancesLeft--;

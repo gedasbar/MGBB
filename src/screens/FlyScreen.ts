@@ -1,9 +1,11 @@
 import { Container, Graphics, Sprite, Text } from 'pixi.js';
-import { CONFIG } from '../config';
+import { CONFIG, shipHalfW } from '../config';
+import { ShipSteer } from '../engine/steer';
+import { touchMode } from '../ui/touchMode';
 import { World } from '../game/world';
 import { specialKind } from '../data/waves';
 import type { StatsInfo } from '../ui/stats';
-import { clientToGame } from '../input';
+import { clientToGame, PointerState } from '../input';
 import { Pausable, Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
 import { CATEGORY_COLOR, THEME } from '../ui/theme';
@@ -110,6 +112,9 @@ export class FlyScreen implements Screen {
   private endTimer = 0;
   private finished = false;
   private gate = new PointerGate();
+  private steer = new ShipSteer(CONFIG.VIEW.W / 2, CONFIG.VIEW.H * 0.8, { minX: shipHalfW(CONFIG.VIEW.W), maxX: CONFIG.VIEW.W - shipHalfW(CONFIG.VIEW.W), minY: CONFIG.PLAYER.MARGIN, maxY: CONFIG.VIEW.H - CONFIG.PLAYER.MARGIN });
+  /** What World.update reads: the steered target, as a mouse-like pointer (the touch offsets are already in the steering). */
+  private steerPointer: PointerState = { x: 0, y: 0, active: true, type: 'mouse', seen: false };
   private sfxFeed = new SfxFeed(sfx);
   private crashSounded = false;
   /** Galaxy first, then the next theme every 3 minutes (3 s crossfade); ?bg=<id> forces one, ?bg=off hides it. */
@@ -119,8 +124,8 @@ export class FlyScreen implements Screen {
   /** The pause menu's view of this run: it may pause once the ship is under control and until the run ends. */
   readonly pausable: Pausable = {
     persist: () => { if (!this.finished) this.banker.flush(this.world.kills); },
-    canPause: () => this.world.controlStarted && !this.world.gameOver && !this.finished,
-    resume: () => this.world.resumeEase(),
+    canPause: () => !this.world.gameOver && !this.finished,
+    resume: () => { this.world.resumeEase(); this.steer.release(); },
     restart: () => {
       if (this.finished) return;
       this.finished = true;
@@ -282,7 +287,13 @@ export class FlyScreen implements Screen {
     // Spawn safety: the ship waits where it starts until the player's first pointer move or press.
     if (!this.world.controlStarted && this.gate.observe(pointer, pointer.seen)) this.world.beginControl();
     this.world.god = debugHooks.god;
-    this.world.update(dt, pointer);
+    // Chunk 24a: the world follows the steered target (touch: moved by the finger's movement), at a capped speed.
+    this.steer.mode = touchMode();
+    this.steer.update(pointer);
+    this.steerPointer.x = this.steer.x;
+    this.steerPointer.y = this.steer.y;
+    this.steerPointer.seen = pointer.seen;
+    this.world.update(dt, this.steerPointer);
     const fx = this.world.projSys.fx;
     this.sfxFeed.frame({ shots: this.world.gun.shots, chainJumps: fx.chainJumps, wellsMade: fx.wellsMade, bounces: fx.bounces + fx.edgeBounces });
     if (this.world.gameOver && !this.crashSounded) { this.crashSounded = true; sfx.play(this.world.survived ? 'medal' : 'crash'); }

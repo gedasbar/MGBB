@@ -93,15 +93,15 @@ describe('starter loadout end-to-end', () => {
     expect(world.pool.count).toBe(0);
   });
 
-  it('mouse puts the ship centre exactly on the pointer; touch adds an offset', () => {
+  it('mouse puts the ship centre exactly on the pointer once it has flown there; touch adds an offset', () => {
     const world = new World({ autoSpawn: false });
     const mouse: PointerState = { x: 123, y: 456, active: false, type: 'mouse', seen: true };
-    world.update(1 / 60, mouse);
+    for (let i = 0; i < 60; i++) world.update(1 / 60, mouse); // chunk 24a: the ship flies there, it does not jump
     expect(world.shipX).toBe(123);
     expect(world.shipY).toBe(456);
 
     const touch: PointerState = { x: 200, y: 600, active: true, type: 'touch', seen: true };
-    world.update(1 / 60, touch);
+    for (let i = 0; i < 60; i++) world.update(1 / 60, touch);
     expect(world.shipX).toBe(200);
     expect(world.shipY).toBe(560);
   });

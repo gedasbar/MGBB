@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CONFIG } from '../src/config';
+import { CONFIG, SHIP_MAX_SPEED } from '../src/config';
 import { EASE_TIME, GRACE_TIME, PointerGate } from '../src/engine/control';
 import { World } from '../src/game/world';
 import { buildStarterGrid } from '../src/game/starter';
@@ -53,8 +53,8 @@ describe('wall spawn safety', () => {
     w.update(DT, atTop);
     expect(w.shipY).toBeLessThan(y0);                  // moving...
     expect(w.shipY).toBeGreaterThan(atTop.y + 100);    // ...but not there yet
-    for (let i = 0; i < Math.round(EASE_TIME / DT); i++) w.update(DT, atTop);
-    expect(w.shipY).toBeCloseTo(atTop.y, 5);           // exactly on the pointer after the ease
+    for (let i = 0; i < Math.round(EASE_TIME / DT) + 20; i++) w.update(DT, atTop); // the ease, then the capped flight (744 px at SHIP_MAX_SPEED)
+    expect(w.shipY).toBeCloseTo(atTop.y, 5);           // exactly on the pointer after the flight
     // Inside a block, invulnerable.
     expect(w.invuln).toBeGreaterThan(0);
     while (w.invuln > 0) { expect(w.state).toBe('playing'); w.update(DT, atTop); }
@@ -65,10 +65,14 @@ describe('wall spawn safety', () => {
     expect(w.state).toBe('crashed');
   });
 
-  it('without safeStart the ship follows the pointer immediately (the old behaviour tests rely on)', () => {
-    const level: LevelDef = { tier: 1, cols: 21, rows: 1, cells: Array.from({ length: 21 }, () => null), approachSpeed: 0 };
+  it('without safeStart the ship follows the pointer at once, at SHIP_MAX_SPEED at most (chunk 24a: never a jump)', () => {
+    const level: LevelDef = { tier: 1, cols: 21, rows: 1, cells: Array.from({ length: 21 }, (_, c) => (c === 0 ? plain : null)), approachSpeed: 0 }; // one block far away, so the wall is not cleared
     const w = new WallWorld(level, { grid: buildStarterGrid() });
+    w.autoFire = false;
+    const x0 = w.shipX, y0 = w.shipY;
     w.update(DT, { x: 300, y: 400 });
+    expect(Math.hypot(w.shipX - x0, w.shipY - y0)).toBeCloseTo(SHIP_MAX_SPEED * DT, 6); // one capped step toward the target
+    for (let i = 0; i < 60; i++) w.update(DT, { x: 300, y: 400 });
     expect(w.shipX).toBe(300);
     expect(w.shipY).toBe(400);
   });

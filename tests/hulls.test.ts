@@ -18,6 +18,7 @@ import { copyAffordable, hullAffordable } from '../src/builder/paletteLogic';
 import { buyAndSelectHull, hullRows, hullStatLine } from '../src/builder/hullPickerLogic';
 import { generateShipArt, artSizeOf, SHIP_ART } from '../src/ui/shipArt';
 import { fmtDamage } from '../src/ui/format';
+import { jump } from './helpers/jump';
 
 /** The ladder of the brief (chunk 17a): free cells, ejectors, pulses/s, shot speed, size class, price. */
 const LADDER: [string, number, number, number, number, string][] = [
@@ -154,7 +155,7 @@ describe('size classes and shot speed', () => {
       const e = w.mitosis.spawn('mitotic_rock', 1, 100, w.shipX, w.shipY - 19, 10)!;
       e.vx = 0; e.vy = 0;
       const before = w.hull;
-      w.update(1 / 60, { x: w.shipX, y: w.shipY, active: true, type: 'mouse', seen: true });
+      jump(w, { x: w.shipX, y: w.shipY }, 1 / 60);
       return w.hull < before;
     };
     expect(touch('dart')).toBe(false);      // 19 > 10 + 8
@@ -170,7 +171,7 @@ describe('size classes and shot speed', () => {
       const w = new WallWorld({ tier: 1, cols: WALL_COLS, rows: 1, cells, approachSpeed: 0, wrap: true }, { grid: HULL_BUILDERS[hull]() });
       w.autoFire = false;
       w.setWallOffset(300);
-      w.update(1 / 60, { x: 6 * CELL + 9, y: 300 - 27 });
+      jump(w, { x: 6 * CELL + 9, y: 300 - 27 }, 1 / 60);
       return w.state;
     };
     expect(run('dart')).toBe('playing');       // 9 px from the block: outside radius 8

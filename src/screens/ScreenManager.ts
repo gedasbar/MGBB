@@ -8,7 +8,7 @@ import { Overlays } from '../ui/overlays';
 export interface Pausable {
   /** Called on every pause trigger (button, key, tab hidden, blur), even when pausing is not allowed: saves what the run has so far. */
   persist?(): void;
-  /** The run has started and is still going (pausing before the first move or after the end is not allowed). */
+  /** The run is still going (chunk 24a: pausing is allowed from the moment the run starts, before the first move too; not after the end). */
   canPause(): boolean;
   /** Called on resume: the ship eases back to the pointer. */
   resume(): void;
@@ -90,6 +90,7 @@ export class ScreenManager {
     this.overlays = new Overlays(this);
     this.app.stage.addChild(this.overlays.container);
     this.input.onTap((x, y) => { this.overlays?.tap(x, y); });
+    this.input.uiHit = (x, y) => !!this.overlays?.hitsUi(x, y);
   }
 
   /** Auto-pause triggers: Escape / P, the tab being hidden and the window losing focus. */

@@ -1,4 +1,4 @@
-import { CONFIG } from '../config';
+import { CONFIG, shipHalfW } from '../config';
 import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { Grid } from '../engine/compiler';
 import { clientToGame } from '../input';
@@ -9,9 +9,10 @@ import { ShotSprites } from '../ui/shotSprites';
 import { shotTextures } from '../ui/shotTextures';
 import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
-import { TOUCH_OFFSET_Y } from '../game/world';
+import { ShipSteer } from '../engine/steer';
+import { touchMode } from '../ui/touchMode';
 import { clampShipX, ringScreenX, WallCamera } from '../wall/camera';
-import { CELL, RESULT_DELAY_CLEARED, RESULT_DELAY_CRASHED, RESULT_DELAY_PASSED, VIEW_H, VIEW_W } from '../wall/constants';
+import { CELL, RESULT_DELAY_CLEARED, RESULT_DELAY_CRASHED, RESULT_DELAY_PASSED, SHIP_START_Y, VIEW_H, VIEW_W } from '../wall/constants';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 import { BuildScreen } from './BuildScreen';
 import { MapScreen } from './MapScreen';
@@ -118,6 +119,7 @@ export class WallScreen implements Screen {
   private endTimer = 0;
   private finished = false;
   private gate = new PointerGate();
+  private steer = new ShipSteer(VIEW_W / 2, SHIP_START_Y, { minX: shipHalfW(VIEW_W), maxX: VIEW_W - shipHalfW(VIEW_W), minY: CONFIG.PLAYER.MARGIN, maxY: VIEW_H - CONFIG.PLAYER.MARGIN });
   private sfxFeed = new SfxFeed(sfx);
   private endSounded = false;
   /** The captain flying this level: the hand-over of its kills, and the Second Chance hint. */
@@ -131,8 +133,8 @@ export class WallScreen implements Screen {
 /** The pause menu's view of this level: pausable from the first move until the level ends. */
   readonly pausable: Pausable = {
     persist: () => { if (!this.finished) this.banker.flush(this.world.destroyed); },
-    canPause: () => this.world.controlStarted && this.world.state === 'playing' && !this.finished,
-    resume: () => this.world.resumeEase(),
+    canPause: () => this.world.state === 'playing' && !this.finished,
+    resume: () => { this.world.resumeEase(); this.steer.release(); },
     restart: () => {
       if (this.finished) return;
       this.finished = true;
@@ -263,18 +265,15 @@ export class WallScreen implements Screen {
     const w = this.world;
     const p = this.sm.input.pointer;
 
-    // Camera first (edge push), then the ship follows the pointer in screen space: world x = screen x + camera x.
     // Spawn safety: nothing follows the pointer (ship and camera alike) until the first move or press after the run started.
     if (!w.controlStarted && this.gate.observe(p, p.seen)) w.beginControl();
-    const pushing = w.state === 'playing' && w.controlStarted && p.seen && (p.type !== 'touch' || p.active);
-    // The pointer may sit outside the canvas (tracked at window level); the ship's screen x is clamped so it is fully visible.
-    const shipSx = clampShipX(p.x);
-    this.camera.update(dt, pushing ? shipSx : null);
-    let target: { x: number; y: number } | null = null;
-    if (w.controlStarted && p.seen) {
-      if (p.type === 'touch') { if (p.active) target = { x: shipSx + this.camera.x, y: p.y + TOUCH_OFFSET_Y }; }
-      else target = { x: shipSx + this.camera.x, y: p.y };
-    }
+    // Chunk 24a: the pointer sets the ship's target (touch: by the finger's movement), the ship flies there at a capped speed, and the
+    // camera's edge push follows the SHIP's place on the screen, so a ship held at a side keeps scrolling even after the finger is lifted.
+    this.steer.mode = touchMode();
+    this.steer.update(p);
+    const pushing = w.state === 'playing' && w.controlStarted;
+    this.camera.update(dt, pushing ? clampShipX(this.sx(w.shipX)) : null);
+    const target = w.controlStarted ? { x: this.steer.x + this.camera.x, y: this.steer.y } : null;
     w.god = debugHooks.god;
     // The overload rule's idea of "off-screen" follows the camera (chunk 21b).
     const ps = w.projSys;

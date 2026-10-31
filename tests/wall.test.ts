@@ -13,6 +13,7 @@ import { clampShipX, edgePushSpeed, WallCamera } from '../src/wall/camera';
 import { BlockDef, blockHp, LevelDef, makeTestWall, rewardPerBlock } from '../src/wall/level';
 import { simulateWall } from '../src/wall/sim';
 import { boostT, scrollSpeed, WallWorld } from '../src/wall/wallWorld';
+import { jump } from './helpers/jump';
 
 type Cell = BlockDef | null;
 const plain = (hp = 100): BlockDef => ({ hp, armor: 0, shield: 0 });
@@ -191,7 +192,7 @@ describe('Wall approach and the top-edge boost', () => {
     for (let i = 0; i < 60 * 6; i++) w.update(1 / 60, null);
     expect(w.wallOffsetY).toBeCloseTo(900, 1); // far past where the old stop line was
     const f = world(level(2, () => plain(), 100));
-    f.update(1 / 60, { x: 10, y: 0 });
+    jump(f, { x: 10, y: 0 }, 1 / 60);
     expect(f.wallOffsetY).toBeCloseTo(scrollSpeed(100, 24) / 60, 6); // the ship is held at the 24 px screen margin
     expect(f.state).toBe('playing'); // x 10 is inside column 0 but the wall is still above the screen
   });
@@ -209,9 +210,9 @@ describe('Crash, pass, clear', () => {
     const w = world(level(3, (r, c) => (c === 8 && r === 2 ? null : plain())));
     w.setWallOffset(400);
     const x = 8 * CELL + 27;
-    w.update(1 / 60, { x, y: 400 - 27 }); // the empty cell
+    jump(w, { x, y: 400 - 27 }, 1 / 60); // the empty cell
     expect(w.state).toBe('playing');
-    w.update(1 / 60, { x: x + CELL, y: 400 - 27 }); // inside the neighbouring live block
+    jump(w, { x: x + CELL, y: 400 - 27 }, 1 / 60); // inside the neighbouring live block
     expect(w.state).toBe('crashed');
     const t = w.time;
     w.update(1 / 60, null);
@@ -220,7 +221,7 @@ describe('Crash, pass, clear', () => {
     const v = world(level(3));
     v.setWallOffset(400);
     v.destroyBlock(v.blocks[2 * WALL_COLS + 8]!);
-    v.update(1 / 60, { x, y: 400 - 27 });
+    jump(v, { x, y: 400 - 27 }, 1 / 60);
     expect(v.state).toBe('playing');
   });
 
@@ -229,10 +230,10 @@ describe('Crash, pass, clear', () => {
     const mk = () => { const w = new WallWorld(level(1, (_r, c) => (c === 5 ? plain() : null)), { grid: buildDartGrid() }); w.autoFire = false; w.setWallOffset(300); return w; };
     const right = 6 * CELL; // x where column 5 ends
     const a = mk();
-    a.update(1 / 60, { x: right + 9, y: 300 - 27 });
+    jump(a, { x: right + 9, y: 300 - 27 }, 1 / 60);
     expect(a.state).toBe('playing');
     const b = mk();
-    b.update(1 / 60, { x: right + 7, y: 300 - 27 });
+    jump(b, { x: right + 7, y: 300 - 27 }, 1 / 60);
     expect(b.state).toBe('crashed');
     expect(SHIP_HIT_R).toBe(8);
   });
@@ -242,9 +243,9 @@ describe('Crash, pass, clear', () => {
     const b = w.blocks[1 * WALL_COLS + 4]!;
     b.hp = 1;
     w.setWallOffset(500);
-    w.update(1 / 60, { x: 4 * CELL + 27, y: 520 });
+    jump(w, { x: 4 * CELL + 27, y: 520 }, 1 / 60);
     expect(w.state).toBe('playing');
-    for (let i = 0; i < 60; i++) w.update(1 / 60, { x: 4 * CELL + 27, y: 520 });
+    for (let i = 0; i < 60; i++) jump(w, { x: 4 * CELL + 27, y: 520 }, 1 / 60);
     expect(w.state).toBe('crashed');
   });
 
@@ -252,15 +253,15 @@ describe('Crash, pass, clear', () => {
     const w = world(level(2, (_r, c) => (c === 0 ? plain() : null)));
     w.setWallOffset(700);
     const x = 10 * CELL; // an empty lane
-    w.update(1 / 60, { x, y: w.finishY + 5 });
+    jump(w, { x, y: w.finishY + 5 }, 1 / 60);
     expect(w.state).toBe('playing');
-    w.update(1 / 60, { x, y: w.finishY - 5 });
+    jump(w, { x, y: w.finishY - 5 }, 1 / 60);
     expect(w.state).toBe('passed');
     expect(w.alive).toBe(2);
     const c = world(level(2));
     c.setWallOffset(700);
     c.destroyAll();
-    c.update(1 / 60, { x: 100, y: c.finishY - 5 });
+    jump(c, { x: 100, y: c.finishY - 5 }, 1 / 60);
     expect(c.state).toBe('cleared');
   });
 

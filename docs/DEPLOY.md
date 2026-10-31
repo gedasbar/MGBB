@@ -29,6 +29,12 @@ Create a Pages project from the GitHub repository, then use exactly these:
 
 It then opens full screen with its own icon. It needs a connection to start (there is no offline mode yet).
 
+## Frame rate (60 or 120 fps)
+
+The game does not cap itself: it draws on every frame the browser offers and the simulation uses the time that really passed (`src/game/timestep.ts`), so a 120 Hz screen gets 120 pictures a second at the same game speed. The stats overlay (backtick key, or `?stats=1`) shows the measured screen rate as `display 120 Hz`.
+
+**iPhone Safari limits web pages to 60 fps** unless the Safari feature flag **"Prefer Page Rendering Updates near 60fps"** is turned off (iOS Settings, Safari, Advanced, Feature Flags). This is a browser setting, not the game: with the flag on, the stats overlay will show `display 60 Hz` even on a 120 Hz iPhone.
+
 ## Debug tools on the test link
 
 Add `?debug=1` to the end of the link (for example `https://<project>.pages.dev/?debug=1`) to get the debug panel with the cheats. Without it nothing debug shows. This is allowed by one switch, `ALLOW_DEBUG_IN_PROD` in `src/debug/enabled.ts`; set it to `false` before a public release.

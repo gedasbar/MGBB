@@ -21,6 +21,8 @@ export const BOOST_MAX = 4;
 
 /** The ship's hit point (a crash happens when it touches a live block). */
 export const SHIP_HIT_R = HIT_RADIUS;
+/** Chunk 24a: the swept ship test samples its path every this share of the hit radius (0.75 = at most 6 px between samples at R 8; blocks are 54 px). */
+export const SWEEP_STEP_FRAC = 0.75;
 /**
  * The ship passes a wall once it is this many cells beyond the last row. Nothing is drawn for it (it was 1.5 and a drawn line;
  * 8 until chunk 16a, which at the boosted scroll speed was seconds of flying through empty space after the wall was done).

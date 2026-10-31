@@ -2,6 +2,10 @@ export type WeaponSound = 'off' | 'soft' | 'normal';
 export const WEAPON_SOUNDS: readonly WeaponSound[] = ['off', 'soft', 'normal'];
 export const MAX_SOUND_MULT = 3;
 
+/** Chunk 24a: how a finger steers the ship. Relative: the ship moves by the finger's movement. Direct: the ship sits at the finger. */
+export type TouchControl = 'relative' | 'direct';
+export const TOUCH_CONTROLS: readonly TouchControl[] = ['relative', 'direct'];
+
 export interface Settings {
   masterVolume: number;
   sfxVolume: number;
@@ -17,6 +21,7 @@ export interface Settings {
   colorBlind: boolean;
   textScale: number;
   haptics: boolean;
+  touchControl: TouchControl;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -30,7 +35,8 @@ export const DEFAULT_SETTINGS: Settings = {
   visualClarity: false, // if true, reduce trails / thinner projectiles / opaque-enemy outline
   colorBlind: false,
   textScale: 1.0,
-  haptics: true
+  haptics: true,
+  touchControl: 'relative',
 };
 
 export const SETTINGS_KEY = 'mgbm_settings';
@@ -50,6 +56,7 @@ export function loadSettings(storage: Pick<Storage, 'getItem'> | null = defaultS
     s.masterVolume = clamp01(s.masterVolume, DEFAULT_SETTINGS.masterVolume);
     s.sfxVolume = clamp01(s.sfxVolume, DEFAULT_SETTINGS.sfxVolume);
     s.muted = s.muted === true;
+    if (!TOUCH_CONTROLS.includes(s.touchControl)) s.touchControl = 'relative';
     if (!WEAPON_SOUNDS.includes(s.weaponSound)) s.weaponSound = 'off';
     const m: Record<string, number> = {};
     if (s.soundMult && typeof s.soundMult === 'object') {

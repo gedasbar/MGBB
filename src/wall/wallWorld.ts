@@ -7,13 +7,14 @@ import { Gun, spawnOffsetsFor } from '../game/fire';
 import { HIT_BURN, HIT_CLOUD } from '../engine/projectiles';
 import { buildStarterGrid } from '../game/starter';
 import {
-  BOOST_MAX, CELL, PASS_MARGIN_CELLS, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, TOP_ZONE, VIEW_H,
+  BOOST_MAX, CELL, PASS_MARGIN_CELLS, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, SWEEP_STEP_FRAC, TOP_ZONE, VIEW_H,
 } from './constants';
 import { LevelDef, rewardPerBlock } from './level';
 import { wallResult } from './result';
 import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
 import { fireRateMul, hitRadiusOf, shotSpeedMul } from '../data/hulls';
 import { wrapDx, wrapX } from '../engine/wrap';
+import { stepToward } from '../engine/steer';
 import { neutralModifiers, RunModifiers } from '../captains/modifiers';
 import { SECOND_CHANCE_INVULN } from '../captains/data';
 
@@ -434,6 +435,12 @@ export class WallWorld {
     this.invuln = GRACE_TIME + this.mods.spawnInvuln;
   }
 
+  /** Tests and debugging: puts the ship at a place at once (the pointer cannot: it flies at SHIP_MAX_SPEED at most, and the hit test sweeps its path). */
+  teleportShip(x: number, y: number) {
+    this.shipX = this.ring ? wrapX(x, this.worldW) : Math.max(0, Math.min(this.worldW, x));
+    this.shipY = Math.max(CONFIG.PLAYER.MARGIN, Math.min(VIEW_H - CONFIG.PLAYER.MARGIN, y));
+  }
+
   /** Wall scroll speed now (px/s), with the captain's boost zone. */
   get scroll(): number { return scrollSpeed(this.level.approachSpeed, this.shipY, this.mods.boostZone); }
 
@@ -451,8 +458,10 @@ export class WallWorld {
     if (this.state !== 'playing') return;
     this.time += dt;
 
-    // --- Ship: exactly where the pointer asks (inside the world and the screen)
+    // --- Ship: flies toward where the pointer asks (inside the world and the screen) at SHIP_MAX_SPEED at most (chunk 24a)
     if (this.invuln > 0) this.invuln = Math.max(0, this.invuln - dt);
+    const fromX = this.shipX;
+    const fromWallY = this.shipY - this.wallOffsetY; // the ship's place in the wall's own frame, for the swept hit test below
     if (ship && this.controlStarted) {
       let tx = this.ring ? wrapX(ship.x, this.worldW) : Math.max(0, Math.min(this.worldW, ship.x));
       let ty = Math.max(CONFIG.PLAYER.MARGIN, Math.min(VIEW_H - CONFIG.PLAYER.MARGIN, ship.y));
@@ -464,8 +473,9 @@ export class WallWorld {
         ty = this.easeFrom.y + (ty - this.easeFrom.y) * k;
         if (this.ring) tx = wrapX(tx, this.worldW);
       }
-      this.shipX = tx;
-      this.shipY = ty;
+      const s = stepToward(this.shipX, this.shipY, tx, ty, dt, this.dxw(tx, this.shipX));
+      this.shipX = this.ring ? wrapX(this.shipX + s.dx, this.worldW) : this.shipX + s.dx;
+      this.shipY += s.dy;
     }
 
     // --- Shields recover after SHIELD_REGEN_DELAY seconds without a hit
@@ -532,11 +542,11 @@ export class WallWorld {
     // --- End of level. Destroyed blocks never kill; a cleared wall beats a crash and a pass (wallResult), a crash beats a pass.
     const result = wallResult({ alive: this.alive, shipY: this.shipY, finishY: this.finishY });
     if (result === 'cleared') this.end('cleared');
-    else if (this.invuln <= 0 && !this.god && this.shipHitsBlock()) {
+    else if (this.invuln <= 0 && !this.god && this.shipSweptHitsBlock(fromX, fromWallY)) {
       if (this.secondChancesLeft > 0) {
         // Second Chance: the blocks touched are destroyed (they pay and count), the run goes on, one second untouchable.
         const touched: Block[] = [];
-        this.shipHitsBlock(touched);
+        this.shipSweptHitsBlock(fromX, fromWallY, touched);
         for (const b of touched) this.destroyBlock(b);
         this.secondChancesLeft--;
         this.fx.secondChance++;
@@ -557,11 +567,31 @@ export class WallWorld {
     }
   }
 
-  /** True if the ship's hit point overlaps the cell of a living block. With `out`, every such block is collected into it. */
-  shipHitsBlock(out?: Block[]): boolean {
+  /**
+   * Chunk 24a: like shipHitsBlock, but for the whole path of the step: from (fromX, fromWallY) (the ship's place in the wall's own frame
+   * at the start of the step) to where it is now. Sampled every SWEEP_STEP_FRAC of the hit radius, so neither a fast ship nor a block
+   * scrolling down onto it can pass through the other, whatever the step. With `out`, every block touched is collected.
+   */
+  shipSweptHitsBlock(fromX: number, fromWallY: number, out?: Block[]): boolean {
+    const toWallY = this.shipY - this.wallOffsetY;
+    const dx = this.dxw(this.shipX, fromX);
+    const dy = toWallY - fromWallY;
+    const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (this.hitR * SWEEP_STEP_FRAC)));
+    let hit = false;
+    for (let k = n; k >= 0; k--) {
+      const f = k / n;
+      const x = this.ring ? wrapX(fromX + dx * f, this.worldW) : fromX + dx * f;
+      if (this.shipHitsBlock(out, x, fromWallY + dy * f + this.wallOffsetY)) {
+        hit = true;
+        if (!out) return true;
+      }
+    }
+    return hit;
+  }
+
+  /** True if the ship's hit point (at (x, y), the ship's place by default) overlaps the cell of a living block. With `out`, every such block is collected into it. */
+  shipHitsBlock(out?: Block[], x = this.shipX, y = this.shipY): boolean {
     const R = this.hitR;
-    const x = this.shipX;
-    const y = this.shipY;
     const cols = this.level.cols;
     let c0 = Math.floor((x - R) / CELL);
     let c1 = Math.floor((x + R) / CELL);
@@ -574,7 +604,7 @@ export class WallWorld {
         const b = this.blocks[r * cols + cc];
         if (b && this.boxDistSq(x, y, cc, r) < R * R) {
           if (!out) return true;
-          out.push(b);
+          if (!out.includes(b)) out.push(b);
         }
       }
     }
