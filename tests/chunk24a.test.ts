@@ -230,7 +230,7 @@ describe('frame rate (24a)', () => {
   }
 
   it('one second of simulation time is the same at 60 and 120 Hz (and at 144 and 30), and no step is longer than 1/60 s', () => {
-    for (const hz of [30, 60, 90, 120, 144]) {
+    for (const hz of [30, 40, 50, 60, 90, 120, 144]) {
       const r = simulate(hz, 1);
       expect(r.t).toBeCloseTo(1, 9);
       expect(r.longest).toBeLessThanOrEqual(SIM_MAX_STEP + 1e-12);
