@@ -8,6 +8,7 @@ import { getProgressStore, RunResult, unlockSummary } from '../econ/progress';
 import { ShotSprites } from '../ui/shotSprites';
 import { shotTextures } from '../ui/shotTextures';
 import { fmtBig } from '../ui/format';
+import { makeSpikeBadge, SPIKE_BADGE } from '../ui/hud';
 import { THEME } from '../ui/theme';
 import { ShipSteer } from '../engine/steer';
 import { touchMode } from '../ui/touchMode';
@@ -34,6 +35,12 @@ import { SfxFeed } from '../audio/feed';
 import { ARC_MAX } from '../engine/projectiles';
 import { DEBUG_ON } from '../debug/enabled';
 
+/** The HUD box (top-left): plate position, first text column, row height and the narrowest the plate goes. */
+const HUD_PLATE_X = 10;
+const HUD_X = 20;
+const HUD_Y = 12;
+const HUD_ROW = 20;
+const HUD_MIN_W = 190;
 const POPUPS = 40;
 const POPUP_LIFE = 0.6;
 /** Seconds the SECOND CHANCE hint blinks. */
@@ -111,7 +118,12 @@ export class WallScreen implements Screen {
   private creditsText = makeText('Credits +0', 16, THEME.currency, { fontWeight: 'bold' });
   private tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
   private nameText = makeText('', 15, THEME.textDim, { fontWeight: 'bold' });
-  private spikeText = makeText('SPIKE', 16, THEME.bad, { fontWeight: 'bold' });
+  private spikeBadge = makeSpikeBadge();
+  /** The Frontier square line of the HUD box (hidden in the campaign). */
+  private squareText = makeText('', 15, THEME.textDim, { fontWeight: 'bold' });
+  private hudPlate = new Graphics();
+  private hudKey = '';
+  private hudSize = { x: HUD_PLATE_X, y: HUD_Y, w: 0, h: 0 };
   private blocksText = makeText('Destroyed 0%', 16, THEME.textDim, { fontWeight: 'bold' });
 
   private shownCredits = 0;
@@ -190,15 +202,10 @@ export class WallScreen implements Screen {
       this.popups.push({ t, life: 0 });
     }
 
-    this.creditsText.position.set(20, 20);
-    this.tierText.position.set(20, 40);
-    this.nameText.position.set(20, 60);
-    this.blocksText.position.set(20, 80);
-    this.spikeText.visible = !!levelDef.spike;
-    this.nameText.text = levelDef.name ?? '';
-    // A dim plate behind the HUD text so it stays readable over the blocks.
-    this.hudBox.addChild(new Graphics().rect(10, 12, 190, 92).fill({ color: THEME.bg, alpha: 0.72 }));
-    this.hudBox.addChild(this.creditsText, this.tierText, this.spikeText, this.nameText, this.blocksText);
+    this.spikeBadge.visible = !!levelDef.spike;
+    this.nameText.text = levelDef.name ? `Wall: ${levelDef.name}` : '';
+    // A dim plate behind the HUD text so it stays readable over the blocks. Everything, the SPIKE badge too, sits inside it.
+    this.hudBox.addChild(this.hudPlate, this.creditsText, this.tierText, this.spikeBadge, this.squareText, this.nameText, this.blocksText);
     this.hint.anchor.set(0.5);
     this.hint.position.set(VIEW_W / 2, 250);
     this.hint.visible = false;
@@ -226,7 +233,7 @@ export class WallScreen implements Screen {
       state: w.state, time: w.time, finishY: w.finishY, progress: w.progress, alive: w.alive, total: w.total, destroyed: w.destroyed,
       credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), scrollSpeed: w.scroll, cameraX: this.camera.x, cameraSpeed: this.camera.speed,
       controlStarted: w.controlStarted, invuln: w.invuln, shipWorldX: w.shipX, shipScreenX: this.sx(w.shipX), camTravel: this.camera.travel, worldW: w.worldW, ring: w.ring, shipY: w.shipY, projectiles: w.pool.count,
-      hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.nameText.text, spike: this.spikeText.visible, blocks: this.blocksText.text },
+      hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.levelDef.name ?? '', nameLabel: this.nameText.text, square: this.squareText.text, spike: this.spikeBadge.visible, spikeBox: this.spikeBadge.visible ? { x: this.spikeBadge.x, w: SPIKE_BADGE.w } : null, plate: this.hudSize, blocks: this.blocksText.text },
       drawn: this.lastDrawn.length,
       effects: { ...w.projSys.fx, ...w.gun.fx, ...w.fx },
       captain: { id: this.banker.captainId, mods: w.mods, secondChancesLeft: w.secondChancesLeft, killsHanded: this.banker.added },
@@ -247,14 +254,41 @@ export class WallScreen implements Screen {
     o.extra = `blocks ${w.alive}/${w.total}  scroll ${Math.round(w.scroll)}  camX ${Math.round(this.camera.x)}`;
   }
 
+  /** Stacks the HUD rows (credits, tier + SPIKE badge, Frontier square, wall name, destroyed) and sizes the plate to the widest one. */
+  private layoutHud() {
+    const rows: (Container)[] = [this.creditsText, this.tierText];
+    const sq = this.squareText.text !== '';
+    const nm = this.nameText.text !== '';
+    if (sq) rows.push(this.squareText);
+    if (nm) rows.push(this.nameText);
+    rows.push(this.blocksText);
+    this.squareText.visible = sq;
+    this.nameText.visible = nm;
+    let right = 0;
+    rows.forEach((r, i) => { r.position.set(HUD_X, HUD_Y + 8 + i * HUD_ROW); right = Math.max(right, HUD_X + r.width); });
+    const badge = this.spikeBadge.visible;
+    if (badge) {
+      this.spikeBadge.position.set(Math.max(right, HUD_X + this.tierText.width + 12), HUD_Y + 8 + HUD_ROW + (this.tierText.height - SPIKE_BADGE.h) / 2);
+      right = Math.max(right, this.spikeBadge.x + SPIKE_BADGE.w);
+    }
+    const w = Math.max(HUD_MIN_W, right + HUD_X - HUD_PLATE_X + 4);
+    const h = rows.length * HUD_ROW + 12;
+    const key = `${Math.round(w)}x${h}`;
+    if (key === this.hudKey) return;
+    this.hudKey = key;
+    this.hudSize = { x: HUD_PLATE_X, y: HUD_Y, w, h };
+    this.hudPlate.clear().rect(HUD_PLATE_X, HUD_Y, w, h).fill({ color: THEME.bg, alpha: 0.72 });
+  }
+
   private updateTexts() {
     const w = this.world;
     const hudDy = this.sm.stats.hudOffset;
     if (this.hudBox.y !== hudDy) this.hudBox.y = hudDy;
     this.creditsText.text = `Credits +${fmtBig(w.credits)}`;
     const sq = this.levelDef.frontier;
-    this.tierText.text = sq ? `${FRONTIER_NAME} (${fmtBig(sq.x)}, ${fmtBig(sq.y)}) · Tier ${w.tier}` : `Tier ${w.tier}`;
-    this.spikeText.position.set(20 + this.tierText.width + 10, 56);
+    this.tierText.text = `Tier ${w.tier}`;
+    this.squareText.text = sq ? `${FRONTIER_NAME} (${fmtBig(sq.x)}, ${fmtBig(sq.y)})` : '';
+    this.layoutHud();
     this.blocksText.text = `Destroyed ${Math.floor(w.percentDestroyed)}%`;
     const h = (VIEW_H - 40) * w.progress;
     this.progressFg.clear();

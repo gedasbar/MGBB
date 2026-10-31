@@ -12,6 +12,7 @@ import { CATEGORY_COLOR, THEME } from '../ui/theme';
 import { HIT_CLOUD } from '../engine/projectiles';
 import { fmtBig, fmtDamage } from '../ui/format';
 import { makeText } from '../builder/ui';
+import { makeSpikeBadge, SPIKE_BADGE } from '../ui/hud';
 import { getProgressStore, RunResult, unlockSummary } from '../econ/progress';
 import { ShotSprites } from '../ui/shotSprites';
 import { shotTextures } from '../ui/shotTextures';
@@ -88,6 +89,10 @@ export class FlyScreen implements Screen {
   tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
   waveText = makeText('Wave 1', 16, THEME.text, { fontWeight: 'bold' });
   killsText = makeText('Kills 0', 16, THEME.textDim, { fontWeight: 'bold' });
+  /** Chunk 24a: a dim plate behind the HUD rows (like the wall's), and the SPIKE badge of a Frontier spike square inside it. */
+  private hudPlate = new Graphics();
+  private hudPlateW = 0;
+  private spikeBadge = makeSpikeBadge();
   /** "WAVE N" banner (theme panel, no effects) shown for BANNER_TIME on each new wave. */
   private banner = new Container();
   private bannerTitle = makeText('WAVE 1', 30, THEME.text, { fontWeight: 'bold' });
@@ -171,7 +176,7 @@ export class FlyScreen implements Screen {
 
     this.hullBarBg.position.set(20, 20);
     this.hullBarFg.position.set(20, 20);
-    this.uiLayer.addChild(this.hullBarBg, this.hullBarFg);
+    this.uiLayer.addChild(this.hudPlate, this.hullBarBg, this.hullBarFg);
     if (fr) {
       // Countdown: the bar empties as time runs out; the tick marks the half-way point (survive past it = PASSED).
       const W = CONFIG.VIEW.W - 40;
@@ -195,7 +200,8 @@ export class FlyScreen implements Screen {
     this.tierText.position.set(20, 56);
     this.waveText.position.set(20, 76);
     this.killsText.position.set(20, 96);
-    this.uiLayer.addChild(this.creditsText, this.tierText, this.waveText, this.killsText);
+    this.spikeBadge.visible = !!opts.frontier?.spike;
+    this.uiLayer.addChild(this.creditsText, this.tierText, this.spikeBadge, this.waveText, this.killsText);
     const panel = new Graphics().rect(-BANNER_W / 2, -BANNER_H / 2, BANNER_W, BANNER_H).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
     this.bannerTitle.anchor.set(0.5);
     this.bannerTitle.position.set(0, -8);
@@ -226,7 +232,7 @@ export class FlyScreen implements Screen {
           projectiles: this.world.pool.count, recipes: this.world.recipes.length,
           damagePerShot: this.world.recipes.map(r => r.packet.damage),
           hull: this.world.hull, credits: this.world.credits, tier: this.world.tier, kills: this.world.kills, time: this.world.time,
-          hud: { credits: this.creditsText.text, tier: this.tierText.text, wave: this.waveText.text, kills: this.killsText.text },
+          hud: { credits: this.creditsText.text, tier: this.tierText.text, wave: this.waveText.text, kills: this.killsText.text, spike: this.spikeBadge.visible, plateW: this.hudPlateW },
           wave: this.world.wave, waveTimeLeft: this.world.waveTimeLeft, seed: this.world.seed,
           banner: this.banner.visible ? { title: this.bannerTitle.text, sub: this.bannerSub.text, alpha: this.banner.alpha } : null,
           species: this.world.mitosis.enemies.map(e => e.defId),
@@ -340,6 +346,9 @@ export class FlyScreen implements Screen {
       this.timeBarFg.clear().rect(0, 0, (CONFIG.VIEW.W - 40) * (left / enc.duration), 6).fill(this.world.time >= enc.duration * FREEFLY_PASS_SHARE ? PROGRESS_COLOR : THEME.currency);
     } else this.waveText.text = `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
     this.killsText.text = `Kills ${this.world.kills}`;
+    this.spikeBadge.position.set(20 + this.tierText.width + 12, 56 + (this.tierText.height - SPIKE_BADGE.h) / 2);
+    const plateW = Math.round(Math.max(190, this.spikeBadge.visible ? this.spikeBadge.x + SPIKE_BADGE.w + 14 : 0, ...[this.creditsText, this.tierText, this.waveText, this.killsText].map(t => 20 + t.width + 14)));
+    if (plateW !== this.hudPlateW) { this.hudPlateW = plateW; this.hudPlate.clear().rect(10, 14, plateW - 10, 108).fill({ color: THEME.bg, alpha: 0.72 }); }
     for (const ev of this.world.waveEvents) {
       sfx.play('wave');
       const kind = specialKind(ev.wave);
