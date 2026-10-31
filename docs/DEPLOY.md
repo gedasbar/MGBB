@@ -45,8 +45,10 @@ The save is kept inside the browser on the device you play on. A different phone
 
 To move a save:
 
-1. On the device that has it: Settings, **Export save**. Tap **Copy** (or select the text in the box and copy it by hand).
-2. Send that text to yourself (a note, a message).
-3. On the other device: Settings, **Import save**, paste, tap **Check**. It tells you what is inside, or why it cannot be used (a bad text changes nothing). Tap again to confirm: it replaces the save on that device and restarts the game.
+1. On the device that has it: Settings, **Export save**. Tap **Copy**, **Save as file** (a `.txt`) or **Share** (or select the text in the box and copy it by hand).
+2. Send that text or file to yourself (a note, a message, a cloud folder).
+3. On the other device: Settings, **Import save**, then **Paste** (or long-press the box and choose Paste) or **Load file**, then tap **Check**. It tells you what is inside, or why it cannot be used (a bad text changes nothing). Tap again to confirm: it replaces the save on that device and restarts the game.
+
+**The iPhone home-screen app has its OWN save, separate from Safari** (it is a different storage), so a game you played in Safari starts empty there. To move it in: Export in Safari (or on the PC), **Save as file** or **Share**, then open the home-screen app, Settings, **Import save**, **Load file** (or paste into the box).
 
 Export before anything risky; the text is also a backup.

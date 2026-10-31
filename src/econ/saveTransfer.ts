@@ -79,6 +79,33 @@ export function checkImportString(input: string): ImportCheck {
   return { ok: true, progress, builder, summary: `${Math.floor(progress.credits)} credits, ${progress.runs} runs, tier ${tiers} passed, ${progress.ownedHulls.length} hulls` };
 }
 
+/**
+ * Chunk 24b: the save string out of the text of a file the player picked (a .txt written by "Save as file", or any text that contains the string,
+ * or the plain JSON envelope as a .json). Strips a byte-order mark and anything around the string. A text with no string in it is returned
+ * trimmed, so `checkImportString` says what is wrong with it.
+ */
+export function saveStringFromFileText(fileText: string): string {
+  const text = (fileText ?? '').replace(/^﻿/, '').trim(); // a byte-order mark, as some editors add
+  const at = text.indexOf(EXPORT_PREFIX);
+  if (at >= 0) {
+    // The string is the prefix and the base64 after it (base64 has no spaces; line breaks added by an editor are allowed and dropped later).
+    const m = /^[A-Za-z0-9+/=\s]*/.exec(text.slice(at + EXPORT_PREFIX.length));
+    return EXPORT_PREFIX + (m ? m[0] : '').trim();
+  }
+  if (text.startsWith('{')) {
+    try {
+      const env = JSON.parse(text);
+      if (isObj(env) && env.app === 'mgbm') return EXPORT_PREFIX + toBase64(JSON.stringify(env));
+    } catch { /* not JSON: fall through */ }
+  }
+  return text;
+}
+
+/** The file name "Save as file" offers: mgbm-save-2026-11-02.txt (the date is the device's, in UTC). */
+export function exportFileName(now: Date = new Date()): string {
+  return `mgbm-save-${now.toISOString().slice(0, 10)}.txt`;
+}
+
 export interface WritableStorage { setItem(k: string, v: string): void; removeItem(k: string): void }
 
 /** Writes a checked import into storage (the caller reloads the page afterwards, so no old in-memory state can overwrite it). */
