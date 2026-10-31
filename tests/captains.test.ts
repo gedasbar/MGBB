@@ -40,7 +40,7 @@ describe('captain data', () => {
         }
       });
     }
-    expect(TIER_KILLS).toEqual([0, 300, 1500, 6000]);
+    expect(TIER_KILLS).toEqual([0, 2000, 10000, 40000]); // raised in chunk 24a (were 0 / 300 / 1500 / 6000)
     expect(heroLevelCost(0)).toBe(1);
     expect(CAPTAIN_BY_ID.cadet.unlockCost).toBe(0);
   });
@@ -93,14 +93,14 @@ describe('run modifiers math', () => {
 });
 
 describe('tiers, buying and switching', () => {
-  it('tier unlocks at exactly 0 / 300 / 1500 / 6000 kills', () => {
+  it('tier unlocks at exactly 0 / 2000 / 10000 / 40000 kills', () => {
     const hero = defaultCaptains().heroes.cadet;
     const open = () => [1, 2, 3, 4].map(t => isTierUnlocked(hero, t));
     expect(open()).toEqual([true, false, false, false]);
-    hero.kills = 299; expect(open()).toEqual([true, false, false, false]);
-    hero.kills = 300; expect(open()).toEqual([true, true, false, false]);
-    hero.kills = 1500; expect(open()).toEqual([true, true, true, false]);
-    hero.kills = 6000; expect(open()).toEqual([true, true, true, true]);
+    hero.kills = 1999; expect(open()).toEqual([true, false, false, false]);
+    hero.kills = 2000; expect(open()).toEqual([true, true, false, false]);
+    hero.kills = 10000; expect(open()).toEqual([true, true, true, false]);
+    hero.kills = 40000; expect(open()).toEqual([true, true, true, true]);
   });
   it('an option costs its tier price, needs its tier open, cannot be bought twice, and a locked tier does not charge', () => {
     const p = holder(50);
@@ -110,9 +110,9 @@ describe('tiers, buying and switching', () => {
     expect(again.ok).toBe(false);
     expect(p.medals).toBe(50 - TIER_COSTS[0]);
     const locked = buyOption(p, 'cad_dividend');
-    expect(locked).toEqual({ ok: false, error: 'Needs 300 kills (have 0)' });
+    expect(locked).toEqual({ ok: false, error: 'Needs 2000 kills (have 0)' });
     expect(p.medals).toBe(50 - TIER_COSTS[0]);
-    p.captains.heroes.cadet.kills = 300;
+    p.captains.heroes.cadet.kills = 2000;
     expect(buyOption(p, 'cad_dividend').ok).toBe(true);
     expect(p.medals).toBe(50 - TIER_COSTS[0] - TIER_COSTS[1]);
   });
@@ -207,12 +207,12 @@ describe('save v6', () => {
   it('a v5 save loads with Cadet owned and selected, level 0, no kills, and the old Medal rule', () => {
     const v5 = { version: 5, credits: 40, clearedTiers: [1, 2, 3], passedTiers: [1, 2, 3], medals: 99, bestWave: 4 };
     const p = loadProgress(JSON.stringify(v5));
-    expect(PROGRESS_VERSION).toBe(11);
-    expect(p.version).toBe(11);
+    expect(PROGRESS_VERSION).toBe(12);
+    expect(p.version).toBe(12);
     expect(p.medals).toBe(3); // never more than cleared tiers for a pre-v6 save
     expect(p.captains.selected).toBe('cadet');
     expect(p.captains.owned).toEqual(['cadet']);
-    expect(p.captains.heroes.cadet).toEqual({ level: 0, kills: 0, owned: [], active: {} });
+    expect(p.captains.heroes.cadet).toEqual({ level: 0, kills: 0, tiersOpened: 1, owned: [], active: {} });
     expect(p.captains.milestones).toEqual([]);
     expect(p.bestWave).toBe(4);
   });
@@ -239,8 +239,8 @@ describe('save v6', () => {
     });
     expect(c.selected).toBe('cadet');
     expect(c.owned).toEqual(['cadet', 'gunner']);
-    expect(c.heroes.cadet).toEqual({ level: 99, kills: 0, owned: ['cad_prospector'], active: {} });
-    expect(c.heroes.gunner).toEqual({ level: 3, kills: 0, owned: ['gun_barrel'], active: { '1': 'gun_barrel' } });
+    expect(c.heroes.cadet).toEqual({ level: 99, kills: 0, tiersOpened: 1, owned: ['cad_prospector'], active: {} });
+    expect(c.heroes.gunner).toEqual({ level: 3, kills: 0, tiersOpened: 1, owned: ['gun_barrel'], active: { '1': 'gun_barrel' } });
     expect(c.milestones).toEqual([5, 50]);
   });
 });
@@ -266,10 +266,10 @@ describe('kill banking', () => {
   });
   it('kill cheats go to the active captain; unlock all and set level work and are saved', () => {
     const s = new ProgressStore(null, defaultProgress());
-    addCaptainKillsCheat(s, 300);
+    addCaptainKillsCheat(s, 2000);
     setHeroLevel(s, 4);
     unlockAllCaptains(s);
-    expect(s.data.captains.heroes.cadet).toMatchObject({ kills: 300, level: 4 });
+    expect(s.data.captains.heroes.cadet).toMatchObject({ kills: 2000, level: 4 });
     expect(s.data.captains.owned.length).toBe(4);
     expect(isTierUnlocked(s.data.captains.heroes.cadet, 2)).toBe(true);
   });

@@ -309,20 +309,20 @@ export class CaptainScreen implements Screen {
     // ---- kills and progress
     const kR: Rect = { x: PAD, y, w: W, h: 100 };
     this.panel(L, kR);
-    this.label(L, `Lifetime kills: ${hero.kills}`, kR.x + 12, kR.y + 10, 20, THEME.text);
+    this.label(L, `Lifetime kills: ${fmtBig(hero.kills)}`, kR.x + 12, kR.y + 10, 20, THEME.text);
     const goal = nextTierGoal(hero);
-    const prev = goal && goal.tier > 1 ? tierKillsNeeded(goal.tier - 1) : 0;
+    const prev = goal && goal.tier > 1 ? Math.min(tierKillsNeeded(goal.tier - 1), hero.kills) : 0;
     const frac = goal ? Math.max(0, Math.min(1, (hero.kills - prev) / (goal.kills - prev))) : 1;
     const barX = kR.x + 12, barW = kR.w - 24;
     L.addChild(new Graphics().rect(barX, kR.y + 44, barW, 14).fill(THEME.hullDark).rect(barX, kR.y + 44, Math.round(barW * frac), 14).fill(def.accent));
-    this.label(L, goal ? `Tier ${goal.tier} opens at ${goal.kills} kills (${goal.kills - hero.kills} to go)` : 'All four tiers are open', kR.x + 12, kR.y + 66, 14, THEME.textDim);
+    this.label(L, goal ? `Tier ${goal.tier} opens at ${fmtBig(goal.kills)} kills (${fmtBig(goal.kills - hero.kills)} to go)` : 'All four tiers are open', kR.x + 12, kR.y + 66, 14, THEME.textDim);
     y += kR.h + 8;
 
     // ---- the four tiers
     for (let t = 1; t <= TIER_COUNT; t++) {
       const open = isTierUnlocked(hero, t);
       this.label(L, `TIER ${t}`, PAD + 2, y + 4, 16, open ? THEME.text : THEME.textDim);
-      this.label(L, open ? 'open' : `needs ${tierKillsNeeded(t)} kills (have ${hero.kills})`, VIEW_W - PAD - 2, y + 6, 13, open ? THEME.good : THEME.textDim, 0, 1).anchor.set(1, 0);
+      this.label(L, open ? 'open' : `needs ${fmtBig(tierKillsNeeded(t))} kills (have ${fmtBig(hero.kills)})`, VIEW_W - PAD - 2, y + 6, 13, open ? THEME.good : THEME.textDim, 0, 1).anchor.set(1, 0);
       y += 30;
       def.tiers[t - 1].forEach((opt, k) => {
         const r: Rect = { x: PAD + k * (CARD_W + 8), y, w: CARD_W, h: 164 };
@@ -336,7 +336,7 @@ export class CaptainScreen implements Screen {
         this.label(L, tag.t, r.x + 10, r.y + 96, 13, tag.c);
         this.label(L, `${price} Medals`, r.x + r.w - 10, r.y + 96, 13, state === 'owned' || state === 'active' ? THEME.disabled : THEME.currency, 0, 1).anchor.set(1, 0);
         const br: Rect = { x: r.x + 8, y: r.y + r.h - 40, w: r.w - 16, h: 32 };
-        if (state === 'locked') this.button(L, `opt:${opt.id}`, br, `Needs ${tierKillsNeeded(t)} kills (have ${hero.kills})`, false, () => this.denied(`Needs ${tierKillsNeeded(t)} kills (have ${hero.kills})`), { size: 12 });
+        if (state === 'locked') this.button(L, `opt:${opt.id}`, br, `Needs ${fmtBig(tierKillsNeeded(t))} kills (have ${fmtBig(hero.kills)})`, false, () => this.denied(`Needs ${fmtBig(tierKillsNeeded(t))} kills (have ${fmtBig(hero.kills)})`), { size: 12 });
         else if (state === 'active') this.button(L, `opt:${opt.id}`, br, 'Active', false, () => {});
         else if (state === 'owned') this.button(L, `opt:${opt.id}`, br, 'Activate (free)', true, () => this.activate(opt.id));
         else if (!owned) this.button(L, `opt:${opt.id}`, br, 'Unlock the captain first', false, () => this.denied('Unlock this captain first'), { size: 12 });

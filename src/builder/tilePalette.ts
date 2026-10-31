@@ -29,6 +29,10 @@ export interface PaletteSource {
   dimmed?(id: string): boolean;
   /** A small yellow dot in the corner of the tile (the Shop: the next copy is affordable). */
   dot?(id: string): boolean;
+  /** Chunk 24a: a small NEW mark on the tile (a block unlocked and not looked at yet). */
+  isNew?(id: string): boolean;
+  /** Chunk 24a: the player tapped this tile (its info opened): the NEW mark can go. */
+  opened?(id: string): void;
 }
 
 export interface PaletteOptions {
@@ -61,6 +65,8 @@ interface TileView {
   lock: Graphics;
   /** The affordability dot. */
   dotG: Graphics;
+  /** The NEW mark (bottom-left corner). */
+  newG: Container;
   /** What the face was last drawn for; the face is redrawn only when this changes. */
   key: string;
 }
@@ -70,6 +76,9 @@ interface SheetButtonView { c: Container; bg: Graphics; label: Text; rect: Rect 
 /** The affordability dot: bottom-right corner of the tile. */
 const DOT_R = 6;
 const DOT_INSET = 11;
+/** The NEW mark: a green tag in the bottom-left corner of the tile. */
+const NEW_W = 34;
+const NEW_H = 16;
 const BADGE_W = 34;
 const BADGE_H = 22;
 const ALL_BUTTONS: SheetButtonId[] = ['place', 'upgrade', 'buy'];
@@ -158,6 +167,12 @@ export class TilePalette {
     return v && v.badge.visible ? v.badge.text : null;
   }
 
+  /** Whether the tile shows the NEW mark (false when it was never drawn), for tests. */
+  newOf(id: string): boolean {
+    const v = this.views.get(id);
+    return !!v && v.newG.visible;
+  }
+
   /** Whether the tile shows the yellow affordability dot (false when it was never drawn), for tests. */
   dotOf(id: string): boolean {
     const v = this.views.get(id);
@@ -226,11 +241,18 @@ export class TilePalette {
     badge.anchor.set(0.5);
     const lock = new Graphics();
     const dotG = new Graphics();
+    const newBg = new Graphics().rect(0, 0, NEW_W, NEW_H).fill(THEME.good);
+    const newT = makeText('NEW', 11, THEME.hullDark, { fontWeight: 'bold' });
+    newT.anchor.set(0.5);
+    newT.position.set(NEW_W / 2, NEW_H / 2);
+    const newG = new Container();
+    newG.addChild(newBg, newT);
+    newG.visible = false;
     if (id === REMOVE_TILE) drawX(plate, 0, 0, 14, THEME.bad, 5);
     else drawPlate(plate, id, this.geo.metrics.w - 4, 0);
-    c.addChild(bg, plate, badgeBg, badge, lock, dotG);
+    c.addChild(bg, plate, badgeBg, badge, lock, dotG, newG);
     this.listC.addChild(c);
-    v = { c, bg, plate, badge, badgeBg, lock, dotG, key: '' };
+    v = { c, bg, plate, badge, badgeBg, lock, dotG, newG, key: '' };
     this.views.set(id, v);
     return v;
   }
@@ -242,10 +264,11 @@ export class TilePalette {
     const lock = isRemove ? null : src.lock(t.id);
     const usable = src.dimmed ? !src.dimmed(t.id) : count === null || count > 0;
     const dot = !isRemove && !!src.dot?.(t.id);
+    const isNew = !isRemove && !!src.isNew?.(t.id);
     const sel = this.selected === t.id;
     const cur = src.current(t.id);
     const text = count === null ? '' : badgeText(count);
-    const key = `${t.w}x${t.h}|${sel ? 1 : 0}|${cur ? 1 : 0}|${usable ? 1 : 0}|${lock ? 1 : 0}|${dot ? 1 : 0}|${text}`;
+    const key = `${t.w}x${t.h}|${sel ? 1 : 0}|${cur ? 1 : 0}|${usable ? 1 : 0}|${lock ? 1 : 0}|${dot ? 1 : 0}|${isNew ? 1 : 0}|${text}`;
     v.c.position.set(t.x, t.y);
     v.c.visible = true;
     if (v.key === key) return;
@@ -271,6 +294,8 @@ export class TilePalette {
     v.dotG.clear();
     v.dotG.visible = dot;
     if (dot) v.dotG.circle(t.w - DOT_INSET, t.h - DOT_INSET, DOT_R).fill(THEME.currency);
+    v.newG.visible = isNew;
+    v.newG.position.set(4, t.h - NEW_H - 4);
     v.lock.clear();
     if (lock) {
       // A padlock: a dark plate behind a light body with an arched shackle.
@@ -392,6 +417,7 @@ export class TilePalette {
       return true;
     }
     this.select(t.id);
+    this.source?.opened?.(t.id);
     this.events!.onSelect(t.id);
     return true;
   }

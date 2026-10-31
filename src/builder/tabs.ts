@@ -3,6 +3,7 @@ import { drawTabIcon, TabIcon } from './draw';
 import { LAYOUT } from './layout';
 import { UIButton } from './ui';
 import { THEME } from '../ui/theme';
+import { getProgressStore } from '../econ/progress';
 
 const TAB_DEFS: { id: string; icon: TabIcon; label: string }[] = [
   { id: 'tabBuild', icon: 'build', label: 'Build' },
@@ -11,6 +12,12 @@ const TAB_DEFS: { id: string; icon: TabIcon; label: string }[] = [
   { id: 'tabSkills', icon: 'skills', label: 'Skills' },
   { id: 'tabMap', icon: 'map', label: 'Map' },
 ];
+
+/** Whether a tab shows the "something new" dot. */
+export function tabHasDot(id: string): boolean {
+  const store = getProgressStore();
+  return id === 'tabShop' ? store.shopDot : id === 'tabSkills' ? store.skillsDot : false;
+}
 
 /** The five bottom tab buttons, shared by the Build and Shop screens. The active tab is drawn inverted. */
 export function makeTabButtons(activeId: string, onTap: (id: string) => void): UIButton[] {
@@ -26,6 +33,8 @@ export function makeTabButtons(activeId: string, onTap: (id: string) => void): U
         drawTabIcon(ic, t.icon, 24, on ? THEME.pressedIcon : THEME.buttonIcon);
         ic.position.set(b.rect.w / 2, 20);
         g.addChild(ic);
+        // Chunk 24a: a dot while something new waits (Shop: a block unlocked and not looked at; Skills: skill points not seen yet).
+        if (tabHasDot(t.id)) g.circle(b.rect.w / 2 + 17, 5, 5).fill(THEME.good);
       },
     });
   });

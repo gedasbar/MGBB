@@ -32,6 +32,8 @@ const MEDAL_Y = 278;
 /** Gap between the last row and the Total credits line, and between that and the captain line. */
 const TOTAL_GAP = 28;
 const CAPTAIN_GAP = 30;
+/** Gap under the captain line before the "Unlocked" line. */
+const UNLOCK_GAP = 20;
 /** Top of the buttons (they are 64 high); the e2e scripts tap their centre. */
 export const SUMMARY_BUTTONS_Y = 800;
 
@@ -70,7 +72,7 @@ export class RunSummaryScreen implements Screen {
   private gestures: GestureTracker | null = null;
   private rows: { label: string; value: string; best: boolean }[];
 
-  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean; newBestEarnings?: boolean }, readonly wall?: WallSummary, readonly captain?: CaptainSummary) {
+  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean; newBestEarnings?: boolean }, readonly wall?: WallSummary, readonly captain?: CaptainSummary, readonly unlocked: string = '') {
     const bg = new Graphics().rect(0, 0, CONFIG.VIEW.W, CONFIG.VIEW.H).fill(THEME.bg);
     this.container.addChild(bg);
 
@@ -160,6 +162,14 @@ export class RunSummaryScreen implements Screen {
       this.container.addChild(c);
     }
 
+    // Chunk 24a: what this run unlocked ("Unlocked: Accelerator, +1 skill point").
+    if (unlocked) {
+      const u = makeText(unlocked, 17, THEME.good, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: VIEW_W - 80, lineHeight: 22 });
+      u.anchor.set(0.5, 0);
+      u.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + CAPTAIN_GAP + UNLOCK_GAP);
+      this.container.addChild(u);
+    }
+
     const buttons = wall
       ? (() => {
         const n = wall.buttons.length;
@@ -184,7 +194,7 @@ export class RunSummaryScreen implements Screen {
     if (DEBUG_ON) {
       (window as any).__mgbm = {
         screen: 'summary',
-        state: () => ({ title: title.text, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
+        state: () => ({ title: title.text, unlocked, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
       };
     }
   }

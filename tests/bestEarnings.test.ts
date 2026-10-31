@@ -57,8 +57,8 @@ describe('save version 9 (chunk 19a)', () => {
   it('an older save loads with no best earnings and keeps everything else', () => {
     const old = { version: 8, credits: 777, owned: {}, levels: {}, ownedHulls: ['dart'], clearedTiers: [1, 2], passedTiers: [1, 2], wallBestTime: { '1': 9 } };
     const p = loadProgress(JSON.stringify(old));
-    expect(PROGRESS_VERSION).toBe(11);
-    expect(p.version).toBe(11);
+    expect(PROGRESS_VERSION).toBe(12);
+    expect(p.version).toBe(12);
     expect(p.wallBestCredits).toEqual({});
     expect(p.squareBestCredits).toEqual({});
     expect(p.credits).toBe(777);

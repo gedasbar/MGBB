@@ -16,6 +16,8 @@ import { makeTestWall } from './wall/level';
 import { installAudioUnlock, sfx } from './audio';
 import { DEBUG_ON } from './debug/enabled';
 import { FRAME_MAX, planSteps } from './game/timestep';
+import { PlayTimeTracker } from './econ/playTime';
+import { getProgressStore } from './econ/progress';
 
 (async () => {
   const app = new Application();
@@ -82,6 +84,11 @@ import { FRAME_MAX, planSteps } from './game/timestep';
   screenManager.switchTo(new BuildScreen(screenManager));
 
   let lastTime = performance.now();
+  // Chunk 24a: time played, counted while the page is visible; saved every 15 s of play and when the page is hidden or closed.
+  const store = getProgressStore();
+  const playTime = new PlayTimeTracker((s) => store.addPlayTime(s), () => store.flushPlayTime());
+  document.addEventListener('visibilitychange', () => { if (document.hidden) playTime.save(); });
+  window.addEventListener('pagehide', () => playTime.save());
   app.ticker.maxFPS = 0; // 0 = no cap: one render per requestAnimationFrame, whatever the display's rate
 
   // Chunk 24a: no frame-rate cap (the ticker has no maxFPS) and no fixed 60 Hz step: every frame is simulated with the time that really
@@ -91,6 +98,7 @@ import { FRAME_MAX, planSteps } from './game/timestep';
     const rawMs = now - lastTime;
     const frameTime = Math.min(rawMs / 1000, FRAME_MAX);
     lastTime = now;
+    playTime.tick(frameTime, !document.hidden);
     const plan = planSteps(frameTime);
     // debugHooks.timeScale > 1 (?debug=1 only) runs extra simulation steps per tick.
     for (let i = 0; i < plan.steps; i++) {

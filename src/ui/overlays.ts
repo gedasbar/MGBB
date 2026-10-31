@@ -8,6 +8,8 @@ import type { ScreenManager } from '../screens/ScreenManager';
 import { PROGRESS_KEY } from '../econ/progress';
 import { LEGACY_KEY, STORAGE_KEY } from '../builder/persist';
 import { VERSION_LABEL } from '../version';
+import { fmtPlayTime } from '../econ/playTime';
+import { getProgressStore } from '../econ/progress';
 import { openExportSave, openImportSave } from './saveTransferUi';
 
 const W = CONFIG.VIEW.W;
@@ -231,7 +233,7 @@ export class Overlays {
     this.addButton('resetSave', x + 24, cy, pw - 48, 48, 'Reset save...', () => this.show('confirm'));
     cy += 60;
     this.addButton('settingsBack', x + 24, cy, pw - 48, 48, 'Back', () => this.closeSettings());
-    const ver = makeText(VERSION_LABEL, 14, THEME.textDim);
+    const ver = makeText(`${VERSION_LABEL}   ·   Time played ${fmtPlayTime(getProgressStore().data.timePlayed)}`, 14, THEME.textDim);
     ver.anchor.set(0.5, 0);
     ver.position.set(W / 2, cy + 58);
     this.panel.addChild(ver);

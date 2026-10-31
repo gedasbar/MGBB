@@ -134,7 +134,7 @@ export class ShopScreen implements Screen {
         ? [{ kind: 'buy', label: c.lockText, enabled: false, lock: c.lockText, rect: rectOf('buy') }, { kind: 'upgrade', label: 'Locked', enabled: false, lock: c.lockText, rect: rectOf('upgrade') }]
         : [{ kind: 'buy', label: c.buy!.label, enabled: c.buy!.enabled, lock: null, rect: rectOf('buy') },
           ...(c.upgrade ? [{ kind: 'upgrade', label: c.upgrade.label, enabled: c.upgrade.enabled, lock: null, rect: rectOf('upgrade') }] : [])];
-      return { key, rect: this.palette.tileScreenRect(key), buttons, dot: this.dotFor(key) };
+      return { key, rect: this.palette.tileScreenRect(key), buttons, dot: this.dotFor(key), isNew: this.palette.newOf(key) };
     });
   }
 
@@ -174,6 +174,8 @@ export class ShopScreen implements Screen {
       content: (id) => this.blockContent(id),
       dimmed: (id) => !!lock(id),
       dot: (id) => this.dotFor(id),
+      isNew: (id) => this.store.data.newBlocks.includes(id),
+      opened: (id) => this.store.markBlockSeen(id),
     };
   }
 

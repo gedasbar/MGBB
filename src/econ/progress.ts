@@ -19,12 +19,12 @@ import {
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 11;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none), 12 adds `timePlayed`, `newBlocks` and `skillPointsSeen` (chunk 24a: seconds played with the page visible; blocks unlocked and not yet looked at; skill points the player has seen. Older saves start at 0 / none / the points they already have, so nothing is marked new). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 12;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 11;
+  version: 12;
   /** A one-time message for the next screen that can show it (the economy refund of the version 8 migration); cleared when taken. */
   notice?: string;
   credits: number;
@@ -58,6 +58,12 @@ export interface Progress {
   frontier: FrontierSave;
   /** Chunk 22a: owned skill-tree node ids (the free start node is implicit). Points come from the furthest Frontier ring. */
   skills: string[];
+  /** Chunk 24a: total seconds played with the page visible (Settings shows it as hours and minutes). */
+  timePlayed: number;
+  /** Chunk 24a: blocks that were unlocked and whose info the player has not opened yet (they carry a NEW mark; the Shop tab has a dot). */
+  newBlocks: string[];
+  /** Chunk 24a: how many skill points the player has seen on the Skills tab; more points earned than this puts a dot on the tab. */
+  skillPointsSeen: number;
 }
 
 export interface StorageLike {
@@ -71,9 +77,9 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 11, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    version: 12, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, wallBestCredits: {}, squareBestCredits: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
-    frontier: defaultFrontier(), skills: [],
+    frontier: defaultFrontier(), skills: [], timePlayed: 0, newBlocks: [], skillPointsSeen: 0,
   };
 }
 
@@ -141,6 +147,11 @@ export function sanitizeProgress(raw: unknown): Progress {
   out.frontier = sanitizeFrontier(r.frontier);
   // v11 (chunk 22a): owned skill nodes, kept only if real, joined to the start and paid for by the furthest ring.
   out.skills = sanitizeSkillList(r.skills, skillPointsFor(furthestRing(reachBySector(out.frontier))));
+  // v12 (chunk 24a): time played, the NEW marks, and the skill points already seen. A save from before has no marks and nothing new to see.
+  out.timePlayed = num(r.timePlayed, 0, 0);
+  const points = skillPointsFor(furthestRing(reachBySector(out.frontier)));
+  out.skillPointsSeen = typeof r.version === 'number' && r.version >= 12 ? int(r.skillPointsSeen, 0, 1e9, 0) : points;
+  out.newBlocks = typeof r.version === 'number' && r.version >= 12 && Array.isArray(r.newBlocks) ? Array.from(new Set(r.newBlocks.filter((id: unknown): id is string => typeof id === 'string' && id in BLOCKS))) : [];
   out.highestCleared = out.clearedTiers.length ? out.clearedTiers[out.clearedTiers.length - 1] : 0;
   // A save older than v8 still holds the levels of blocks that lost them: read them with the old ceiling so the migration can refund them.
   const migrating = !(typeof r.version === 'number' && r.version >= 8);
@@ -258,6 +269,18 @@ export function blockLockReason(p: Progress, id: string, reach: Reach = reachByS
   return null;
 }
 
+/** Chunk 24a: the run summary's "Unlocked" line: block names (at most UNLOCK_NAMES_SHOWN, then "and N more") and new skill points. Empty when there is nothing. */
+export const UNLOCK_NAMES_SHOWN = 6;
+export function unlockSummary(blocks: readonly string[], skillPoints: number): string {
+  const parts: string[] = [];
+  if (blocks.length > 0) {
+    const shown = blocks.slice(0, UNLOCK_NAMES_SHOWN).join(', ');
+    parts.push(blocks.length > UNLOCK_NAMES_SHOWN ? `${shown} and ${blocks.length - UNLOCK_NAMES_SHOWN} more` : shown);
+  }
+  if (skillPoints > 0) parts.push(`+${skillPoints} skill point${skillPoints === 1 ? '' : 's'}`);
+  return parts.length ? `Unlocked: ${parts.join(', ')}` : '';
+}
+
 export interface WallRunResult {
   tier: number;
   destroyed: number;
@@ -371,6 +394,10 @@ export class ProgressStore {
   /** Highest passed tier as of the last commit (tier-locked blocks, chunk 20b). */
   private tierReach: number;
   unlockNotices: string[] = [];
+  /** Chunk 24a: skill points earned since the last takeRunUnlocks (the run summary lists them with the unlocked blocks). */
+  private pendingSkillPoints = 0;
+  /** Skill points as of the last commit. */
+  private skillPts: number;
 
   constructor(private storage: StorageLike | null = null, initial?: Progress) {
     let raw: string | null = null;
@@ -378,6 +405,7 @@ export class ProgressStore {
     this.data = initial ?? loadProgress(raw);
     this.reach = reachBySector(this.data.frontier);
     this.tierReach = highestPassed(this.data.passedTiers);
+    this.skillPts = skillPointsFor(furthestRing(this.reach));
   }
 
   /** Reach per sector (cached; recomputed on every commit). */
@@ -393,23 +421,69 @@ export class ProgressStore {
   /** "Unlocked: <block>" messages produced since the last call (each threshold once). */
   takeUnlockNotices(): string[] { const n = this.unlockNotices; this.unlockNotices = []; return n; }
 
+  /**
+   * Chunk 24a: what the runs since the last call unlocked, for the run summary: block names and new skill points. Taken once. (The
+   * Frontier and Skills screens no longer show these as toasts: a Frontier that opens used to queue a toast for every block at once.)
+   */
+  takeRunUnlocks(): { blocks: string[]; skillPoints: number } {
+    const blocks = this.unlockNotices.map(n => n.replace(/^Unlocked: /, ''));
+    const out = { blocks, skillPoints: this.pendingSkillPoints };
+    this.unlockNotices = [];
+    this.pendingSkillPoints = 0;
+    return out;
+  }
+
+  /** The player opened this block's info: its NEW mark goes away. */
+  markBlockSeen(id: string) {
+    const i = this.data.newBlocks.indexOf(id);
+    if (i < 0) return;
+    this.data.newBlocks.splice(i, 1);
+    this.commit();
+  }
+
+  /** Skill points earned in all, and whether the player has not seen them all on the Skills tab yet (the tab's dot). */
+  get skillPointsEarned(): number { return this.skillPts; }
+  get skillsDot(): boolean { return this.skillPts > this.data.skillPointsSeen; }
+  get shopDot(): boolean { return this.data.newBlocks.length > 0; }
+  /** The Skills tab was opened: the points are seen. */
+  markSkillsSeen() {
+    if (this.data.skillPointsSeen >= this.skillPts) return;
+    this.data.skillPointsSeen = this.skillPts;
+    this.commit();
+  }
+
+  /** Chunk 24a: adds seconds played (the page was visible). Saved by flushPlayTime, not on every call. */
+  addPlayTime(seconds: number) {
+    if (seconds > 0 && isFinite(seconds)) this.data.timePlayed += seconds;
+  }
+  flushPlayTime() { this.commit(); }
+
   onChange(fn: () => void): () => void {
     this.listeners.add(fn);
     return () => { this.listeners.delete(fn); };
   }
 
+  private noteUnlockedBlock(id: string) {
+    this.unlockNotices.push(`Unlocked: ${blockName(id)}`);
+    if (!this.data.newBlocks.includes(id)) this.data.newBlocks.push(id);
+  }
+
   commit() {
     const after = reachBySector(this.data.frontier);
-    for (const u of newlyReached(this.reach, after)) this.unlockNotices.push(`Unlocked: ${blockName(u.blockId)}`);
+    for (const u of newlyReached(this.reach, after)) this.noteUnlockedBlock(u.blockId);
     this.reach = after;
     // Passing a tier unlocks its blocks (announced once; a block the save already owns is not).
     const tierNow = highestPassed(this.data.passedTiers);
     if (tierNow > this.tierReach) {
       for (const [id, t] of Object.entries(TIER_LOCKS)) {
-        if (t > this.tierReach && t <= tierNow && !(this.data.owned[id] > 0)) this.unlockNotices.push(`Unlocked: ${blockName(id)}`);
+        if (t > this.tierReach && t <= tierNow && !(this.data.owned[id] > 0)) this.noteUnlockedBlock(id);
       }
     }
     this.tierReach = tierNow;
+    // A further Frontier ring earns skill points (the run summary says so; the Skills tab gets a dot until it is opened).
+    const pts = skillPointsFor(furthestRing(after));
+    if (pts > this.skillPts) this.pendingSkillPoints += pts - this.skillPts;
+    this.skillPts = pts;
     try { this.storage?.setItem(PROGRESS_KEY, serializeProgress(this.data)); } catch { /* quota or private mode */ }
     for (const l of this.listeners) l();
   }

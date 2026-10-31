@@ -12,7 +12,7 @@ import { CATEGORY_COLOR, THEME } from '../ui/theme';
 import { HIT_CLOUD } from '../engine/projectiles';
 import { fmtBig, fmtDamage } from '../ui/format';
 import { makeText } from '../builder/ui';
-import { getProgressStore, RunResult } from '../econ/progress';
+import { getProgressStore, RunResult, unlockSummary } from '../econ/progress';
 import { ShotSprites } from '../ui/shotSprites';
 import { shotTextures } from '../ui/shotTextures';
 import { debugHooks } from '../debug/hooks';
@@ -468,13 +468,15 @@ export class FlyScreen implements Screen {
       name: CAPTAIN_BY_ID[id]?.name ?? id, killsAdded: this.banker.added, killsTotal: store.data.captains.heroes[id]?.kills ?? 0,
       medals: this.medalsRun, doubled: this.medalsDoubled,
     };
-    this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks, undefined, captain));
+    const u = store.takeRunUnlocks();
+    this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks, undefined, captain, unlockSummary(u.blocks, u.skillPoints)));
   }
 
   private finishEncounter() {
     this.finished = true;
     const store = getProgressStore();
     const paid = this.bankEncounter();
+    const u = store.takeRunUnlocks();
     const w = this.world;
     const sm = this.screenManager;
     const grid = this.grid;
@@ -493,7 +495,7 @@ export class FlyScreen implements Screen {
         { id: 'summaryRetry', label: 'Retry', onTap: () => sm.switchTo(new FlyScreen(sm, grid, opts)) },
         { id: 'summaryBuild', label: 'Build', onTap: () => sm.switchTo(new BuildScreen(sm)) },
       ],
-    }, captain));
+    }, captain, unlockSummary(u.blocks, u.skillPoints)));
   }
 
   destroy() {

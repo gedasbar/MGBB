@@ -4,14 +4,14 @@ import { Grid } from '../engine/compiler';
 import { clientToGame } from '../input';
 import { makeText } from '../builder/ui';
 import { debugHooks } from '../debug/hooks';
-import { getProgressStore, RunResult } from '../econ/progress';
+import { getProgressStore, RunResult, unlockSummary } from '../econ/progress';
 import { ShotSprites } from '../ui/shotSprites';
 import { shotTextures } from '../ui/shotTextures';
 import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { ShipSteer } from '../engine/steer';
 import { touchMode } from '../ui/touchMode';
-import { clampShipX, ringScreenX, WallCamera } from '../wall/camera';
+import { pushShipX, ringScreenX, WallCamera } from '../wall/camera';
 import { CELL, RESULT_DELAY_CLEARED, RESULT_DELAY_CRASHED, RESULT_DELAY_PASSED, SHIP_START_Y, VIEW_H, VIEW_W } from '../wall/constants';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 import { BuildScreen } from './BuildScreen';
@@ -271,8 +271,7 @@ export class WallScreen implements Screen {
     // camera's edge push follows the SHIP's place on the screen, so a ship held at a side keeps scrolling even after the finger is lifted.
     this.steer.mode = touchMode();
     this.steer.update(p);
-    const pushing = w.state === 'playing' && w.controlStarted;
-    this.camera.update(dt, pushing ? clampShipX(this.sx(w.shipX)) : null);
+    this.camera.update(dt, pushShipX(w.state === 'playing', w.controlStarted, this.sx(w.shipX)));
     const target = w.controlStarted ? { x: this.steer.x + this.camera.x, y: this.steer.y } : null;
     w.god = debugHooks.god;
     // The overload rule's idea of "off-screen" follows the camera (chunk 21b).
@@ -442,6 +441,8 @@ export class WallScreen implements Screen {
     const store = getProgressStore();
     w.bank(store);
     this.banker.flush(w.destroyed);
+    const unlocks = store.takeRunUnlocks();
+    const unlocked = unlockSummary(unlocks.blocks, unlocks.skillPoints);
     const result: RunResult = { credits: w.credits, kills: w.destroyed, time: w.time, tier: w.tier, shots: { ...w.projSys.runStats } };
     const marks = { newBestTier: false, newBestTime: false, newBestEarnings: w.newBestEarnings };
     const level = this.levelDef;
@@ -469,7 +470,7 @@ export class WallScreen implements Screen {
       medals: w.medalsEarned, doubled: w.medalDoubled,
       note: [w.fx.passBonus > 0 ? `pass bonus +${fmtBig(Math.floor(w.fx.passBonus))}` : '', w.fx.skillBonus > 0 ? `skill bonus +${fmtBig(Math.floor(w.fx.skillBonus))}` : ''].filter(Boolean).join('  ') || undefined,
     };
-    sm.switchTo(new RunSummaryScreen(sm, result, marks, { result: outcome, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }, captain));
+    sm.switchTo(new RunSummaryScreen(sm, result, marks, { result: outcome, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }, captain, unlocked));
   }
 
   destroy() {
