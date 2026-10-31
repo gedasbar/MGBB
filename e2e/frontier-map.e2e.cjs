@@ -184,7 +184,7 @@ async function panFps(page, zoom) {
   await tap(page, 451, 864); // PLAY
   await waitScreen(page, 'wall');
   const ws = await state(page);
-  check(ws.hud.tier.startsWith('Frontier (') && ws.total > 0, `the square starts the wall screen: HUD "${ws.hud.tier}", ${ws.total} blocks`);
+  check(ws.hud.square.startsWith('Frontier (') && ws.total > 0, `the square starts the wall screen: HUD "${ws.hud.tier}", ${ws.total} blocks`);
   const c = await gameToClient(page, 270, 760);
   await page.mouse.move(c.x, c.y);
   await page.mouse.move(c.x + 20, c.y, { steps: 4 });

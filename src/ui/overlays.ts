@@ -8,7 +8,7 @@ import type { ScreenManager } from '../screens/ScreenManager';
 import { PROGRESS_KEY } from '../econ/progress';
 import { LEGACY_KEY, STORAGE_KEY } from '../builder/persist';
 import { VERSION_LABEL } from '../version';
-import { fmtPlayTime } from '../econ/playTime';
+import { fmtPlayTime, playTimeGuard } from '../econ/playTime';
 import { getProgressStore } from '../econ/progress';
 import { openExportSave, openImportSave } from './saveTransferUi';
 
@@ -258,6 +258,7 @@ export function resetSave(storage: Pick<Storage, 'removeItem'> | null = safeStor
   for (const k of [PROGRESS_KEY, STORAGE_KEY, LEGACY_KEY]) {
     try { storage?.removeItem(k); } catch { /* storage blocked */ }
   }
+  playTimeGuard.blocked = true; // the reload must not write the old save back (time played is saved when the page hides)
   reload();
 }
 

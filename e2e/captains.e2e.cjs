@@ -57,9 +57,9 @@ const centre = (r) => [r.x + r.w / 2, r.y + r.h / 2];
   p = await saved();
   check(p.captains.selected === 'bulwark' && p.captains.heroes.bulwark.level === 2 && p.medals === 88, `active Bulwark, hero level ${p.captains.heroes.bulwark.level}, medals ${p.medals}`);
 
-  // ---- tier 1 is open; tier 2 needs 300 kills
+  // ---- tier 1 is open; tier 2 needs 2000 kills (24a)
   o = await btn('opt:bul_plating');
-  check(o && !o.enabled && /Needs 300 kills \(have 0\)/.test(o.label), `tier 2 shows "${o && o.label}"`);
+  check(o && !o.enabled && /Needs 2K kills \(have 0\)/.test(o.label), `tier 2 shows "${o && o.label}"`);
   await press('opt:bul_plating');
   p = await saved();
   check(!p.captains.heroes.bulwark.owned.includes('bul_plating') && p.medals === 88, 'a locked option cannot be bought and costs nothing');
@@ -78,18 +78,18 @@ const centre = (r) => [r.x + r.w / 2, r.y + r.h / 2];
   check(sy0 === 0 && s.scrollY > 200, `dragging scrolls the detail (scrollY ${sy0} -> ${s.scrollY})`);
   await press('opt:bul_wind');
   s = await state(page);
-  check(s.toast === 'Needs 1500 kills (have 0)', `a locked option answers a tap with its reason after scrolling: "${s.toast}"`);
+  check(s.toast === 'Needs 10K kills (have 0)', `a locked option answers a tap with its reason after scrolling: "${s.toast}"`);
   await page.evaluate(() => { window.__mgbm.captainScreen.scrollBy(-2000); });
 
   // ---- kills by cheat open tier 2
-  await setNum('dbg-cap-kills-n', 300);
+  await setNum('dbg-cap-kills-n', 2000);
   await click('dbg-cap-kills');
   s = await state(page);
   o = await btn('opt:bul_plating');
-  check(o && o.enabled && /Buy - 4 Medals/.test(o.label), `300 kills open tier 2: "${o && o.label}"`);
+  check(o && o.enabled && /Buy - 4 Medals/.test(o.label), `2000 kills open tier 2: "${o && o.label}"`);
   await press('opt:bul_plating');
   p = await saved();
-  check(p.captains.heroes.bulwark.active['2'] === 'bul_plating' && p.medals === 80 && p.captains.heroes.bulwark.kills === 300, `Plating bought (medals ${p.medals}, kills ${p.captains.heroes.bulwark.kills})`);
+  check(p.captains.heroes.bulwark.active['2'] === 'bul_plating' && p.medals === 80 && p.captains.heroes.bulwark.kills === 2000, `Plating bought (medals ${p.medals}, kills ${p.captains.heroes.bulwark.kills})`);
   // The detail view with tiers in different states.
   await page.evaluate(() => { window.__mgbm.captainScreen.scrollBy(300); });
   await page.waitForTimeout(150);
@@ -132,7 +132,7 @@ const centre = (r) => [r.x + r.w / 2, r.y + r.h / 2];
   s = await state(page);
   check(s.captain && s.captain.name === 'Bulwark' && s.captain.medals === 1 && s.captain.killsAdded === killsRun, `summary: ${JSON.stringify(s.captain)}`);
   p = await saved();
-  check(p.captains.heroes.bulwark.kills === 300 + killsRun && p.captains.heroes.cadet.kills === 0, `kills went to Bulwark only (${p.captains.heroes.bulwark.kills}), Cadet ${p.captains.heroes.cadet.kills}`);
+  check(p.captains.heroes.bulwark.kills === 2000 + killsRun && p.captains.heroes.cadet.kills === 0, `kills went to Bulwark only (${p.captains.heroes.bulwark.kills}), Cadet ${p.captains.heroes.cadet.kills}`);
   await page.screenshot({ path: path.join(OUT, '3-run-summary.png'), clip: CLIP });
 
   // ---- a campaign wall: the same captain's effects, and Second Chance on a block

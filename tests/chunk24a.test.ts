@@ -10,7 +10,7 @@ import { WallCamera, clampShipX, pushShipX, edgePushSpeed } from '../src/wall/ca
 import { InputManager } from '../src/input';
 import { planSteps, SIM_MAX_STEP } from '../src/game/timestep';
 import { estimateRefreshHz } from '../src/ui/refreshRate';
-import { fmtPlayTime, PLAYTIME_FLUSH_SECONDS, PlayTimeTracker } from '../src/econ/playTime';
+import { fmtPlayTime, playTimeGuard, PLAYTIME_FLUSH_SECONDS, PlayTimeTracker } from '../src/econ/playTime';
 import { defaultProgress, loadProgress, ProgressStore, serializeProgress, unlockSummary, UNLOCK_NAMES_SHOWN } from '../src/econ/progress';
 import { sqKey } from '../src/frontier/world';
 import { addCaptainKills, isTierUnlocked, nextTierGoal, sanitizeCaptains, tiersReached } from '../src/captains/state';
@@ -285,6 +285,16 @@ describe('time played (24a)', () => {
     expect(saves).toBe(2);
     t.tick(NaN, true); t.tick(-1, true);
     expect(total).toBeCloseTo(1 + PLAYTIME_FLUSH_SECONDS, 6);
+  });
+
+  it('does not save while a deliberate reload (import / reset) is under way', () => {
+    let saves = 0;
+    const t = new PlayTimeTracker(() => {}, () => { saves++; });
+    t.tick(1, true);
+    playTimeGuard.blocked = true;
+    try { t.save(); expect(saves).toBe(0); } finally { playTimeGuard.blocked = false; }
+    t.save();
+    expect(saves).toBe(1);
   });
 
   it('shows hours and minutes', () => {

@@ -1,3 +1,4 @@
+import { playTimeGuard } from '../econ/playTime';
 import { getProgressStore, PROGRESS_KEY } from '../econ/progress';
 import { LEGACY_KEY, STORAGE_KEY } from '../builder/persist';
 import { checkImportString, exportSaveString, writeImport } from '../econ/saveTransfer';
@@ -121,6 +122,7 @@ export function openImportSave(reload: () => void = () => location.reload()) {
       }
       msg.style.color = '#8fd18f';
       msg.textContent = 'Loaded. Restarting...';
+      playTimeGuard.blocked = true;
       reload();
     });
   });

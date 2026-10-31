@@ -123,7 +123,7 @@ async function open(browser, url, init) {
       const out = [];
       const walk = (n) => { if (typeof n.text === 'string') out.push(n.text); (n.children || []).forEach(walk); };
       walk(window.__mgbmSm.overlays.container);
-      return out.find(t => /^v\S+ · \d{4}-\d{2}-\d{2}$/.test(t)) || null;
+      return out.find(t => /^v\S+ · \d{4}-\d{2}-\d{2}( +· +Time played \d+h \d+m)?$/.test(t)) || null;
     });
     check(!!label, `Settings shows the version label (${label})`);
     const btns = await p2.evaluate(() => ['exportSave', 'importSave'].map(i => !!window.__mgbmSm.overlays.buttonCenter(i)));
@@ -147,17 +147,19 @@ async function open(browser, url, init) {
     await p3.evaluate(() => { document.getElementById('debug-panel').style.display = 'none'; });
     await p3.evaluate(() => window.__mgbmSm.overlays.openSettings(false));
     await p3.waitForTimeout(300);
-    const before = await p3.evaluate(() => localStorage.getItem('mgbm.progress.v1'));
+    // The time-played counter may be saved between two reads (every 15 s); it is not part of what an import must leave alone.
+    const readSave = () => p3.evaluate(() => { const o = JSON.parse(localStorage.getItem('mgbm.progress.v1')); delete o.timePlayed; return JSON.stringify(o); });
+    const before = await readSave();
     await tapBtn(p3, 'importSave');
     await p3.waitForSelector('#import-text');
     await p3.fill('#import-text', 'MGBM1:garbage');
     await p3.click('#import-check');
     const bad = await p3.textContent('#import-msg');
-    check(/Nothing was changed/.test(bad) && (await p3.evaluate(() => localStorage.getItem('mgbm.progress.v1'))) === before, `a bad string is refused and changes nothing ("${bad}")`);
+    check(/Nothing was changed/.test(bad) && (await readSave()) === before, `a bad string is refused and changes nothing ("${bad}")`);
     await p3.fill('#import-text', exported);
     await p3.click('#import-check');
     const ask = await p3.textContent('#import-msg');
-    check(/777 credits/.test(ask) && (await p3.evaluate(() => localStorage.getItem('mgbm.progress.v1'))) === before, `a good string asks to confirm first, nothing written yet ("${ask}")`);
+    check(/777 credits/.test(ask) && (await readSave()) === before, `a good string asks to confirm first, nothing written yet ("${ask}")`);
     await p3.screenshot({ path: path.join(OUT, 'import-confirm-360x740.png') });
     await Promise.all([p3.waitForEvent('load'), p3.click('#import-check')]);
     await p3.waitForSelector('canvas');

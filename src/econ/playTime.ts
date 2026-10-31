@@ -4,6 +4,12 @@
 export const PLAYTIME_FLUSH_SECONDS = 15;
 
 /**
+ * Set just before the page reloads on purpose (an import or a save reset wrote storage itself): the old in-memory save must not be written
+ * back over it by the hidden / pagehide save.
+ */
+export const playTimeGuard = { blocked: false };
+
+/**
  * Called once a frame with the seconds that frame lasted (already capped by the main loop, so a tab that slept does not add the nap).
  * `add` puts the seconds on the total; `flush` saves it.
  */
@@ -22,7 +28,7 @@ export class PlayTimeTracker {
 
   /** The page was hidden or is closing: save what has been counted. */
   save() {
-    if (this.sinceFlush <= 0) return;
+    if (this.sinceFlush <= 0 || playTimeGuard.blocked) return;
     this.sinceFlush = 0;
     this.flush();
   }
