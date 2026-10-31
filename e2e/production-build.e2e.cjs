@@ -147,8 +147,8 @@ async function open(browser, url, init) {
     await p3.evaluate(() => { document.getElementById('debug-panel').style.display = 'none'; });
     await p3.evaluate(() => window.__mgbmSm.overlays.openSettings(false));
     await p3.waitForTimeout(300);
-    // The time-played counter may be saved between two reads (every 15 s); it is not part of what an import must leave alone.
-    const readSave = () => p3.evaluate(() => { const o = JSON.parse(localStorage.getItem('mgbm.progress.v1')); if (o) delete o.timePlayed; return JSON.stringify(o); });
+    // The game may re-save its own state between two reads (time played every 15 s, which also upgrades the version): compare what an import would change.
+    const readSave = () => p3.evaluate(() => { const o = JSON.parse(localStorage.getItem('mgbm.progress.v1')); return JSON.stringify(o ? { credits: o.credits, runs: o.runs, owned: o.owned, ownedHulls: o.ownedHulls } : o); });
     const before = await readSave();
     await tapBtn(p3, 'importSave');
     await p3.waitForSelector('#import-text');
@@ -159,12 +159,13 @@ async function open(browser, url, init) {
     await p3.fill('#import-text', exported);
     await p3.click('#import-check');
     const ask = await p3.textContent('#import-msg');
-    check(/777 credits/.test(ask) && (await readSave()) === before, `a good string asks to confirm first, nothing written yet ("${ask}")`);
+    const wantCredits = Number((/(\d+) credits/.exec(ask) || [])[1]); // the seeded 777 plus whatever the run before the export earned
+    check(wantCredits >= 777 && !new RegExp(`"credits":${wantCredits}[,}]`).test(await readSave()), `a good string asks to confirm first, nothing written yet ("${ask}")`);
     await p3.screenshot({ path: path.join(OUT, 'import-confirm-360x740.png') });
     await Promise.all([p3.waitForEvent('load'), p3.click('#import-check')]);
     await p3.waitForSelector('canvas');
     const saved = await p3.evaluate(() => JSON.parse(localStorage.getItem('mgbm.progress.v1')));
-    check(saved.credits === 777 && saved.runs >= 5 && saved.version === 12, `after confirming, the save moved over and was migrated to the current version (credits ${saved.credits}, runs ${saved.runs}, version ${saved.version})`);
+    check(saved.credits === wantCredits && saved.runs >= 5 && saved.version === 12, `after confirming, the save moved over and was migrated to the current version (credits ${saved.credits}, runs ${saved.runs}, version ${saved.version})`);
     await c.ctx.close();
   } finally {
     if (browser) await browser.close();
