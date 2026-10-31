@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { checkImportString, exportSaveString, EXPORT_PREFIX, writeImport } from '../src/econ/saveTransfer';
+import { checkImportString, exportFileName, exportSaveString, EXPORT_PREFIX, saveStringFromFileText, writeImport } from '../src/econ/saveTransfer';
 import { defaultProgress, loadProgress, PROGRESS_KEY, PROGRESS_VERSION, serializeProgress } from '../src/econ/progress';
 import { LEGACY_KEY, STORAGE_KEY, defaultSave, serializeBuilder } from '../src/builder/persist';
 import { VERSION_LABEL } from '../src/version';
 import { debugOn, debugQuery } from '../src/debug/enabled';
+import { AREA, BOX, OPEN_TEXT, PANEL } from '../src/ui/saveTransferUi';
 
 // Chunk 23a: moving a save between devices, the version label and the debug switch.
 
@@ -114,5 +115,62 @@ describe('debug switch and version label', () => {
 
   it('the label reads v<hash> and a date', () => {
     expect(VERSION_LABEL).toMatch(/^v\S+( · \d{4}-\d{2}-\d{2})?$/);
+  });
+});
+
+// Chunk 24b: a save read from a file (the home-screen app cannot always paste).
+describe('reading a save from file text', () => {
+  const str = () => exportSaveString(richSave(), serializeBuilder(defaultSave()));
+
+  it('a file written by "Save as file" (the bare string, with or without a final newline) imports', () => {
+    for (const text of [str(), str() + '\n', str() + '\r\n']) {
+      const r = checkImportString(saveStringFromFileText(text));
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.progress.credits).toBe(12345);
+    }
+  });
+
+  it('a byte-order mark, a header line, line breaks inside the string and trailing words do not matter', () => {
+    const s = str();
+    const wrapped = s.replace(/(.{60})/g, '$1\n');
+    const text = `﻿Mitosis Gun Builder save, 2026-11-02\r\n${wrapped}\r\n-- sent from my phone`;
+    const r = checkImportString(saveStringFromFileText(text));
+    expect(r.ok).toBe(true);
+    expect(saveStringFromFileText(text).replace(/\s+/g, '')).toBe(s);
+  });
+
+  it('a .json file holding the plain envelope imports too', () => {
+    const env = JSON.parse(atob(str().slice(EXPORT_PREFIX.length)));
+    const r = checkImportString(saveStringFromFileText(JSON.stringify(env, null, 2)));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.progress.runs).toBe(7);
+  });
+
+  it('files that are not saves give a plain reason, and a cut-short string is refused', () => {
+    expect(checkImportString(saveStringFromFileText('')).ok).toBe(false);
+    const other = checkImportString(saveStringFromFileText('{"hello":1}'));
+    expect(other.ok).toBe(false);
+    if (!other.ok) expect(other.error).toMatch(/not a save string/);
+    const cut = checkImportString(saveStringFromFileText(str().slice(0, 40)));
+    expect(cut.ok).toBe(false);
+    if (!cut.ok) expect(cut.error).toMatch(/damaged or cut short/);
+    expect(checkImportString(saveStringFromFileText(JSON.stringify({ app: 'mgbm', format: 9, progress: {}, builder: null }))).ok).toBe(false);
+  });
+
+  it('the file name carries the date', () => {
+    expect(exportFileName(new Date('2026-11-02T10:00:00Z'))).toBe('mgbm-save-2026-11-02.txt');
+  });
+});
+
+describe('the dialog opts out of the play lock-down (24b)', () => {
+  it('the box, the panel and the field allow the long-press callout, selection and touch, and the field is 16 px', () => {
+    for (const css of [BOX, PANEL, AREA]) {
+      expect(css).toContain('-webkit-touch-callout:default');
+      expect(css).toContain('-webkit-user-select:text');
+      expect(css).toContain('user-select:text');
+      expect(css).toContain('touch-action:auto');
+    }
+    expect(OPEN_TEXT).not.toContain('none');
+    expect(AREA).toMatch(/font:16px/);
   });
 });
