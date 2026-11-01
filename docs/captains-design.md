@@ -47,7 +47,7 @@ to the world at run start. Nothing in gameplay code knows a captain or option id
 | `passCreditsPct`     | +fraction    | `passCredits`        | `WallWorld.end`: a PASSED or CLEARED level pays this share of the credits the run earned, once (see section 6) |
 | `medalDoublePct`     | +chance      | `medalDouble`        | every Medal award (first clear, Free Fly milestone), rolled with an injected RNG          |
 | `secondChance`       | +n charges   | `secondChances`      | WallWorld: a touched live block is destroyed, run goes on, 1 s invulnerability. World: the first enemy contact deals no damage, 1 s invulnerability |
-| `spawnInvulnSec`     | +seconds     | `spawnInvuln`        | `beginControl()` (both worlds): `GRACE_TIME` + this                                       |
+| `spawnInvulnSec`     | +seconds     | `spawnInvuln`        | the world's constructor (both worlds, `safeStart`): `SPAWN_INVULN_SECONDS` + this                                       |
 | `hullPct`            | +fraction    | `hullMul`            | Free Fly max hull. Leak damage keeps using 100 HP as its base (more hull = more contacts survived, not bigger leaks) |
 | `killHeal`           | +hull per kill | `killHeal`         | Free Fly kill loop, capped at max hull                                                    |
 | `boostZonePct`       | +fraction    | `boostZone`          | wall: `TOP_ZONE` x (1 + this): the top-edge speed boost starts lower on the screen        |

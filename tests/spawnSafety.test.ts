@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { CONFIG, SHIP_MAX_SPEED } from '../src/config';
-import { EASE_TIME, GRACE_TIME, PointerGate } from '../src/engine/control';
+import { EASE_TIME, SPAWN_INVULN_SECONDS, PointerGate } from '../src/engine/control';
 import { World } from '../src/game/world';
 import { buildStarterGrid } from '../src/game/starter';
 import { CELL, SHIP_START_Y, WORLD_WIDTH } from '../src/wall/constants';
 import { BlockDef, LevelDef } from '../src/wall/level';
 import { WallWorld } from '../src/wall/wallWorld';
 import { PointerState } from '../src/input';
+import { neutralModifiers } from '../src/captains/modifiers';
 
 const DT = 1 / 60;
 const plain: BlockDef = { hp: 100, armor: 0, shield: 0 };
@@ -46,7 +47,7 @@ describe('wall spawn safety', () => {
     expect(w.shipX).toBe(WORLD_WIDTH / 2);
   });
 
-  it('after the first move the ship eases in over 0.25 s, is safe for 1.0 s, then a block crashes it', () => {
+  it('after the first move the ship eases in over 0.25 s, is safe for SPAWN_INVULN_SECONDS from the first frame of the run, then a block crashes it', () => {
     const w = wallOverTheTop();
     w.beginControl();
     const y0 = w.shipY;
@@ -58,8 +59,8 @@ describe('wall spawn safety', () => {
     // Inside a block, invulnerable.
     expect(w.invuln).toBeGreaterThan(0);
     while (w.invuln > 0) { expect(w.state).toBe('playing'); w.update(DT, atTop); }
-    expect(w.time).toBeGreaterThan(GRACE_TIME - 2 * DT);
-    expect(w.time).toBeLessThan(GRACE_TIME + 2 * DT);
+    expect(w.time).toBeGreaterThan(SPAWN_INVULN_SECONDS - 2 * DT);
+    expect(w.time).toBeLessThan(SPAWN_INVULN_SECONDS + 2 * DT);
     // The first step with invuln spent: still on a live block -> crash.
     w.update(DT, atTop);
     expect(w.state).toBe('crashed');
@@ -89,16 +90,75 @@ describe('Free Fly spawn safety', () => {
     expect(w.controlStarted).toBe(false);
   });
 
-  it('after beginControl a rock on the ship does no damage for 1.0 s, then it does', () => {
+  it('after beginControl a rock on the ship does no damage until SPAWN_INVULN_SECONDS after the run started, then it does', () => {
     const w = new World({ autoSpawn: false, safeStart: true });
     w.beginControl();
     const p = pointerAt(w.shipX, w.shipY);
     const rock = w.spawnRock(w.shipX, w.shipY, 1e9)!;
     const keepOn = () => { rock.x = w.shipX; rock.y = w.shipY; };
     let t = 0;
-    while (t < GRACE_TIME - 2 * DT) { keepOn(); w.update(DT, p); t += DT; }
+    while (t < SPAWN_INVULN_SECONDS - 2 * DT) { keepOn(); w.update(DT, p); t += DT; }
     expect(w.hull).toBe(w.maxHull);
     for (let i = 0; i < 12; i++) { keepOn(); w.update(DT, p); }
     expect(w.hull).toBeLessThan(w.maxHull);
+  });
+});
+
+describe('spawn invulnerability runs from the first frame (24d)', () => {
+  const pointerAt = (x: number, y: number): PointerState => ({ x, y, active: false, type: 'mouse', seen: true });
+  const run = (world: { update(dt: number, p: any): void }, p: any, seconds: number, tap?: { at: number; fn: () => void }) => {
+    let t = 0;
+    while (t < seconds) { if (tap && t >= tap.at) { tap.fn(); } world.update(DT, p); t += DT; }
+  };
+
+  it('Free Fly: invulnerable at t=0 with no input, not at t=1.6, with or without an early tap', () => {
+    for (const early of [false, true]) {
+      const w = new World({ autoSpawn: false, safeStart: true });
+      const p = pointerAt(w.shipX, w.shipY);
+      expect(w.invuln).toBeCloseTo(SPAWN_INVULN_SECONDS, 6);                  // before any update, no input
+      run(w, p, 0.5, early ? { at: 0.1, fn: () => w.beginControl() } : undefined);
+      expect(w.invuln).toBeGreaterThan(0);                                    // still safe at 0.5 s
+      run(w, p, 1.1, early ? { at: 0, fn: () => w.beginControl() } : undefined);
+      expect(w.invuln).toBeLessThanOrEqual(0);                                // spent at 1.6 s
+    }
+  });
+
+  it('Free Fly: a waiting player is hit by a rock after the time is up (control never started)', () => {
+    const w = new World({ autoSpawn: false, safeStart: true });
+    const p = pointerAt(w.shipX, w.shipY);
+    const rock = w.spawnRock(w.shipX, w.shipY, 1e9)!;
+    for (let i = 0; i < 60 * 1.4; i++) { rock.x = w.shipX; rock.y = w.shipY; w.update(DT, p); }
+    expect(w.hull).toBe(w.maxHull);
+    for (let i = 0; i < 60 * 0.6; i++) { rock.x = w.shipX; rock.y = w.shipY; w.update(DT, p); }
+    expect(w.hull).toBeLessThan(w.maxHull);
+    expect(w.controlStarted).toBe(false);
+  });
+
+  it('wall: invulnerable at t=0 with no input, not at t=1.6, with or without an early tap; a captain bonus adds on', () => {
+    for (const early of [false, true]) {
+      const w = wallOverTheTop();
+      expect(w.invuln).toBeCloseTo(SPAWN_INVULN_SECONDS, 6);
+      if (early) w.beginControl();
+      expect(w.invuln).toBeCloseTo(SPAWN_INVULN_SECONDS, 6);                  // a tap does not restart or extend it
+      run(w, atTop, 1.6);
+      expect(w.invuln).toBe(0);
+    }
+    const level: LevelDef = { tier: 1, cols: 21, rows: 1, cells: [plain], approachSpeed: 0 };
+    const mods = { ...neutralModifiers(), spawnInvuln: 0.5 };
+    expect(new WallWorld(level, { grid: buildStarterGrid(), safeStart: true, modifiers: mods }).invuln).toBeCloseTo(SPAWN_INVULN_SECONDS + 0.5, 6);
+  });
+
+  it('wall: a waiting ship on a block crashes once the time is up, not before', () => {
+    const w = wallOverTheTop();
+    w.teleportShip(WORLD_WIDTH / 2, CONFIG.PLAYER.MARGIN);
+    run(w, atTop, 1.4);
+    expect(w.state).toBe('playing');
+    run(w, atTop, 0.3);
+    expect(w.state).toBe('crashed');
+    expect(w.controlStarted).toBe(false);
+  });
+
+  it('worlds without safeStart (unit tests) start with no invulnerability', () => {
+    expect(new World({ autoSpawn: false }).invuln).toBe(0);
   });
 });

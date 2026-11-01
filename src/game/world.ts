@@ -9,7 +9,7 @@ import { Gun, PX_PER_CELL, spawnOffsetsFor } from './fire';
 import { PointerState } from '../input';
 import { buildStarterGrid, ROCK_RADIUS } from './starter';
 import { leakDamage, rockHp, rockReward, tierOfTime, wholeRockHp } from '../econ/economy';
-import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
+import { easeK, EASE_TIME, SPAWN_INVULN_SECONDS } from '../engine/control';
 import { fireRateMul, hitRadiusOf, shotSpeedMul } from '../data/hulls';
 import { speciesOf } from '../data/species';
 import { ENEMIES } from '../data/enemies';
@@ -59,7 +59,7 @@ export class World {
   /**
    * Spawn safety. A world made with `safeStart` keeps the ship at its start spot until beginControl(); the screen
    * calls that on the first pointer move or press. Then the ship eases to the pointer over EASE_TIME and the contact
-   * invulnerability lasts GRACE_TIME. Without `safeStart` (unit tests) control is immediate.
+   * invulnerability (SPAWN_INVULN_SECONDS) runs from the first frame. Without `safeStart` (unit tests) control is immediate.
    */
   controlStarted: boolean;
   private controlT: number;
@@ -161,6 +161,7 @@ export class World {
     this.controlStarted = !opts.safeStart;
     this.controlT = opts.safeStart ? 0 : Infinity;
     this.safeStart = !!opts.safeStart;
+    this.invuln = this.safeStart ? SPAWN_INVULN_SECONDS + this.mods.spawnInvuln : 0;
     this.projSys.onHit = (e, dmg, x, y, kind = 0) => {
       this.hits.push({ enemyId: e.id, damage: dmg, x, y, kind, armor: e.armor, shield: e.shield, maxShield: e.maxShield });
       // A shield regenerates SHIELD_REGEN_DELAY after the last hit; a burn tick does not hold it back (as on the wall).
@@ -261,7 +262,7 @@ export class World {
     this.waveEvents.length = 0;
     this.hull = this.maxHull;
     this.secondChancesLeft = this.mods.secondChances;
-    this.invuln = 0;
+    this.invuln = this.safeStart ? SPAWN_INVULN_SECONDS + this.mods.spawnInvuln : 0;
     this.knockX = 0;
     this.knockY = 0;
     this.mitosis.enemies.length = 0;
@@ -325,12 +326,11 @@ export class World {
     if (this.controlStarted) this.controlT = 0;
   }
 
-  /** The player's first move: the ship starts easing to the pointer and is untouchable by enemies for GRACE_TIME. */
+  /** The player's first move: the ship starts easing to the pointer (the spawn invulnerability runs from the start of the run, 24d). */
   beginControl() {
     if (this.controlStarted) return;
     this.controlStarted = true;
     this.controlT = 0;
-    this.invuln = Math.max(this.invuln, GRACE_TIME + this.mods.spawnInvuln);
   }
 
   /** Tests and debugging: puts the ship at a place at once (the pointer cannot: it flies at SHIP_MAX_SPEED at most). */

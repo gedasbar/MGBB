@@ -1,3 +1,4 @@
+import { SPAWN_INVULN_SECONDS } from '../src/engine/control';
 import { describe, it, expect } from 'vitest';
 import {
   HERO_LEVEL_BASE_DAMAGE, heroLevelCost, CAPTAINS, CAPTAIN_BY_ID, FLY_MEDAL_MILESTONES, OPTION_BY_ID, TIER_COSTS, TIER_KILLS, describeOption,
@@ -427,11 +428,11 @@ describe('hooks: survival', () => {
   it('spawn invulnerability grows by the captain bonus (both modes)', () => {
     const fly = new World({ grid: buildDartStarterGrid(), safeStart: true, modifiers: mod('bul_fortress') });
     fly.beginControl();
-    expect(fly.invuln).toBeCloseTo(1 + 2, 6);
+    expect(fly.invuln).toBeCloseTo(SPAWN_INVULN_SECONDS + 2, 6);
     const level: LevelDef = { tier: 1, cols: 21, rows: 1, cells: Array.from({ length: 21 }, () => plain), approachSpeed: 0 };
     const wall = new WallWorld(level, { grid: buildDartStarterGrid(), safeStart: true, modifiers: mod('bul_steady') });
     wall.beginControl();
-    expect(wall.invuln).toBeCloseTo(2, 6);
+    expect(wall.invuln).toBeCloseTo(SPAWN_INVULN_SECONDS + 1, 6);
   });
   it('hull %, kill heal and leak damage: more hull, kills heal up to max, leaks stay at the base size', () => {
     const w = new World({ grid: buildDartStarterGrid(), autoSpawn: false, modifiers: mod('bul_plating', 'bul_salvage') });
