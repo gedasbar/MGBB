@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
-  BACKGROUNDS, BACKGROUND_IDS, backgroundForTier, backgroundMaxLuminance, clearBackgroundCache, freeFlyThemeAt, layerTexture,
+  BACKGROUNDS, BACKGROUND_IDS, backgroundForTier, backgroundMaxLuminance, clearBackgroundCache, freeFlyThemeAt, layerTexture, layerTileOffset,
 } from '../src/ui/background';
 import { generateLevel, MAX_TIER } from '../src/wall/generator';
+import { WallCamera } from '../src/wall/camera';
 
 describe('backgrounds', () => {
   it('stay low contrast: dark base, dim stars, rock masses only a little lighter than the base', () => {
@@ -42,5 +43,37 @@ describe('backgrounds', () => {
     layerTexture(renderer, BACKGROUNDS.ember, 1);
     expect(b).toBe(a);
     expect(made).toBe(2);
+  });
+});
+
+describe('background across the ring seam (24c)', () => {
+  const W = 21 * 54; // any ring width
+  const H = 0.25, P = 0.5;
+  const offsetAt = (cam: WallCamera) => layerTileOffset(0, cam.unwrappedX, H, P).x;
+
+  it('the sideways offset has no jump when the camera wraps past the seam', () => {
+    const cam = new WallCamera(0, W - 540, W);
+    cam.x = W - 10; // just left of the seam; startX stays the centred start
+    const before = offsetAt(cam), beforeX = cam.x;
+    cam.update(0.1, 540); // pushes right past the seam
+    expect(cam.x).toBeLessThan(beforeX); // it wrapped
+    const step = cam.speed * 0.1;
+    expect(offsetAt(cam) - before).toBeCloseTo(-step * H * P, 6);
+    expect(Math.abs(offsetAt(cam) - before)).toBeLessThan(50);
+  });
+
+  it('keeps moving the same way over several laps, the wrapped x would not', () => {
+    const cam = new WallCamera(0, W - 540, W);
+    const start = offsetAt(cam);
+    for (let i = 0; i < 2000; i++) cam.update(1 / 60, 540);
+    expect(cam.travel).toBeGreaterThan(W * 2);
+    expect(offsetAt(cam)).toBeCloseTo(start - cam.travel * H * P, 3);
+    expect(layerTileOffset(0, cam.x, H, P).x).not.toBeCloseTo(offsetAt(cam), 0);
+  });
+
+  it('a flat wall uses the plain camera x', () => {
+    const cam = new WallCamera(0, 400);
+    cam.update(0.2, 540);
+    expect(cam.unwrappedX).toBe(cam.x);
   });
 });

@@ -65,7 +65,9 @@ const wallState = (page) => page.evaluate(() => window.__mgbm.state());
   const t0 = Date.now();
   await touch('touchMove', [{ x: b.x - 150 * scale, y: b.y }]); // 150 game px at once
   const near = await wallState(page);
-  check(Math.abs(near.shipScreenX - lifted.shipScreenX) < 150, `after one 150 px finger jump the ship has not arrived yet (moved ${Math.abs(near.shipScreenX - lifted.shipScreenX).toFixed(0)} px after ${Date.now() - t0} ms)`);
+  // Not "has not arrived yet" (a race on a slow machine): the ship may only have moved what the speed cap allows for the time that passed.
+  const elapsed = (Date.now() - t0) / 1000, movedPx = Math.abs(near.shipScreenX - lifted.shipScreenX);
+  check(movedPx <= 2700 * elapsed + 30, `one 150 px finger jump: the ship moved ${movedPx.toFixed(0)} px in ${(elapsed * 1000).toFixed(0)} ms, within the 2,700 px/s cap`);
   await page.waitForTimeout(400);
   const arrived = await wallState(page);
   check(Math.abs(arrived.shipScreenX - (lifted.shipScreenX - 150)) < 4, `and it arrives a moment later (${arrived.shipScreenX.toFixed(0)} vs ${(lifted.shipScreenX - 150).toFixed(0)})`);

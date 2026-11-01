@@ -289,7 +289,7 @@ function partD() {
     ['wall speed x1.4', t => ({ approachSpeed: approachSpeedFor(t) * 1.4 })],
     ['rows x0.5', t => ({ rows: Math.max(4, Math.round(rowsForTier(t) * 0.5)) })],
     ['rows x2', t => ({ rows: Math.round(rowsForTier(t) * 2) })],
-    ['spike (HP x1.6)', t => ({ hp: wholeHp(blockHp(t) * SPIKE_HP_MUL) })],
+    ['spike (HP x2.0)', t => ({ hp: wholeHp(blockHp(t) * SPIKE_HP_MUL) })],
     ['HP x2', t => ({ hp: wholeHp(blockHp(t) * 2) })],
   ];
   const base = ts.map(t => needsOfSpec(slabSpec(t)));

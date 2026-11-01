@@ -373,7 +373,7 @@ export class FrontierScreen implements Screen {
       this.stateText.text = STATE_LABEL[st];
       this.medalText.text = medalShown(this.f, x, y) ? '·  Medal on first clear' : '';
       this.medalText.x = this.stateText.x + this.stateText.width + 10;
-      this.spikeText.text = lv.spike ? (kind === 'freefly' ? 'SPIKE: every enemy has 1.6x HP' : 'SPIKE: every block has 1.6x HP') : '';
+      this.spikeText.text = lv.spike ? (kind === 'freefly' ? 'SPIKE: every enemy has 2x HP' : 'SPIKE: every block has 1.6x HP') : '';
     }
     // A square on a threshold ring names its unlock (in place of the counts line).
     const us = unlocksOnSquare(x, y);
