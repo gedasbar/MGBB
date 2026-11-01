@@ -5,7 +5,7 @@ trade-offs between free cells, ejectors, fire rate, shot speed and size.
 
 ## How to read the drawings
 
-`G` generator (always on the bottom edge, it emits upward), `E` ejector (always fires up), `.` a buildable cell, blank = outside the hull.
+`G` generator (always on the bottom edge, it emits upward), `E` ejector (takes a signal from any side and fires out of the opposite side, chunk 25a; every hull so far is reached from below, so it fires up), `.` a buildable cell, blank = outside the hull.
 "Cells" in the ladder means buildable cells (the dots). The signal only leaves the generator going up, so the cell above
 the G is always buildable and the rest of the hull is reached by turning (Turn Left / Turn Right) from there.
 

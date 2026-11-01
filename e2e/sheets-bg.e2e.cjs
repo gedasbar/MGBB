@@ -25,7 +25,7 @@ const OUT = path.join(__dirname, '..', 'reports', 'chunk8a');
       [[70, 150, 11], [180, 210, 4], [110, 290, 26], [220, 330, 3]].forEach(([x, y, rid]) => {
         const r = new RockView('mitotic_rock', rid, 20); r.update(rid % 2 ? 0.4 : 0, 0.02, false); r.container.position.set(x, y); cell.addChild(r.container);
       });
-      const ship = new ShipView(app.renderer, 'twin', [{ x: 0, y: -3.5, dir: 'N' }]); ship.setPosition(135, 420); cell.addChild(ship.container);
+      const ship = new ShipView(app.renderer, 'twin'); ship.setPosition(135, 420); cell.addChild(ship.container);
       const label = new PIXI.Text({ text: id, style: { fill: 0x8a8a90, fontSize: 11, fontFamily: 'monospace' } }); label.position.set(6, H - 18); cell.addChild(label);
       const mask = new PIXI.Graphics().rect(0, 0, 540, 960).fill(0xffffff); mask.scale.set(0.5);
       cell.scale.set(0.5);

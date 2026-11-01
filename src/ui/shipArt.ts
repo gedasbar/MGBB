@@ -200,19 +200,15 @@ export function shipThumbnail(renderer: TextureMaker, id: string, px: number): S
   return s;
 }
 
-/** A muzzle tick sits where an ejector's shots leave. */
-export interface MuzzleSpot { x: number; y: number; dir: 'N' | 'E' | 'S' | 'W' }
-
 /**
- * A ship in the Fly screens: the cached art and a small light-grey notch at every ejector's firing position. There is no
- * dot: the hit point is an invisible circle at the ship centre (HIT_RADIUS), so touching any part of the art reads as death.
+ * A ship in the Fly screens: the cached art only (chunk 25a: no marks where shots leave). There is no dot: the hit point is
+ * an invisible circle at the ship centre (HIT_RADIUS), so touching any part of the art reads as death.
  */
 export class ShipView {
   readonly container = new Container();
   private art: Sprite;
-  private ticks = new Graphics();
 
-  constructor(renderer: TextureMaker, hullId: string, muzzles: MuzzleSpot[]) {
+  constructor(renderer: TextureMaker, hullId: string) {
     const k = CONFIG.VIEW.W / 540;
     const def = SHIP_ART[hullId] ?? SHIP_ART.dart;
     this.art = new Sprite(getShipTexture(renderer, hullId));
@@ -220,13 +216,7 @@ export class ShipView {
     const a = artSizeOf(hullId);
     this.art.width = a.w * def.size * k;
     this.art.height = a.h * def.size * k;
-    for (const m of muzzles) {
-      const along = m.dir === 'E' || m.dir === 'W';
-      const w = along ? 3 : 1.5;
-      const h = along ? 1.5 : 3;
-      this.ticks.rect(m.x - w / 2, m.y - h / 2, w, h).fill(SHIP_EDGE);
-    }
-    this.container.addChild(this.art, this.ticks);
+    this.container.addChild(this.art);
   }
 
   setPosition(x: number, y: number) { this.container.position.set(x, y); }

@@ -166,10 +166,7 @@ export class WallScreen implements Screen {
     // A ring wall: the camera is unclamped and wraps; a flat wall (wrap: false) clamps to its width.
     this.camera = this.world.ring ? new WallCamera(0, worldW - VIEW_W, worldW) : new WallCamera(0, worldW - VIEW_W);
 
-    this.ship = new ShipView(
-      this.sm.app.renderer, grid.hullId ?? 'shuttle',
-      this.world.recipes.map((r, i) => ({ x: this.world.spawnOffsets[i].x, y: this.world.spawnOffsets[i].y, dir: r.direction })),
-    );
+    this.ship = new ShipView(this.sm.app.renderer, grid.hullId ?? 'shuttle');
     this.container.addChild(this.blockLayer, this.projLayer, this.ship.container, this.fxLayer, this.uiLayer);
     this.fxLayer.addChild(this.fieldG, this.arcG);
     const forcedBg = forcedBackground();

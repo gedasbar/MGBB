@@ -42,10 +42,9 @@ export const MIN_START_GAP_CELLS = 6;
 
 /**
  * Every ejector's offset from the ship centre is multiplied by this, in Free Fly and in the walls, so a gun built to the
- * side of the hull still carves a lane the ship fits in. (The brief asked for 0.35; with the 7 px hit point that leaves
- * 5 px to the lane edge instead of the required 8, so it is 0.25.)
+ * side of the hull still carves a lane the ship fits in. (Chunk 25a: halved from 0.25 to 0.125, shots stand closer together.)
  */
-export const FIRE_OFFSET_SCALE = 0.25;
+export const FIRE_OFFSET_SCALE = 0.125;
 
 /** Edge-push camera: the outer share of the screen width that scrolls, and its top speed in px/s. */
 export const EDGE_ZONE = 0.18;

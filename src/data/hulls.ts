@@ -97,7 +97,7 @@ export function hitRadiusOf(hullId?: string): number {
 export const SINGLE_LANE_EJECTORS = 1;
 export const WIDE_COVERAGE_EJECTORS = 3;
 export const SINGLE_LANE_TRAIT = 'Single lane: strong on one target, slow to clear wide walls';
-export const WIDE_COVERAGE_TRAIT = 'Wide coverage: clears walls fast';
+export const WIDE_COVERAGE_TRAIT = 'Several guns: more shots a pulse, packed in a tight spread';
 /** The trait line of a hull with this many ejectors, or null. */
 export function hullTrait(ejectors: number): string | null {
   if (ejectors <= SINGLE_LANE_EJECTORS) return SINGLE_LANE_TRAIT;
