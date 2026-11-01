@@ -1,6 +1,7 @@
-/** Spawn safety (chunk 7a E4): the ship waits for the player's first move, then eases in and is briefly untouchable. */
+/** Spawn safety (chunk 7a E4): the ship waits for the player's first move, then eases in. */
 export const EASE_TIME = 0.25;
-export const GRACE_TIME = 1.0;
+/** Seconds the ship is untouchable from the FIRST FRAME of a run (24d; before, it started at the first move, so a waiting player was safe for ever). A captain option adds to it. */
+export const SPAWN_INVULN_SECONDS = 1.5;
 
 /** Smoothstep ease of the ship from its start spot to the pointer: 0 at control start, 1 after EASE_TIME. */
 export function easeK(t: number): number {

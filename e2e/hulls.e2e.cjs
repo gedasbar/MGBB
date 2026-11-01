@@ -30,7 +30,11 @@ async function revealRow(page, id) {
   for (let i = 0; i < 12; i++) {
     const r = await picker(page, 'p.rowScreenRect(arg)', id);
     const lr = await picker(page, 'p.inList(270, 300)');
-    if (r && r.y > 170 && r.y + r.h < 780) return r;
+    if (r && r.y > 170 && r.y + r.h < 780) {
+      // The list may still be gliding after the wheel: hand the row back only once its place has stopped changing (24d).
+      let prev = JSON.stringify(r);
+      return lib.waitFor(async () => { await page.waitForTimeout(100); const n = await picker(page, 'p.rowScreenRect(arg)', id); const same = JSON.stringify(n) === prev; prev = JSON.stringify(n); return same ? n : null; }, { timeout: 3000, interval: 0 });
+    }
     const box = await page.locator('canvas').boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.45);
     await page.mouse.wheel(0, r && r.y < 170 ? -200 : 200);
@@ -75,8 +79,12 @@ async function revealRow(page, id) {
   check(!(await owned(page)).includes('hornet') && (await page.evaluate(() => window.__mgbm.buildScreen.model.store.data.credits)) === 800, 'Buy without enough credits does nothing');
 
   // ---- buy the Wisp: owned, selected, credits spent, picker closed
-  const wisp = await revealRow(page, 'wisp');
-  await tap(page, ...centre(wisp));
+  // The Hornet sheet is still open and may be sliding away: tap the Wisp row until its own sheet is up (24d).
+  for (let tries = 0; tries < 6; tries++) {
+    const wisp = await revealRow(page, 'wisp');
+    await tap(page, ...centre(wisp));
+    if (await lib.waitFor(async () => (await picker(page, 'p.selected')) === 'wisp', { timeout: 1200 })) break;
+  }
   st = await picker(page, '({ sel: p.selected, buy: p.buyButtonRect() })');
   check(st.sel === 'wisp', 'tapping the Wisp opens its sheet');
   const price = (await picker(page, 'p.rowsView()')).find(r => r.id === 'wisp').price;

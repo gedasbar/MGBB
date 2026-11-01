@@ -14,6 +14,7 @@ const names = mode === 'all'
   ? fs.readdirSync(dir).filter(f => f.endsWith('.e2e.cjs')).map(f => f.replace('.e2e.cjs', '')).sort()
   : SMOKE;
 
+const PAUSE_MS = 1500;
 const base = process.env.GAME_URL || 'http://localhost:5173';
 fetch(base).then(() => run(), () => {
   console.error(`No game server at ${base}. Start it in another terminal with: npm run dev`);
@@ -30,6 +31,7 @@ function run() {
     const fails = (out.match(/^FAIL/gm) || []).length;
     const ok = r.status === 0;
     results.push(ok);
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, PAUSE_MS); // a short pause so the last browser has closed before the next starts (24d)
     console.log(`${ok ? 'ok  ' : 'FAIL'} ${n.padEnd(22)} ${String(passes).padStart(3)} checks passed, ${fails} failed, ${Math.round((Date.now() - t0) / 1000)} s`);
     if (!ok) console.log(out.split('\n').filter(l => /^FAIL|Error/.test(l)).slice(0, 8).map(l => `       ${l}`).join('\n'));
   }

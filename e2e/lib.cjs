@@ -214,6 +214,29 @@ async function openGame(browser, { viewport = { width: 540, height: 960 }, clear
 
 const state = (page) => page.evaluate(() => window.__mgbm.state());
 
+/**
+ * Waits for a condition instead of sleeping a fixed time (24d: fixed waits assume a fast machine, and the suite flaked on a loaded one).
+ * `fn` is called every `interval` ms (it may be async) until it returns something truthy, which is returned; on timeout the last
+ * (falsy) value is returned, so the check that follows reports the failure with its own message. The rule for every new script:
+ * wait for what the next step needs (a screen, a sheet, a counter), never `waitForTimeout(n)` and hope.
+ */
+async function waitFor(fn, { timeout = 5000, interval = 50 } = {}) {
+  const end = Date.now() + timeout;
+  for (;;) {
+    const v = await fn();
+    if (v || Date.now() >= end) return v;
+    await new Promise((r) => setTimeout(r, interval));
+  }
+}
+
+/** Replaces Math.random in the page with a seeded generator (mulberry32) before any game code runs: for scripts whose checks depend on rolls. */
+async function seedRandom(pageOrContext, seed = 12345) {
+  await pageOrContext.addInitScript((s) => {
+    let a = s >>> 0;
+    Math.random = () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }, seed);
+}
+
 /** Screen rect of a hull's row in the Build screen's hull picker (chunk 17a; scrolls the list through the dev hook until the row is in view). */
 async function hullRowRect(page, id) {
   return page.evaluate((hull) => {
@@ -234,6 +257,6 @@ async function shot(page, name) {
 }
 
 module.exports = {
-  chromium, URL, OUT, VIEW, check, counts, gameToClient, park, tap, drag, wheel,
+  chromium, URL, OUT, VIEW, waitFor, seedRandom, check, counts, gameToClient, park, tap, drag, wheel,
   pixelAtClient, pixelsAtClient, countInRegion, countInImage, scanImage, isRedLine, AUTO_BADGE_PRED, PADLOCK_PRED, NO_SIGNAL_PRED, openGame, state, shot, hullRowRect,
 };

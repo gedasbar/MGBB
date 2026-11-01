@@ -38,15 +38,20 @@ async function buy(page, id) {
   await tap(page, ...centre(btn.rect));
 }
 async function place(page, x, y, id) {
-  const c = await page.evaluate(({ x, y }) => { const v = window.__mgbm.buildScreen.view; return { x: v.ox + (x + 0.5) * v.scale, y: v.oy + (y + 0.5) * v.scale }; }, { x, y });
-  await tap(page, c.x, c.y);
-  await tap(page, c.x, c.y);
-  await page.evaluate((id) => window.__mgbm.buildScreen.picker.reveal(id), id);
-  const r = await page.evaluate((id) => window.__mgbm.buildScreen.picker.tileScreenRect(id), id);
-  await tap(page, ...centre(r));
-  // The first tap opens the info sheet, which can scroll the list: read the tile position again.
-  const r2 = await page.evaluate((id) => window.__mgbm.buildScreen.picker.tileScreenRect(id), id);
-  await tap(page, ...centre(r2));
+  // Retry until the block is really on the cell: taps that land while the picker or its sheet is still sliding are lost (24d).
+  for (let tries = 0; tries < 4; tries++) {
+    const c = await page.evaluate(({ x, y }) => { const v = window.__mgbm.buildScreen.view; return { x: v.ox + (x + 0.5) * v.scale, y: v.oy + (y + 0.5) * v.scale }; }, { x, y });
+    const open = await page.evaluate(() => window.__mgbm.buildScreen.picker.isOpen);
+    if (!open) { await tap(page, c.x, c.y); await tap(page, c.x, c.y); }
+    await lib.waitFor(() => page.evaluate(() => window.__mgbm.buildScreen.picker.isOpen), { timeout: 2000 });
+    await page.evaluate((id) => window.__mgbm.buildScreen.picker.reveal(id), id);
+    const rect = () => page.evaluate((id) => JSON.stringify(window.__mgbm.buildScreen.picker.tileScreenRect(id)), id);
+    const settle = async () => { let prev = await rect(); await lib.waitFor(async () => { await page.waitForTimeout(100); const n = await rect(); const same = n === prev; prev = n; return same; }, { timeout: 3000, interval: 0 }); return JSON.parse(prev); };
+    await tap(page, ...centre(await settle()));
+    // The first tap opens the info sheet, which can scroll the list: read the tile position again.
+    await tap(page, ...centre(await settle()));
+    if (await lib.waitFor(() => page.evaluate(({ x, y, id }) => window.__mgbm.model.grid.cells.some(c => c.x === x && c.y === y && c.blockId === id), { x, y, id }), { timeout: 1500 })) return;
+  }
 }
 const circuit = (page) => page.evaluate(() => window.__mgbm.model.grid.cells.filter(c => c.blockId).map(c => `${c.blockId}@${c.x + 1},${c.y + 1}`));
 async function reloadToBuild(page) {

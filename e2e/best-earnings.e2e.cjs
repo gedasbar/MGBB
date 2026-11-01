@@ -134,9 +134,13 @@ async function montage(page, shots, captions, file) {
 
   // ---- Campaign panel
   const selectTier = async (t) => {
-    await page.evaluate(() => window.__mgbm.scrollTo(0)); // the map opens scrolled to the next open tier
-    const r = await page.evaluate((t) => window.__mgbm.tileScreenRect(t), t);
-    await tap(page, r.x + r.w / 2, r.y + r.h / 2, { pause: 500 });
+    // The map opens scrolled to the next open tier; a tap before the map is ready is lost, so tap again until the panel shows this tier (24d).
+    for (let attempt = 0; attempt < 4; attempt++) {
+      await page.evaluate(() => window.__mgbm.scrollTo(0));
+      const r = await page.evaluate((t) => window.__mgbm.tileScreenRect(t), t);
+      await tap(page, r.x + r.w / 2, r.y + r.h / 2, { pause: 200 });
+      if (await lib.waitFor(async () => (await state(page)).sheet.title.startsWith(`Tier ${t} `), { timeout: 1500 })) break;
+    }
     return state(page);
   };
   let st = await selectTier(3);

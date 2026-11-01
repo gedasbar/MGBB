@@ -105,8 +105,8 @@ const statsNow = (page) => page.evaluate(() => { const n = window.__mgbmStats.nu
   // The gun fires straight up, so at the edge it may hit nothing; sweep back through the middle to confirm hits and kills still work.
   const k0 = s.kills;
   await page.evaluate(() => { window.__mgbm.setTimeScale(3); window.__mgbm.world.hull = 1e9; });
-  for (let i = 0; i < 40; i++) { await move(page, 60 + (i % 20) * 22, 700); await page.waitForTimeout(100); }
-  s = await state(page);
+  // Sweep until a kill shows (at least 40 steps, at most 400): how soon a rock is under the gun depends on the waves, not on the machine (24d).
+  for (let i = 0; i < 400 && (i < 40 || s.kills <= k0); i++) { await move(page, 60 + (i % 20) * 22, 700); await page.waitForTimeout(100); s = await state(page); }
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
   check(s.kills > k0, `kills rose from ${k0} to ${s.kills} while sweeping the middle`);
 

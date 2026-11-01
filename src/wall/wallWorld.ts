@@ -11,7 +11,7 @@ import {
 } from './constants';
 import { LevelDef, rewardPerBlock } from './level';
 import { wallResult } from './result';
-import { easeK, EASE_TIME, GRACE_TIME } from '../engine/control';
+import { easeK, EASE_TIME, SPAWN_INVULN_SECONDS } from '../engine/control';
 import { fireRateMul, hitRadiusOf, shotSpeedMul } from '../data/hulls';
 import { wrapDx, wrapX } from '../engine/wrap';
 import { stepToward } from '../engine/steer';
@@ -227,7 +227,7 @@ export class WallWorld {
   /**
    * Spawn safety. With `safeStart` the ship stays at its start spot (bottom centre) and ignores the pointer until
    * beginControl() (the screen calls it on the first pointer move or press). Then it eases to the pointer over EASE_TIME and
-   * cannot crash into blocks for GRACE_TIME (`invuln`, in seconds). Without it (unit tests) the ship follows at once.
+   * cannot crash into blocks for SPAWN_INVULN_SECONDS from the first frame (`invuln`, in seconds). Without it (unit tests) the ship follows at once.
    */
   controlStarted: boolean;
   invuln = 0;
@@ -261,6 +261,7 @@ export class WallWorld {
     this.secondChancesLeft = this.mods.secondChances;
     this.controlStarted = !opts.safeStart;
     this.controlT = opts.safeStart ? 0 : Infinity;
+    this.invuln = opts.safeStart ? SPAWN_INVULN_SECONDS + this.mods.spawnInvuln : 0;
     this.ring = level.wrap !== false;
     this.worldW = level.cols * CELL;
     this.shipX = this.worldW / 2;
@@ -427,12 +428,11 @@ export class WallWorld {
     if (this.controlStarted) this.controlT = 0;
   }
 
-  /** The player's first move: the ship starts easing to the pointer and cannot crash for GRACE_TIME. */
+  /** The player's first move: the ship starts easing to the pointer (the spawn invulnerability runs from the start of the run, 24d). */
   beginControl() {
     if (this.controlStarted) return;
     this.controlStarted = true;
     this.controlT = 0;
-    this.invuln = GRACE_TIME + this.mods.spawnInvuln;
   }
 
   /** Tests and debugging: puts the ship at a place at once (the pointer cannot: it flies at SHIP_MAX_SPEED at most, and the hit test sweeps its path). */
