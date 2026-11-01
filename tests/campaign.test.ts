@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateLevel, isSpike, MAX_SPIKES, MIN_SPIKES, ARMOR_START, SHIELD_START, blocksForTier } from '../src/wall/generator';
-import { LevelDef, totalHp, countBlocks, blockHp } from '../src/wall/level';
+import { LevelDef, totalHp, countBlocks, blockHp, rowsForTier } from '../src/wall/level';
 
 const all = Array.from({ length: 100 }, (_, i) => generateLevel(i + 1));
 
@@ -26,7 +26,7 @@ describe('Level generator', () => {
     }
   });
 
-  it('has 8 to 16 spike tiers, none in tiers 1-5, none on a milestone, HP x1.6 with the flag', () => {
+  it('has 8 to 16 spike tiers, none in tiers 1-5, none on a milestone, HP x2.0 with the flag', () => {
     const spikes = all.filter(l => l.spike);
     expect(spikes.length).toBeGreaterThanOrEqual(MIN_SPIKES);
     expect(spikes.length).toBeLessThanOrEqual(MAX_SPIKES);
@@ -35,10 +35,19 @@ describe('Level generator', () => {
       expect(l.tier % 10).not.toBe(0);
       expect(isSpike(l.tier)).toBe(true);
       const first = l.cells.find(c => c)!;
-      expect(first.hp).toBe(Math.round(blockHp(l.tier) * 1.6));
+      expect(first.hp).toBe(Math.round(blockHp(l.tier) * 2));
     }
     const plain = all.find(l => !l.spike)!;
     expect(plain.cells.find(c => c)!.hp).toBeCloseTo(blockHp(plain.tier), 6);
+  });
+
+  it('every spike tier is a full slab: every cell of every row holds a block', () => {
+    for (const l of all.filter(x => x.spike)) {
+      expect(l.cells.every(c => c !== null)).toBe(true);
+      expect(l.cells.length).toBe(l.cols * l.rows);
+      expect(l.rows).toBe(rowsForTier(l.tier));
+    }
+    expect(all.filter(x => !x.spike).some(x => x.cells.some(c => c === null))).toBe(true);
   });
 
   it('every tier has a name and a hint; milestones are hand-defined, flagged and never spikes', () => {

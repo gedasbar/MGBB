@@ -48,7 +48,7 @@ export const MAP_SPEED_MUL: [number, number] = [0.85, 1.25];
 export const MAP_SHARE_MAX = 0.6;
 export const MAP_ROWS_MIN = 4;
 export const MAP_ROWS_MAX = 60;
-/** Chance a square is a spike square (1.6x HP, Ember background, as campaign spikes). */
+/** Chance a square is a spike square (2x HP, Ember background, as campaign spikes). */
 export const MAP_SPIKE_CHANCE = 1 / 8;
 
 /**

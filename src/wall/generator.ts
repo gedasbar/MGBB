@@ -3,7 +3,8 @@ import { approachSpeedFor, WALL_COLS } from './constants';
 import { BlockDef, blockHp, LevelDef, rowsForTier, wholeHp } from './level';
 
 export const MAX_TIER = 100;
-export const SPIKE_HP_MUL = 1.6;
+/** Spike tiers and squares: every block has this much more HP, and the wall is a full slab (24c: 1.6 -> 2.0). */
+export const SPIKE_HP_MUL = 2.0;
 /** First tier with armored blocks / shielded blocks. */
 export const ARMOR_START = 11;
 export const SHIELD_START = 21;
@@ -40,6 +41,9 @@ const TEMPLATES: Template[] = [
   { name: 'Rings', hint: 'Nested rings: each ring has to be broken before the next.', shape: (rb, c, h) => Math.min(rb, h - 1 - rb, c, WALL_COLS - 1 - c) % 3 === 0 },
   { name: 'Stairs', hint: 'A staircase: the left side comes first, climb along it.', shape: (rb, c, h) => c < 6 + Math.floor((rb * 15) / Math.max(1, h - 1)) },
 ];
+
+/** The spike wall (24c): a complete slab, no gaps. */
+const SPIKE_SLAB: Template = { name: 'Spike Slab', hint: 'A solid slab with no gaps: every block has double HP.', shape: () => true };
 
 interface Milestone { name: string; hint: string; shape: Shape; armor?: Mode; shield?: Mode; armorFrac?: number; shieldFrac?: number }
 
@@ -162,11 +166,12 @@ export function generateLevel(tier: number): LevelDef {
 /** Builds the wall a spec describes. Pure: the same spec always gives the same wall. */
 export function buildWall(spec: WallSpec): LevelDef {
   const t = spec.tier;
-  const ms = spec.milestoneTier !== undefined ? MILESTONES[spec.milestoneTier] : undefined;
-  const tpl = ms ?? TEMPLATES[((spec.template % TEMPLATES.length) + TEMPLATES.length) % TEMPLATES.length];
+  const ms = spec.milestoneTier !== undefined && !spec.spike ? MILESTONES[spec.milestoneTier] : undefined;
   const spike = spec.spike;
+  const tpl = spike ? SPIKE_SLAB : ms ?? TEMPLATES[((spec.template % TEMPLATES.length) + TEMPLATES.length) % TEMPLATES.length];
   const rows = spec.rows;
-  const target = spec.target;
+  // A spike slab is whole: the WALL_GAPS the other walls lose are not taken out.
+  const target = spike ? WALL_COLS * rows : spec.target;
   const seed = spec.seed;
 
   // Grow the shape upward until it holds enough blocks, then trim the surplus from the far (top) end.

@@ -176,7 +176,7 @@ export class MapScreen implements Screen {
     const info = this.tileInfo(this.selected);
     this.title.text = `Tier ${this.selected} · ${level.name}`;
     this.hint.text = level.hint ?? '';
-    this.spikeLine.text = level.spike ? 'SPIKE: every block has 1.6x HP' : '';
+    this.spikeLine.text = level.spike ? 'SPIKE: every block has 2x HP' : '';
     const key = String(this.selected);
     const pct = p.wallBestPct[key];
     const passTime = p.wallBestTime[key];

@@ -18,6 +18,7 @@
     "test:e2e:all": "node scripts/run-e2e.cjs all",
     "audit": "vite-node scripts/block-audit.ts",
     "balance-econ": "vite-node scripts/balance-econ.ts",
+    "spike-botcheck": "vite-node scripts/spike-botcheck.ts",
     "balance-wall": "vite-node scripts/balance-wall.ts",
     "balance-blocks": "vite-node scripts/balance-blocks11a.ts",
     "balance-captains": "vite-node scripts/balance-captains.ts",

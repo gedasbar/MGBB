@@ -55,10 +55,16 @@ export class WallCamera {
   constructor(readonly minX = 0, readonly maxX = CAMERA_MAX_X, readonly wrapW = 0) {
     // Centred: the ship starts above the middle column.
     this.x = wrapW > 0 ? wrapX((wrapW - VIEW_W) / 2, wrapW) : Math.max(minX, Math.min(maxX, (minX + maxX) / 2));
+    this.startX = this.x;
   }
 
   /** Unwrapped distance travelled (rings). */
   travel = 0;
+  /** Where the camera started (rings: the unwrapped x is this + travel). */
+  readonly startX: number;
+
+  /** The camera x with no wrap (24c): continuous across the seam of a ring, so the background does not jump back. A flat wall: x. */
+  get unwrappedX(): number { return this.wrapW > 0 ? this.startX + this.travel : this.x; }
 
   /** `pointerX` is the (clamped) ship screen x in px, or null when nothing should push (touch released, pointer unseen). */
   update(dt: number, pointerX: number | null) {

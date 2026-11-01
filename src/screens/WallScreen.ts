@@ -231,7 +231,7 @@ export class WallScreen implements Screen {
     const w = this.world;
     return {
       state: w.state, time: w.time, finishY: w.finishY, progress: w.progress, alive: w.alive, total: w.total, destroyed: w.destroyed,
-      credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), scrollSpeed: w.scroll, cameraX: this.camera.x, cameraSpeed: this.camera.speed,
+      credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), scrollSpeed: w.scroll, cameraX: this.camera.x, cameraSpeed: this.camera.speed, bgCamX: this.bg ? this.bg.camX : null,
       controlStarted: w.controlStarted, invuln: w.invuln, shipWorldX: w.shipX, shipScreenX: this.sx(w.shipX), camTravel: this.camera.travel, worldW: w.worldW, ring: w.ring, shipY: w.shipY, projectiles: w.pool.count,
       hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.levelDef.name ?? '', nameLabel: this.nameText.text, square: this.squareText.text, spike: this.spikeBadge.visible, spikeBox: this.spikeBadge.visible ? { x: this.spikeBadge.x, w: SPIKE_BADGE.w } : null, plate: this.hudSize, blocks: this.blocksText.text },
       drawn: this.lastDrawn.length,
@@ -320,7 +320,7 @@ export class WallScreen implements Screen {
     for (const h of w.hits) this.sfxFeed.hit({ id: h.blockId, damage: h.damage, kind: h.kind, armor: h.armor, shield: h.shield, maxShield: h.maxShield }, false);
     if (w.state !== 'playing' && !this.endSounded) { this.endSounded = true; sfx.play(w.state === 'crashed' ? 'crash' : 'cleared'); }
     // The background scrolls with the real wall speed (top-edge boost included); on a ring also sideways with the camera.
-    if (this.bg) this.bg.update(frameTime, w.state === 'playing' ? w.scroll : 0, w.ring ? this.camera.x : 0);
+    if (this.bg) this.bg.update(frameTime, w.state === 'playing' ? w.scroll : 0, w.ring ? this.camera.unwrappedX : 0);
 
     // Credit popups: a small yellow +N each time the running total crosses a whole credit.
     for (const k of w.killEvents) {

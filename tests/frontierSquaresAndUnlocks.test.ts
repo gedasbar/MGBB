@@ -91,7 +91,7 @@ describe('Free Fly squares: encounter', () => {
     expect(Math.max(...a.map(s => s.at))).toBeLessThan(fly!.duration);
   });
 
-  it('World plays an encounter: fixed tier, spike HP x1.6, ends survived at the duration', () => {
+  it('World plays an encounter: fixed tier, spike HP x2.0, ends survived at the duration', () => {
     let fly = null;
     for (let x = 2; x < 60 && !fly; x++) fly = squareLevel(x, 11, SEED).fly ?? null;
     const enc = (hpMul: number) => ({ plan: planEncounter(fly!), wave: fly!.wave, tier: fly!.tier, hpMul, duration: fly!.duration });
@@ -99,13 +99,13 @@ describe('Free Fly squares: encounter', () => {
     rng.reset(1);
     const w1 = new World({ seed: 5, encounter: enc(1), grid: { hullId: 'dart', cells: [] } as any });
     rng.reset(1);
-    const w2 = new World({ seed: 5, encounter: enc(1.6), grid: { hullId: 'dart', cells: [] } as any });
+    const w2 = new World({ seed: 5, encounter: enc(2), grid: { hullId: 'dart', cells: [] } as any });
     w1.god = w2.god = true;
     for (let i = 0; i < 120; i++) { w1.update(1 / 60, p); w2.update(1 / 60, p); }
     expect(w1.tier).toBe(fly!.tier);
     expect(w1.mitosis.enemies.length).toBeGreaterThan(0);
     const e1 = w1.mitosis.enemies[0], e2 = w2.mitosis.enemies[0];
-    expect(e2.maxHp / e1.maxHp).toBeCloseTo(1.6, 1);
+    expect(e2.maxHp / e1.maxHp).toBeCloseTo(2, 1);
     for (let i = 0; i < 60 * 70 && !w1.gameOver; i++) w1.update(1 / 60, p);
     expect(w1.survived).toBe(true);
     expect(w1.time).toBe(fly!.duration);

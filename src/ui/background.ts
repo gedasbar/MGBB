@@ -147,6 +147,11 @@ export function layerTexture(renderer: TextureMaker, def: BackgroundDef, index: 
 /** For tests: forget the cached textures. */
 export function clearBackgroundCache() { texCache.clear(); }
 
+/** Tile offset of a layer (px): sideways follows the camera x (UNWRAPPED on a ring, 24c), down follows the scroll. Linear, so it has no seam. */
+export function layerTileOffset(y: number, camX: number, hFactor: number, parallax: number): { x: number; y: number } {
+  return { x: -camX * hFactor * parallax, y: y * parallax };
+}
+
 class LayerSet {
   readonly container = new Container();
   private sprites: TilingSprite[] = [];
@@ -164,7 +169,8 @@ class LayerSet {
   setScroll(y: number, camX: number, hFactor: number) {
     for (let i = 0; i < this.sprites.length; i++) {
       const p = this.def.layers[i].parallax;
-      this.sprites[i].tilePosition.set(-camX * hFactor * p, y * p);
+      const o = layerTileOffset(y, camX, hFactor, p);
+      this.sprites[i].tilePosition.set(o.x, o.y);
     }
   }
 }
@@ -180,6 +186,8 @@ export class BackgroundView {
   private fade = 0;
   private fadeTime = CROSSFADE_SECONDS;
   private y = 0;
+  /** The last sideways camera x it was given (unwrapped on a ring); the debug state reads it. */
+  camX = 0;
   /** Horizontal scroll share (rings only; Free Fly passes camX 0). */
   hFactor = 0.25;
 
@@ -220,9 +228,10 @@ export class BackgroundView {
     this.next = null;
   }
 
-  /** `speed` px/s of scroll (down), `camX` the camera x on rings (0 elsewhere). */
+  /** `speed` px/s of scroll (down), `camX` the UNWRAPPED camera x on rings (0 elsewhere). */
   update(dt: number, speed: number, camX = 0) {
     this.y += speed * dt;
+    this.camX = camX;
     this.cur.setScroll(this.y, camX, this.hFactor);
     if (this.next) {
       this.next.setScroll(this.y, camX, this.hFactor);

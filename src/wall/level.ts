@@ -20,7 +20,7 @@ export interface LevelDef {
   approachSpeed: number;
   /** Set by the campaign generator: results of this level count toward the campaign progress. */
   campaign?: boolean;
-  /** Spike tier: every block has 1.6x HP. */
+  /** Spike tier: every block has 2x HP. */
   spike?: boolean;
   /** Hand-defined milestone tier (10, 20, ... 100). */
   milestone?: boolean;
