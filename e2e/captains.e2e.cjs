@@ -146,6 +146,7 @@ const centre = (r) => [r.x + r.w / 2, r.y + r.h / 2];
   await page.evaluate(() => { const g = document.getElementById('dbg-god'); g.checked = false; g.dispatchEvent(new Event('change')); });
   await page.evaluate(() => {
     const w = window.__mgbm.wall;
+    w.invuln = 0; // the spawn invulnerability (24d) runs from the first frame; this check is about Second Chance
     const b = w.all.find(x => w.blocks[x.row * w.level.cols + x.col] === x);
     w.shipX = b.x;
     w.shipY = 400;

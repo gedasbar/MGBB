@@ -75,6 +75,7 @@ async function place(page, at, tileKey) {
 
   // ------------------------------------------------------------------ picker details on an occupied cell
   await openPicker(page, cell(9, 6));
+  await lib.waitFor(() => page.evaluate(() => window.__mgbm.buildScreen.picker.tiles.length > 0), { timeout: 3000 });
   const pk = await page.evaluate(() => { const p = window.__mgbm.buildScreen.picker; return { open: p.isOpen, first: p.tiles[0].id, selected: p.selected }; });
   check(pk.open && pk.first === '__remove' && pk.selected === 'flat_plus', `occupied cell: Remove tile first, current block highlighted (${JSON.stringify(pk)})`);
   await shot(page, 'b31_picker_occupied_cell.png');
@@ -134,13 +135,14 @@ async function place(page, at, tileKey) {
   const [cx, cy] = fanCell(5, 5);
   const sc = FAN_CELL / 64; // content units -> game px
   const samples = async (pts) => lib.pixelsAtClient(page, await Promise.all(pts.map(([x, y]) => lib.gameToClient(page, x, y))));
-  const vertical = await samples([-14, -7, 0, 7, 14].map(o => [cx, cy + o]));
+  // Pixel reads wait for the drawing to settle (a read right after placing can catch the redraw): poll until the condition holds or 4 s pass (24d).
+  const vertical = await lib.waitFor(async () => { const v = await samples([-14, -7, 0, 7, 14].map(o => [cx, cy + o])); return v.filter(redish).length >= 2 ? v : null; }, { timeout: 4000 }) || [];
   check(vertical.filter(redish).length >= 2, 'the vertical line runs straight through the crossing cell');
-  const apex = await samples([[cx - 1, cy - 11 * sc], [cx, cy - 11 * sc], [cx + 1, cy - 11 * sc]]);
+  const apex = await lib.waitFor(async () => { const v = await samples([[cx - 1, cy - 11 * sc], [cx, cy - 11 * sc], [cx + 1, cy - 11 * sc]]); return v.some(redish) ? v : null; }, { timeout: 4000 }) || [];
   check(apex.some(redish), 'the horizontal line hops over it (arc above the crossing)');
   const gap = await samples([[cx + 6.5, cy], [cx - 6.5, cy]]);
   check(!gap.some(px => px[0] > 200), `the horizontal line has a gap under the hop (no red or dash pixels there): ${JSON.stringify(gap)}`);
-  const beyond = await samples([20, 24, 28, 32].flatMap(o => [[cx + o, cy], [cx - o, cy]]));
+  const beyond = await lib.waitFor(async () => { const v = await samples([20, 24, 28, 32].flatMap(o => [[cx + o, cy], [cx - o, cy]])); return v.filter(redish).length >= 3 ? v : null; }, { timeout: 4000 }) || [];
   check(beyond.filter(redish).length >= 3, 'the horizontal line continues on both sides of the crossing');
   await tap(page, 486, 880); // clear all, then build the three-branch circuit
 

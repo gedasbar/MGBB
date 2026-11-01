@@ -130,7 +130,7 @@ async function flyFan(page, blocks) {
   check(!(await pal(page, 'p.sheetOpen')), 'the sheet is closed for the list shot');
   shots.push(await snap(page)); caps.push('Shop, legendary tiles:\nEcho open (dot), 11 locked');
   await tapTile(page, 'frontier_echo');
-  const sheet = await pal(page, 'p.sheetContentNow'); // the sheet of the tile tapped above is still open
+  const sheet = await lib.waitFor(() => pal(page, 'p.sheetContentNow'), { timeout: 4000 }); // the sheet of the tile tapped above opens (waits for it, 24d)
   check(sheet && sheet.buy && sheet.buy.enabled && /Medals/.test(sheet.buy.label) && /^Owned 0 \/ 1$/.test(sheet.ownedLine), `info sheet: "${sheet && sheet.title}", ${sheet && sheet.ownedLine}, button "${sheet && sheet.buy && sheet.buy.label.replace('\n', ' | ')}"`);
   shots.push(await snap(page)); caps.push('Info sheet: both prices\nin the Buy button');
   await page.evaluate(() => window.__mgbm.shopScreen.palette.press('buy'));

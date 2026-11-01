@@ -53,14 +53,15 @@ const circuit = (page) => page.evaluate(() => window.__mgbm.model.grid.cells.fil
 const effects = (page) => page.evaluate(() => window.__mgbm.state().effects);
 
 /** Fly with the pointer chasing the lowest rock; `onTick` may stage things in the world. */
-async function fly(page, seconds, onTick) {
+/** Flies at least `seconds` (wall clock, 6x sim) and, while `until(effects)` is not true yet, up to 2.5 times as long (24d: whether a rock is burning by then is luck of the waves). */
+async function fly(page, seconds, onTick, until) {
   await page.evaluate(() => window.__mgbm.buildScreen.fly());
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await move(page, 270, 700);
   await page.evaluate(() => window.__mgbm.setTimeScale(6));
   const t0 = Date.now();
   let last = null;
-  while (Date.now() - t0 < seconds * 1000) {
+  while (Date.now() - t0 < seconds * 1000 || (until && !(last && until(last)) && Date.now() - t0 < seconds * 2500)) {
     const s = await state(page);
     if (!s.enemies) { console.log('INFO  run ended (state keys: ' + Object.keys(s).slice(0, 6).join(',') + ')'); break; }
     const rocks = s.enemies.filter(e => e.y < 740).sort((a, b) => b.y - a.y);
@@ -134,7 +135,7 @@ async function fly(page, seconds, onTick) {
   check(runA.every(([id, x, y]) => cc.includes(`${id}@${x + 1},${y + 1}`)), `five new blocks placed by tapping: ${cc.join(' ')}`);
   const stripA = (await state(page)).statsStrip;
   check(stripA.length >= 4, `the stats strip shows ${stripA.slice(0, 4).join(' | ')}`);
-  let fx = await fly(page, 20);
+  let fx = await fly(page, 20, null, f => f.overclockPeak > 1.05 && f.executionerHits > 0 && f.chainJumps > 0 && f.igniteApplied > 0 && f.burnTicks > 0);
   check(fx.overclockPeak > 1.05, `Overclock ramped the damage (peak x${fx.overclockPeak.toFixed(2)})`);
   check(fx.executionerHits > 0, `Executioner hit weak rocks ${fx.executionerHits} times`);
   check(fx.chainJumps > 0, `Chain Lightning jumped ${fx.chainJumps} times`);
@@ -158,7 +159,7 @@ async function fly(page, seconds, onTick) {
   fx = await fly(page, 22, async (p) => {
     // Rocks have no armor; give them some so Corrosion has something to strip (staging, not a game rule).
     await p.evaluate(() => { const w = window.__mgbm.world; if (w) for (const e of w.mitosis.enemies) if (e.armor < 10) e.armor = 10; });
-  });
+  }, f => f.capacitorEmits > 0 && f.delayReleases > 0 && f.orbitLaunches > 0 && f.boomerangReturns > 0 && f.corrosionStrips > 0);
   check(fx.capacitorEmits > 0, `Capacitor emitted ${fx.capacitorEmits} summed shots (${fx.capacitorAbsorbed} packets absorbed)`);
   check(fx.delayReleases > 0, `Delay Line released ${fx.delayReleases} shots`);
   check(fx.orbitLaunches > 0, `Orbit launched ${fx.orbitLaunches} projectiles after circling`);
@@ -193,7 +194,7 @@ async function fly(page, seconds, onTick) {
         if (w.pool.active[i] && w.pool.phase[i] === 5) { w.spawnRock(w.pool.x[i], w.pool.y[i] - 50, 1e6); }
       }
     });
-  });
+  }, f => f.alternations > 0 && f.mineDetonations > 0);
   check(fx.alternations > 0, `Alternator switched branches ${fx.alternations} times`);
   check(fx.mineDetonations > 0, `Mines detonated ${fx.mineDetonations} times`);
 
