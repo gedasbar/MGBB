@@ -219,12 +219,8 @@ function compileOnce(grid: Grid, opts: CompileOptions, ctx: CompileContext): Com
         if (cell.type === 'generator') { stop('dead-end', 'generator', noEjector('runs into a generator')); break; }
 
         if (cell.type === 'ejector') {
-          const eFacing: Dir = cell.facing ?? 'N';
-          if (dir !== eFacing) {
-            info.warning = 'Ejector entered from the wrong side';
-            stop('dead-end', 'ejector wrong side', `Signal enters the ejector at ${cellLabel(nx, ny)} from the wrong side.`);
-            break;
-          }
+          // Chunk 25a: an ejector takes a signal from any side and fires out of the opposite side, i.e. on along the signal's own way.
+          const eFacing: Dir = dir;
           closeRun(to);
           info.onPath = true;
           info.inDirs.push(dir);

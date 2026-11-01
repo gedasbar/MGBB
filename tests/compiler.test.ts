@@ -251,16 +251,6 @@ describe('compiler: the automatic red line', () => {
     expect(b.stats.estDps).toBeCloseTo((1 * 1.33 + 1) * b.stats.pulsesPerSecond, 6);
   });
 
-  it('an ejector entered from the wrong side is a dead end', () => {
-    const g = open();
-    fixed(g, 2, 6, 'generator', 'E');
-    fixed(g, 6, 6, 'ejector', 'N'); // faces north, but the signal arrives heading east
-    const res = compile(g);
-    expect(res.recipes.length).toBe(0);
-    expect(res.segments.some(s => s.kind === 'dead-end' && s.reason === 'ejector wrong side')).toBe(true);
-    expect(res.cellInfo[idx(g, 6, 6)].warning).toMatch(/wrong side/i);
-  });
-
   it('a signal entering a generator, void or the hull edge dead-ends with a reason', () => {
     const g = open();
     fixed(g, 2, 6, 'generator', 'N');

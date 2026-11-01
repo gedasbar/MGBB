@@ -31,18 +31,27 @@ function localRect(g: Graphics, cx: number, cy: number, f: Dir, lx: number, ly: 
   g.poly(pts).fill(color);
 }
 
-/** Ejector: a bullet whose pointed tip is the exit; the flat base faces the incoming line. About a 10% margin all round. */
-function drawBullet(g: Graphics, cx: number, cy: number, w: number, f: Dir) {
-  const half = w * 0.4; // half length of the bullet
-  const bw = w * 0.24; // half width
-  const tipStart = -half * 0.2; // casing runs from the base (+half) up to here
-  localRect(g, cx, cy, f, 0, (half + tipStart) / 2, bw, (half - tipStart) / 2, THEME.bulletCasing);
-  localRect(g, cx, cy, f, 0, tipStart + 1.5, bw, 1.5, THEME.hullDark);
-  const tip = [[-bw, tipStart], [bw, tipStart], [0, -half]].flatMap(([lx, ly]) => { const [px, py] = turn(f, lx, ly); return [cx + px, cy + py]; });
-  g.poly(tip).fill(THEME.bulletTip);
-  // Thin dark ring on the flat base, where the red line ends.
-  const ring = [[-bw + 2, half - 1], [bw - 2, half - 1], [bw - 2, half - 7], [-bw + 2, half - 7]].flatMap(([lx, ly]) => { const [px, py] = turn(f, lx, ly); return [cx + px, cy + py]; });
-  g.poly(ring).stroke({ color: THEME.hullDark, width: 1.5 });
+/** Direction -> the "facing north" frame used by turn(): the side a signal that travels in `d` leaves by (the exit side). */
+const SIDES: Dir[] = ['N', 'E', 'S', 'W'];
+
+/**
+ * Ejector (chunk 25a): a plate with a pipe-like inlet opening on all four sides (it takes a signal from any side) and a round
+ * bore. An arrow on the exit side shows where the shots leave: opposite the side each signal enters by. No signal, no arrow.
+ */
+function drawEjector(g: Graphics, cx: number, cy: number, w: number, fires: Dir[]) {
+  const o = w * 0.4;
+  localRect(g, cx, cy, 'N', 0, 0, o, o, THEME.bulletCasing);
+  localRect(g, cx, cy, 'N', 0, 0, o * 0.8, o * 0.8, THEME.hullDark);
+  for (const side of SIDES) {
+    // Inlet: a dark slot cut through the rim, with a lighter lip just inside it.
+    localRect(g, cx, cy, side, 0, -o + 2, w * 0.13, 3.2, THEME.hullDark);
+    localRect(g, cx, cy, side, 0, -o * 0.8 + 1.2, w * 0.13, 1.2, THEME.bulletTip);
+  }
+  g.circle(cx, cy, o * 0.34).fill(THEME.bulletCasing);
+  for (const d of fires) {
+    const tri = [[-w * 0.13, -o * 0.55], [w * 0.13, -o * 0.55], [0, -o * 0.98]].flatMap(([lx, ly]) => { const [px, py] = turn(d, lx, ly); return [cx + px, cy + py]; });
+    g.poly(tri).fill(THEME.select);
+  }
 }
 
 /** Generator: three concentric squares (outer, middle, red core) and a flat emitter notch on the edge that faces the line. */
@@ -94,7 +103,7 @@ export class GridRenderer {
 
   render(grid: Grid, compiled: CompiledShip, opts: RenderOpts) {
     this.segments = compiled.segments;
-    this.drawCells(grid);
+    this.drawCells(grid, compiled);
     this.linesG.clear();
     this.hops = computeHops(compiled.segments);
     drawLines(this.linesG, compiled.segments, this.hops);
@@ -110,18 +119,18 @@ export class GridRenderer {
     drawFlow(this.flowG, this.segments, timeMs, this.hops, this.dim);
   }
 
-  private drawCells(grid: Grid) {
+  private drawCells(grid: Grid, compiled: CompiledShip) {
     const g = this.cellsG;
     g.clear();
     // Void cells are just this flat backdrop; every hull cell lays its own grid-line square over it.
     g.rect(-3, -3, grid.w * S + 6, grid.h * S + 6).fill(THEME.voidFill);
     for (const c of grid.cells) {
       if (c.type !== 'void') g.rect(c.x * S, c.y * S, S, S).fill(THEME.cellGap);
-      this.drawCell(g, c);
+      this.drawCell(g, c, compiled.cellInfo[c.y * grid.w + c.x]);
     }
   }
 
-  private drawCell(g: Graphics, c: GridCell) {
+  private drawCell(g: Graphics, c: GridCell, info: CellInfo) {
     const x = c.x * S + PAD;
     const y = c.y * S + PAD;
     const w = S - 2 * PAD;
@@ -136,7 +145,7 @@ export class GridRenderer {
         break;
       case 'ejector':
         g.rect(x, y, w, w).fill(THEME.hullPanel);
-        drawBullet(g, cx, cy, w, c.facing ?? 'N');
+        drawEjector(g, cx, cy, w, [...new Set(info.inDirs)]);
         break;
       default:
         g.rect(x, y, w, w).fill(COLORS.cell);

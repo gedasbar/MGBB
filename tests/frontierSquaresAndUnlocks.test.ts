@@ -151,7 +151,7 @@ describe('Normal Free Fly is unchanged (waves 1-20; 18b slows it after 20)', () 
       for (let i = 0; i < 600; i++) world.update(1 / 60, p);
       stats.push({ w, wave: world.wave, tier: world.tier, kills: world.kills, credits: world.creditsExact, e: world.mitosis.enemies.map(e => [e.defId, e.generation, e.hp, e.maxHp, e.armor, e.shield, e.maxShield, e.radius, Math.round(e.x * 100), Math.round(e.y * 100)]) });
     }
-    expect(fnv(JSON.stringify(stats))).toBe('d1f7ba514aba7972');
+    expect(fnv(JSON.stringify(stats))).toBe('c86832bcf44bd6e1');
   });
   it('species and enemy data', () => {
     expect(fnv(JSON.stringify([SPECIES, ENEMIES]))).toBe('f74a8445869d7bb8');

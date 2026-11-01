@@ -162,11 +162,7 @@ export class FlyScreen implements Screen {
     this.fragPools.set('mitotic_rock', this.fragments);
     this.fragLayer.addChild(this.fragments.container);
     this.container.addChild(this.projLayer, this.enemyLayer, this.fragLayer);
-    const w = this.world;
-    this.ship = new ShipView(
-      this.screenManager.app.renderer, grid.hullId ?? 'shuttle',
-      w.recipes.map((r, i) => ({ x: w.spawnOffsets[i].x, y: w.spawnOffsets[i].y, dir: r.direction })),
-    );
+    this.ship = new ShipView(this.screenManager.app.renderer, grid.hullId ?? 'shuttle');
     this.container.addChild(this.ship.container, this.fxLayer, this.uiLayer);
     this.fxLayer.addChild(this.fieldG, this.arcG);
     if (this.bgForced !== 'off') {

@@ -182,9 +182,9 @@ const world = (page) => page.evaluate(() => {
   const first = byRi(0)[0], second = byRi(1)[0];
   check(w.stats.recipes === 2 || true, 'two recipes');
   check(first && second && first.d === 2 && second.d === 1, `main shot ${first && first.d}, new shot ${second && second.d} (Flat+ before the block only helps the main one)`);
-  check(first && second && Math.abs((second.x - first.x) - 8) < 0.01 && Math.abs(first.vx) < 1e-9, `the two shots fly 8 px apart (${second && first ? (second.x - first.x).toFixed(2) : '?'})`);
+  check(first && second && Math.abs((second.x - first.x) - 4) < 0.01 && Math.abs(first.vx) < 1e-9, `the two shots fly 4 px apart (${second && first ? (second.x - first.x).toFixed(2) : '?'})`);
   const st = await page.evaluate(() => window.__mgbm.state());
-  shots.push(await crop(page, w.shipX - 90, w.shipY - 300)); caps.push('+1 Projectile (x1): two shots\nside by side, 8 px apart\n(main 2 dmg, new one 1 dmg)');
+  shots.push(await crop(page, w.shipX - 90, w.shipY - 300)); caps.push('+1 Projectile (x1): two shots\nside by side, 4 px apart\n(main 2 dmg, new one 1 dmg)');
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
 
   // ---- 3. Curves 1 vs 4 copies.
