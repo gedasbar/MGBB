@@ -3,7 +3,7 @@
 ## 1. Spawn invulnerability
 - `SPAWN_INVULN_SECONDS = 1.5` (`src/engine/control.ts`). `World` (Free Fly, Frontier Free Fly) and `WallWorld` (campaign, Frontier walls) start with it in the constructor when `safeStart` is on, so it runs from the first frame whether or not the player touched the screen. The captain bonus still adds to it. Worlds without `safeStart` start at 0.
 - Kept: the ship waits at bottom-centre until the first touch and eases in over 0.25 s. An early tap does not change the timer. The existing blink cue now shows from the first frame. (DECISIONS 423-424.)
-- Unit tests (`tests/spawnSafety.test.ts`): invulnerable at t=0 with no input; not invulnerable at t=1.6 with no input; the same with an early tap; wall and Free Fly. Mutation check: made the timer start only at the first move again, and setting 1.5 to 1.0 -> the new tests failed; restored.
+- Unit tests (`tests/spawnSafety.test.ts`): invulnerable at t=0 with no input; not invulnerable at t=1.6 with no input; the same with an early tap; wall and Free Fly. Mutation check: set the wall's starting `invuln` to 0 -> 3 wall tests failed; restored.
 - The `captains` e2e had to clear `invuln` before its Second Chance touch (DECISIONS 425).
 
 ## 2. Flaky e2e
