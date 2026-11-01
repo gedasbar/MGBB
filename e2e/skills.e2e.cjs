@@ -83,6 +83,7 @@ async function tapNode(page, id) { const p = await nodeXY(page, id); await tap(p
   await page.evaluate(() => window.__mgbm.focus('split_three', 0.9));
   await page.waitForTimeout(200);
   await page.evaluate(() => window.__mgbm.select('cap_waypoint'));
+  await lib.waitFor(async () => (await state(page)).selected === 'cap_waypoint', { timeout: 3000 }); // the panel redraws after the select (24d)
   s = await state(page);
   check(/Needs the Waypoint block/.test(s.panel.state) && /Locked/.test(s.panel.state), `a capstone of a block not owned says so: "${s.panel.state.replace(/\n/g, ' / ')}"`);
   await page.evaluate(() => window.__mgbm.select('split_three'));
