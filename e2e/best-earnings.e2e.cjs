@@ -118,9 +118,12 @@ async function montage(page, shots, captions, file) {
   const caps = [];
 
   // ---- Seed: tiers 1..25 passed (opens the Frontier), best earnings on tier 3 and 2, on the origin square.
-  await page.evaluate(async () => {
-    const { getProgressStore } = await import('/src/econ/progress.ts');
-    const s = getProgressStore();
+  // Seed through the Map screen's own store (window.__mgbm.progress): a dynamic import of progress.ts can be a second copy of the module
+  // (Vite adds ?t= to edited files), whose store the app never sees.
+  await tap(page, 486, 930);
+  await waitScreen(page, 'map');
+  await page.evaluate(() => {
+    const s = window.__mgbm.progress;
     const d = s.data;
     d.passedTiers = Array.from({ length: 25 }, (_, i) => i + 1);
     d.clearedTiers = [1, 2];

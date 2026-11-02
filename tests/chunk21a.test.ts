@@ -38,6 +38,7 @@ function fanLine(ids: string[]): Grid {
 const times = (id: string, n: number) => Array.from({ length: n }, () => id);
 /** Recipes of the middle ejector, as [damage] in lane order. */
 const lane = (ids: string[]) => compile(fanLine(ids)).recipes.map(r => r.packet.damage);
+const near = (a: number[]) => a.map(v => Math.round(v * 1e9) / 1e9);
 
 /** The Fan with a Splitter 2 above `before` blocks: both branches turn up into the outer ejectors. */
 function splitGrid(before: string[], after: string[] = []): Grid {
@@ -68,17 +69,17 @@ describe('+1 Projectile: the compiler', () => {
     // [Flat+, +1]: the main shot has Flat+ (2), the new shot is a plain base shot (1).
     expect(lane(['plus_one'])).toEqual([2, 1]);
     // [Flat+, Percent x, +1]: Percent x was before the block, so only the main shot has it.
-    expect(lane(['percent_mult', 'plus_one'])).toEqual([3, 1]);
+    expect(near(lane(['percent_mult', 'plus_one']))).toEqual([2.4, 1]);
   });
 
   it('every block AFTER it works on both shots', () => {
-    expect(lane(['plus_one', 'percent_mult'])).toEqual([3, 1.5]);
-    expect(lane(['plus_one', 'flat_plus', 'percent_mult'])).toEqual([4.5, 3]); // (2 + 1) x 1.5 and (1 + 1) x 1.5
+    expect(near(lane(['plus_one', 'percent_mult']))).toEqual([2.4, 1.2]);
+    expect(near(lane(['plus_one', 'flat_plus', 'percent_mult']))).toEqual([3.6, 2.4]); // (2 + 1) x 1.2 and (1 + 1) x 1.2
   });
 
   it('two copies make three shots, each new one with only the blocks after its own copy', () => {
     expect(lane(times('plus_one', 2))).toEqual([2, 1, 1]);
-    expect(lane(['plus_one', 'percent_mult', 'plus_one'])).toEqual([3, 1.5, 1]);
+    expect(near(lane(['plus_one', 'percent_mult', 'plus_one']))).toEqual([2.4, 1.2, 1]);
     expect(lane(times('plus_one', 7)).length).toBe(8); // the Fan's column has room for seven blocks
   });
 
@@ -89,7 +90,7 @@ describe('+1 Projectile: the compiler', () => {
     expect(new Set(rec.map(r => r.x)).size).toBe(2);
     // A multiplier after the splitter multiplies the extra shot on both branches as well.
     const after = compile(splitGrid(['flat_plus', 'plus_one'], ['percent_mult'])).recipes;
-    expect(after.map(r => r.packet.damage).sort((a, b) => a - b)).toEqual([1.5, 1.5, 3, 3]);
+    expect(near(after.map(r => r.packet.damage).sort((a, b) => a - b))).toEqual([1.2, 1.2, 2.4, 2.4]);
   });
 
   it('Proj/pulse and the damage estimate count the extra shots', () => {

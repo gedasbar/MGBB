@@ -35,7 +35,7 @@ describe('player block texts (19b)', () => {
   it('the short text is shorter than the technical text it replaces, and level numbers still show', () => {
     for (const b of pickerBlocks()) expect(blockText(b, b.fixedLevel ?? 1).short.length, b.id).toBeLessThanOrEqual(describeBlock(b, b.fixedLevel ?? 1).length);
     expect(blockText(BLOCKS.flat_plus, 3).short).toContain('+3');
-    expect(blockText(BLOCKS.percent_mult, 1).short).toContain('1.5');
+    expect(blockText(BLOCKS.percent_mult, 1).short).toContain('1.2');
     expect(blockText(BLOCKS.lucky_strike, 2).short).toContain('38%');
   });
   it('docs/blocks.md lists every shown block with its short text (npm run blocks-doc)', () => {

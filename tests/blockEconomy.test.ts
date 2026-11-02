@@ -29,20 +29,20 @@ const mem = (init: Record<string, string> = {}) => {
 
 // ------------------------------------------------------------------ Percent x and the boosters
 describe('Percent x ladder (step 3)', () => {
-  it('x1.5 at L1, x3 at L10, geometric in between (constant ratio 2^(1/9))', () => {
-    expect(percentMul(1)).toBeCloseTo(1.5, 12);
-    expect(percentMul(10)).toBeCloseTo(3, 12);
-    expect(percentMul(5)).toBeCloseTo(1.5 * Math.pow(2, 4 / 9), 12);
-    const ratio = Math.pow(2, 1 / 9);
+  it('x1.2 at L1, x2 at L10, geometric in between (constant ratio (2/1.2)^(1/9))', () => {
+    expect(percentMul(1)).toBeCloseTo(1.2, 12);
+    expect(percentMul(10)).toBeCloseTo(2, 12);
+    expect(percentMul(5)).toBeCloseTo(1.2 * Math.pow(2 / 1.2, 4 / 9), 12);
+    const ratio = Math.pow(2 / 1.2, 1 / 9);
     for (let l = 1; l < 10; l++) expect(percentMul(l + 1) / percentMul(l)).toBeCloseTo(ratio, 12);
     expect(BLOCKS.percent_mult.maxLevel).toBe(10);
   });
   it('the compiled damage uses the ladder, and the rule text shows it', () => {
     const g = HULL_BUILDERS.twin();
     place(g, 1, 2, 'percent_mult', 10);
-    expect(compile(g).recipes[0].packet.damage).toBeCloseTo(3, 9);
-    expect(describeBlock(BLOCKS.percent_mult, 1)).toContain('×1.5');
-    expect(describeBlock(BLOCKS.percent_mult, 10)).toContain('×3');
+    expect(compile(g).recipes[0].packet.damage).toBeCloseTo(2, 9);
+    expect(describeBlock(BLOCKS.percent_mult, 1)).toContain('×1.2');
+    expect(describeBlock(BLOCKS.percent_mult, 10)).toContain('×2');
   });
   it("Gambler's Gate: 40% at L1, 45% at L2, 50% at L3 for x3; Lucky Strike and Jackpot are unchanged", () => {
     expect([1, 2, 3].map(gamblerProb)).toEqual([0.4, 0.45, 0.5]);

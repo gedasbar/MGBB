@@ -10,6 +10,7 @@ import { shotTextures } from '../ui/shotTextures';
 import { fmtBig } from '../ui/format';
 import { makeSpikeBadge, SPIKE_BADGE } from '../ui/hud';
 import { THEME } from '../ui/theme';
+import { wallFillColor, wallFlashColor } from '../ui/wallBlockLook';
 import { ShipSteer } from '../engine/steer';
 import { touchMode } from '../ui/touchMode';
 import { pushShipX, ringScreenX, WallCamera } from '../wall/camera';
@@ -50,7 +51,6 @@ const FRAME = 0x55555a;
 const FRAME_ARMOR = 0xd4d4d8;
 const INNER_BG = THEME.plateFace;
 const GREEN = 0x6fbf73;
-const GREEN_FLASH = 0xd2f0d4;
 const SHIELD_BAR = 0x5fd4e8;
 /** Faint status overlays on a block: a burning one is washed orange, a frozen one pale blue. */
 const BURN_TINT = 0xff7a1a;
@@ -408,7 +408,7 @@ export class WallScreen implements Screen {
         v.well.width = v.well.height = size - 2 * ft;
         const hpFrac = b.hp / b.maxHp;
         const inner = innerSize(hpFrac, armored);
-        v.inner.tint = b.flash > 0 ? GREEN_FLASH : GREEN;
+        v.inner.tint = b.flash > 0 ? wallFlashColor(b.maxHp) : wallFillColor(b.maxHp);
         v.inner.width = v.inner.height = inner;
         v.inner.position.set(x + (size - inner) / 2, y + (size - inner) / 2);
         const burning = (b.burnT ?? 0) > 0;
