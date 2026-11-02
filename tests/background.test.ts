@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   BACKGROUNDS, BACKGROUND_IDS, backgroundForTier, backgroundMaxLuminance, clearBackgroundCache, freeFlyThemeAt, layerTexture, layerTileOffset,
 } from '../src/ui/background';
-import { generateLevel, MAX_TIER } from '../src/wall/generator';
+import { generateLevel, CLASSIC_TIERS } from '../src/wall/generator';
 import { WallCamera } from '../src/wall/camera';
 
 describe('backgrounds', () => {
@@ -18,7 +18,7 @@ describe('backgrounds', () => {
   it('campaign schedule: bands of 20, Ember on every spike tier and only there', () => {
     const bands = ['galaxy', 'cave_blue', 'galaxy_violet', 'cave_brown', 'galaxy_red'];
     let spikes = 0;
-    for (let t = 1; t <= MAX_TIER; t++) {
+    for (let t = 1; t <= CLASSIC_TIERS; t++) {
       const l = generateLevel(t);
       const id = backgroundForTier(t, !!l.spike);
       expect(BACKGROUNDS[id], `tier ${t}`).toBeDefined();

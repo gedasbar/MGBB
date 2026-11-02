@@ -55,6 +55,10 @@ export const BACKGROUNDS: Record<string, BackgroundDef> = {
   galaxy_violet: galaxy('galaxy_violet', 0x08060e, 0xcdb8ff),
   cave_brown: cave('cave_brown', 0x0e0a07, 0x1c1510, 0x261c14),
   galaxy_red: galaxy('galaxy_red', 0x0c0505, 0xffc4c4, 2),
+  /** Chunk 27a, tiers 101-150: a teal galaxy with a denser, greener star field than the first hundred. */
+  galaxy_teal: galaxy('galaxy_teal', 0x040b0b, 0x9ff0e0, 1.6),
+  /** Chunk 27a, tiers 151-200: an angular cave in ash green-grey with a few pale specks. */
+  cave_ash: cave('cave_ash', 0x0a0c0a, 0x181b16, 0x22261d, { tint: 0xd8e0c0, density: 5 }),
   /** The one background of every spike tier: an angular cave with a dark red tint and a few faint orange specks. */
   ember: cave('ember', 0x100606, 0x1f0d0c, 0x2a1210, { tint: 0xff8c3a, density: 6 }),
 };
@@ -62,9 +66,13 @@ export const BACKGROUNDS: Record<string, BackgroundDef> = {
 export const BACKGROUND_IDS = Object.keys(BACKGROUNDS);
 
 /** Campaign schedule: bands of 20 tiers, every spike tier on Ember (milestones that are not spikes keep their band). */
+/** Chunk 27a: tiers above LATE_BG_FROM have their own two backgrounds, the second from tier LATE_BG_SPLIT + 1. */
+const LATE_BG_FROM = 100;
+const LATE_BG_SPLIT = 150;
 const BANDS = ['galaxy', 'cave_blue', 'galaxy_violet', 'cave_brown', 'galaxy_red'];
 export function backgroundForTier(tier: number, isSpike: boolean): string {
   if (isSpike) return 'ember';
+  if (tier > LATE_BG_FROM) return tier > LATE_BG_SPLIT ? 'cave_ash' : 'galaxy_teal';
   const band = Math.max(0, Math.min(BANDS.length - 1, Math.floor((tier - 1) / 20)));
   return BANDS[band];
 }

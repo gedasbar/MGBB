@@ -12,7 +12,8 @@ import { getBuilderModel } from '../builder/session';
 import { inRect, LAYOUT, Rect, VIEW_H, VIEW_W } from '../builder/layout';
 import { makeTabButtons } from '../builder/tabs';
 import { makeText, Toast, UIButton } from '../builder/ui';
-import { getProgressStore, isCleared, isFrontierUnlocked, isPassed, isUnlocked, nextTier } from '../econ/progress';
+import { classicClearedCount, getProgressStore, isCleared, isFrontierUnlocked, isPassed, isUnlocked, lateTiersOpen, nextTier } from '../econ/progress';
+import { CLASSIC_TIERS, LATE_FIRST, LATE_TYPES, LateType, lateSlot } from '../data/lateTiers';
 import { CreditsBadge, textButton, TextButton } from '../ui/hud';
 import { FrontierScreen } from './FrontierScreen';
 import { FRONTIER_NAME, MAP_UNLOCK_TIER } from '../frontier/constants';
@@ -30,7 +31,8 @@ const PAD = 10;
 const GAP = 8;
 const TILE = Math.floor((VIEW_W - 2 * PAD - (MAP_COLS - 1) * GAP) / MAP_COLS);
 const STEP = TILE + GAP;
-const ROWS = Math.ceil(MAX_TIER / MAP_COLS);
+/** Chunk 27a: the colour of the type marker (a corner triangle on a tile, the type line in the panel). */
+const TYPE_COLOR = 0x5fd0c0;
 
 const FRAME = 0x55555a;
 const FACE = 0x26262a;
@@ -42,7 +44,7 @@ const NUM_LOCKED = 0x5c5c61;
 type TileState = 'locked' | 'open' | 'passed' | 'cleared';
 
 /** Screen-independent description of a tile, also exposed to the e2e hook. */
-export interface TileInfo { tier: number; state: TileState; spike: boolean; next: boolean }
+export interface TileInfo { tier: number; state: TileState; spike: boolean; next: boolean; /** Chunk 27a: the type of a type tier (101-200). */ type?: LateType }
 
 /**
  * The campaign map: 100 square tiles in 5 columns, tier 1 at the top (the list reads left to right, top to bottom, and the
@@ -64,7 +66,8 @@ export class MapScreen implements Screen {
   private medalsText = makeText('', 22, THEME.text, { fontWeight: 'bold' });
   private title = makeText('', 20, THEME.text, { fontWeight: 'bold' });
   private hint = makeText('', 14, THEME.textDim, { wordWrap: true, wordWrapWidth: VIEW_W - 28, lineHeight: 17 });
-  private spikeLine = makeText('', 15, THEME.bad, { fontWeight: 'bold' });
+  /** The spike warning, or (tiers 101-200) the type's one short line. */
+  private spikeLine = makeText('', 15, THEME.bad, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: VIEW_W - 28 });
   private bestLine = makeText('', 16, THEME.textDim, { fontWeight: 'bold' });
   /** Chunk 19a: best credits earned in one run of the selected tier; empty when never played. */
   private earnLine = makeText('', 16, THEME.currency, { fontWeight: 'bold' });
@@ -74,7 +77,8 @@ export class MapScreen implements Screen {
 
   constructor(private sm: ScreenManager, selectTier?: number) {
     const p = this.store.data;
-    this.selected = Math.max(1, Math.min(MAX_TIER, selectTier ?? nextTier(p)));
+    // Chunk 27a: while tiers 101-200 are closed the list ends with one locked entry, which stands in for tier 101.
+    this.selected = Math.max(1, Math.min(lateTiersOpen(p) ? MAX_TIER : LATE_FIRST, selectTier ?? nextTier(p)));
     const bg = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill(THEME.bg);
     const bar = new Graphics()
       .rect(0, 0, VIEW_W, GRID_TOP).fill(THEME.panel).rect(0, GRID_TOP - 1, VIEW_W, 1).fill(THEME.border)
@@ -123,12 +127,18 @@ export class MapScreen implements Screen {
   tileInfo(tier: number): TileInfo {
     const p = this.store.data;
     const state: TileState = isCleared(p, tier) ? 'cleared' : isPassed(p, tier) ? 'passed' : isUnlocked(p, tier) ? 'open' : 'locked';
-    return { tier, state, spike: !!generateLevel(tier).spike, next: tier === nextTier(p) && !isPassed(p, tier) };
+    const slot = lateSlot(tier);
+    return { tier, state, spike: !!generateLevel(tier).spike, next: tier === nextTier(p) && !isPassed(p, tier), ...(slot ? { type: slot.type } : {}) };
   }
+
+  /** Tiers drawn in the list: 1..100, or 1..200 once every tier 1-100 is cleared. */
+  private shownTiers(): number { return lateTiersOpen(this.store.data) ? MAX_TIER : CLASSIC_TIERS; }
+  /** The locked "What happens after 100?" entry is shown while tiers 101-200 are closed. */
+  private lockedEntry(): boolean { return !lateTiersOpen(this.store.data); }
 
   private tileY(tier: number): number { return PAD + Math.floor((tier - 1) / MAP_COLS) * STEP; }
   private tileX(tier: number): number { return PAD + ((tier - 1) % MAP_COLS) * STEP; }
-  private maxScroll(): number { return Math.max(0, PAD + ROWS * STEP - (SHEET_Y - GRID_TOP)); }
+  private maxScroll(): number { return Math.max(0, PAD + (Math.ceil(this.shownTiers() / MAP_COLS) + (this.lockedEntry() ? 1 : 0)) * STEP - (SHEET_Y - GRID_TOP)); }
 
   /** Screen rectangle of a tile (game coordinates), for taps and tests. */
   tileScreenRect(tier: number): Rect {
@@ -140,7 +150,7 @@ export class MapScreen implements Screen {
     for (const ch of this.listC.removeChildren()) ch.destroy({ children: true });
     const g = new Graphics();
     this.listC.addChild(g);
-    for (let tier = 1; tier <= MAX_TIER; tier++) {
+    for (let tier = 1; tier <= this.shownTiers(); tier++) {
       const info = this.tileInfo(tier);
       const x = this.tileX(tier);
       const y = this.tileY(tier);
@@ -149,20 +159,46 @@ export class MapScreen implements Screen {
       g.rect(x, y, TILE, TILE).fill(locked ? FRAME_LOCKED : FRAME);
       g.rect(x + 3, y + 3, TILE - 6, TILE - 6).fill(locked ? FACE_LOCKED : sel ? 0x3a3a3e : FACE);
       if (info.spike) g.poly([x + 3, y + 3, x + 27, y + 3, x + 3, y + 27]).fill(THEME.bad);
+      else if (info.type) g.poly([x + 3, y + 3, x + 27, y + 3, x + 3, y + 27]).fill(locked ? NUM_LOCKED : TYPE_COLOR);
       if (info.state === 'cleared') g.circle(x + TILE - 15, y + 15, 7).fill(THEME.currency);
       else if (info.state === 'passed') g.circle(x + TILE - 15, y + 15, 6).stroke({ color: THEME.currency, width: 2 });
       if (sel) g.rect(x - 1, y - 1, TILE + 2, TILE + 2).stroke({ color: THEME.select, width: 3 });
       else if (info.next) g.rect(x, y, TILE, TILE).stroke({ color: THEME.select, width: 1.5 });
       const n = makeText(String(tier), 28, locked ? NUM_LOCKED : THEME.text, { fontWeight: 'bold' });
       n.anchor.set(0.5);
-      n.position.set(x + TILE / 2, y + TILE / 2 + 2);
+      n.position.set(x + TILE / 2, y + TILE / 2 + (info.type ? -4 : 2));
       this.listC.addChild(n);
+      if (info.type) {
+        // The type's name under the number (two short lines at most).
+        const tag = makeText(LATE_TYPES[info.type].name, 10, locked ? NUM_LOCKED : TYPE_COLOR, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: TILE - 8, lineHeight: 11 });
+        tag.anchor.set(0.5, 1);
+        tag.position.set(x + TILE / 2, y + TILE - 5);
+        this.listC.addChild(tag);
+      }
     }
+    if (this.lockedEntry()) this.drawLockedEntry(g);
     this.applyScroll();
     this.updateSheet();
     const p = this.store.data;
     this.medalsText.text = `Medals ${p.medals}`;
     this.credits.set(p.credits);
+  }
+
+  /** Chunk 27a: the entry that closes the list while tiers 101-200 are closed: a wide locked tile with the clear count. */
+  private lockedEntryRect(): Rect { return { x: PAD, y: this.tileY(LATE_FIRST), w: VIEW_W - 2 * PAD, h: TILE }; }
+  private drawLockedEntry(g: Graphics) {
+    const r = this.lockedEntryRect();
+    const sel = this.selected === LATE_FIRST;
+    g.rect(r.x, r.y, r.w, r.h).fill(FRAME_LOCKED);
+    g.rect(r.x + 3, r.y + 3, r.w - 6, r.h - 6).fill(sel ? 0x2c2c30 : FACE_LOCKED);
+    if (sel) g.rect(r.x - 1, r.y - 1, r.w + 2, r.h + 2).stroke({ color: THEME.select, width: 3 });
+    const t = makeText('What happens after 100?', 20, NUM_LOCKED, { fontWeight: 'bold' });
+    t.anchor.set(0.5);
+    t.position.set(r.x + r.w / 2, r.y + r.h / 2 - 9);
+    const c = makeText(`${classicClearedCount(this.store.data)} / ${CLASSIC_TIERS} cleared`, 15, THEME.textDim, { fontWeight: 'bold' });
+    c.anchor.set(0.5);
+    c.position.set(r.x + r.w / 2, r.y + r.h / 2 + 14);
+    this.listC.addChild(t, c);
   }
 
   private applyScroll() {
@@ -172,11 +208,22 @@ export class MapScreen implements Screen {
 
   private updateSheet() {
     const p = this.store.data;
+    if (this.lockedEntry() && this.selected === LATE_FIRST) {
+      this.title.text = 'What happens after 100?';
+      this.hint.text = 'Clear every tier from 1 to 100 (destroy all their blocks) to find out.';
+      this.spikeLine.text = '';
+      this.bestLine.text = `${classicClearedCount(p)} / ${CLASSIC_TIERS} cleared`;
+      this.earnLine.text = '';
+      this.startButton.setEnabled(false);
+      this.startButton.container.children.forEach(c => { if ((c as any).text !== undefined) (c as any).text = 'Locked'; });
+      return;
+    }
     const level = generateLevel(this.selected);
     const info = this.tileInfo(this.selected);
     this.title.text = `Tier ${this.selected} · ${level.name}`;
     this.hint.text = level.hint ?? '';
-    this.spikeLine.text = level.spike ? 'SPIKE: every block has 2x HP' : '';
+    this.spikeLine.style.fill = level.spike ? THEME.bad : TYPE_COLOR;
+    this.spikeLine.text = level.spike ? 'SPIKE: every block has 2x HP' : level.lateType ? `${level.typeLine ?? ''}${level.lateType && !LATE_TYPES[level.lateType].built ? ' (not active yet)' : ''}` : '';
     const key = String(this.selected);
     const pct = p.wallBestPct[key];
     const passTime = p.wallBestTime[key];
@@ -224,7 +271,11 @@ export class MapScreen implements Screen {
       return;
     }
     if (!this.inGrid(x, y)) return;
-    for (let tier = 1; tier <= MAX_TIER; tier++) {
+    if (this.lockedEntry()) {
+      const r = this.lockedEntryRect();
+      if (inRect({ ...r, y: GRID_TOP + r.y - this.scrollY }, x, y)) { this.select(LATE_FIRST); return; }
+    }
+    for (let tier = 1; tier <= this.shownTiers(); tier++) {
       if (inRect(this.tileScreenRect(tier), x, y)) { this.select(tier); return; }
     }
   }
@@ -273,8 +324,9 @@ export class MapScreen implements Screen {
       state: () => ({
         selected: this.selected, scrollY: this.scrollY, medals: this.store.data.medals, credits: this.store.data.credits,
         medalsText: this.medalsText.text,
-        tiles: Array.from({ length: MAX_TIER }, (_, i) => this.tileInfo(i + 1)),
-        sheet: { title: this.title.text, hint: this.hint.text, spike: this.spikeLine.text, best: this.bestLine.text, earned: this.earnLine.text, startLabel: this.startLabel(), startEnabled: this.startButton.enabled },
+        tiles: Array.from({ length: this.shownTiers() }, (_, i) => this.tileInfo(i + 1)),
+        lockedEntry: this.lockedEntry() ? { cleared: classicClearedCount(this.store.data), of: CLASSIC_TIERS, rect: { ...this.lockedEntryRect(), y: GRID_TOP + this.lockedEntryRect().y - this.scrollY } } : null,
+        sheet: { title: this.title.text, hint: this.hint.text, spike: this.spikeLine.text, typeLine: this.spikeLine.text, best: this.bestLine.text, earned: this.earnLine.text, startLabel: this.startLabel(), startEnabled: this.startButton.enabled },
         toast: this.toast.message,
       }),
       tileScreenRect: (tier: number) => this.tileScreenRect(tier),

@@ -1,4 +1,5 @@
 import { Mulberry32 } from '../rng';
+import { CLASSIC_TIERS, LATE_HP_SEGMENTS, LATE_REWARD_GROWTH, LateType, DriftVariant } from '../data/lateTiers';
 import {
   BLOCK_HP_BASE, BLOCK_HP_FIRST_END, BLOCK_HP_GROWTH, BLOCK_HP_SEGMENTS, DEFAULT_APPROACH_SPEED, WALL_ROWS_FIRST, WALL_ROWS_LAST, REWARD_BASE, REWARD_GROWTH, TEST_ARMOR, TEST_SHIELD_OF_HP, WALL_COLS,
 } from './constants';
@@ -26,6 +27,17 @@ export interface LevelDef {
   milestone?: boolean;
   /** A Frontier square (chunk 15a): results count toward that square of the grid map. */
   frontier?: { x: number; y: number };
+  /** Chunk 27a (tiers 101-200): the type of a type tier, its rank (1 = first appearance, harder each return) and the short line for the list and the panel. */
+  lateType?: LateType;
+  typeRank?: number;
+  typeLine?: string;
+  /** Multiplier on the credits of every destroyed block (a Monolith has few blocks). Missing means 1. */
+  rewardMul?: number;
+  /** Drift: the row speeds in px/s (positive = right), one per row, row 0 at the top. */
+  drift?: { variant: DriftVariant; speeds: number[] };
+  /** Maze: the first open column of every row (row 0 at the top) and the path width. */
+  mazePath?: number[];
+  mazeWidth?: number;
 }
 
 /** Size curve: WALL_ROWS_FIRST rows at tier 1 growing linearly to WALL_ROWS_LAST rows at tier 100. */
@@ -45,7 +57,23 @@ export function blockHpFloat(tier: number): number {
   return hp;
 }
 export const blockHp = (tier: number) => wholeHp(blockHpFloat(tier));
+/** Chunk 27a: block HP of a late tier (101-200) before rounding: the HP of tier 100, then LATE_HP_SEGMENTS. Tiers up to 100 read blockHpFloat. */
+export function lateBlockHpFloat(tier: number): number {
+  let hp = blockHpFloat(CLASSIC_TIERS);
+  let from = CLASSIC_TIERS;
+  for (const [to, growth] of LATE_HP_SEGMENTS) {
+    if (tier > from) hp *= Math.pow(growth, Math.min(tier, to) - from);
+    from = to;
+  }
+  return hp;
+}
+export const lateBlockHp = (tier: number) => wholeHp(lateBlockHpFloat(tier));
+/** The campaign's block HP at any tier 1..200. (The Frontier keeps reading blockHpFloat, which is flat after tier 100.) */
+export const campaignBlockHp = (tier: number) => (tier > CLASSIC_TIERS ? lateBlockHp(tier) : blockHp(tier));
 export const rewardPerBlock = (tier: number) => REWARD_BASE * Math.pow(REWARD_GROWTH, tier - 1);
+/** Chunk 27a: credits per destroyed block of a CAMPAIGN tier: rewardPerBlock up to tier 100, then LATE_REWARD_GROWTH a tier. (Frontier squares keep rewardPerBlock at their effective tier.) */
+export const campaignRewardPerBlock = (tier: number) =>
+  tier <= CLASSIC_TIERS ? rewardPerBlock(tier) : rewardPerBlock(CLASSIC_TIERS) * Math.pow(LATE_REWARD_GROWTH, tier - CLASSIC_TIERS);
 
 export const countBlocks = (level: LevelDef) => level.cells.reduce((n, c) => n + (c ? 1 : 0), 0);
 export const totalHp = (level: LevelDef) => level.cells.reduce((s, c) => s + (c ? c.hp : 0), 0);

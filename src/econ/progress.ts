@@ -1,4 +1,5 @@
 import { MAX_TIER } from '../wall/generator';
+import { CLASSIC_TIERS, LATE_CLEAR_MEDALS } from '../data/lateTiers';
 import { applySquareRun, defaultFrontier, FrontierSave, sanitizeFrontier, SquareRunOutcome } from '../frontier/state';
 import { parseKey, sqKey } from '../frontier/world';
 import { MAP_UNLOCK_TIER } from '../frontier/constants';
@@ -200,14 +201,20 @@ export function serializeProgress(p: Progress): string {
   return JSON.stringify(p);
 }
 
-/** A tier is open if it is tier 1 or the tier before it has been cleared. Spikes are not skippable. */
+/** A tier is open if it is tier 1 or the tier before it has been passed. Spikes are not skippable. Chunk 27a: tiers above 100 also need every tier 1-100 CLEARED. */
 export const isCleared = (p: Progress, tier: number) => p.clearedTiers.includes(tier);
 export const isPassed = (p: Progress, tier: number) => p.passedTiers.includes(tier);
-export const isUnlocked = (p: Progress, tier: number) => tier === 1 || (tier >= 2 && tier <= MAX_TIER && isPassed(p, tier - 1));
-/** The first tier that is open and not cleared yet (MAX_TIER + 1 when all are cleared): where the player goes next. */
+/** How many of tiers 1..100 are cleared (the progress count of the locked entry after tier 100). */
+export const classicClearedCount = (p: Progress) => p.clearedTiers.reduce((n, t) => (t >= 1 && t <= CLASSIC_TIERS ? n + 1 : n), 0);
+/** Tiers 101-200 open when all of tiers 1-100 are cleared (chunk 27a). */
+export const lateTiersOpen = (p: Progress) => classicClearedCount(p) >= CLASSIC_TIERS;
+export const isUnlocked = (p: Progress, tier: number) =>
+  tier === 1 || (tier >= 2 && tier <= MAX_TIER && isPassed(p, tier - 1) && (tier <= CLASSIC_TIERS || lateTiersOpen(p)));
+/** The first tier that is open and not passed yet: where the player goes next. Stays on tier 100 while tiers 101-200 are closed, and on the last tier when all are passed. */
 export function nextTier(p: Progress): number {
   let t = 1;
   while (t <= MAX_TIER && isPassed(p, t)) t++;
+  if (t > CLASSIC_TIERS && !lateTiersOpen(p)) return CLASSIC_TIERS;
   return Math.min(t, MAX_TIER);
 }
 
@@ -329,7 +336,7 @@ export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean;
     if (!isCleared(p, run.tier)) {
       p.clearedTiers.push(run.tier);
       p.clearedTiers.sort((a, b) => a - b);
-      const award = rollMedals(1, run.medalDouble ?? 0, run.rand ?? Math.random);
+      const award = rollMedals(run.tier > CLASSIC_TIERS ? LATE_CLEAR_MEDALS : 1, run.medalDouble ?? 0, run.rand ?? Math.random);
       p.medals += award.medals;
       medals = award.medals;
       medalDoubled = award.doubled;

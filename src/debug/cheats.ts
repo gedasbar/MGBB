@@ -2,7 +2,7 @@ import { BLOCKS } from '../data/blocks';
 import { maxLevelOf } from '../econ/economy';
 import { ProgressStore, defaultProgress } from '../econ/progress';
 import { HULL_BUILDERS } from '../game/gridUtils';
-import { MAX_TIER } from '../wall/generator';
+import { CLASSIC_TIERS } from '../wall/generator';
 import { CAPTAINS, HERO_LEVEL_SANITY_MAX } from '../captains/data';
 import { MAP_UNLOCK_TIER } from '../frontier/constants';
 import { SQ_CLEARED } from '../frontier/state';
@@ -61,10 +61,10 @@ export function ownAllHulls(store: ProgressStore) {
   store.commit();
 }
 
-/** Marks tiers 1..MAX_TIER passed (the Map opens them all). No Medal, nothing cleared, no best times. */
+/** Marks tiers 1..100 passed (the Map opens them all; tiers 101-200 also need every tier cleared, see clearAllTiers). No Medal, nothing cleared, no best times. */
 export function unlockAllTiers(store: ProgressStore) {
   const all = new Set([...store.data.passedTiers]);
-  for (let t = 1; t <= MAX_TIER; t++) all.add(t);
+  for (let t = 1; t <= CLASSIC_TIERS; t++) all.add(t);
   store.data.passedTiers = Array.from(all).sort((a, b) => a - b);
   store.commit();
 }
@@ -127,4 +127,13 @@ export function clearFrontierRing(store: ProgressStore, r: number): number {
 export function resetEverything(store: ProgressStore, builder?: { resetAll(): void } | null) {
   store.reset();
   builder?.resetAll();
+}
+
+/** Chunk 27a: marks tiers 1..100 cleared and passed (no Medals), which opens tiers 101-200. For tests and the debug panel. */
+export function clearAllClassicTiers(store: ProgressStore) {
+  const all = Array.from({ length: CLASSIC_TIERS }, (_, i) => i + 1);
+  store.data.clearedTiers = Array.from(new Set([...store.data.clearedTiers, ...all])).sort((a, b) => a - b);
+  store.data.passedTiers = Array.from(new Set([...store.data.passedTiers, ...all])).sort((a, b) => a - b);
+  store.data.highestCleared = Math.max(store.data.highestCleared, CLASSIC_TIERS);
+  store.commit();
 }

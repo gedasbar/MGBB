@@ -1,8 +1,12 @@
 import { Mulberry32 } from '../rng';
 import { approachSpeedFor, WALL_COLS } from './constants';
 import { BlockDef, blockHp, LevelDef, rowsForTier, wholeHp } from './level';
+import { buildLateLevel } from './lateWalls';
+import { CLASSIC_TIERS, LATE_LAST } from '../data/lateTiers';
 
-export const MAX_TIER = 100;
+/** Last campaign tier (chunk 27a: 200). The first hundred are CLASSIC_TIERS; tiers above are built by lateWalls.ts. */
+export const MAX_TIER = LATE_LAST;
+export { CLASSIC_TIERS };
 /** Spike tiers and squares: every block has this much more HP, and the wall is a full slab (24c: 1.6 -> 2.0). */
 export const SPIKE_HP_MUL = 2.0;
 /** First tier with armored blocks / shielded blocks. */
@@ -20,6 +24,8 @@ const MIN_COLUMN_SHARE = 0.3;
 /** Armor value of a block (the engine halves direct damage at 10) and the shield pool as a share of HP, by tier. */
 const armorValue = (tier: number) => (tier >= 60 ? 20 : 10);
 const shieldShare = (tier: number) => (tier >= 60 ? 1 : 0.5);
+export const armorValueOf = armorValue;
+export const shieldShareOf = shieldShare;
 
 /**
  * A shape is a filter over the grid. `rb` counts rows from the bottom (0 = the row nearest the player), `c` is the
@@ -65,19 +71,19 @@ type Mode = 'front' | 'back' | 'core' | 'sides';
 /** Spike tiers: about 1 in 8 of tiers 6..100 (never a milestone), clamped to 8..16 of them by the seeded rolls. */
 const spikeSet: Set<number> = (() => {
   const cand: { t: number; roll: number }[] = [];
-  for (let t = FIRST_SPIKE_TIER; t <= MAX_TIER; t++) if (t % 10 !== 0) cand.push({ t, roll: new Mulberry32(t * 7919 + 99).next() });
+  for (let t = FIRST_SPIKE_TIER; t <= CLASSIC_TIERS; t++) if (t % 10 !== 0) cand.push({ t, roll: new Mulberry32(t * 7919 + 99).next() });
   const natural = cand.filter(c => c.roll < 1 / 8).length;
   const count = Math.max(MIN_SPIKES, Math.min(MAX_SPIKES, natural));
   return new Set([...cand].sort((a, b) => a.roll - b.roll).slice(0, count).map(c => c.t));
 })();
 
 export const isSpike = (tier: number) => spikeSet.has(tier);
-const isMilestone = (tier: number) => tier % 10 === 0 && tier >= 10 && tier <= MAX_TIER;
+const isMilestone = (tier: number) => tier % 10 === 0 && tier >= 10 && tier <= CLASSIC_TIERS;
 
 /** Template of every tier, built in order so that no template appears three tiers in a row. */
 const templateIndex: number[] = (() => {
   const out: number[] = [0];
-  for (let t = 1; t <= MAX_TIER; t++) {
+  for (let t = 1; t <= CLASSIC_TIERS; t++) {
     let pick = Math.floor(new Mulberry32(t * 31337 + 7).next() * TEMPLATES.length);
     if (t === 1) pick = 0; // tier 1 is always the plain slab
     if (t >= 3 && out[t - 1] === pick && out[t - 2] === pick) pick = (pick + 1) % TEMPLATES.length;
@@ -87,8 +93,8 @@ const templateIndex: number[] = (() => {
 })();
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-export const armorFraction = (tier: number) => (tier < ARMOR_START ? 0 : lerp(ARMOR_FRAC[0], ARMOR_FRAC[1], (tier - ARMOR_START) / (MAX_TIER - ARMOR_START)));
-export const shieldFraction = (tier: number) => (tier < SHIELD_START ? 0 : lerp(SHIELD_FRAC[0], SHIELD_FRAC[1], (tier - SHIELD_START) / (MAX_TIER - SHIELD_START)));
+export const armorFraction = (tier: number) => (tier < ARMOR_START ? 0 : lerp(ARMOR_FRAC[0], ARMOR_FRAC[1], (tier - ARMOR_START) / (CLASSIC_TIERS - ARMOR_START)));
+export const shieldFraction = (tier: number) => (tier < SHIELD_START ? 0 : lerp(SHIELD_FRAC[0], SHIELD_FRAC[1], (tier - SHIELD_START) / (CLASSIC_TIERS - SHIELD_START)));
 
 /** Number of blocks in the tier's wall: a solid wall of the tier's rows minus a few gaps, whatever the shape. */
 export const blocksForTier = (tier: number) => blocksForRows(rowsForTier(tier));
@@ -153,9 +159,10 @@ function campaignSpec(t: number): WallSpec {
   };
 }
 
-/** The wall of a campaign tier (1..100). Pure function of the tier number: no Math.random. */
+/** The wall of a campaign tier (1..200). Pure function of the tier number: no Math.random. */
 export function generateLevel(tier: number): LevelDef {
   const t = Math.max(1, Math.min(MAX_TIER, Math.floor(tier)));
+  if (t > CLASSIC_TIERS) return buildLateLevel(t);
   const hit = cache.get(t);
   if (hit) return hit;
   const level = buildWall(campaignSpec(t));

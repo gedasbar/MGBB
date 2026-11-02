@@ -4,7 +4,7 @@ import { Grid } from '../engine/compiler';
 import { clientToGame } from '../input';
 import { makeText } from '../builder/ui';
 import { debugHooks } from '../debug/hooks';
-import { getProgressStore, RunResult, unlockSummary } from '../econ/progress';
+import { getProgressStore, isUnlocked, RunResult, unlockSummary } from '../econ/progress';
 import { ShotSprites } from '../ui/shotSprites';
 import { shotTextures } from '../ui/shotTextures';
 import { fmtBig } from '../ui/format';
@@ -385,12 +385,16 @@ export class WallScreen implements Screen {
     this.lastDrawn.length = 0;
     let used = 0;
     for (let r = r0; r <= r1; r++) {
-      for (let k = first; k <= last; k++) {
+      // Chunk 27a: a Drift row has slid sideways (rowShift), so the columns in view start further along; one spare column covers the part-cell.
+      const sh = w.rowShift[r];
+      const rowFirst = ring && sh !== 0 ? Math.floor((camX - sh) / CELL) : first;
+      const rowLast = ring && sh !== 0 ? rowFirst + Math.ceil(VIEW_W / CELL) + 1 : last;
+      for (let k = rowFirst; k <= rowLast; k++) {
         const c = ring ? ((k % cols) + cols) % cols : k;
         const b = w.blocks[r * cols + c];
         if (!b || used >= this.views.length) continue;
         // Screen x of the block: the short way round from the viewport centre on a ring (no pop, no duplicate at the seam).
-        const left = ring ? this.sx(c * CELL + CELL / 2) - CELL / 2 : c * CELL - camX;
+        const left = ring ? this.sx(b.x) - CELL / 2 : c * CELL - camX;
         if (left < -CELL || left > VIEW_W) continue;
         const v = this.views[used++];
         const armored = b.armor > 0;
@@ -487,7 +491,8 @@ export class WallScreen implements Screen {
     if (level.campaign) {
       const next = { id: 'summaryNext', label: 'Next tier', onTap: () => sm.switchTo(new WallScreen(sm, generateLevel(level.tier + 1), grid)) };
       const map = { id: 'summaryMap', label: 'Map', onTap: () => sm.switchTo(new MapScreen(sm)) };
-      buttons = [won && level.tier < MAX_TIER ? next : retry, map, build];
+      // Chunk 27a: tier 101 stays closed until every tier 1-100 is cleared, so "Next tier" is only offered when the next tier is open.
+      buttons = [won && level.tier < MAX_TIER && isUnlocked(store.data, level.tier + 1) ? next : retry, map, build];
     } else if (level.frontier) {
       // Chunk 15a: back to the Frontier (the camera and selection are where they were), or play the square again.
       buttons = [{ id: 'summaryFrontier', label: FRONTIER_NAME, onTap: () => sm.switchTo(new FrontierScreen(sm)) }, retry, build];
