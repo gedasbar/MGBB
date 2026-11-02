@@ -457,7 +457,7 @@ export class FlyScreen implements Screen {
     const fr = this.opts.frontier!;
     const w = this.world;
     this.outcome = encounterOutcome(w.time, fr.params.duration, w.survived);
-    const r = getProgressStore().recordFrontierFly({ x: fr.x, y: fr.y, credits: w.credits, kills: w.kills, outcome: this.outcome, medalDouble: this.mods.medalDouble });
+    const r = getProgressStore().recordFrontierFly({ x: fr.x, y: fr.y, credits: w.credits, kills: w.kills, outcome: this.outcome, medalDouble: this.mods.medalDouble, shots: { ...w.projSys.runStats }, time: w.time });
     this.banker.flush(w.kills);
     return { medals: r.medals, doubled: r.medalDoubled, newBestEarnings: r.newBestEarnings };
   }

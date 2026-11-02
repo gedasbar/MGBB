@@ -1,3 +1,4 @@
+import { ACHIEVEMENTS } from '../src/data/achievements';
 import { describe, it, expect } from 'vitest';
 import { BLOCKS } from '../src/data/blocks';
 import { capWithSkills } from '../src/data/blockEconomy';
@@ -114,10 +115,10 @@ describe('buying and respec', () => {
 
 describe('save version 11', () => {
   it('an older save starts with no skills; a saved list round-trips; floating, unknown and unpaid nodes are dropped', () => {
-    expect(PROGRESS_VERSION).toBe(12);
+    expect(PROGRESS_VERSION).toBe(13);
     expect(defaultProgress().skills).toEqual([]);
     const old = loadProgress(JSON.stringify({ version: 10, credits: 77, owned: {}, levels: {}, ownedHulls: ['dart'] }));
-    expect(old.version).toBe(12);
+    expect(old.version).toBe(13);
     expect(old.skills).toEqual([]);
     expect(old.credits).toBe(77);
     const frontier = { seed: 15015, sq: { [sqKey(0, 25)]: 2 as const, [sqKey(0, -50)]: 2 as const } }; // rings 25 and 50: 2 points
@@ -424,6 +425,7 @@ describe('Salvage', () => {
   });
   it('a Medal square pays one extra Medal 20% of the time', () => {
     const s = store(['medal_square']);
+    s.data.achievements = ACHIEVEMENTS.map(a => a.id); // the square's Medals alone (chunk 28a)
     let x = 0, y = 1;
     while (!getWorld(s.data.frontier.seed).hasMedal(x, y)) { x++; if (x > 40) { x = 0; y++; } }
     const before = s.data.medals;
@@ -432,6 +434,7 @@ describe('Salvage', () => {
     expect(r.medals).toBe(2);
     expect(s.data.medals).toBe(before + 2);
     const t = store([]);
+    t.data.achievements = ACHIEVEMENTS.map(a => a.id);
     t.data.frontier.sq[sqKey(x, y - 1)] = 2;
     expect(t.recordWallRun({ credits: 0, kills: 0, square: { x, y }, destroyed: 1, total: 1, rand: () => 0.1 }).medals).toBe(1);
   });

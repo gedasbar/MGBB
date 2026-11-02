@@ -44,10 +44,10 @@ describe('dev cheats', () => {
     unlockAllTiers(store);
     expect(store.data.passedTiers.length).toBe(100);
     expect(isUnlocked(store.data, 100)).toBe(true);
-    expect(store.data.medals).toBe(0);
+    expect(store.data.medals).toBe(12); // the cheat pays none itself; the four "Pass tier" achievements (1+2+3+6) do (chunk 28a)
     expect(store.data.clearedTiers).toEqual([]);
     addMedals(store, 10);
-    expect(store.data.medals).toBe(10);
+    expect(store.data.medals).toBe(22);
     resetCampaign(store);
     expect(store.data.passedTiers).toEqual([]);
     expect(store.data.medals).toBe(0);

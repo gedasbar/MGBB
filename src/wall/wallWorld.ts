@@ -58,7 +58,7 @@ export function scrollSpeed(base: number, shipY: number, zoneMul = 1): number {
 
 /** What the world needs from the progress store at the end of a level. */
 export interface WallBank {
-  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number }): { medal: boolean; medals?: number; medalDoubled?: boolean; newBestEarnings?: boolean } | void;
+  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; shots?: { bestShot: number; totalDamage: number } }): { medal: boolean; medals?: number; medalDoubled?: boolean; newBestEarnings?: boolean } | void;
   /** Chunk 22a (Salvage skills): the multiplier on a finished level's credits (replay, beats the best). Absent = 1. */
   creditBonusMul?(kind: 'tier' | 'square', key: string, credits: number): number;
 }
@@ -278,7 +278,13 @@ export class WallWorld {
   hits: WallHitEvent[] = [];
   killEvents: WallKillEvent[] = [];
 
-  constructor(readonly level: LevelDef, opts: { grid?: Grid; safeStart?: boolean; modifiers?: RunModifiers } = {}) {
+  /** Chunk 28a: the in-run rules of a challenge: the gun is silent (noFire) and `overTime` says when the time limit has run out. */
+  readonly noFire: boolean;
+  readonly timeLimit: number | undefined;
+
+  constructor(readonly level: LevelDef, opts: { grid?: Grid; safeStart?: boolean; modifiers?: RunModifiers; rules?: { noFire?: boolean; timeLimit?: number } } = {}) {
+    this.noFire = !!opts.rules?.noFire;
+    this.timeLimit = opts.rules?.timeLimit;
     this.mods = opts.modifiers ?? neutralModifiers();
     this.secondChancesLeft = this.mods.secondChances;
     this.controlStarted = !opts.safeStart;
@@ -505,8 +511,8 @@ export class WallWorld {
     }
     const res = store.recordWallRun({
       credits: this.credits, kills: this.destroyed,
-      ...(campaign ? { tier: this.level.tier, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed', medalDouble: this.mods.medalDouble } : {}),
-      ...(square ? { square: { x: square.x, y: square.y }, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed', medalDouble: this.mods.medalDouble } : {}),
+      ...(campaign ? { tier: this.level.tier, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed', medalDouble: this.mods.medalDouble, shots: { ...this.projSys.runStats } } : {}),
+      ...(square ? { square: { x: square.x, y: square.y }, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed', medalDouble: this.mods.medalDouble, shots: { ...this.projSys.runStats } } : {}),
     });
     this.medalEarned = !!(res && res.medal);
     this.medalsEarned = (res && res.medals) || 0;
@@ -538,7 +544,11 @@ export class WallWorld {
 
   get isBanked(): boolean { return this.banked; }
 
+  /** Chunk 28a: a challenge's time limit has run out (the run goes on; the challenge is then not met). */
+  get overTime(): boolean { return this.timeLimit !== undefined && this.time > this.timeLimit; }
+
   fire() {
+    if (this.noFire) return;
     this.gun.fire(this.shipX, this.shipY);
   }
 
