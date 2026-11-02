@@ -21,4 +21,4 @@ To add or change a ship: edit its `Spec`, run `node e2e/sheet-chunk25c.cjs` (dev
 `src/ui/shipArt.ts` draws a shape into a hull texture (cached per hull) and two flame textures (long and short). `ShipView` (the flight screens) swaps the flame texture every 0.07 s; `shipThumbnail` (the hull picker) shows the long flame. The hull texture is the unit box only, so the ship stays centred on its hit point.
 
 ## Zenith
-The capstone has three drawings (`ZENITH_ART` in `src/config.ts`, 1 | 2 | 3): **1** a long spearhead with three layers of wings (in the game), **2** a split twin hull with a bridge and a cockpit between, **3** a crescent with a floating spear. Change the number to switch.
+The capstone has three drawings (`ZENITH_ART` in `src/config.ts`, 1 | 2 | 3): **1** a long spearhead with three layers of wings, **2** a split twin hull with a bridge and a cockpit between, **3** a crescent with a floating spear (in the game, the owner's pick). Change the number to switch.

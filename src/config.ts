@@ -38,4 +38,4 @@ export const CONFIG = {
 };
 
 /** Which Zenith art is drawn (chunk 25c, `src/ui/shipShapes.ts`): 1 spearhead with layered wings, 2 split twin hull, 3 crescent. */
-export const ZENITH_ART: 1 | 2 | 3 = 1;
+export const ZENITH_ART: 1 | 2 | 3 = 3;
