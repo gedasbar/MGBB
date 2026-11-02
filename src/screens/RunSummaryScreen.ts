@@ -63,6 +63,11 @@ export interface CaptainSummary {
   note?: string;
 }
 
+/** Chunk 28a: how a challenge run ended, one or two lines under the "Unlocked" line. */
+export interface ChallengeSummary { text: string; ok: boolean }
+/** Top of the challenge line (under the Unlocked line, above the buttons at SUMMARY_BUTTONS_Y). */
+const CHALLENGE_Y = 736;
+
 /** Shown when the hull reaches 0. The run has already been banked into the progress by FlyScreen. */
 export class RunSummaryScreen implements Screen {
   statsName = 'Summary';
@@ -72,7 +77,7 @@ export class RunSummaryScreen implements Screen {
   private gestures: GestureTracker | null = null;
   private rows: { label: string; value: string; best: boolean }[];
 
-  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean; newBestEarnings?: boolean }, readonly wall?: WallSummary, readonly captain?: CaptainSummary, readonly unlocked: string = '') {
+  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean; newBestEarnings?: boolean }, readonly wall?: WallSummary, readonly captain?: CaptainSummary, readonly unlocked: string = '', readonly challenge: ChallengeSummary | null = null) {
     const bg = new Graphics().rect(0, 0, CONFIG.VIEW.W, CONFIG.VIEW.H).fill(THEME.bg);
     this.container.addChild(bg);
 
@@ -170,6 +175,13 @@ export class RunSummaryScreen implements Screen {
       this.container.addChild(u);
     }
 
+    if (challenge) {
+      const c = makeText(challenge.text, 18, challenge.ok ? THEME.good : THEME.bad, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: VIEW_W - 60, lineHeight: 22 });
+      c.anchor.set(0.5, 0);
+      c.position.set(VIEW_W / 2, CHALLENGE_Y);
+      this.container.addChild(c);
+    }
+
     const buttons = wall
       ? (() => {
         const n = wall.buttons.length;
@@ -194,7 +206,7 @@ export class RunSummaryScreen implements Screen {
     if (DEBUG_ON) {
       (window as any).__mgbm = {
         screen: 'summary',
-        state: () => ({ title: title.text, unlocked, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
+        state: () => ({ title: title.text, unlocked, challenge, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
       };
     }
   }

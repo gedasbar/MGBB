@@ -103,17 +103,18 @@ async function tapNode(page, id) { const p = await nodeXY(page, id); await tap(p
   shots.push(await canvasShot(page)); caps.push('Whole tree, 3 skills bought');
 
   // ---- Respec dialog: Cancel, then confirm.
+  const medals0 = (await state(page)).medals; // 25 plus the Medal the "Spend 3 skill points" achievement paid (chunk 28a)
   await tap(page, ...RESPEC);
   s = await state(page);
   check(s.dialogOpen, 'Respec opens a confirm dialog');
   shots.push(await canvasShot(page)); caps.push('Respec dialog');
   await tap(page, ...DIALOG_NO);
   s = await state(page);
-  check(!s.dialogOpen && s.owned.length === 3 && s.medals === 25, 'Cancel changes nothing');
+  check(!s.dialogOpen && s.owned.length === 3 && s.medals === medals0, 'Cancel changes nothing');
   await tap(page, ...RESPEC);
   await tap(page, ...DIALOG_YES);
   s = await state(page);
-  check(!s.dialogOpen && s.owned.length === 0 && s.medals === 15 && s.points === 'Points 4 / 4', `confirming took everything back for 10 Medals (25 -> ${s.medals}), ${s.points}`);
+  check(!s.dialogOpen && s.owned.length === 0 && s.medals === medals0 - 10 && s.points === 'Points 4 / 4', `confirming took everything back for 10 Medals (25 -> ${s.medals}), ${s.points}`);
 
   // ---- The builder estimate after a Turn skill (bought again, one point).
   await page.evaluate(() => window.__mgbm.focus('turn_left', 1.1));

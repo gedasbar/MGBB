@@ -13,6 +13,10 @@ import { LEGACY_MAX_LEVEL, migrateEconomyV8, migrateRemovedBlocks, refundNotice 
 import { HULL_BUILDERS } from '../game/gridUtils';
 import { STARTER_HULL } from '../data/hulls';
 import { medalPriceOf } from '../data/blockEconomy';
+import { ACHIEVEMENT_BY_ID, AchievementDef, Cosmetic } from '../data/achievements';
+import { CHALLENGE_BY_ID } from '../data/challenges';
+import { defaultRecords, grantAchievements, newlyEarned, noteCircuitRecords, noteRunRecords, Records, sanitizeRecords } from '../achievements/rules';
+import { completeChallenge } from '../challenges/rules';
 import { buySkill, respecSkills, sanitizeSkillList, skillEffects, skillPointsFor, SkillResult } from '../skills/rules';
 import {
   atCopyCap, copyPrice, DEFAULT_OWNED, HULL_PRICE, maxLevelOf, upgradePrice,
@@ -20,12 +24,12 @@ import {
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none), 12 adds `timePlayed`, `newBlocks` and `skillPointsSeen` (chunk 24a: seconds played with the page visible; blocks unlocked and not yet looked at; skill points the player has seen. Older saves start at 0 / none / the points they already have, so nothing is marked new). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 12;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none), 12 adds `timePlayed`, `newBlocks` and `skillPointsSeen` (chunk 24a: seconds played with the page visible; blocks unlocked and not yet looked at; skill points the player has seen. Older saves start at 0 / none / the points they already have, so nothing is marked new), 13 adds `achievements`, `records`, `challengesDone` and `cosmetics` (chunk 28a: earned achievement ids; the best hit / average DPS / circuit size records the achievements read; challenges done; cosmetic ids earned. A save from before starts with none and the game grants what it has already reached when it loads). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 13;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 12;
+  version: 13;
   /** A one-time message for the next screen that can show it (the economy refund of the version 8 migration); cleared when taken. */
   notice?: string;
   credits: number;
@@ -65,6 +69,14 @@ export interface Progress {
   newBlocks: string[];
   /** Chunk 24a: how many skill points the player has seen on the Skills tab; more points earned than this puts a dot on the tab. */
   skillPointsSeen: number;
+  /** Chunk 28a: ids of the achievements earned (each paid once, when it was added here). */
+  achievements: string[];
+  /** Chunk 28a: records no other field can rebuild (best hit, best average DPS, biggest circuit). */
+  records: Records;
+  /** Chunk 28a: ids of the challenges done (reward paid once). */
+  challengesDone: string[];
+  /** Chunk 28a: cosmetic ids earned (skins and trails come in a later chunk). */
+  cosmetics: string[];
 }
 
 export interface StorageLike {
@@ -78,9 +90,10 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 12, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    version: 13, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, wallBestCredits: {}, squareBestCredits: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
     frontier: defaultFrontier(), skills: [], timePlayed: 0, newBlocks: [], skillPointsSeen: 0,
+    achievements: [], records: defaultRecords(), challengesDone: [], cosmetics: [],
   };
 }
 
@@ -153,6 +166,12 @@ export function sanitizeProgress(raw: unknown): Progress {
   const points = skillPointsFor(furthestRing(reachBySector(out.frontier)));
   out.skillPointsSeen = typeof r.version === 'number' && r.version >= 12 ? int(r.skillPointsSeen, 0, 1e9, 0) : points;
   out.newBlocks = typeof r.version === 'number' && r.version >= 12 && Array.isArray(r.newBlocks) ? Array.from(new Set(r.newBlocks.filter((id: unknown): id is string => typeof id === 'string' && id in BLOCKS))) : [];
+  // v13 (chunk 28a): earned achievements and done challenges (only ones that exist), records, cosmetics. A save from before has none: the store grants what it has reached on load.
+  const known = (list: unknown, ok: (id: string) => boolean): string[] => (Array.isArray(list) ? Array.from(new Set(list.filter((id: unknown): id is string => typeof id === 'string' && ok(id)))) : []);
+  out.achievements = known(r.achievements, id => id in ACHIEVEMENT_BY_ID);
+  out.challengesDone = known(r.challengesDone, id => id in CHALLENGE_BY_ID);
+  out.cosmetics = known(r.cosmetics, id => id.length > 0 && id.length <= 40).slice(0, 500);
+  out.records = sanitizeRecords(r.records);
   out.highestCleared = out.clearedTiers.length ? out.clearedTiers[out.clearedTiers.length - 1] : 0;
   // A save older than v8 still holds the levels of blocks that lost them: read them with the old ceiling so the migration can refund them.
   const migrating = !(typeof r.version === 'number' && r.version >= 8);
@@ -347,6 +366,9 @@ export function applyWallRun(p: Progress, run: WallRunResult): { medal: boolean;
   return { medal, medals, medalDoubled, newBestPct, newBestTime, newlyPassed, newBestEarnings };
 }
 
+/** What the load granted at once: how many, their names, the Medals paid and how many cosmetic ids were stored. */
+export interface AchievementSummary { names: string[]; count: number; medals: number; cosmetics: number }
+
 export type BuyResult = { ok: true; price: number } | { ok: false; error: string };
 
 export function buyCopy(p: Progress, id: string): BuyResult {
@@ -405,6 +427,10 @@ export class ProgressStore {
   private pendingSkillPoints = 0;
   /** Skill points as of the last commit. */
   private skillPts: number;
+  /** Chunk 28a: achievements earned since the toasts were last taken (the overlay shows them one by one). */
+  private achToasts: AchievementDef[] = [];
+  /** Chunk 28a: what the load granted at once (a save from before achievements, or a save that had reached more): one summary panel, taken once. */
+  private loadSummary: AchievementSummary | null = null;
 
   constructor(private storage: StorageLike | null = null, initial?: Progress) {
     let raw: string | null = null;
@@ -413,6 +439,34 @@ export class ProgressStore {
     this.reach = reachBySector(this.data.frontier);
     this.tierReach = highestPassed(this.data.passedTiers);
     this.skillPts = skillPointsFor(furthestRing(this.reach));
+    // Chunk 28a: everything the save has already reached is granted now, as one summary (not a burst of toasts).
+    const fresh = newlyEarned(this.data);
+    if (fresh.length > 0) {
+      const paid = grantAchievements(this.data, fresh);
+      this.loadSummary = { names: fresh.map(a => a.name), count: fresh.length, medals: paid.medals, cosmetics: paid.cosmetics.length };
+      this.commit();
+    }
+  }
+
+  /** The load summary of achievements granted at once, once (null when there was nothing). */
+  takeAchievementSummary(): AchievementSummary | null { const s = this.loadSummary; this.loadSummary = null; return s; }
+  /** Achievements earned since the last call (for the toast), oldest first. */
+  takeAchievementToasts(): AchievementDef[] { const t = this.achToasts; this.achToasts = []; return t; }
+  get hasAchievementToasts(): boolean { return this.achToasts.length > 0; }
+
+  /** Chunk 28a: a circuit changed: its size feeds the Builder achievements. `buildable` = empty cells of the hull. */
+  noteCircuit(blocks: number, buildable: number) {
+    const rec = this.data.records;
+    const before = rec.maxCircuitBlocks * 2 + rec.hullFilled;
+    noteCircuitRecords(rec, blocks, buildable);
+    if (rec.maxCircuitBlocks * 2 + rec.hullFilled !== before) this.commit();
+  }
+
+  /** Chunk 28a: a finished challenge run that met its rule: pays the reward once. */
+  completeChallenge(id: string): { paid: boolean; medals: number; cosmetic: Cosmetic | null } {
+    const r = completeChallenge(this.data, id);
+    if (r.paid) this.commit();
+    return r;
   }
 
   /** Reach per sector (cached; recomputed on every commit). */
@@ -491,6 +545,9 @@ export class ProgressStore {
     const pts = skillPointsFor(furthestRing(after));
     if (pts > this.skillPts) this.pendingSkillPoints += pts - this.skillPts;
     this.skillPts = pts;
+    // Chunk 28a: achievements are checked whenever progress changes; each one earned is paid at once and queued for a toast.
+    const earned = newlyEarned(this.data);
+    if (earned.length > 0) { grantAchievements(this.data, earned); this.achToasts.push(...earned); }
     try { this.storage?.setItem(PROGRESS_KEY, serializeProgress(this.data)); } catch { /* quota or private mode */ }
     for (const l of this.listeners) l();
   }
@@ -507,7 +564,8 @@ export class ProgressStore {
   }
 
   /** Books a Frontier Free Fly encounter (chunk 15b). Returns the square outcome (Medal paid on a first clear). */
-  recordFrontierFly(run: { x: number; y: number; credits: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number }): SquareRunOutcome & { newBestEarnings: boolean } {
+  recordFrontierFly(run: { x: number; y: number; credits: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number; shots?: { bestShot: number; totalDamage: number }; time?: number }): SquareRunOutcome & { newBestEarnings: boolean } {
+    noteRunRecords(this.data.records, run.shots, run.time ?? 0);
     const r = applyFrontierOutcome(this.data, { ...run, medalDouble: this.squareMedalChance(run.medalDouble), ...outcomeFlags(run.outcome) });
     this.commit();
     return r;
@@ -581,6 +639,7 @@ export class ProgressStore {
     d.runs++;
     if (newBestTier) d.bestTier = run.tier;
     if (newBestTime) d.bestTime = run.time;
+    noteRunRecords(d.records, run.shots, run.time);
     this.commit();
     return { newBestTier, newBestTime, newBestWave };
   }
@@ -590,7 +649,8 @@ export class ProgressStore {
    * tier's best result and awards the first-clear Medal. Best tier and best time belong to Free Fly and are not touched.
    * Call exactly once per level (WallWorld.bank guards this).
    */
-  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; rand?: () => number }): { medal: boolean; medals: number; medalDoubled: boolean; newBestEarnings: boolean } {
+  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; rand?: () => number; shots?: { bestShot: number; totalDamage: number } }): { medal: boolean; medals: number; medalDoubled: boolean; newBestEarnings: boolean } {
+    noteRunRecords(this.data.records, run.shots, run.time ?? 0);
     let newBestEarnings = false;
     let medal = false;
     let medals = 0;

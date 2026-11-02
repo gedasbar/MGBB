@@ -9,7 +9,8 @@ import { PROGRESS_KEY } from '../econ/progress';
 import { LEGACY_KEY, STORAGE_KEY } from '../builder/persist';
 import { VERSION_LABEL } from '../version';
 import { fmtPlayTime, playTimeGuard } from '../econ/playTime';
-import { getProgressStore } from '../econ/progress';
+import { AchievementSummary, getProgressStore } from '../econ/progress';
+import { rewardText } from '../achievements/rules';
 import { openExportSave, openImportSave } from './saveTransferUi';
 
 const W = CONFIG.VIEW.W;
@@ -23,7 +24,10 @@ const VOLUME_STEP = 0.1;
 /** Taps this soon after the panel was closed are still treated as part of the closing tap (the screen below ignores them). */
 const CLOSE_GUARD_MS = 150;
 
-type View = 'none' | 'pause' | 'settings' | 'confirm';
+type View = 'none' | 'pause' | 'settings' | 'confirm' | 'achSummary';
+/** Chunk 28a: how long one achievement toast stays, and the names the load summary lists before "and N more". */
+const ACH_TOAST_MS = 3200;
+const SUMMARY_NAMES = 8;
 interface Btn { id: string; x: number; y: number; w: number; h: number; label: string; act: () => void; node: Container; text: Text; face: Graphics }
 
 const fmtPct = (v: number) => `${Math.round(v * 100)}%`;
@@ -45,6 +49,12 @@ export class Overlays {
   private panel = new Container();
   private buttons: Btn[] = [];
   private readonly valueTexts = new Map<string, Text>();
+  /** Chunk 28a: the achievement toast (top of the screen, one at a time) and the load summary waiting to be shown. */
+  private toastC = new Container();
+  private toastBg = new Graphics();
+  private toastText = makeText('', 16, THEME.text, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: W - 80 });
+  private toastUntil = 0;
+  private summary: AchievementSummary | null = null;
 
   constructor(private sm: ScreenManager, private now: () => number = () => performance.now()) {
     this.dim.rect(0, 0, W, H).fill({ color: THEME.dim, alpha: 0.6 });
@@ -54,8 +64,14 @@ export class Overlays {
     this.pauseBtn.addChild(this.pauseBtnFace);
     this.pauseBtn.position.set(PAUSE_BTN.x, PAUSE_BTN.y);
     this.pauseBtn.visible = false;
-    this.container.addChild(this.pauseBtn, this.dim, this.panel);
+    this.toastText.anchor.set(0.5);
+    this.toastC.addChild(this.toastBg, this.toastText);
+    this.toastC.visible = false;
+    this.container.addChild(this.pauseBtn, this.dim, this.panel, this.toastC);
   }
+
+  /** The text of the achievement toast showing now ('' = none), for the e2e hook. */
+  get toastMessage(): string { return this.toastC.visible ? this.toastText.text : ''; }
 
   /** Which panel is showing: 'none' | 'pause' | 'settings' | 'confirm' (for tests and the e2e hook). */
   get current(): View { return this.view; }
@@ -79,11 +95,35 @@ export class Overlays {
 
   /** Per-frame sync: the pause button follows whether the current screen can be paused right now. */
   update() {
+    this.pollAchievements();
     const can = this.view === 'none' && !this.sm.paused && !!this.sm.currentScreen?.pausable?.canPause();
     if (this.pauseBtn.visible !== can) this.pauseBtn.visible = can;
     // The pause menu is open exactly while the manager is paused (Escape, blur or the button all go through the manager).
     if (this.sm.paused && this.view === 'none') this.show('pause');
     else if (!this.sm.paused && this.view === 'pause') this.hide();
+  }
+
+  /** Chunk 28a: shows the one-time load summary when no panel is open, else the achievements earned since, one toast at a time. */
+  private pollAchievements() {
+    const store = getProgressStore();
+    if (!this.summary) this.summary = store.takeAchievementSummary();
+    if (this.summary && this.view === 'none' && !this.sm.paused) { this.show('achSummary'); return; }
+    const t = this.now();
+    if (this.toastC.visible && t >= this.toastUntil) this.toastC.visible = false;
+    if (!this.toastC.visible && store.hasAchievementToasts && !this.summary) {
+      const a = store.takeAchievementToasts();
+      // Several at once (a run that earns two): one toast naming them, never a queue to sit through.
+      const first = a[0];
+      const more = a.length > 1 ? ` and ${a.length - 1} more` : '';
+      const medals = a.reduce((n, d) => n + ('medals' in d.reward ? d.reward.medals : 0), 0);
+      this.toastText.text = `Achievement: ${first.name}${more}
+${a.length === 1 ? rewardText(first.reward) : `${medals} Medal${medals === 1 ? '' : 's'}`}`;
+      const w = Math.min(W - 40, this.toastText.width + 40), h = this.toastText.height + 20;
+      this.toastBg.clear().rect(W / 2 - w / 2, 64 - h / 2, w, h).fill(THEME.panel).stroke({ color: THEME.good, width: 2 });
+      this.toastText.position.set(W / 2, 64);
+      this.toastC.visible = true;
+      this.toastUntil = t + ACH_TOAST_MS;
+    }
   }
 
   // ------------------------------------------------------------------ opening and closing
@@ -125,6 +165,7 @@ export class Overlays {
     if (v === 'pause') this.buildPause();
     else if (v === 'settings') this.buildSettings();
     else if (v === 'confirm') this.buildConfirm();
+    else if (v === 'achSummary') this.buildAchSummary();
   }
 
   // ------------------------------------------------------------------ taps
@@ -237,6 +278,27 @@ export class Overlays {
     ver.anchor.set(0.5, 0);
     ver.position.set(W / 2, cy + 58);
     this.panel.addChild(ver);
+  }
+
+  /** Chunk 28a: what the load granted at once. */
+  private buildAchSummary() {
+    const s = this.summary!;
+    const shown = s.names.slice(0, SUMMARY_NAMES);
+    const rest = s.count > shown.length ? [`and ${s.count - shown.length} more`] : [];
+    const body = [...shown, ...rest].join('\n');
+    const pw = 440, ph = 250 + shown.length * 22 + (s.count > shown.length ? 22 : 0);
+    const { x, y } = this.panelBox(pw, ph, 'ACHIEVEMENTS');
+    const head = makeText(`${s.count} unlocked from your progress`, 19, THEME.good, { fontWeight: 'bold' });
+    head.anchor.set(0.5, 0);
+    head.position.set(W / 2, y + 62);
+    const pay = makeText(`${s.medals > 0 ? `+${s.medals} Medals` : ''}${s.medals > 0 && s.cosmetics > 0 ? '   ' : ''}${s.cosmetics > 0 ? `${s.cosmetics} cosmetic reward${s.cosmetics === 1 ? '' : 's'} (coming soon)` : ''}`, 17, THEME.currency, { fontWeight: 'bold' });
+    pay.anchor.set(0.5, 0);
+    pay.position.set(W / 2, y + 92);
+    const list = makeText(body, 16, THEME.textDim, { align: 'center', lineHeight: 22 });
+    list.anchor.set(0.5, 0);
+    list.position.set(W / 2, y + 126);
+    this.panel.addChild(head, pay, list);
+    this.addButton('achSummaryOk', x + 24, y + ph - 76, pw - 48, 52, 'OK', () => { this.summary = null; this.hide(); });
   }
 
   private buildConfirm() {

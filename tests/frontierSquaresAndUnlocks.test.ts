@@ -1,3 +1,4 @@
+import { ACHIEVEMENTS } from '../src/data/achievements';
 import { TIER_LOCKS } from '../src/data/tierLocks';
 import { describe, expect, it } from 'vitest';
 import { FRONTIER_SEED, FREEFLY_SHARE, FREEFLY_SQUARE_SECONDS, FF_WAVE_CAP, PROGRESS_COLOR } from '../src/frontier/constants';
@@ -118,6 +119,7 @@ describe('Free Fly squares: encounter', () => {
     for (let r = 2; r < 30 && !m; r++) for (let x = -r; x <= r && !m; x++) for (const y of [-r, r]) if (!m && squareKind(x, y, SEED) === 'freefly' && W.hasMedal(x, y)) m = { x, y };
     expect(m).not.toBeNull();
     const store = new ProgressStore(null, defaultProgress());
+    store.data.achievements = ACHIEVEMENTS.map(a => a.id); // so the Medals counted below are the square's alone (chunk 28a)
     const n = [[0, 1], [0, -1], [1, 0], [-1, 0]].map(([dx, dy]) => ({ x: m!.x + dx, y: m!.y + dy })).find(q => !W.isHole(q.x, q.y))!;
     store.data.frontier.sq[sqKey(n.x, n.y)] = 2;
     const run = (outcome: 'cleared' | 'passed' | 'failed') => store.recordFrontierFly({ x: m!.x, y: m!.y, credits: 10, kills: 4, outcome });
@@ -236,7 +238,7 @@ describe('Directional unlocks', () => {
   it('grandfather rule: an old save that owns a block keeps it unlocked (no save change)', () => {
     const old = { version: 6, credits: 50000, owned: { chain_lightning: 2, orbit: 0 }, levels: { chain_lightning: 3 }, ownedHulls: ['dart'] };
     const p = loadProgress(JSON.stringify(old));
-    expect(PROGRESS_VERSION).toBe(12);
+    expect(PROGRESS_VERSION).toBe(13);
     expect(p.owned.chain_lightning).toBe(2);
     expect(blockLockReason(p, 'chain_lightning')).toBeNull(); // owned: still buyable although tier 60 is not passed
     expect(buyCopy(p, 'chain_lightning').ok).toBe(true);

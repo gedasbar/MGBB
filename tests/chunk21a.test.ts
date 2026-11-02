@@ -215,10 +215,10 @@ describe('Reverse is removed (save version 10)', () => {
   });
 
   it('a v9 save with 3 copies loads at v10, the copies are gone and 19152 credits are refunded once, with a notice', () => {
-    expect(PROGRESS_VERSION).toBe(12);
+    expect(PROGRESS_VERSION).toBe(13);
     const old = { version: 9, credits: 1000, owned: { reverse: 3, flat_plus: 2 }, levels: { reverse: 1 }, ownedHulls: ['dart'] };
     const p = loadProgress(JSON.stringify(old));
-    expect(p.version).toBe(12);
+    expect(p.version).toBe(13);
     expect(p.credits).toBe(1000 + 19152);
     expect(p.owned).not.toHaveProperty('reverse');
     expect(p.owned.flat_plus).toBe(2);
@@ -226,7 +226,7 @@ describe('Reverse is removed (save version 10)', () => {
     // The migrated save loads again unchanged (no second refund).
     const again = loadProgress(JSON.stringify({ ...p, notice: undefined }));
     expect(again.credits).toBe(p.credits);
-    expect(again.version).toBe(12);
+    expect(again.version).toBe(13);
   });
 
   it('a v9 save without copies gets no refund and no notice; a v10 save is never refunded', () => {

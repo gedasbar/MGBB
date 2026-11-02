@@ -23,6 +23,7 @@ import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 import { DEBUG_ON } from '../debug/enabled';
+import { endChallengeSession } from '../challenges/session';
 
 const MAP_COLS = 5;
 const GRID_TOP = 52;
@@ -301,6 +302,7 @@ export class MapScreen implements Screen {
       this.toast.show("Your circuit doesn't reach an ejector");
       return;
     }
+    endChallengeSession(); // a normal tier is not a challenge run
     this.sm.switchTo(new WallScreen(this.sm, generateLevel(this.selected), model.gridForFlight()));
   }
 

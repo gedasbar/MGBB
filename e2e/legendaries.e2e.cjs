@@ -98,6 +98,7 @@ async function flyFan(page, blocks) {
     s.data.frontier.sq = {};
     s.data.frontier.sq['0,-100'] = 2; // North ring 100 cleared (a lattice square: never a hole)
     s.commit();
+    s.data.medals = 14; s.commit(); // the first commit pays the ring achievements; the Medals are set after it (chunk 28a)
   });
   await page.waitForTimeout(250);
   let st = await page.evaluate(() => window.__mgbm.state());
@@ -135,7 +136,7 @@ async function flyFan(page, blocks) {
   shots.push(await snap(page)); caps.push('Info sheet: both prices\nin the Buy button');
   await page.evaluate(() => window.__mgbm.shopScreen.palette.press('buy'));
   const bought = await page.evaluate(() => { const d = window.__mgbm.shopScreen.store.data; return { credits: d.credits, medals: d.medals, owned: d.owned.frontier_echo }; });
-  check(bought.owned === 1 && before.credits - bought.credits === 8000 && bought.medals === 0, `Buy took 8000 credits and 15 Medals (owned ${bought.owned}, credits ${bought.credits}, Medals ${bought.medals})`);
+  check(bought.owned === 1 && before.credits - bought.credits === 8000 && bought.medals === 2, `Buy took 8000 credits and 15 Medals (and the Own-a-legendary achievement paid 2) (owned ${bought.owned}, credits ${bought.credits}, Medals ${bought.medals})`);
   st = await page.evaluate(() => window.__mgbm.state());
   const row2 = st.rows.find(r => r.key === 'frontier_echo');
   check(row2.buttons[0].label === 'Max' && row2.dot === false, 'at the cap of one copy Buy reads "Max" and the dot is gone');
