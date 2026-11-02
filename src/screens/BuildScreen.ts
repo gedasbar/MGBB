@@ -715,7 +715,7 @@ export class BuildScreen implements Screen {
     this.bannerText.position.set(10, 6);
     this.banner.addChild(this.bannerBg, this.bannerText, this.bannerStatus);
     this.container.addChild(this.banner);
-    this.bannerClose = textButton('challengeEnd', { x: VIEW_W - 46, y: LAYOUT.gridArea.y + 4, w: 40, h: 36 }, 'X', () => { endChallengeSession(); this.toast.show('Challenge ended'); this.updateBanner(); }, 18);
+    this.bannerClose = textButton('challengeEnd', { x: VIEW_W - 50, y: LAYOUT.gridArea.y + 2, w: 46, h: 46 }, 'X', () => { endChallengeSession(); this.toast.show('Challenge ended'); this.updateBanner(); }, 18);
     this.addButton(this.bannerClose);
     this.updateBanner();
   }

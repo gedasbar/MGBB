@@ -42,11 +42,12 @@ const TAB = { build: [54, 932], shop: [162, 932], map: [916, 932] };
   check(p.owned.alternator === 10, `a block of chunk 9a owned x10 (${p.owned.alternator}); hidden: ${Object.keys(p.owned).length} entries`);
 
   // ---- unlock tiers: the Map shows them open, no medals
+  const medalsBefore = (await saved()).medals;
   await click('dbg-unlock-tiers');
   await tap(page, ...TAB.map);
   s = await state(page);
   const p2 = await saved();
-  check(p2.passedTiers.length === 100 && p2.medals === 0 && p2.clearedTiers.length === 0, `tiers 1-100 passed, medals ${p2.medals}, cleared ${p2.clearedTiers.length}`);
+  check(p2.passedTiers.length === 100 && p2.medals === medalsBefore + 12 && p2.clearedTiers.length === 0, `tiers 1-100 passed, the cheat pays no Medal itself (the four Pass-tier achievements pay 12): medals ${medalsBefore} -> ${p2.medals}, cleared ${p2.clearedTiers.length}`);
   await page.screenshot({ path: path.join(OUT, 'map_unlocked.png') });
   await click('dbg-reset-campaign');
   check((await saved()).passedTiers.length === 0, 'reset campaign progress empties the passed tiers');

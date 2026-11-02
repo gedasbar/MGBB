@@ -165,7 +165,7 @@ async function open(browser, url, init) {
     await Promise.all([p3.waitForEvent('load'), p3.click('#import-check')]);
     await p3.waitForSelector('canvas');
     const saved = await p3.evaluate(() => JSON.parse(localStorage.getItem('mgbm.progress.v1')));
-    check(saved.credits === wantCredits && saved.runs >= 5 && saved.version === 12, `after confirming, the save moved over and was migrated to the current version (credits ${saved.credits}, runs ${saved.runs}, version ${saved.version})`);
+    check(saved.credits === wantCredits && saved.runs >= 5 && saved.version === 13, `after confirming, the save moved over and was migrated to the current version (credits ${saved.credits}, runs ${saved.runs}, version ${saved.version})`);
     await c.ctx.close();
   } finally {
     if (browser) await browser.close();

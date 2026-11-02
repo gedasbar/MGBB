@@ -93,7 +93,7 @@ async function flyFan(page, blocks) {
   await page.evaluate(() => {
     const s = window.__mgbm.shopScreen.store;
     s.data.credits = 1e7;
-    s.data.medals = 14;
+    s.data.medals = 14; s.data.achievements = ['ring_10', 'ring_25', 'ring_50', 'ring_100']; // the ring achievements would pay Medals on the commit below (chunk 28a)
     for (const id of ['frontier_echo', 'payload', 'lone_shot', 'last_breath', 'zigzag', 'heavy_round', 'hollow_core', 'idle_barrels', 'waypoint', 'rebound', 'mirror', 'fuse']) s.data.owned[id] = 0;
     s.data.frontier.sq = {};
     s.data.frontier.sq['0,-100'] = 2; // North ring 100 cleared (a lattice square: never a hole)
@@ -135,7 +135,7 @@ async function flyFan(page, blocks) {
   shots.push(await snap(page)); caps.push('Info sheet: both prices\nin the Buy button');
   await page.evaluate(() => window.__mgbm.shopScreen.palette.press('buy'));
   const bought = await page.evaluate(() => { const d = window.__mgbm.shopScreen.store.data; return { credits: d.credits, medals: d.medals, owned: d.owned.frontier_echo }; });
-  check(bought.owned === 1 && before.credits - bought.credits === 8000 && bought.medals === 0, `Buy took 8000 credits and 15 Medals (owned ${bought.owned}, credits ${bought.credits}, Medals ${bought.medals})`);
+  check(bought.owned === 1 && before.credits - bought.credits === 8000 && bought.medals === 2, `Buy took 8000 credits and 15 Medals (and the Own-a-legendary achievement paid 2) (owned ${bought.owned}, credits ${bought.credits}, Medals ${bought.medals})`);
   st = await page.evaluate(() => window.__mgbm.state());
   const row2 = st.rows.find(r => r.key === 'frontier_echo');
   check(row2.buttons[0].label === 'Max' && row2.dot === false, 'at the cap of one copy Buy reads "Max" and the dot is gone');
