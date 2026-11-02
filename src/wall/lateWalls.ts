@@ -3,9 +3,9 @@
 // Fortress, Drift) are built here. The five types of chunk 27b are ordinary hard walls that keep their type in `lateType`.
 import { Mulberry32 } from '../rng';
 import {
-  byRank, DRIFT_EACH_SPAN, DRIFT_GAP_SHARE, DRIFT_HP_MUL, DRIFT_SPEED_BASE, DRIFT_SPEED_PER_RANK, DRIFT_VARIANT, DriftVariant, FORTRESS_ARMOR, FORTRESS_HP_MUL,
-  FORTRESS_SHIELD_SHARE, isLateMilestone, isLateTier, LATE_ARMOR_FRAC, LATE_FIRST, LATE_LAST, LATE_MILESTONES, LATE_ROWS, LATE_SHIELD_FRAC, LATE_TYPES, lateSlot,
-  LateType, MAZE_HP_MUL, MAZE_PATH_WIDTH, MAZE_ROWS, MAZE_TURN_ROWS, MONOLITH_HP_MUL, MONOLITH_REWARD_SHARE, MONOLITH_ROWS,
+  byRank, DRIFT_BLOCKS, DRIFT_EACH_SPAN, DRIFT_GAP_SHARE, DRIFT_HP_MUL, DRIFT_SPEED_BASE, DRIFT_SPEED_PER_RANK, DRIFT_VARIANT, DriftVariant, FORTRESS_ARMOR, FORTRESS_HP_MUL,
+  FORTRESS_SHIELD_SHARE, isLateMilestone, LATE_ARMOR_FRAC, LATE_FIRST, LATE_LAST, LATE_MILESTONES, LATE_ROWS, LATE_SHIELD_FRAC, LATE_TYPES, lateSlot,
+  MAZE_HP_MUL, MAZE_PATH_WIDTH, MAZE_ROWS, MAZE_TURN_ROWS, MONOLITH_HP_MUL, MONOLITH_REWARD_SHARE, MONOLITH_ROWS,
 } from '../data/lateTiers';
 import { approachSpeedFor, WALL_COLS } from './constants';
 import { armorValueOf, blocksForRows, buildWall, shieldShareOf, TEMPLATE_COUNT, WallSpec } from './generator';
@@ -42,6 +42,8 @@ export function buildLateLevel(tier: number): LevelDef {
   return level;
 }
 
+/** The shape of an ordinary wall: one of the classic generator's eight templates, picked from the tier number. */
+const pickTemplate = (t: number) => Math.floor(new Mulberry32(t * 31337 + 7).next() * TEMPLATE_COUNT);
 const common = (t: number) => ({ tier: t, cols: WALL_COLS, wrap: true, approachSpeed: approachSpeedFor(t), campaign: true }) as const;
 
 /**
@@ -50,8 +52,8 @@ const common = (t: number) => ({ tier: t, cols: WALL_COLS, wrap: true, approachS
  */
 function ordinary(t: number, fortressRank: number): LevelDef {
   const ms = isLateMilestone(t) && !fortressRank;
-  let template = Math.floor(new Mulberry32(t * 31337 + 7).next() * TEMPLATE_COUNT);
-  if (lateSlot(t - 1) === null && template === Math.floor(new Mulberry32((t - 1) * 31337 + 7).next() * TEMPLATE_COUNT)) template = (template + 1) % TEMPLATE_COUNT;
+  let template = pickTemplate(t);
+  if (t > LATE_FIRST && template === pickTemplate(t - 1)) template = (template + 1) % TEMPLATE_COUNT; // never the same shape twice in a row
   const hp = wholeHp(lateBlockHp(t) * (fortressRank ? FORTRESS_HP_MUL : 1));
   const spec: WallSpec = {
     tier: t, seed: t * 1000003 + 12345, template, ...(ms ? { milestoneTier: t - 100 } : {}),
@@ -118,14 +120,14 @@ function maze(t: number, rank: number): LevelDef {
 }
 
 /**
- * DRIFT: rows slide sideways while the wall comes. Every row has DRIFT_GAP_SHARE of its cells empty (gaps to weave through; the wall is
- * taller so it holds as many blocks as an ordinary wall). Rank 1 slides every row the same way, rank 2 neighbouring rows in opposite
+ * DRIFT: rows slide sideways while the wall comes. Every row has DRIFT_GAP_SHARE of its cells empty (gaps to weave through) and the wall
+ * holds DRIFT_BLOCKS blocks. Rank 1 slides every row the same way, rank 2 neighbouring rows in opposite
  * ways, rank 3 gives each row its own direction and speed; later ranks repeat the variants faster and heavier.
  */
 function drift(t: number, rank: number): LevelDef {
   const variant = byRank(DRIFT_VARIANT, rank);
   const perRow = Math.round(WALL_COLS * (1 - DRIFT_GAP_SHARE));
-  const rows = Math.ceil(blocksForRows(LATE_ROWS) / perRow);
+  const rows = Math.ceil(DRIFT_BLOCKS / perRow);
   const rand = new Mulberry32(t * 6007 + 321);
   const hp = wholeHp(lateBlockHp(t) * byRank(DRIFT_HP_MUL, rank));
   const armorFrac = lateArmorFraction(t), shieldFrac = lateShieldFraction(t);
@@ -149,5 +151,3 @@ function drift(t: number, rank: number): LevelDef {
   };
 }
 
-export { isLateTier };
-export type { LateType };

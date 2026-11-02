@@ -144,20 +144,28 @@ export const MAZE_PATH_WIDTH: readonly number[] = [3, 3, 2, 2, 2];
 export const MAZE_TURN_ROWS: readonly [number, number][] = [[6, 9], [5, 8], [4, 7], [4, 6], [3, 6]];
 export const MAZE_MIN_PATH_WIDTH = 2;
 
-/** FORTRESS: every block armored and shielded. Armor value (the engine halves damage at 10) and shield as a share of the block's HP. */
-export const FORTRESS_ARMOR: readonly number[] = [20, 25, 30, 30, 40];
-export const FORTRESS_SHIELD_SHARE: readonly number[] = [1.5, 1.75, 2, 2.25, 2.5];
-/** The fortress keeps the ordinary HP (its weight is the armor and the shields). */
-export const FORTRESS_HP_MUL = 1;
+/**
+ * FORTRESS: every block armored and shielded. Armor value (the engine halves damage at 10) and shield as a share of the block's HP, by rank. The prompt
+ * asked for "heavier than the normal shares": classic walls top out at 50% / 50% with armor 20 and shields of 1 x HP; here every block has both, and the HP
+ * is x0.65 so the wall asks about the same as the hardest ordinary wall of its tier (the weight is the armor and the shield, see section 5 of the design note).
+ */
+export const FORTRESS_ARMOR: readonly number[] = [20, 20, 25, 25, 30];
+export const FORTRESS_SHIELD_SHARE: readonly number[] = [1.25, 1.5, 1.5, 1.75, 1.75];
+export const FORTRESS_HP_MUL = 0.65;
 
-/** DRIFT: share of cells left empty in each row (so there are gaps to weave through), row speeds in px/s, and the variant by rank. */
+/**
+ * DRIFT: share of cells left empty in each row (so there are gaps to weave through), row speeds in px/s, and the variant by rank. A lane cannot be carved
+ * through a wall whose rows slide (the blocks of every row keep coming back into it), so a Drift wall asks about what clearing it asks: it holds
+ * DRIFT_BLOCKS blocks (an ordinary wall holds 855) with HP x DRIFT_HP_MUL, tuned with the bots (`PART=reach`).
+ */
 export type DriftVariant = 'same' | 'alternate' | 'each';
 export const DRIFT_VARIANT: readonly DriftVariant[] = ['same', 'alternate', 'each', 'alternate', 'each'];
 export const DRIFT_GAP_SHARE = 0.3;
+export const DRIFT_BLOCKS = 450;
 /** Speed of a row: DRIFT_SPEED_BASE x (1 + DRIFT_SPEED_PER_RANK x (rank - 1)); the 'each' variant draws every row's speed between DRIFT_EACH_SPAN of that and 1x, in a random direction. */
 export const DRIFT_SPEED_BASE = 24;
 export const DRIFT_SPEED_PER_RANK = 0.3;
 export const DRIFT_EACH_SPAN = 0.4;
-export const DRIFT_HP_MUL: readonly number[] = [0.8, 0.9, 1, 1.1, 1.2];
+export const DRIFT_HP_MUL: readonly number[] = [0.12, 0.1, 0.08, 0.07, 0.06];
 
 export const byRank = <T>(list: readonly T[], rank: number): T => list[Math.max(0, Math.min(list.length - 1, rank - 1))];

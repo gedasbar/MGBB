@@ -93,7 +93,8 @@ class CarveBot {
       }
     }
     const bottom = columnBottom(w, this.lane);
-    const wantY = bottom === null ? -200 : bottom + w.hitR + 9;
+    // A Monolith is broken from low on the screen: sitting under it would lift the wall's speed (the top-edge boost) and leave the ship a third of the time.
+    const wantY = bottom === null ? -200 : w.level.lateType === 'monolith' ? VIEW_H - CONFIG.PLAYER.MARGIN : bottom + w.hitR + 9;
     this.x = moveX(w, this.x, dotXFor(w, this.lane), dt);
     this.y = move(this.y, Math.min(wantY, VIEW_H - CONFIG.PLAYER.MARGIN), dt);
     return { x: this.x, y: this.y };
