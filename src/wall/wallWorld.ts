@@ -1,7 +1,7 @@
 import { CONFIG } from '../config';
 import { compile, EjectorRecipe, Grid } from '../engine/compiler';
 import { ProjectilePool } from '../engine/pools';
-import { EnemyEntity, ProjectileSystem } from '../engine/projectiles';
+import { EnemyEntity, PHASE_NORMAL, ProjectileSystem } from '../engine/projectiles';
 import { BounceInfo, HomePick, TargetField } from '../engine/targets';
 import { Gun, spawnOffsetsFor } from '../game/fire';
 import { HIT_BURN, HIT_CLOUD } from '../engine/projectiles';
@@ -9,7 +9,7 @@ import { buildStarterGrid } from '../game/starter';
 import {
   BOOST_MAX, CELL, PASS_MARGIN_CELLS, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, SWEEP_STEP_FRAC, TOP_ZONE, VIEW_H,
 } from './constants';
-import { campaignRewardPerBlock, LevelDef, rewardPerBlock } from './level';
+import { campaignRewardPerBlock, LevelDef, rewardPerBlock, wholeHp } from './level';
 import { wallResult } from './result';
 import { easeK, EASE_TIME, SPAWN_INVULN_SECONDS } from '../engine/control';
 import { fireRateMul, hitRadiusOf, shotSpeedMul } from '../data/hulls';
@@ -17,6 +17,7 @@ import { wrapDx, wrapX } from '../engine/wrap';
 import { stepToward } from '../engine/steer';
 import { neutralModifiers, RunModifiers } from '../captains/modifiers';
 import { SECOND_CHANCE_INVULN } from '../captains/data';
+import { FOG_EDGE } from '../data/lateTiers';
 
 /** One living block of a wall. x/y are the block centre (x in world px, y in screen px); `radius` is the half size. */
 export interface Block extends EnemyEntity {
@@ -26,6 +27,16 @@ export interface Block extends EnemyEntity {
   lastHit: number;
   /** Seconds of hit flash left (drawing only). */
   flash: number;
+  /** Chunk 27b: world time of the last damage of any kind, burn ticks included (Regrowth waits for it). */
+  lastDamaged: number;
+  /** Chunk 27b (Fog): this block has been hit, so it stays drawn whatever the distance. */
+  revealed: boolean;
+  /** Chunk 27b (Mitosis Wall): 0 for a block of the wall, 1 for a child of one, 2 for a child of a child. */
+  gen: number;
+  /** Half of the block's side in px: CELL / 2, or smaller for a child. The hit tests and the drawing read it. */
+  half: number;
+  /** Share of the normal credits this block pays (1; a child pays its parent's share x the HP share). */
+  share: number;
 }
 
 /** One hit on a block. `armor`, `shield` and `maxShield` are what the block has left AFTER the hit (the sound layer reads them). */
@@ -167,12 +178,12 @@ class BlockField implements TargetField {
 
   bounceInfo(t: EnemyEntity, px: number, py: number, r: number): BounceInfo | null {
     const b = t as Block;
-    const h = CELL / 2;
-    const by = this.w.blockTop(b.row);
+    const h = b.half;
+    const by = this.w.blockTop(b.row) + CELL / 2 - h; // top edge of the box (a child is a smaller box in the middle of its cell)
     // Position relative to the block centre (the short way round on a ring).
     const rx = this.w.dxw(px, b.x);
     const qx = Math.max(-h, Math.min(rx, h));
-    const qy = Math.max(by, Math.min(py, by + CELL));
+    const qy = Math.max(by, Math.min(py, by + 2 * h));
     const dx = rx - qx;
     const dy = py - qy;
     const d = Math.hypot(dx, dy);
@@ -180,7 +191,7 @@ class BlockField implements TargetField {
     // Centre inside the block: leave through the nearest face.
     const faces = [
       { d: rx + h, nx: -1, ny: 0 }, { d: h - rx, nx: 1, ny: 0 },
-      { d: py - by, nx: 0, ny: -1 }, { d: by + CELL - py, nx: 0, ny: 1 },
+      { d: py - by, nx: 0, ny: -1 }, { d: by + 2 * h - py, nx: 0, ny: 1 },
     ];
     const f = faces.reduce((a, c) => (c.d < a.d ? c : a));
     return { nx: f.nx, ny: f.ny, push: f.d + r + 0.5 };
@@ -199,6 +210,8 @@ export class WallWorld {
   readonly warnings: string[];
   readonly spawnOffsets: { x: number; y: number }[];
   readonly field = new BlockField(this);
+  /** Chunk 27b (Crosswind): sideways acceleration of every shot in normal flight, px/s squared, positive = to the right. 0 = none. */
+  readonly crossAccel: number;
   /** Ring wall (the level's `wrap`, default true): x wraps at `worldW`. */
   readonly ring: boolean;
   /** Width of the wall in px: cols x CELL. */
@@ -219,7 +232,7 @@ export class WallWorld {
   /** Second Chance charges left: the next live block the ship touches is destroyed instead of ending the run. */
   secondChancesLeft = 0;
   /** Counters of the captain effects (debug hook and tests). */
-  readonly fx = { secondChance: 0, passBonus: 0, skillBonus: 0 };
+  readonly fx = { secondChance: 0, passBonus: 0, skillBonus: 0, splits: 0, healed: 0 };
   /** Every block ever created, for iteration. */
   readonly all: Block[] = [];
   /** Blocks with a shield pool (regeneration only walks these). */
@@ -243,7 +256,7 @@ export class WallWorld {
   private controlT: number;
   private easeFrom = { x: 0, y: 0 };
 
-  readonly total: number;
+  private totalBlocks: number;
   alive: number;
   destroyed = 0;
   creditsExact = 0;
@@ -287,6 +300,10 @@ export class WallWorld {
     this.projSys.modifiersTable = this.recipes.map(r => r.packet.mods);
     this.gun = new Gun(this.pool, this.projSys, this.recipes, this.spawnOffsets, 1 / (CONFIG.PULSE.BASE_RATE * this.fireRateMul));
     this.gun.speedMul = this.mods.projSpeedMul * shotSpeedMul(hullGrid.hullId);
+    // Chunk 27b: Strong Wind turns every shot's launch direction round (and speeds it up); Crosswind pushes every shot in flight sideways.
+    const fx = level.effects;
+    if (fx?.strongWind) { this.gun.launchTurnDeg = fx.strongWind.turnDeg; this.gun.speedMul *= fx.strongWind.speedMul; }
+    this.crossAccel = fx?.crosswind?.accel ?? 0;
     this.hitR = hitRadiusOf(hullGrid.hullId);
     const bonus = this.projSys.bonus;
     bonus.damageMul = this.mods.damageMul * this.mods.wallDamageMul;
@@ -302,7 +319,7 @@ export class WallWorld {
         const b: Block = {
           id: r * level.cols + c, col: c, row: r, x: c * CELL + CELL / 2, y: 0, radius: CELL / 2,
           hp: def.hp, maxHp: def.hp, armor: def.armor, shield: def.shield, maxShield: def.shield,
-          lastHit: -Infinity, flash: 0,
+          lastHit: -Infinity, flash: 0, lastDamaged: -Infinity, revealed: false, gen: 0, half: CELL / 2, share: 1,
         };
         this.blocks.push(b);
         this.all.push(b);
@@ -312,7 +329,7 @@ export class WallWorld {
       }
     }
     this.alive = alive;
-    this.total = alive;
+    this.totalBlocks = alive;
     this.lowRow = this.findLowRow(level.rows - 1);
     this.syncY();
 
@@ -320,6 +337,8 @@ export class WallWorld {
       const b = e as Block;
       // A burn tick hurts the block but does not flash it or hold back its shield regeneration.
       if (kind !== HIT_BURN && kind !== HIT_CLOUD) { b.lastHit = this.time; b.flash = FLASH_TIME; }
+      b.lastDamaged = this.time; // chunk 27b: any damage holds back Regrowth, a burn tick too
+      b.revealed = true; // chunk 27b: a block that has been hit stays drawn in the Fog
       this.hits.push({ blockId: b.id, damage: dmg, x, y, kind, armor: b.armor, shield: b.shield, maxShield: b.maxShield });
       if (b.hp <= 0) this.destroyBlock(b);
     };
@@ -335,6 +354,8 @@ export class WallWorld {
   }
 
   get tier(): number { return this.level.tier; }
+  /** Blocks the wall has held so far: its own, plus the children a Mitosis Wall has made. */
+  get total(): number { return this.totalBlocks; }
   /** Whole credits earned so far. */
   get credits(): number { return Math.floor(this.creditsExact + 1e-9); }
   get percentDestroyed(): number { return this.total === 0 ? 100 : (this.destroyed / this.total) * 100; }
@@ -349,10 +370,21 @@ export class WallWorld {
 
   /** Squared distance from a point (world x, screen y) to the box of a cell. */
   boxDistSq(px: number, py: number, col: number, row: number): number {
-    const dx = Math.max(0, Math.abs(this.dxw(px, col * CELL + CELL / 2 + this.rowShift[row])) - CELL / 2);
-    const by = this.blockTop(row);
-    const dy = py - Math.max(by, Math.min(py, by + CELL));
+    const half = this.blocks[row * this.level.cols + col]?.half ?? CELL / 2; // a Mitosis child is a smaller box in the middle of its cell
+    const dx = Math.max(0, Math.abs(this.dxw(px, col * CELL + CELL / 2 + this.rowShift[row])) - half);
+    const dy = Math.max(0, Math.abs(py - (this.blockTop(row) + CELL / 2)) - half);
     return dx * dx + dy * dy;
+  }
+
+  /**
+   * Chunk 27b (Fog): how much of a block is drawn, 0 to 1. Always 1 without Fog, and for a block that has been hit; otherwise 1 inside the fog radius
+   * less FOG_EDGE and fading to 0 at the radius, measured from the ship to the nearest point of the block.
+   */
+  fogAlpha(b: Block): number {
+    const fog = this.level.effects?.fog;
+    if (!fog || b.revealed) return 1;
+    const d = Math.sqrt(this.boxDistSq(this.shipX, this.shipY, b.col, b.row));
+    return Math.max(0, Math.min(1, (fog.radius - d) / FOG_EDGE));
   }
 
   /** Grid cell under a world position (x in world px, y in screen px), or null outside the wall (never sideways on a ring). */
@@ -411,13 +443,48 @@ export class WallWorld {
     if (this.blocks[idx] !== b) return;
     this.blocks[idx] = null;
     b.hp = Math.min(b.hp, 0);
+    this.split(b); // before the row count drops: a child in the same row keeps it alive
     this.rowAlive[b.row]--;
     this.alive--;
     this.destroyed++;
     if (b.row === this.lowRow && this.rowAlive[b.row] === 0) this.lowRow = this.findLowRow(b.row);
-    const reward = (this.level.campaign ? campaignRewardPerBlock(this.level.tier) : rewardPerBlock(this.level.tier)) * (this.level.rewardMul ?? 1) * this.mods.creditMul * this.mods.wallCreditMul;
+    const reward = (this.level.campaign ? campaignRewardPerBlock(this.level.tier) : rewardPerBlock(this.level.tier)) * (this.level.rewardMul ?? 1) * b.share * this.mods.creditMul * this.mods.wallCreditMul;
     this.creditsExact += reward;
     this.killEvents.push({ x: b.x, y: b.y, reward });
+  }
+
+  /**
+   * Chunk 27b (Mitosis Wall): a destroyed block of a generation below `maxGen` leaves `children` smaller blocks in the empty cells beside it: left and right first,
+   * then the cell behind it (the next row up the wall, further from the ship). With fewer empty cells there are fewer children (none when it is boxed in).
+   * A child has `hpShare` of its parent's max HP, its armor, `hpShare` of its shield and `sizeMul` of its size, and pays `hpShare` of its parent's credits.
+   */
+  private split(b: Block) {
+    const m = this.level.effects?.mitosis;
+    if (!m || b.gen >= m.maxGen) return;
+    const cols = this.level.cols;
+    const spots: [number, number][] = [[b.row, b.col - 1], [b.row, b.col + 1], [b.row - 1, b.col]];
+    let made = 0;
+    for (const [r, c0] of spots) {
+      if (made >= m.children) break;
+      const c = this.ring ? ((c0 % cols) + cols) % cols : c0;
+      if (r < 0 || c < 0 || c >= cols || this.blocks[r * cols + c]) continue;
+      const hp = wholeHp(b.maxHp * m.hpShare);
+      const shield = b.maxShield > 0 ? wholeHp(b.maxShield * m.hpShare) : 0;
+      const half = (CELL / 2) * Math.pow(m.sizeMul, b.gen + 1);
+      const child: Block = {
+        id: r * cols + c, col: c, row: r, x: wrapX(c * CELL + CELL / 2 + this.rowShift[r], this.worldW), y: this.blockTop(r) + CELL / 2, radius: half,
+        hp, maxHp: hp, armor: b.armor, armor0: b.armor0, shield, maxShield: shield,
+        lastHit: -Infinity, flash: 0, lastDamaged: -Infinity, revealed: b.revealed, gen: b.gen + 1, half, share: b.share * m.hpShare,
+      };
+      this.blocks[r * cols + c] = child;
+      this.all.push(child);
+      if (shield > 0) this.shielded.push(child);
+      this.rowAlive[r]++;
+      this.alive++;
+      this.totalBlocks++;
+      made++;
+    }
+    this.fx.splits += made;
   }
 
   /** Debug/test helper: destroys every living block through the normal path. */
@@ -510,6 +577,8 @@ export class WallWorld {
       }
     }
     for (const b of this.all) if (b.flash > 0) b.flash -= dt;
+    const regrowth = this.level.effects?.regrowth;
+    if (regrowth) this.regrow(regrowth.delay, regrowth.perSec, dt);
 
     // --- Wall: always approaching, faster the higher the ship is on the screen
     const scrollDy = this.scroll * dt;
@@ -538,6 +607,7 @@ export class WallWorld {
     const wallTop = this.wallOffsetY - this.level.rows * CELL - 100;
     for (let i = 0; i < pool.max; i++) {
       if (!pool.active[i]) continue;
+      if (this.crossAccel !== 0 && pool.phase[i] === PHASE_NORMAL) pool.vx[i] += this.crossAccel * dt; // Crosswind: a steady push on a shot in normal flight
       pool.x[i] += pool.vx[i] * dt;
       pool.y[i] += pool.vy[i] * dt;
       if (this.ring) pool.x[i] = wrapX(pool.x[i], this.worldW);
@@ -580,6 +650,16 @@ export class WallWorld {
         if (this.alive === 0) this.end('cleared');
       } else this.state = 'crashed';
     } else if (result === 'passed') this.end('passed');
+  }
+
+  /** Chunk 27b (Regrowth): a living block not damaged for `delay` seconds heals `perSec` x its max HP a second. */
+  private regrow(delay: number, perSec: number, dt: number) {
+    for (const b of this.all) {
+      if (b.hp <= 0 || b.hp >= b.maxHp || this.time - b.lastDamaged < delay) continue;
+      const before = b.hp;
+      b.hp = Math.min(b.maxHp, b.hp + b.maxHp * perSec * dt);
+      this.fx.healed += b.hp - before;
+    }
   }
 
   /** Ends the level as cleared or passed; a captain's pass bonus (a share of the credits earned so far) is paid once, here. A crash pays nothing extra. */

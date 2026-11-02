@@ -101,6 +101,8 @@ export class WallScreen implements Screen {
   private arcG = new Graphics();
   /** Residue Seed clouds. */
   private fieldG = new Graphics();
+  /** Chunk 27b: the rim of the fog. */
+  private fogG = new Graphics();
   private bg: BackgroundView | null = null;
   /** ?debug=1: a faint line at world x = 0 so the seam of a ring can be seen. */
   private seamLine: Graphics | null = null;
@@ -168,7 +170,7 @@ export class WallScreen implements Screen {
 
     this.ship = new ShipView(this.sm.app.renderer, grid.hullId ?? 'shuttle');
     this.container.addChild(this.blockLayer, this.projLayer, this.ship.container, this.fxLayer, this.uiLayer);
-    this.fxLayer.addChild(this.fieldG, this.arcG);
+    this.fxLayer.addChild(this.fogG, this.fieldG, this.arcG);
     const forcedBg = forcedBackground();
     if (forcedBg !== 'off') {
       this.bg = new BackgroundView(this.sm.app.renderer, forcedBg ?? backgroundForTier(levelDef.tier, !!levelDef.spike));
@@ -341,6 +343,7 @@ export class WallScreen implements Screen {
     }
 
     this.drawBlocks();
+    this.drawFogRim();
     this.drawProjectiles();
     this.drawArcs();
     this.ship.setPosition(this.sx(w.shipX), w.shipY);
@@ -371,6 +374,14 @@ export class WallScreen implements Screen {
     slot.life = POPUP_LIFE;
   }
 
+  /** Chunk 27b (Fog): a faint ring at the edge of what the ship can see, so the player knows how far the fog reaches. */
+  private drawFogRim() {
+    const fog = this.world.level.effects?.fog;
+    this.fogG.clear();
+    if (!fog) return;
+    this.fogG.circle(this.sx(this.world.shipX), this.world.shipY, fog.radius).stroke({ width: 2, color: 0xffffff, alpha: 0.12 });
+  }
+
   /** Draws only the cells inside the viewport, reusing a fixed pool of sprites. */
   private drawBlocks() {
     const w = this.world;
@@ -396,11 +407,16 @@ export class WallScreen implements Screen {
         // Screen x of the block: the short way round from the viewport centre on a ring (no pop, no duplicate at the seam).
         const left = ring ? this.sx(b.x) - CELL / 2 : c * CELL - camX;
         if (left < -CELL || left > VIEW_W) continue;
+        const fog = w.fogAlpha(b); // chunk 27b: a Fog tier draws a block only near the ship or once it has been hit
+        if (fog <= 0) continue;
         const v = this.views[used++];
         const armored = b.armor > 0;
-        const x = left + GAP;
-        const y = w.blockTop(r) + GAP;
-        const size = CELL - 2 * GAP;
+        // A Mitosis child is a smaller block in the middle of its cell (half = CELL / 2 for every other block).
+        const side = b.half * 2;
+        const x = left + (CELL - side) / 2 + GAP;
+        const y = w.blockTop(r) + (CELL - side) / 2 + GAP;
+        const size = side - 2 * GAP;
+        v.frame.alpha = v.well.alpha = v.inner.alpha = v.shield.alpha = fog;
         // Corrosion strips armor: the thick frame thins (and dims) in step with the armor that is left.
         const armorLeft = armored ? Math.min(1, b.armor / (b.armor0 ?? b.armor)) : 0;
         const ft = armored ? FRAME_W + (FRAME_W_ARMOR - FRAME_W) * armorLeft : FRAME_W;
@@ -417,6 +433,7 @@ export class WallScreen implements Screen {
         v.inner.position.set(x + (size - inner) / 2, y + (size - inner) / 2);
         const burning = (b.burnT ?? 0) > 0;
         const frozen = (b.freezeT ?? 0) > 0;
+        v.status.alpha = OVERLAY_ALPHA * fog;
         if (burning || frozen) {
           v.status.visible = true;
           v.status.tint = frozen && !burning ? FROZEN_TINT : BURN_TINT;

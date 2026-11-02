@@ -14,7 +14,7 @@ export interface LateTypeInfo {
   name: string;
   /** One short line for the list and the tier panel. */
   line: string;
-  /** false = chunk 27b builds the effect; until then its tiers are ordinary hard walls that keep the type in the data. */
+  /** false = the type's tiers are ordinary hard walls that keep the type in the data (every type is built since chunk 27b). */
   built: boolean;
 }
 
@@ -26,11 +26,11 @@ export const LATE_TYPES: Record<LateType, LateTypeInfo> = {
   maze: { id: 'maze', name: 'Maze', line: 'Maze: a winding path through blocks too tough to kill. Just fly.', built: true },
   fortress: { id: 'fortress', name: 'Fortress', line: 'Fortress: every block is armored and shielded.', built: true },
   drift: { id: 'drift', name: 'Drift', line: 'Drift: the rows slide sideways while the wall comes.', built: true },
-  strong_wind: { id: 'strong_wind', name: 'Strong Wind', line: 'Strong Wind: a steady wind bends your shots.', built: false },
-  crosswind: { id: 'crosswind', name: 'Crosswind', line: 'Crosswind: gusts push your ship sideways.', built: false },
-  fog: { id: 'fog', name: 'Fog', line: 'Fog: the far part of the wall is hidden.', built: false },
-  regrowth: { id: 'regrowth', name: 'Regrowth', line: 'Regrowth: destroyed blocks grow back.', built: false },
-  mitosis_wall: { id: 'mitosis_wall', name: 'Mitosis Wall', line: 'Mitosis Wall: blocks split when they are hit.', built: false },
+  strong_wind: { id: 'strong_wind', name: 'Strong Wind', line: 'Strong Wind: every shot leaves backwards. Turn it round.', built: true },
+  crosswind: { id: 'crosswind', name: 'Crosswind', line: 'Crosswind: a steady wind pushes every shot sideways.', built: true },
+  fog: { id: 'fog', name: 'Fog', line: 'Fog: blocks show only near your ship, or once hit.', built: true },
+  regrowth: { id: 'regrowth', name: 'Regrowth', line: 'Regrowth: blocks left alone for a second heal fast.', built: true },
+  mitosis_wall: { id: 'mitosis_wall', name: 'Mitosis Wall', line: 'Mitosis Wall: a destroyed block splits into two small ones.', built: true },
 };
 
 // ------------------------------------------------------------------ the schedule
@@ -169,3 +169,52 @@ export const DRIFT_EACH_SPAN = 0.4;
 export const DRIFT_HP_MUL: readonly number[] = [0.12, 0.1, 0.08, 0.07, 0.06];
 
 export const byRank = <T>(list: readonly T[], rank: number): T => list[Math.max(0, Math.min(list.length - 1, rank - 1))];
+
+// ------------------------------------------------------------------ chunk 27b: the five effect types, by rank (index rank - 1, the last entry repeats)
+/**
+ * What an effect tier does to the run. Every field is optional; a wall has at most one (one type at a time). Numbers are the tables below.
+ * `strongWind`: every shot's launch direction is turned `turnDeg` degrees and its speed multiplied. `crosswind`: a steady sideways acceleration
+ * on every shot in flight, px/s squared, positive = to the right. `fog`: blocks are drawn only within `radius` px of the ship or once hit.
+ * `regrowth`: a block not damaged for `delay` s heals `perSec` x its max HP a second. `mitosis`: see MITOSIS_*.
+ */
+export interface LateEffects {
+  strongWind?: { turnDeg: number; speedMul: number };
+  crosswind?: { accel: number };
+  fog?: { radius: number };
+  regrowth?: { delay: number; perSec: number };
+  mitosis?: { children: number; hpShare: number; maxGen: number; sizeMul: number };
+}
+
+/** STRONG WIND: the launch direction is turned this many degrees (180 = straight back), and shots fly this much faster (a faster U-turn is a wider one). */
+export const STRONG_WIND_TURN_DEG = 180;
+export const STRONG_WIND_SPEED_MUL: readonly number[] = [1, 1.1, 1.2, 1.3, 1.4];
+
+/** CROSSWIND: sideways acceleration of every shot in px/s squared; the side (left or right) is fixed per tier (`crosswindSide`). One cell is 54 px. A shot that flies d px at 600 px/s drifts a x (d / 600)^2 / 2: at 100 px (a carving ship) 3 to 8 px, at 300 px 25 to 72 px, at 600 px 100 to 290 px, so the wind hurts long-range fire and leaves a ship at the wall alone. */
+export const CROSSWIND_ACCEL: readonly number[] = [200, 280, 360, 460, 580];
+/** -1 (to the left) or +1 (to the right), fixed by the tier number (the same every visit, alternating in a pattern the player cannot guess from the previous tier). */
+export const crosswindSide = (tier: number): -1 | 1 => (((tier * 2654435761) >>> 7) & 1 ? 1 : -1);
+
+/**
+ * FOG: radius (px) round the ship inside which blocks are drawn. It shrinks with every return. Fairness: a block must be on screen at least
+ * FOG_REACT_SECONDS before the fastest scroll of its tier (BOOST_MAX x the approach speed) could carry it to the ship, plus a cell to read it; `fogRadiusFloor`
+ * is that number and a unit test checks every fog tier is above it.
+ */
+export const FOG_RADIUS: readonly number[] = [420, 360, 310, 270, 240];
+export const FOG_REACT_SECONDS = 1.5;
+/** Width of the soft edge (px) where a block fades out at the rim of the fog. The block is fully drawn inside radius - FOG_EDGE. */
+export const FOG_EDGE = 60;
+
+/** REGROWTH: seconds a block must be left alone before it heals, and the share of its max HP healed per second by rank. */
+export const REGROWTH_DELAY = 1;
+export const REGROWTH_PER_SEC: readonly number[] = [0.04, 0.06, 0.09, 0.12, 0.16];
+
+/**
+ * MITOSIS WALL: a destroyed block splits into MITOSIS_CHILDREN smaller blocks in the empty cells next to it (left and right first, then the cell behind it, further
+ * up the wall), each with MITOSIS_HP_SHARE of the block's max HP and MITOSIS_SIZE_MUL of its size; a child may split once more (MITOSIS_MAX_GEN generations in all).
+ * A child pays MITOSIS_HP_SHARE of what its parent paid. The wall's own blocks have this share of the tier's HP by rank.
+ */
+export const MITOSIS_CHILDREN = 2;
+export const MITOSIS_HP_SHARE = 0.4;
+export const MITOSIS_MAX_GEN = 2;
+export const MITOSIS_SIZE_MUL = 0.75;
+export const MITOSIS_HP_MUL: readonly number[] = [0.6, 0.65, 0.7, 0.75, 0.8];

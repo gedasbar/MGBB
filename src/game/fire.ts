@@ -52,6 +52,8 @@ export class Gun {
   shots = 0;
   /** Captain effect: every projectile's speed is multiplied by this (1 = none). */
   speedMul = 1;
+  /** Chunk 27b (Strong Wind): every shot's launch direction is turned this many degrees, on top of Angle and Scatter. 0 = none. */
+  launchTurnDeg = 0;
   readonly fx: GunCounters = {
     alternations: 0, routerSingle: 0, routerBoth: 0, capacitorAbsorbed: 0, capacitorEmits: 0, delayedShots: 0, delayReleases: 0, overclockPeak: 1, overclockResets: 0,
   };
@@ -260,6 +262,7 @@ export class Gun {
     // The draw is made once, so a Mirror clone flies the same way as its shot.
     let aim = r.packet.angle || 0;
     if (r.packet.scatter > 0) aim += (rng.combat.next() * 2 - 1) * r.packet.scatter;
+    aim += this.launchTurnDeg;
     if (aim !== 0) {
       const c = Math.cos(aim * RAD), sn = Math.sin(aim * RAD);
       const ux = vx, uy = vy;

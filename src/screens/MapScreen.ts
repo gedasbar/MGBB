@@ -13,6 +13,7 @@ import { inRect, LAYOUT, Rect, VIEW_H, VIEW_W } from '../builder/layout';
 import { makeTabButtons } from '../builder/tabs';
 import { makeText, Toast, UIButton } from '../builder/ui';
 import { classicClearedCount, getProgressStore, isCleared, isFrontierUnlocked, isPassed, isUnlocked, lateTiersOpen, nextTier } from '../econ/progress';
+import { drawLateTypeIcon } from '../ui/lateTypeIcon';
 import { CLASSIC_TIERS, LATE_FIRST, LATE_TYPES, LateType, lateSlot } from '../data/lateTiers';
 import { CreditsBadge, textButton, TextButton } from '../ui/hud';
 import { FrontierScreen } from './FrontierScreen';
@@ -159,7 +160,7 @@ export class MapScreen implements Screen {
       g.rect(x, y, TILE, TILE).fill(locked ? FRAME_LOCKED : FRAME);
       g.rect(x + 3, y + 3, TILE - 6, TILE - 6).fill(locked ? FACE_LOCKED : sel ? 0x3a3a3e : FACE);
       if (info.spike) g.poly([x + 3, y + 3, x + 27, y + 3, x + 3, y + 27]).fill(THEME.bad);
-      else if (info.type) g.poly([x + 3, y + 3, x + 27, y + 3, x + 3, y + 27]).fill(locked ? NUM_LOCKED : TYPE_COLOR);
+      else if (info.type) drawLateTypeIcon(g, info.type, x + 17, y + 17, 9, locked ? NUM_LOCKED : TYPE_COLOR);
       if (info.state === 'cleared') g.circle(x + TILE - 15, y + 15, 7).fill(THEME.currency);
       else if (info.state === 'passed') g.circle(x + TILE - 15, y + 15, 6).stroke({ color: THEME.currency, width: 2 });
       if (sel) g.rect(x - 1, y - 1, TILE + 2, TILE + 2).stroke({ color: THEME.select, width: 3 });
@@ -223,7 +224,7 @@ export class MapScreen implements Screen {
     this.title.text = `Tier ${this.selected} · ${level.name}`;
     this.hint.text = level.hint ?? '';
     this.spikeLine.style.fill = level.spike ? THEME.bad : TYPE_COLOR;
-    this.spikeLine.text = level.spike ? 'SPIKE: every block has 2x HP' : level.lateType ? `${level.typeLine ?? ''}${level.lateType && !LATE_TYPES[level.lateType].built ? ' (not active yet)' : ''}` : '';
+    this.spikeLine.text = level.spike ? 'SPIKE: every block has 2x HP' : level.lateType ? `${level.typeLine ?? ''}${!LATE_TYPES[level.lateType].built ? ' (not active yet)' : ''}` : '';
     const key = String(this.selected);
     const pct = p.wallBestPct[key];
     const passTime = p.wallBestTime[key];
