@@ -1,6 +1,6 @@
 # Chunk 28b report: settings, cosmetics, hub tabs, Mitosis and Crosswind fixes
 
-Branch `claude/quirky-pasteur-y0ctvb`, started from `origin/main` (28a merged). Gameplay, settings and UI change: full e2e in one run (result below). Decisions: `DECISIONS.md` 479-493. Contact sheet: `reports/chunk28b/sheet_28b.png` (single pictures next to it).
+Branch `claude/quirky-pasteur-y0ctvb`, started from `origin/main` (28a merged). Gameplay, settings and UI change: **full e2e suite 44 of 44 passed in one run** (earlier runs found two stale scripts, `captains` and `production-build`, both fixed; a dev-server timeout also broke one run, rerun clean). Unit tests all pass. Decisions: `DECISIONS.md` 479-493. Contact sheet: `reports/chunk28b/sheet_28b.png` (single pictures next to it).
 
 ## What was built
 1. **Hub** behind the builder's ship button: SHIPS / CUSTOMIZATION / ACHIEVEMENTS tabs. Achievements moved in (button removed from the Captain tab); Achievements / Challenges switch and a "Show completed" toggle (default off, remembered; finished ones go to the bottom of their group when shown).
