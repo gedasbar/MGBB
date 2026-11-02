@@ -1,5 +1,5 @@
 import { Mulberry32 } from '../rng';
-import { CLASSIC_TIERS, LATE_HP_SEGMENTS, LATE_REWARD_GROWTH, LateType, DriftVariant } from '../data/lateTiers';
+import { CLASSIC_TIERS, LATE_HP_SEGMENTS, LATE_REWARD_GROWTH, LateEffects, LateType, DriftVariant } from '../data/lateTiers';
 import {
   BLOCK_HP_BASE, BLOCK_HP_FIRST_END, BLOCK_HP_GROWTH, BLOCK_HP_SEGMENTS, DEFAULT_APPROACH_SPEED, WALL_ROWS_FIRST, WALL_ROWS_LAST, REWARD_BASE, REWARD_GROWTH, TEST_ARMOR, TEST_SHIELD_OF_HP, WALL_COLS,
 } from './constants';
@@ -35,6 +35,8 @@ export interface LevelDef {
   rewardMul?: number;
   /** Drift: the row speeds in px/s (positive = right), one per row, row 0 at the top. */
   drift?: { variant: DriftVariant; speeds: number[] };
+  /** Chunk 27b: what a Strong Wind / Crosswind / Fog / Regrowth / Mitosis Wall tier does to the run. Missing = nothing. */
+  effects?: LateEffects;
   /** Maze: the first open column of every row (row 0 at the top) and the path width. */
   mazePath?: number[];
   mazeWidth?: number;

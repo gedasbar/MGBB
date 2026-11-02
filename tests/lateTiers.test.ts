@@ -87,11 +87,11 @@ describe('schedule', () => {
       expect(ranks[0]).toBe(1);
     }
   });
-  it('the unbuilt types (chunk 27b) keep their type in the data but are ordinary walls', () => {
-    const t = tierOf('fog');
-    const l = generateLevel(t);
+  it('every type is built since chunk 27b; the five effect types are ordinary walls plus an `effects` record', () => {
+    for (const ty of LATE_TYPE_ORDER) expect(LATE_TYPES[ty].built).toBe(true);
+    const l = generateLevel(tierOf('fog'));
     expect(l.lateType).toBe('fog');
-    expect(LATE_TYPES.fog.built).toBe(false);
+    expect(l.effects?.fog).toBeDefined();
     expect(l.drift).toBeUndefined();
     expect(l.mazePath).toBeUndefined();
     expect(l.rows).toBeGreaterThanOrEqual(41);

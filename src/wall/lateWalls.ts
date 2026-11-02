@@ -3,11 +3,13 @@
 // Fortress, Drift) are built here. The five types of chunk 27b are ordinary hard walls that keep their type in `lateType`.
 import { Mulberry32 } from '../rng';
 import {
-  byRank, DRIFT_BLOCKS, DRIFT_EACH_SPAN, DRIFT_GAP_SHARE, DRIFT_HP_MUL, DRIFT_SPEED_BASE, DRIFT_SPEED_PER_RANK, DRIFT_VARIANT, DriftVariant, FORTRESS_ARMOR, FORTRESS_HP_MUL,
+  byRank, LateType, DRIFT_BLOCKS, DRIFT_EACH_SPAN, DRIFT_GAP_SHARE, DRIFT_HP_MUL, DRIFT_SPEED_BASE, DRIFT_SPEED_PER_RANK, DRIFT_VARIANT, DriftVariant, FORTRESS_ARMOR, FORTRESS_HP_MUL,
   FORTRESS_SHIELD_SHARE, isLateMilestone, LATE_ARMOR_FRAC, LATE_FIRST, LATE_LAST, LATE_MILESTONES, LATE_ROWS, LATE_SHIELD_FRAC, LATE_TYPES, lateSlot,
   MAZE_HP_MUL, MAZE_PATH_WIDTH, MAZE_ROWS, MAZE_TURN_ROWS, MONOLITH_HP_MUL, MONOLITH_REWARD_SHARE, MONOLITH_ROWS,
+  CROSSWIND_ACCEL, crosswindSide, FOG_RADIUS, FOG_REACT_SECONDS, LateEffects, MITOSIS_CHILDREN, MITOSIS_HP_MUL, MITOSIS_HP_SHARE, MITOSIS_MAX_GEN, MITOSIS_SIZE_MUL,
+  REGROWTH_DELAY, REGROWTH_PER_SEC, STRONG_WIND_SPEED_MUL, STRONG_WIND_TURN_DEG,
 } from '../data/lateTiers';
-import { approachSpeedFor, WALL_COLS } from './constants';
+import { approachSpeedFor, BOOST_MAX, CELL, WALL_COLS } from './constants';
 import { armorValueOf, blocksForRows, buildWall, shieldShareOf, TEMPLATE_COUNT, WallSpec } from './generator';
 import { BlockDef, lateBlockHp, LevelDef, wholeHp } from './level';
 
@@ -23,6 +25,24 @@ export const DRIFT_LINES: Record<DriftVariant, string> = {
   each: 'Drift: every row slides its own way and speed.',
 };
 
+/**
+ * The least radius of a Fog tier that is still fair: a block is on screen at least FOG_REACT_SECONDS before the fastest scroll of the tier
+ * (the base speed x BOOST_MAX, flying at the top edge) carries it from the rim of the fog to the ship, plus a cell to read it by and the ship's half size.
+ */
+export const fogRadiusFloor = (tier: number) => approachSpeedFor(tier) * BOOST_MAX * FOG_REACT_SECONDS + CELL;
+
+/** What the five effect types of chunk 27b do at a tier and rank (undefined for the other types). */
+export function effectsOf(type: LateType, tier: number, rank: number): LateEffects | undefined {
+  switch (type) {
+    case 'strong_wind': return { strongWind: { turnDeg: STRONG_WIND_TURN_DEG, speedMul: byRank(STRONG_WIND_SPEED_MUL, rank) } };
+    case 'crosswind': return { crosswind: { accel: crosswindSide(tier) * byRank(CROSSWIND_ACCEL, rank) } };
+    case 'fog': return { fog: { radius: byRank(FOG_RADIUS, rank) } };
+    case 'regrowth': return { regrowth: { delay: REGROWTH_DELAY, perSec: byRank(REGROWTH_PER_SEC, rank) } };
+    case 'mitosis_wall': return { mitosis: { children: MITOSIS_CHILDREN, hpShare: MITOSIS_HP_SHARE, maxGen: MITOSIS_MAX_GEN, sizeMul: MITOSIS_SIZE_MUL } };
+    default: return undefined;
+  }
+}
+
 const cache = new Map<number, LevelDef>();
 
 /** The wall of a tier 101-200. Pure: the same tier always gives the same wall. */
@@ -33,9 +53,11 @@ export function buildLateLevel(tier: number): LevelDef {
   const slot = lateSlot(t);
   const type = slot && LATE_TYPES[slot.type].built ? slot.type : null;
   const rank = slot?.rank ?? 1;
-  const base = type === 'monolith' ? monolith(t, rank) : type === 'maze' ? maze(t, rank) : type === 'drift' ? drift(t, rank) : ordinary(t, type === 'fortress' ? rank : 0);
+  const base = type === 'monolith' ? monolith(t, rank) : type === 'maze' ? maze(t, rank) : type === 'drift' ? drift(t, rank) : ordinary(t, type === 'fortress' ? rank : 0, type === 'mitosis_wall' ? byRank(MITOSIS_HP_MUL, rank) : 1);
+  const effects = type ? effectsOf(type, t, rank) : undefined;
   const level: LevelDef = {
     ...base,
+    ...(effects ? { effects } : {}),
     ...(slot ? { lateType: slot.type, typeRank: slot.rank, typeLine: base.typeLine ?? LATE_TYPES[slot.type].line } : {}),
   };
   cache.set(t, level);
@@ -50,11 +72,11 @@ const common = (t: number) => ({ tier: t, cols: WALL_COLS, wrap: true, approachS
  * An ordinary hard wall, or (fortressRank > 0) a Fortress: the same walls with every block armored and shielded, heavier than the
  * ordinary shares. A milestone tier (every 10th) uses the shape of the classic milestone 100 tiers earlier under a new name.
  */
-function ordinary(t: number, fortressRank: number): LevelDef {
+function ordinary(t: number, fortressRank: number, hpMul = 1): LevelDef {
   const ms = isLateMilestone(t) && !fortressRank;
   let template = pickTemplate(t);
   if (t > LATE_FIRST && template === pickTemplate(t - 1)) template = (template + 1) % TEMPLATE_COUNT; // never the same shape twice in a row
-  const hp = wholeHp(lateBlockHp(t) * (fortressRank ? FORTRESS_HP_MUL : 1));
+  const hp = wholeHp(lateBlockHp(t) * (fortressRank ? FORTRESS_HP_MUL : hpMul));
   const spec: WallSpec = {
     tier: t, seed: t * 1000003 + 12345, template, ...(ms ? { milestoneTier: t - 100 } : {}),
     rows: LATE_ROWS, target: blocksForRows(LATE_ROWS), hp,
