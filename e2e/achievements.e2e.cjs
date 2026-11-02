@@ -32,7 +32,7 @@ async function montage(page, shots, captions, file) {
 }
 const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('mgbm.progress.v1')));
 const rectOf = (page, id) => page.evaluate((i) => { const b = window.__mgbm.state().buttons.find(x => x.id === i); return b ? b.rect : null; }, id);
-async function tapButton(page, id) {
+async function tapButton(page, id, screen) {
   let r = await waitFor(() => rectOf(page, id), { timeout: 3000 });
   check(!!r, `button ${id} exists`);
   // A button in the scrolling list: bring it into view first (the list moves under a mask; a tap outside it is ignored).
@@ -41,6 +41,11 @@ async function tapButton(page, id) {
     r = await rectOf(page, id);
   }
   if (r) await tap(page, r.x + r.w / 2, r.y + r.h / 2);
+  // A tap that opens another screen is retried until that screen shows (a loaded machine can swallow one).
+  for (let i = 0; screen && i < 3 && !(await waitFor(() => page.evaluate((x) => window.__mgbm.screen === x, screen), { timeout: 2500 })); i++) {
+    r = await rectOf(page, id);
+    if (r) await tap(page, r.x + r.w / 2, r.y + r.h / 2);
+  }
 }
 
 (async () => {
@@ -73,7 +78,7 @@ async function tapButton(page, id) {
   // ---- 3. The panel: reached from the Captain tab.
   await tap(page, ...CAPTAIN_TAB);
   await waitScreen(page, 'captain');
-  await tapButton(page, 'achievements');
+  await tapButton(page, 'achievements', 'achievements');
   await waitScreen(page, 'achievements');
   let s = await state(page);
   const row = (id) => s.rows.find(r => r.id === id);
@@ -96,7 +101,7 @@ async function tapButton(page, id) {
 
   // ---- 5. Start one with a rule the circuit breaks: the builder shows the rule and FLY is refused.
   await page.evaluate(() => window.__mgbm.achievementsScreen.show('challenges'));
-  await tapButton(page, 'start:c_no_aoe');
+  await tapButton(page, 'start:c_no_aoe', 'build');
   await waitScreen(page, 'build');
   const aoe = await page.evaluate(() => {
     const m = window.__mgbm.model;
@@ -119,10 +124,10 @@ async function tapButton(page, id) {
 
   // ---- 6. A challenge run that meets its rule pays once.
   await tap(page, ...CAPTAIN_TAB); await waitScreen(page, 'captain');
-  await tapButton(page, 'achievements'); await waitScreen(page, 'achievements');
+  await tapButton(page, 'achievements', 'achievements'); await waitScreen(page, 'achievements');
   await page.evaluate(() => window.__mgbm.achievementsScreen.show('challenges'));
   // The Dart challenge needs the Dart.
-  await tapButton(page, 'start:c_dart');
+  await tapButton(page, 'start:c_dart', 'build');
   await waitScreen(page, 'build');
   s = await state(page);
   check(/Needs the Dart hull|needs the Dart hull/.test(s.challenge.status), `the wrong hull is refused: "${s.challenge.status}"`);
@@ -156,9 +161,9 @@ async function tapButton(page, id) {
   await waitScreen(page, 'build');
   await page.evaluate(() => window.__mgbm.model.store.data.passedTiers.push(25));
   await tap(page, ...CAPTAIN_TAB); await waitScreen(page, 'captain');
-  await tapButton(page, 'achievements'); await waitScreen(page, 'achievements');
+  await tapButton(page, 'achievements', 'achievements'); await waitScreen(page, 'achievements');
   await page.evaluate(() => window.__mgbm.achievementsScreen.show('challenges'));
-  await tapButton(page, 'start:c_fast_25');
+  await tapButton(page, 'start:c_fast_25', 'build');
   await waitScreen(page, 'build');
   await tap(page, 468, 789);
   await waitScreen(page, 'wall');

@@ -93,11 +93,12 @@ async function flyFan(page, blocks) {
   await page.evaluate(() => {
     const s = window.__mgbm.shopScreen.store;
     s.data.credits = 1e7;
-    s.data.medals = 14; s.data.achievements = ['ring_10', 'ring_25', 'ring_50', 'ring_100']; // the ring achievements would pay Medals on the commit below (chunk 28a)
+    s.data.medals = 14;
     for (const id of ['frontier_echo', 'payload', 'lone_shot', 'last_breath', 'zigzag', 'heavy_round', 'hollow_core', 'idle_barrels', 'waypoint', 'rebound', 'mirror', 'fuse']) s.data.owned[id] = 0;
     s.data.frontier.sq = {};
     s.data.frontier.sq['0,-100'] = 2; // North ring 100 cleared (a lattice square: never a hole)
     s.commit();
+    s.data.medals = 14; s.commit(); // the first commit pays the ring achievements; the Medals are set after it (chunk 28a)
   });
   await page.waitForTimeout(250);
   let st = await page.evaluate(() => window.__mgbm.state());
