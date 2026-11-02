@@ -189,8 +189,8 @@ export interface LateEffects {
 export const STRONG_WIND_TURN_DEG = 180;
 export const STRONG_WIND_SPEED_MUL: readonly number[] = [1, 1.1, 1.2, 1.3, 1.4];
 
-/** CROSSWIND: sideways acceleration of every shot in px/s squared; the side (left or right) is fixed per tier (`crosswindSide`). One cell is 54 px: rank 1 pushes a shot about 40 px sideways over a 0.9 s flight, rank 5 about 130 px. */
-export const CROSSWIND_ACCEL: readonly number[] = [100, 150, 200, 260, 320];
+/** CROSSWIND: sideways acceleration of every shot in px/s squared; the side (left or right) is fixed per tier (`crosswindSide`). One cell is 54 px. A shot that flies d px at 600 px/s drifts a x (d / 600)^2 / 2: at 100 px (a carving ship) 3 to 8 px, at 300 px 25 to 72 px, at 600 px 100 to 290 px, so the wind hurts long-range fire and leaves a ship at the wall alone. */
+export const CROSSWIND_ACCEL: readonly number[] = [200, 280, 360, 460, 580];
 /** -1 (to the left) or +1 (to the right), fixed by the tier number (the same every visit, alternating in a pattern the player cannot guess from the previous tier). */
 export const crosswindSide = (tier: number): -1 | 1 => (((tier * 2654435761) >>> 7) & 1 ? 1 : -1);
 

@@ -6,6 +6,8 @@
 //             90th percentile update step take more than 4 ms.
 // Run: npm run interaction-audit               -> docs/interaction-audit.md (+ reports/chunk17b/audit-after.json)
 //      LABEL=before npm run interaction-audit  -> docs/interaction-audit-before.md (+ audit-before.json); the "after" run compares with it.
+//      WIND=strong|cross npm run interaction-audit  (chunk 27b) -> docs/interaction-audit-wind-<mode>.md: every pair flown calm and in Strong Wind (launch turned 180 degrees)
+//        or Crosswind (a push), on a wall of the real WallWorld with the ship held at WIND_SHIP_Y; reports the pairs where B stops helping. Does not touch the other docs.
 //      QUICK=1 halves the seconds; SECS=n sets the seconds; ONLY=a,b limits the blocks (debugging; it overwrites the docs, so restore them with git checkout).
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { bench, Scenario } from './lib/dmgBench';
@@ -15,7 +17,11 @@ import { compile, Grid } from '../src/engine/compiler';
 import { BLOCKS } from '../src/data/blocks';
 import type { EffectCounters } from '../src/engine/projectiles';
 import { neutralModifiers } from '../src/captains/modifiers';
+import { WallWorld } from '../src/wall/wallWorld';
+import { makeTestWall } from '../src/wall/level';
+import { CELL, WALL_COLS } from '../src/wall/constants';
 
+const WIND = process.env.WIND === 'strong' || process.env.WIND === 'cross' ? process.env.WIND : null;
 const LABEL = process.env.LABEL === 'before' ? 'before' : 'after';
 const SECONDS = process.env.SECS ? Number(process.env.SECS) : process.env.QUICK ? 3 : 6;
 const SCENARIOS: Scenario[] = ['big', 'cluster', 'split'];
@@ -25,6 +31,12 @@ const ALIVE_MAX = 1000;
 const STEP_MS_MAX = 4;
 /** Frontier Echo needs a furthest ring: 100 is the ring that unlocks it (+10 damage). */
 const MODS = { ...neutralModifiers(), furthestRing: 100 };
+/** Strong Wind: a full wall 100 px above a ship at y 380 (a shot has room to turn round). Crosswind: a full wall 400 px above a ship at y 700 (a push shows over a long flight), scored on the one column straight above the ship. */
+const WIND_SHIP_Y = WIND === 'cross' ? 700 : 380;
+const WIND_GAP = WIND === 'cross' ? 400 : 100;
+const CROSS_ACCEL = 360;
+const windCache = new Map<string, number>();
+
 
 /** The blocks under test and the counter that proves each one's effect happened (null = steering only, no event to count). */
 const SIGNATURE: Record<string, ((f: EffectCounters) => number) | null> = {
@@ -89,6 +101,7 @@ const pairs: Pair[] = [];
  * alone (it must never do LESS than that), and the pair's effect events are still checked.
  */
 const BASE = run([]).score;
+if (WIND) { windMain(); process.exit(0); }
 const costly = new Set(IDS.filter(id => run([id]).score < 0.97 * BASE));
 const t0 = Date.now();
 for (const a of IDS) for (const b of IDS) {
@@ -150,3 +163,62 @@ for (const a of IDS) {
 lines.push('');
 writeFileSync(LABEL === 'before' ? 'docs/interaction-audit-before.md' : 'docs/interaction-audit.md', lines.join('\n'));
 console.log(`${LABEL}: ${count('OK')} OK, ${count('CANCELS')} CANCELS, ${count('EXPLODES')} EXPLODES in ${secs} s`);
+
+// ------------------------------------------------------------------ chunk 27b: the wind audit
+/** Damage the blocks of a wall of tier 115 (it never runs out: 3.4K HP a block) took in `seconds` with the ship holding at WIND_SHIP_Y, a wall bottom 100 px above it, and the wind on or off. */
+function windScore(ids: string[], windy: boolean): number {
+  const key = (windy ? 'W:' : '') + ids.join('+');
+  const hit = windCache.get(key);
+  if (hit !== undefined) return hit;
+  const effects = !windy ? undefined : WIND === 'strong' ? { strongWind: { turnDeg: 180, speedMul: 1 } } : { crosswind: { accel: CROSS_ACCEL } };
+  const level = { ...makeTestWall({ tier: 115, rows: 20, approachSpeed: 0 }), approachSpeed: 0, effects };
+  const w = new WallWorld(level, { grid: line(ids), modifiers: MODS });
+  w.god = true;
+  w.setWallOffset(WIND_SHIP_Y - WIND_GAP);
+  const x = (WALL_COLS * CELL) / 2 - (w.spawnOffsets[0]?.x ?? 0);
+  w.teleportShip(x, WIND_SHIP_Y);
+  let dmg = 0;
+  for (let i = 0; i < SECONDS * 60; i++) {
+    w.update(1 / 60, { x, y: WIND_SHIP_Y });
+    // Strong Wind counts every hit; Crosswind counts the hits on the lane (column 10, the one straight above the ship), the blocks a carving ship needs to break.
+    for (const h of w.hits) if (WIND !== 'cross' || h.blockId % WALL_COLS === 10) dmg += h.damage;
+    w.hits.length = 0; w.killEvents.length = 0;
+  }
+  windCache.set(key, dmg);
+  return dmg;
+}
+
+/**
+ * Chunk 27b: the wind report. For every ordered pair (A below, B above): B "stops helping" when it helped in the calm (the pair beat A alone by 20% or more)
+ * and in the wind the pair is no better than A alone (within 5%). Only pairs whose A still works in the wind (keeps a quarter of its calm score and beats the plain gun by
+ * half) are listed: with a plain gun in Strong Wind nothing helps, which is the point of the type and not a finding.
+ */
+function windMain() {
+  const name = (id: string) => BLOCKS[id].name;
+  const kind = WIND === 'strong' ? 'Strong Wind (every shot leaves backwards)' : `Crosswind (a ${CROSS_ACCEL} px/s squared push)`;
+  const lines: string[] = [];
+  lines.push(`# Interaction audit under ${kind} (chunk 27b)`, '');
+  lines.push(`Generated by \`WIND=${WIND} npm run interaction-audit\`. The blocks of \`docs/interaction-audit.md\`, but flown on the real wall engine: a wall of 20 rows of tier-115 blocks (3.4K HP, nothing dies${WIND === 'cross' ? ', the score counts only the column straight above the ship, the lane a carving ship needs to break' : ''}) hangs ${WIND_GAP} px above a ship held at y ${WIND_SHIP_Y}; the score is the damage the blocks took in ${SECONDS} s, calm and with the wind on. Fan hull, Flat+ first, then the blocks in order (A lower on the line, B above it).`, '');
+  const alone = IDS.map(id => ({ id, calm: windScore([id], false), wind: windScore([id], true) }));
+  const base = windScore([], false), baseW = windScore([], true);
+  lines.push('## Each block alone', '', `A plain Flat+ gun: ${base.toFixed(0)} calm, ${baseW.toFixed(0)} in the wind.`, '', '| block | calm | in the wind | kept |', '|---|---|---|---|');
+  for (const r of [...alone].sort((a, b) => b.wind / Math.max(1e-9, b.calm) - a.wind / Math.max(1e-9, a.calm))) lines.push(`| ${name(r.id)} | ${r.calm.toFixed(0)} | ${r.wind.toFixed(0)} | ${Math.round((100 * r.wind) / Math.max(1e-9, r.calm))}% |`);
+  const works = new Set(alone.filter(r => r.calm > 0 && r.wind >= 0.1 * r.calm && r.wind > baseW + 0.1 * base).map(r => r.id));
+  lines.push('', `Blocks that carry a gun through the wind: ${[...works].map(name).join(', ') || 'none'}.`, '');
+  const useless: { a: string; b: string; calm: number; wind: number }[] = [];
+  const total = { pairs: 0 };
+  for (const a of IDS) for (const b of IDS) {
+    if (a === b || !works.has(a)) continue;
+    total.pairs++;
+    const ca = windScore([a], false), wa = windScore([a], true), cp = windScore([a, b], false), wp = windScore([a, b], true);
+    if (ca > 0 && cp >= 1.2 * ca && wp <= 1.05 * wa) useless.push({ a, b, calm: cp / ca, wind: wp / Math.max(1e-9, wa) });
+  }
+  lines.push(`## Pairs where B stops helping: ${useless.length} of ${total.pairs}`, '', 'A works in the wind; B beat A alone by 20% or more calm and adds under 5% in the wind.', '');
+  if (useless.length) {
+    lines.push('| A then B | B adds in the calm | B adds in the wind |', '|---|---|---|');
+    for (const u of useless) lines.push(`| ${name(u.a)} then ${name(u.b)} | x${u.calm.toFixed(2)} | x${u.wind.toFixed(2)} |`);
+  }
+  lines.push('');
+  writeFileSync(`docs/interaction-audit-wind-${WIND}.md`, lines.join('\n'));
+  console.log(`wind ${WIND}: ${works.size} blocks work alone, ${useless.length} of ${total.pairs} pairs where B stops helping`);
+}
