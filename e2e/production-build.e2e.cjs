@@ -123,7 +123,9 @@ async function open(browser, url, init) {
       const out = [];
       const walk = (n) => { if (typeof n.text === 'string') out.push(n.text); (n.children || []).forEach(walk); };
       walk(window.__mgbmSm.overlays.container);
-      return out.find(t => /^v\S+ · \d{4}-\d{2}-\d{2}( +· +Time played \d+h \d+m)?$/.test(t)) || null;
+      // 28b: the About section is one text: 'Version  v<hash> · <date>' and 'Time played ...' on the next line.
+      const t = out.find(x => /^Version +v\S+ · \d{4}-\d{2}-\d{2}\nTime played +\d+h \d+m$/.test(x));
+      return t ? t.split('\n')[0] : null;
     });
     check(!!label, `Settings shows the version label (${label})`);
     const btns = await p2.evaluate(() => ['exportSave', 'importSave'].map(i => !!window.__mgbmSm.overlays.buttonCenter(i)));
