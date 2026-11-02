@@ -39,6 +39,11 @@ const WIND_VARIANTS: [string, string[]][] = [
   ['none', []], ['Upturn x2', times('upturn', 2)], ['Upturn x3', times('upturn', 3)], ['Brake x3 + Curving x4', [...times('brake', 3), ...times('curving_left', 4)]],
   ['Ship Magnet x3', times('magnetized', 3)], ['Orbit', ['orbit']], ['Boomerang', ['boomerang']],
 ];
+// Chunk 28b: Crosswind (3x stronger) against the counters: Centreline copies (pull toward the firing line), Angle into the wind, Align, Upturn.
+const CROSS_VARIANTS: [string, string[]][] = [
+  ['none', []], ['Centreline x1', ['centreline']], ['Centreline x2', times('centreline', 2)], ['Centreline x4', times('centreline', 4)],
+  ['Angle (wind side) x4', times('angle_left', 4)], ['Angle (other side) x4', times('angle_right', 4)], ['Align', ['align']], ['Upturn x2', times('upturn', 2)],
+];
 const typesArg = (process.env.TYPES ?? 'strong_wind,crosswind,fog,regrowth,mitosis_wall').split(',') as LateType[];
 const ranks = (process.env.RANKS ?? '1').split(',').map(Number);
 const state = (s: string) => (s === 'cleared' ? 'C' : s === 'passed' ? 'P' : s === 'crashed' ? 'x' : 't');
@@ -47,9 +52,10 @@ for (const type of typesArg) {
   for (const rank of ranks) {
     const tier = lateTypeTiers().find(t => lateSlot(t)!.type === type && lateSlot(t)!.rank === rank);
     if (!tier) continue;
-    const l = generateLevel(tier);
+    const l0 = generateLevel(tier);
+    const l = process.env.NOWIND ? { ...l0, effects: undefined } : l0; // NOWIND=1: the same wall with its effect switched off (what the wind itself costs)
     console.log(`\n${LATE_TYPES[type].name} rank ${rank}, tier ${tier} (${JSON.stringify(l.effects)})`);
-    const variants = type === 'strong_wind' && process.env.WIND ? WIND_VARIANTS : [['plain', []] as [string, string[]]];
+    const variants = type === 'strong_wind' && process.env.WIND ? WIND_VARIANTS : type === 'crosswind' && process.env.CROSS ? CROSS_VARIANTS : [['plain', []] as [string, string[]]];
     for (const [vn, motion] of variants) {
       for (const [bn, plus] of [['B', 0], ['C', 6]] as const) {
         const carve = simulateWall(l, tallBuild(plus, 3, 10, motion), 'carve', { modifiers: mods, maxTime: 200 });

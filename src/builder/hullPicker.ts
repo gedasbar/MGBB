@@ -1,5 +1,5 @@
 import { Container, Graphics } from 'pixi.js';
-import { inRect, Rect, VIEW_H, VIEW_W } from './layout';
+import { inRect, Rect } from './layout';
 import { makeText } from './ui';
 import { THEME } from '../ui/theme';
 import { fmtBig } from '../ui/format';
@@ -10,6 +10,7 @@ import {
   hullBuyLabel, hullBuyRect, hullContentH, HULL_PANEL, HULL_TITLE_H, hullListRect, hullRowRects, hullRows, HullRow, hullSheetLines, hullSheetRect, hullSummary, hullTraitLine,
 } from './hullPickerLogic';
 import { clampScroll, scrollToReveal } from './paletteLogic';
+import { drawHubFrame, hubTabAt, HubTab } from './hub';
 
 /** What the picker asks of its owner (the Build screen). */
 export interface HullPickerEvents {
@@ -17,6 +18,8 @@ export interface HullPickerEvents {
   choose(id: string): void;
   /** The Buy button was pressed (the owner buys, selects, and closes the picker on success). */
   buy(id: string): void;
+  /** Chunk 28b: another tab of the hub was tapped (the owner opens it; this tab is the Ships tab). */
+  tab?(t: HubTab): void;
   /** What the picker reads: owned hulls, the hull being built and the credits. */
   state(): { ownedHulls: readonly string[]; current: string; credits: number };
 }
@@ -109,13 +112,10 @@ export class HullPicker {
   }
 
   private drawFrame() {
-    const p = HULL_PANEL;
     for (const ch of this.container.removeChildren()) if (ch !== this.maskG && ch !== this.listC && ch !== this.sheetC) ch.destroy({ children: true });
-    const dim = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill({ color: THEME.dim, alpha: 0.6 });
-    const panel = new Graphics().rect(p.x, p.y, p.w, p.h).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
-    const title = makeText('Choose a hull', 20, THEME.text, { fontWeight: 'bold' });
-    title.position.set(p.x + 16, p.y + 14);
-    this.container.addChild(dim, panel, title, this.listC, this.sheetC);
+    const frame = new Container();
+    drawHubFrame(frame, 'ships');
+    this.container.addChild(frame, this.listC, this.sheetC);
     const lr = this.listRect;
     this.maskG.clear().rect(lr.x, lr.y, lr.w, lr.h).fill(0xffffff);
     this.container.addChild(this.maskG);
@@ -201,6 +201,7 @@ export class HullPicker {
   tap(x: number, y: number) {
     const p = HULL_PANEL;
     if (!inRect(p, x, y)) { this.close(); return; }
+    if (y < p.y + HULL_TITLE_H) { const t = hubTabAt(x, y); if (t && t !== 'ships') this.events.tab?.(t); return; }
     if (this.sheetOpen) {
       if (inRect(hullBuyRect(), x, y)) { this.events.buy(this.selected!); return; }
       if (inRect(hullSheetRect(), x, y)) return;

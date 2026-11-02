@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CROSSWIND_ACCEL, crosswindSide, FOG_RADIUS, lateSlot, lateTypeTiers, LateType, MITOSIS_HP_SHARE, MITOSIS_SIZE_MUL, REGROWTH_DELAY, REGROWTH_PER_SEC, STRONG_WIND_SPEED_MUL,
+  CROSSWIND_ACCEL, crosswindSide, FOG_RADIUS, lateSlot, lateTypeTiers, LateType, MITOSIS_HP_SHARE, REGROWTH_DELAY, REGROWTH_PER_SEC, STRONG_WIND_SPEED_MUL,
 } from '../src/data/lateTiers';
 import { buildFanGrid } from '../src/game/gridUtils';
 import { place } from '../src/game/starter';
@@ -12,6 +12,8 @@ import { fogRadiusFloor } from '../src/wall/lateWalls';
 import { LevelDef, makeTestWall } from '../src/wall/level';
 import { WallWorld } from '../src/wall/wallWorld';
 import type { LateEffects } from '../src/data/lateTiers';
+import { CROSSWIND_STRENGTH } from '../src/data/lateTiers';
+import { laneDamage } from '../scripts/lib/crosswind';
 
 // Chunk 27b: the five effect types of tiers 101-200 (docs/tiers-101-200-effects.md). One group per type.
 
@@ -156,6 +158,30 @@ describe('Crosswind', () => {
     expect(sides.size).toBe(2);
   });
 
+  it('28b: the wind is 3x the old one (a constant), rising with every appearance', () => {
+    expect(CROSSWIND_STRENGTH).toBe(3);
+    expect(CROSSWIND_ACCEL).toEqual([600, 840, 1080, 1380, 1740]);
+    const tiers = tiersOf('crosswind');
+    expect(tiers.map(t => Math.abs(generateLevel(t).effects!.crosswind!.accel))).toEqual([600, 840, 1080, 1380]);
+  });
+
+  it('28b: an uncorrected build misses the lane at long range on every Crosswind tier, and every tier has a counter at 250 px (Angle into the wind, Upturn, Centreline)', () => {
+    const times = (id: string, n: number) => Array.from({ length: n }, () => id);
+    const base = laneDamage([], 0);
+    expect(base).toBeGreaterThan(0);
+    for (const t of tiersOf('crosswind')) {
+      const accel = generateLevel(t).effects!.crosswind!.accel;
+      expect(laneDamage([], accel, 400), `tier ${t} uncorrected at 400 px`).toBe(0);
+      const into = accel > 0 ? 'angle_left' : 'angle_right'; // the side that leans into the wind
+      const counters: string[][] = [
+        ...[1, 2, 3, 4].map(k => times(into, k)), ...[1, 2, 3, 4].map(k => [...times('centreline', 4), ...times(into, k)]),
+        times('upturn', 3), times('upturn', 4),
+      ];
+      const best = Math.max(...counters.map(ids => laneDamage(ids, accel, 250)));
+      expect(best, `tier ${t} best counter at 250 px`).toBeGreaterThanOrEqual(base * 0.5);
+    }
+  });
+
   it('an Angle block into the wind brings a shot that missed the lane back onto it', () => {
     // 400 px of flight at 360 px/s^2 drifts a shot about 80 px, more than the lane's half width plus the shot: it misses the column straight above the ship.
     const lane = (ids: string[], accel: number) => {
@@ -290,97 +316,128 @@ describe('Regrowth', () => {
   });
 });
 
-describe('Mitosis Wall', () => {
-  const mitLevel = (rows = 6): LevelDef => wallWith({ mitosis: { children: 2, hpShare: MITOSIS_HP_SHARE, maxGen: 2, sizeMul: MITOSIS_SIZE_MUL } }, rows);
+describe('Mitosis Wall (28b: pieces split inside their own cell)', () => {
+  const mitLevel = (rows = 6): LevelDef => wallWith({ mitosis: { children: 2, hpShare: MITOSIS_HP_SHARE, maxGen: 2 } }, rows);
   /** A Mitosis world whose only blocks are the cells in `keep` [row, col]. */
   function worldWith(keep: [number, number][], rows = 6) {
     const level = mitLevel(rows);
     const split = new WallWorld(level, { grid: gridOf() });
-    for (const b of [...split.all]) if (!keep.some(([r, c]) => r === b.row && c === b.col)) (split as any).blocks[b.row * split.level.cols + b.col] = null;
+    const cols = split.level.cols;
+    for (const b of [...split.all]) {
+      if (keep.some(([r, c]) => r === b.row && c === b.col)) continue;
+      (split as any).blocks[b.row * cols + b.col] = null;
+      (split as any).pieces[b.row * cols + b.col] = null;
+    }
     // The world holds only the kept blocks, removed by hand so none of them split. Counters are rebuilt:
     const alive = split.blocks.filter(Boolean).length;
     (split as any).alive = alive; (split as any).totalBlocks = alive;
-    (split as any).rowAlive = Array.from({ length: split.level.rows }, (_, r) => split.blocks.slice(r * split.level.cols, (r + 1) * split.level.cols).filter(Boolean).length);
+    (split as any).rowAlive = Array.from({ length: split.level.rows }, (_, r) => split.blocks.slice(r * cols, (r + 1) * cols).filter(Boolean).length);
     return split;
   }
+  const cell = (w: WallWorld, r = 3, c = 10) => w.piecesAt(r * WALL_COLS + c);
+  const inside = (b: { x: number; y: number; hw: number; hh: number; ox: number; oy: number }, w: WallWorld, r = 3, c = 10) => {
+    const cx = c * CELL + CELL / 2, cy = w.blockTop(r) + CELL / 2;
+    return Math.abs(b.x - b.ox - cx) < 1e-9 && Math.abs(b.y - b.oy - cy) < 1e-9 && b.ox - b.hw >= -CELL / 2 - 1e-9 && b.ox + b.hw <= CELL / 2 + 1e-9 && b.oy - b.hh >= -CELL / 2 - 1e-9 && b.oy + b.hh <= CELL / 2 + 1e-9;
+  };
 
-  it('a destroyed block leaves two children, left and right, with 40% of its max HP, smaller', () => {
-    const w = worldWith([[3, 10]]);
+  it('a destroyed block splits in its own cell into two halves side by side, each with 40% of its max HP, and no neighbour is touched', () => {
+    const w = worldWith([[3, 10], [3, 9]]);
     const parent = w.blocks[3 * WALL_COLS + 10]!;
+    const neighbour = w.blocks[3 * WALL_COLS + 9]!;
     w.destroyBlock(parent);
-    const l = w.blocks[3 * WALL_COLS + 9]!, r = w.blocks[3 * WALL_COLS + 11]!;
-    expect(l && r).toBeTruthy();
-    expect(w.blocks[2 * WALL_COLS + 10]).toBeNull(); // nothing behind: two children are enough
-    for (const c of [l, r]) {
-      expect(c.maxHp).toBe(Math.max(1, Math.round(parent.maxHp * MITOSIS_HP_SHARE)));
-      expect(c.hp).toBe(c.maxHp);
-      expect(c.gen).toBe(1);
-      expect(c.half).toBeCloseTo((CELL / 2) * MITOSIS_SIZE_MUL, 6);
+    const halves = cell(w);
+    expect(halves.length).toBe(2);
+    for (const h of halves) {
+      expect(h.maxHp).toBe(Math.max(1, Math.round(parent.maxHp * MITOSIS_HP_SHARE)));
+      expect(h.hp).toBe(h.maxHp);
+      expect(h.gen).toBe(1);
+      expect(h.hw).toBeCloseTo(CELL / 4, 9);   // half the width ...
+      expect(h.hh).toBeCloseTo(CELL / 2, 9);   // ... the full height
+      expect(inside(h, w)).toBe(true);
     }
-    expect(w.alive).toBe(2);
-    expect(w.total).toBe(3);
+    expect(halves[0].x).toBeLessThan(halves[1].x); // side by side, left then right
+    expect(halves[0].y).toBe(halves[1].y);
+    // Nothing leaked into the neighbouring cells.
+    expect(cell(w, 3, 9)).toEqual([neighbour]);
+    expect(cell(w, 3, 11).length).toBe(0);
+    expect(cell(w, 2, 10).length).toBe(0);
+    expect(w.alive).toBe(3);
+    expect(w.total).toBe(4);
     expect(w.destroyed).toBe(1);
     expect(w.fx.splits).toBe(2);
   });
 
-  it('left and right come first; the cell behind is used only when one of them is taken; a boxed-in block leaves nothing', () => {
-    const wL = worldWith([[3, 10], [3, 9]]);
-    wL.destroyBlock(wL.blocks[3 * WALL_COLS + 10]!);
-    expect(wL.blocks[3 * WALL_COLS + 11]).toBeTruthy();  // right
-    expect(wL.blocks[2 * WALL_COLS + 10]).toBeTruthy();  // behind (the left cell is taken)
-    expect(wL.blocks[3 * WALL_COLS + 9]!.gen).toBe(0);   // the block that was there is untouched
-    const boxed = worldWith([[3, 10], [3, 9], [3, 11], [2, 10]]);
-    boxed.destroyBlock(boxed.blocks[3 * WALL_COLS + 10]!);
-    expect(boxed.alive).toBe(3);
-    expect(boxed.fx.splits).toBe(0);
-    const top = worldWith([[0, 10]]);                    // the top row has no cell behind
-    top.destroyBlock(top.blocks[10]!);
-    expect(top.alive).toBe(2);
-  });
-
-  it('children split once more and no further: two generations at most', () => {
+  it('a destroyed half splits into two small squares (40% of the half), a square does not split: 1, then 2, then 4 pieces', () => {
     const w = worldWith([[3, 10]]);
-    w.destroyBlock(w.blocks[3 * WALL_COLS + 10]!);
-    const child = w.blocks[3 * WALL_COLS + 9]!;
-    expect(child.gen).toBe(1);
-    w.destroyBlock(child);
-    const grand = w.all.filter(b => b.gen === 2 && w.blocks[b.row * WALL_COLS + b.col] === b);
-    expect(grand.length).toBe(2);
-    expect(grand[0].maxHp).toBe(Math.max(1, Math.round(child.maxHp * MITOSIS_HP_SHARE)));
+    expect(cell(w).length).toBe(1);
+    const whole = cell(w)[0];
+    w.destroyBlock(whole);
+    expect(cell(w).length).toBe(2);
+    const half = cell(w)[0];
+    w.destroyBlock(half);
+    const pieces = cell(w);
+    expect(pieces.length).toBe(3); // the other half and two squares
+    const squares = pieces.filter(p => p.gen === 2);
+    expect(squares.length).toBe(2);
+    for (const q of squares) {
+      expect(q.maxHp).toBe(Math.max(1, Math.round(half.maxHp * MITOSIS_HP_SHARE)));
+      expect(q.hw).toBeCloseTo(CELL / 4, 9);
+      expect(q.hh).toBeCloseTo(CELL / 4, 9);
+      expect(inside(q, w)).toBe(true);
+    }
+    expect(squares[0].y).toBeLessThan(squares[1].y); // one above the other
+    expect(squares[0].x).toBe(squares[1].x);
+    // The other half splits too: four squares in all, every one inside the cell and none overlapping another.
+    w.destroyBlock(cell(w).find(p => p.gen === 1)!);
+    const four = cell(w);
+    expect(four.length).toBe(4);
+    expect(four.every(p => p.gen === 2 && inside(p, w))).toBe(true);
+    for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) {
+      const a = four[i], b = four[j];
+      const apart = Math.abs(a.x - b.x) >= a.hw + b.hw - 1e-9 || Math.abs(a.y - b.y) >= a.hh + b.hh - 1e-9;
+      expect(apart).toBe(true);
+    }
     const before = w.alive;
-    w.destroyBlock(grand[0]);
-    expect(w.alive).toBe(before - 1); // a generation-2 block leaves nothing
+    w.destroyBlock(four[0]);
+    expect(w.alive).toBe(before - 1); // a square leaves nothing
+    expect(cell(w).length).toBe(3);
   });
 
-  it('credits: a child pays its share of the parent (40%, then 16%)', () => {
+  it('credits: a half pays 40% of the block, a square 16%', () => {
     const w = new WallWorld(mitLevel(), { grid: gridOf() });
     w.autoFire = false;
-    for (const b of [...w.all]) if (!(b.row === 3 && b.col === 10)) { (w as any).blocks[b.row * WALL_COLS + b.col] = null; }
+    for (const b of [...w.all]) if (!(b.row === 3 && b.col === 10)) { (w as any).blocks[b.row * WALL_COLS + b.col] = null; (w as any).pieces[b.row * WALL_COLS + b.col] = null; }
     (w as any).alive = 1; (w as any).totalBlocks = 1;
     (w as any).rowAlive = Array.from({ length: w.level.rows }, (_, r) => (r === 3 ? 1 : 0));
-    const p = w.blocks[3 * WALL_COLS + 10]!;
-    w.destroyBlock(p);
+    w.destroyBlock(cell(w)[0]);
     const full = w.killEvents[0].reward;
-    const c = w.blocks[3 * WALL_COLS + 9]!;
-    w.destroyBlock(c);
+    w.destroyBlock(cell(w)[0]);
     expect(w.killEvents[1].reward).toBeCloseTo(full * MITOSIS_HP_SHARE, 9);
-    const g = w.all.find(b => b.gen === 2 && w.blocks[b.row * WALL_COLS + b.col] === b)!;
-    w.destroyBlock(g);
+    w.destroyBlock(cell(w).find(p => p.gen === 2)!);
     expect(w.killEvents[w.killEvents.length - 1].reward).toBeCloseTo(full * MITOSIS_HP_SHARE ** 2, 9);
   });
 
-  it('children are hazards with the box they are drawn at: the ship dies on a child, and passes just outside its smaller box', () => {
+  it('a piece is a hazard at its real size: the ship dies on a half, passes beside it inside the cell, and a shot hits the half that is there', () => {
     const w = worldWith([[3, 10]]);
     w.setWallOffset(600);
-    w.destroyBlock(w.blocks[3 * WALL_COLS + 10]!);
-    const child = w.blocks[3 * WALL_COLS + 11]!;
-    const cx = child.x, cy = child.y;
-    w.teleportShip(cx, cy);
+    w.destroyBlock(cell(w)[0]);
+    const [left, right] = cell(w);
+    w.teleportShip(left.x, left.y);
     expect(w.shipHitsBlock()).toBe(true);
-    // The child's half side is 0.75 x 27 = 20.25; a ship at x offset 20.25 + hitR + 2 is outside, although still inside the cell.
-    w.teleportShip(cx + child.half + w.hitR + 2, cy);
+    // Remove the left half and the two squares it leaves: the left part of the cell is empty, the ship fits there (its hit radius is smaller than a half's width) ...
+    w.destroyBlock(left);
+    for (const q of cell(w).filter(p => p.gen === 2)) w.destroyBlock(q);
+    expect(cell(w)).toEqual([right]);
+    w.teleportShip(left.x - left.hw / 2, left.y);
     expect(w.shipHitsBlock()).toBe(false);
-    expect(child.half + w.hitR + 2).toBeLessThan(CELL / 2 + w.hitR); // a normal block would still have been touched
+    // ... while the right half still kills at its own x.
+    w.teleportShip(right.x, right.y);
+    expect(w.shipHitsBlock()).toBe(true);
+    expect(w.blockAt(right.x, right.y)).toBe(right);
+    expect(w.blockAt(left.x, left.y)).toBeNull(); // the empty half of the cell
+    const hit = w.field.hitCircle(right.x, right.y, 2, -1);
+    expect(hit).toBe(right);
+    expect(w.field.byId(right.id)).toBe(right);
   });
 
   it('clearing a split wall means destroying the children too; the destroyed share never passes 100%', () => {

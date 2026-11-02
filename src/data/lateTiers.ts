@@ -182,15 +182,22 @@ export interface LateEffects {
   crosswind?: { accel: number };
   fog?: { radius: number };
   regrowth?: { delay: number; perSec: number };
-  mitosis?: { children: number; hpShare: number; maxGen: number; sizeMul: number };
+  mitosis?: { children: number; hpShare: number; maxGen: number };
 }
 
 /** STRONG WIND: the launch direction is turned this many degrees (180 = straight back), and shots fly this much faster (a faster U-turn is a wider one). */
 export const STRONG_WIND_TURN_DEG = 180;
 export const STRONG_WIND_SPEED_MUL: readonly number[] = [1, 1.1, 1.2, 1.3, 1.4];
 
-/** CROSSWIND: sideways acceleration of every shot in px/s squared; the side (left or right) is fixed per tier (`crosswindSide`). One cell is 54 px. A shot that flies d px at 600 px/s drifts a x (d / 600)^2 / 2: at 100 px (a carving ship) 3 to 8 px, at 300 px 25 to 72 px, at 600 px 100 to 290 px, so the wind hurts long-range fire and leaves a ship at the wall alone. */
-export const CROSSWIND_ACCEL: readonly number[] = [200, 280, 360, 460, 580];
+/**
+ * CROSSWIND: sideways acceleration of every shot in px/s squared, rising with each appearance of the type; the side (left or right) is fixed per tier (`crosswindSide`).
+ * Chunk 28b: the 27b numbers (200 to 580) were too weak to matter, so every rank is multiplied by CROSSWIND_STRENGTH (3). One cell is 54 px. A shot that flies d px at
+ * 600 px/s drifts a x (d / 600)^2 / 2: at rank 1 (600) 100 px of range gives 8 px, 300 px gives 75 px, 600 px gives 300 px; at rank 5 (1,740) 300 px gives 218 px, an uncorrected
+ * build clearly misses at any range beyond the next row or two (docs/tiers-101-200-effects.md section 2).
+ */
+export const CROSSWIND_STRENGTH = 3;
+const CROSSWIND_BASE: readonly number[] = [200, 280, 360, 460, 580];
+export const CROSSWIND_ACCEL: readonly number[] = CROSSWIND_BASE.map(a => a * CROSSWIND_STRENGTH);
 /** -1 (to the left) or +1 (to the right), fixed by the tier number (the same every visit, alternating in a pattern the player cannot guess from the previous tier). */
 export const crosswindSide = (tier: number): -1 | 1 => (((tier * 2654435761) >>> 7) & 1 ? 1 : -1);
 
@@ -209,12 +216,12 @@ export const REGROWTH_DELAY = 1;
 export const REGROWTH_PER_SEC: readonly number[] = [0.04, 0.06, 0.09, 0.12, 0.16];
 
 /**
- * MITOSIS WALL: a destroyed block splits into MITOSIS_CHILDREN smaller blocks in the empty cells next to it (left and right first, then the cell behind it, further
- * up the wall), each with MITOSIS_HP_SHARE of the block's max HP and MITOSIS_SIZE_MUL of its size; a child may split once more (MITOSIS_MAX_GEN generations in all).
- * A child pays MITOSIS_HP_SHARE of what its parent paid. The wall's own blocks have this share of the tier's HP by rank.
+ * MITOSIS WALL (reworked in 28b): a destroyed block splits INSIDE ITS OWN CELL into MITOSIS_CHILDREN halves (side by side), each with MITOSIS_HP_SHARE of
+ * the block's max HP; a destroyed half splits into two small squares (one above the other), each with MITOSIS_HP_SHARE of the half's max HP; squares do not
+ * split (MITOSIS_MAX_GEN = 2 generations of splitting). A piece pays MITOSIS_HP_SHARE of what its parent paid. The wall's own blocks have this share of the
+ * tier's HP by rank.
  */
 export const MITOSIS_CHILDREN = 2;
 export const MITOSIS_HP_SHARE = 0.4;
 export const MITOSIS_MAX_GEN = 2;
-export const MITOSIS_SIZE_MUL = 0.75;
 export const MITOSIS_HP_MUL: readonly number[] = [0.6, 0.65, 0.7, 0.75, 0.8];

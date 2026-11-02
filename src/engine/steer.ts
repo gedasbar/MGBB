@@ -26,7 +26,7 @@ export class ShipSteer {
   /** The last finger position of the current press (relative mode); null while no finger is down. */
   private last: { x: number; y: number } | null = null;
 
-  constructor(startX: number, startY: number, private bounds: SteerBounds, public mode: TouchMode = 'relative', private gain = TOUCH_DRAG_GAIN) {
+  constructor(startX: number, startY: number, private bounds: SteerBounds, public mode: TouchMode = 'relative', public gain = TOUCH_DRAG_GAIN) {
     this.x = startX;
     this.y = startY;
   }

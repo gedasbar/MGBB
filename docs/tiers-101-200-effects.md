@@ -7,7 +7,7 @@ Nothing here is bot-fitted except what section 6 says: the owner will playtest.
 | type | first tier | what it does | by rank 1..5 |
 |---|---|---|---|
 | Strong Wind | 115 | every shot's launch direction is turned 180 degrees | shot speed x1, 1.1, 1.2, 1.3, 1.4 (a faster shot makes a wider U-turn) |
-| Crosswind | 118 | a steady sideways acceleration on every shot in normal flight; side fixed per tier | 200, 280, 360, 460, 580 px/s squared |
+| Crosswind | 118 | a steady sideways acceleration on every shot in normal flight; side fixed per tier | 28b: 3x the first numbers: 600, 840, 1,080, 1,380 (1,740) px/s squared |
 | Fog | 121 | blocks are drawn only within a radius of the ship, or once hit; damage and the crash test are unchanged | radius 420, 360, 310, 270, 240 px |
 | Regrowth | 124 | a block not damaged for 1 s heals X% of its max HP a second | 4, 6, 9, 12, 16 % |
 | Mitosis Wall | 127 | a destroyed block splits into two smaller blocks (40% HP each) in empty neighbouring cells, twice at most | parents have 60, 65, 70, 75, 80 % of the tier's block HP |
@@ -80,3 +80,9 @@ the real wall engine (a tier-115 wall that never dies; Strong Wind: wall 100 px 
   gain calm comes from its fast returns through the ship; under the wind it is 0). Every other damage block does nothing in the wind because no shot reaches the wall; that is the type, not a pair problem.
 - Crosswind (rank 3, 360 px/s squared): on the lane, a plain gun and nearly every block lose everything at 400 px range; AoE Circle / Rectangle, Homing and Boomerang keep it. Next to AoE, **Piercing, Chain Lightning, Mirror and +1 Projectile become useless** (the blast already
   reaches the lane, the extra shots drift off it); Homing and Boomerang make +1 Projectile useless. Angle into the wind, and Curving, bring a miss back (calm 0, wind 42).
+
+
+## Chunk 28b changes
+
+- **Crosswind is 3x** (`CROSSWIND_STRENGTH`): 600 / 840 / 1,080 / 1,380 px/s squared on tiers 118 / 136 / 172 / 189. A plain gun 400 px from a wall now misses its lane on every tier (`scripts/crosswind-check.ts`). Counters at 250 px: Angle into the wind x2-4, Upturn x3-4, Centreline x4 + Angle (every tier); at 400 px only tiers 118 and 136 have one. Point-blank bots are unaffected (DECISIONS 492).
+- **Mitosis Wall** splits inside its own cell: a block into two halves (40% HP each), a half into two squares (40% of the half), squares do not split. No neighbour is touched (DECISIONS 491).

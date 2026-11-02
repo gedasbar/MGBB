@@ -22,9 +22,6 @@ import { drawEmblem } from '../ui/captainArt';
 import { THEME } from '../ui/theme';
 import { fmtBig, fmtDamage } from '../ui/format';
 import { DEBUG_ON } from '../debug/enabled';
-import { AchievementsScreen } from './AchievementsScreen';
-import { ACHIEVEMENTS } from '../data/achievements';
-import { challengeCounts } from '../challenges/rules';
 
 /** The content area between the top bar and the tabs. */
 const TOP = 52;
@@ -260,10 +257,7 @@ export class CaptainScreen implements Screen {
       sub.anchor.set(0.5, 0);
       this.hits.push({ id: `card:${def.id}`, rect: r, enabled: true, label: def.name, act: () => this.show('detail', def.id), fixed: true });
     });
-    // Chunk 28a: the Achievements and Challenges panel.
-    const ar: Rect = { x: PAD, y: CARD_Y0 + 2 * (CARD_H + 8) + 4, w: W, h: 70 };
-    const cc = challengeCounts(this.store.data);
-    this.button(this.listC, 'achievements', ar, `Achievements ${this.store.data.achievements.length} / ${ACHIEVEMENTS.length}   ·   Challenges ${cc.done} / ${cc.total}`, true, () => this.sm.switchTo(new AchievementsScreen(this.sm)), { fixed: true, size: 17 });
+    // Chunk 28b: the Achievements and Challenges button moved to the Build screen's ship hub (ACHIEVEMENTS tab).
     this.contentH = 0;
   }
 

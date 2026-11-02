@@ -7,6 +7,9 @@ import { clientToGame } from '../input';
 import { BLOCKS, MOD_LABEL } from '../data/blocks';
 import { HULL_INFO } from '../game/gridUtils';
 import { HullPicker } from '../builder/hullPicker';
+import { AchievementsPanel } from '../builder/achievementsPanel';
+import { CustomizePanel } from '../builder/customizePanel';
+import type { HubTab } from '../builder/hub';
 import { buyAndSelectHull } from '../builder/hullPickerLogic';
 import { describeBlock } from '../engine/compilerTypes';
 import { blockText } from '../data/blockText';
@@ -34,7 +37,7 @@ import { fmtDamage } from '../ui/format';
 import { DEBUG_ON } from '../debug/enabled';
 import { WallScreen } from './WallScreen';
 import { generateLevel } from '../wall/generator';
-import { activeChallenge, endChallengeSession } from '../challenges/session';
+import { activeChallenge, endChallengeSession, startChallengeSession } from '../challenges/session';
 import { checkBuild, ruleLines } from '../challenges/rules';
 import { CreditsBadge, textButton, TextButton } from '../ui/hud';
 
@@ -88,6 +91,9 @@ export class BuildScreen implements Screen {
   private tipText = makeText('', 13, THEME.text, { lineHeight: 17 });
   private hover: { x: number; y: number; since: number } | null = null;
   readonly hullPicker: HullPicker;
+  /** Chunk 28b: the other two tabs of the hub the ship button opens (Ships is the hull picker). */
+  readonly customPanel: CustomizePanel;
+  readonly achPanel: AchievementsPanel;
   /** Chunk 28a: the banner of a started challenge (rule lines, and why FLY is blocked or that it is ready) with its X. */
   private banner = new Container();
   private bannerBg = new Graphics();
@@ -100,8 +106,11 @@ export class BuildScreen implements Screen {
     this.hullPicker = new HullPicker(this.sm.app.renderer, {
       choose: (id) => this.chooseHull(id),
       buy: (id) => this.buyHull(id),
+      tab: (t) => this.openHub(t),
       state: () => ({ ownedHulls: this.model.store.data.ownedHulls, current: this.model.hullId, credits: this.model.store.data.credits }),
     });
+    this.customPanel = new CustomizePanel({ tab: (t) => this.openHub(t), toast: (m) => this.toast.show(m, 2600) });
+    this.achPanel = new AchievementsPanel({ tab: (t) => this.openHub(t), start: (id) => this.startChallenge(id) });
     this.view = fitView(this.model.grid.w, this.model.grid.h);
 
     const bg = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill(COLORS.bg);
@@ -112,7 +121,7 @@ export class BuildScreen implements Screen {
     this.dim.visible = false;
     this.tip.visible = false;
     this.tip.addChild(this.tipBg, this.tipText);
-    this.container.addChild(this.dim, this.picker.container, this.stats.container, this.tip, this.hullPicker.container, this.info.container, this.toast.container);
+    this.container.addChild(this.dim, this.picker.container, this.stats.container, this.tip, this.hullPicker.container, this.customPanel.container, this.achPanel.container, this.info.container, this.toast.container);
 
     this.gridR.setView(this.view);
     this.refresh();
@@ -206,7 +215,7 @@ export class BuildScreen implements Screen {
 
     // Top bar buttons.
     this.addButton(new UIButton({
-      id: 'ship', rect: { x: 6, y: 4, w: 44, h: 44 }, onTap: () => this.hullPicker.open(),
+      id: 'ship', rect: { x: 6, y: 4, w: 44, h: 44 }, onTap: () => this.openHub('ships'),
       draw: (g, b) => this.flatFace(g, b, 'ship', 30),
     }));
     this.addButton(new UIButton({
@@ -384,6 +393,7 @@ export class BuildScreen implements Screen {
         ledger: this.tip.visible ? this.tipText.text : null,
         hull: this.model.hullId,
         hullPanelOpen: this.hullPicker.isOpen,
+        hub: this.hubTab,
         credits: this.model.store.data.credits,
         creditsText: this.credits.text,
         challenge: activeChallenge() ? { id: activeChallenge()!.id, text: this.bannerText.text, status: this.bannerStatus.text, visible: this.banner.visible } : null,
@@ -416,7 +426,7 @@ export class BuildScreen implements Screen {
 
   private canDrag(x: number, y: number): boolean {
     if (this.info.isOpen) return false;
-    if (this.hullPicker.isOpen) return this.hullPicker.inList(x, y);
+    if (this.hubTab) return this.hubInList(x, y);
     if (this.picker.isOpen) return this.picker.inList(x, y);
     return inRect(LAYOUT.gridArea, x, y) && !this.buttonAt(x, y);
   }
@@ -424,7 +434,7 @@ export class BuildScreen implements Screen {
   private handleDrag(dx: number, dy: number) {
     this.hideTip();
     this.hover = null;
-    if (this.hullPicker.isOpen) { this.hullPicker.scrollBy(-dy); return; }
+    if (this.hubTab) { this.hubScroll(-dy); return; }
     if (this.picker.isOpen) { this.picker.scrollBy(-dy); return; }
     this.view = panBy(this.view, dx, dy);
     this.applyView();
@@ -432,14 +442,14 @@ export class BuildScreen implements Screen {
 
   private handleWheel(deltaY: number, x: number, y: number) {
     if (this.info.isOpen) return;
-    if (this.hullPicker.isOpen) { if (this.hullPicker.inList(x, y)) this.hullPicker.scrollBy(deltaY); return; }
+    if (this.hubTab) { if (this.hubInList(x, y)) this.hubScroll(deltaY); return; }
     if (this.picker.isOpen) { if (this.picker.inList(x, y)) this.picker.wheel(deltaY); return; }
     if (inRect(LAYOUT.gridArea, x, y)) this.zoom(Math.exp(-deltaY * 0.0015), x, y);
   }
 
   handleTap(x: number, y: number) {
     this.hideTip();
-    if (this.hullPicker.isOpen) { this.hullPicker.tap(x, y); return; }
+    if (this.hubTab) { this.hubTap(x, y); return; }
     if (this.info.isOpen) { this.info.hide(); return; }
     if (this.picker.isOpen) {
       if (this.picker.tap(x, y)) return;
@@ -553,7 +563,7 @@ export class BuildScreen implements Screen {
 
   // ------------------------------------------------------------------ ledger tooltip
   private cellUnder(x: number, y: number): { x: number; y: number } | null {
-    if (this.picker.isOpen || this.info.isOpen || this.hullPicker.isOpen) return null;
+    if (this.picker.isOpen || this.info.isOpen || this.hubTab) return null;
     if (!inRect(LAYOUT.gridArea, x, y) || this.buttonAt(x, y)) return null;
     return cellFromPoint(this.view, this.model.grid.w, this.model.grid.h, x, y);
   }
@@ -601,6 +611,49 @@ export class BuildScreen implements Screen {
 
   private hideTip() {
     this.tip.visible = false;
+  }
+
+  // ------------------------------------------------------------------ the hub (chunk 28b)
+  /** Which tab of the hub is open (Ships = the hull picker), or null. Read from the three panels, so opening one directly (tests) still counts. */
+  get hubTab(): HubTab | null {
+    if (this.hullPicker.isOpen) return 'ships';
+    if (this.customPanel.isOpen) return 'custom';
+    if (this.achPanel.isOpen) return 'ach';
+    return null;
+  }
+
+  /** Opens a tab of the hub, closing whichever was open. */
+  openHub(t: HubTab) {
+    this.hullPicker.close(); this.customPanel.close(); this.achPanel.close();
+    if (t === 'ships') this.hullPicker.open();
+    else if (t === 'custom') this.customPanel.open();
+    else this.achPanel.open();
+  }
+
+  closeHub() { this.hullPicker.close(); this.customPanel.close(); this.achPanel.close(); }
+
+  private hubInList(x: number, y: number): boolean {
+    return this.hullPicker.inList(x, y) || this.customPanel.inList(x, y) || this.achPanel.inList(x, y);
+  }
+
+  private hubScroll(dy: number) {
+    if (this.hullPicker.isOpen) this.hullPicker.scrollBy(dy);
+    else if (this.customPanel.isOpen) this.customPanel.scrollBy(dy);
+    else this.achPanel.scrollBy(dy);
+  }
+
+  private hubTap(x: number, y: number) {
+    if (this.hullPicker.isOpen) this.hullPicker.tap(x, y);
+    else if (this.customPanel.isOpen) this.customPanel.tap(x, y);
+    else this.achPanel.tap(x, y);
+  }
+
+  /** The Start button of a challenge in the Achievements tab: the challenge is started, the hub closes and the banner shows its rules. */
+  private startChallenge(id: string) {
+    startChallengeSession(id);
+    this.closeHub();
+    this.updateBanner();
+    this.refresh();
   }
 
   // ------------------------------------------------------------------ hull picker
@@ -659,13 +712,13 @@ export class BuildScreen implements Screen {
   /** Carries out a keyboard action; true when it did something (the key press is then consumed). */
   keyAction(a: BuildKeyAction): boolean {
     if (a === 'escape') {
-      if (this.hullPicker.isOpen) { this.hullPicker.close(); return true; }
+      if (this.hubTab) { this.closeHub(); return true; }
       if (this.info.isOpen) { this.info.hide(); return true; }
       if (this.picker.isOpen) { this.closePicker(); return true; }
       if (this.selected) { this.selected = null; this.refresh(); return true; }
       return false;
     }
-    if (this.picker.isOpen || this.info.isOpen || this.hullPicker.isOpen) return false; // the sheet is up: touch rules apply
+    if (this.picker.isOpen || this.info.isOpen || this.hubTab) return false; // the sheet is up: touch rules apply
     switch (a) {
       case 'rotateRight': if (!this.selectedBlockCell()) return false; this.rotate(1); return true;
       case 'rotateLeft': if (!this.selectedBlockCell()) return false; this.rotate(-1); return true;

@@ -6,7 +6,24 @@ export const MAX_SOUND_MULT = 3;
 export type TouchControl = 'relative' | 'direct';
 export const TOUCH_CONTROLS: readonly TouchControl[] = ['relative', 'direct'];
 
+/** Chunk 28b: frame-rate limit. 0 = Auto (the display's own rate); 30 and 60 cap the render loop. */
+export type FrameLimit = 0 | 30 | 60;
+export const FRAME_LIMITS: readonly FrameLimit[] = [0, 30, 60];
+/** Chunk 28b: how long a shot's trail is (Graphics > Trails). */
+export type TrailMode = 'off' | 'short' | 'long';
+export const TRAIL_MODES: readonly TrailMode[] = ['off', 'short', 'long'];
+/** Chunk 28b: the touch sensitivity slider (the finger's movement x this = the ship's movement, in relative mode). */
+export const TOUCH_GAIN_MIN = 0.75;
+export const TOUCH_GAIN_MAX = 2;
+export const TOUCH_GAIN_STEP = 0.25;
+/** Chunk 28b: the stored value of "Auto" for the projectile skin and "the shot's own colour" for the trail. */
+export const SKIN_AUTO = 'auto';
+export const TRAIL_STYLE_DEFAULT = 'default';
+/** The settings shape version: 1 = before 28b (no field; the shape of 12a-24a), 2 = 28b (graphics, controls, cosmetics, hub preferences). */
+export const SETTINGS_VERSION = 2;
+
 export interface Settings {
+  version: number;
   masterVolume: number;
   sfxVolume: number;
   musicVolume: number;
@@ -22,9 +39,22 @@ export interface Settings {
   textScale: number;
   haptics: boolean;
   touchControl: TouchControl;
+  /** Chunk 28b: Graphics. */
+  frameLimit: FrameLimit;
+  trails: TrailMode;
+  backgrounds: boolean;
+  damageNumbers: boolean;
+  /** Chunk 28b: Controls. Relative touch control moves the ship by the finger's movement x touchGain. */
+  touchGain: number;
+  /** Chunk 28b: Customization: the projectile skin ('auto' = the look follows damage, a damage-band look id, or an achievement skin id) and the trail style. */
+  shotSkin: string;
+  trailStyle: string;
+  /** Chunk 28b: the Achievements tab's "Show completed" switch (default off, remembered). */
+  showCompleted: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  version: SETTINGS_VERSION,
   masterVolume: 1.0,
   sfxVolume: 1.0,
   musicVolume: 1.0,
@@ -37,6 +67,14 @@ export const DEFAULT_SETTINGS: Settings = {
   textScale: 1.0,
   haptics: true,
   touchControl: 'relative',
+  frameLimit: 0,
+  trails: 'short',
+  backgrounds: true,
+  damageNumbers: true,
+  touchGain: 1,
+  shotSkin: SKIN_AUTO,
+  trailStyle: TRAIL_STYLE_DEFAULT,
+  showCompleted: false,
 };
 
 export const SETTINGS_KEY = 'mgbm_settings';
@@ -48,22 +86,43 @@ function defaultStorage(): Pick<Storage, 'getItem' | 'setItem'> | null {
 
 const clamp01 = (v: unknown, fallback: number) => (typeof v === 'number' && isFinite(v) ? Math.max(0, Math.min(1, v)) : fallback);
 
+const snap = (v: number, step: number) => Math.round(v / step) * step;
+
+/**
+ * Turns whatever was stored into a valid Settings of the current version (chunk 28b). A version 1 blob (no `version`, the shape of 12a-24a) gets the new
+ * fields' defaults; every field is checked, so a hand-edited or damaged value falls back to its default instead of breaking the game. Never throws.
+ */
+export function migrateSettings(raw: unknown): Settings {
+  const d = DEFAULT_SETTINGS;
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Record<keyof Settings, unknown>>;
+  const s = { ...d, ...(r as object), soundMult: {} } as Settings;
+  s.version = SETTINGS_VERSION;
+  s.masterVolume = clamp01(r.masterVolume, d.masterVolume);
+  s.sfxVolume = clamp01(r.sfxVolume, d.sfxVolume);
+  s.muted = r.muted === true;
+  s.touchControl = TOUCH_CONTROLS.includes(r.touchControl as TouchControl) ? (r.touchControl as TouchControl) : d.touchControl;
+  s.weaponSound = WEAPON_SOUNDS.includes(r.weaponSound as WeaponSound) ? (r.weaponSound as WeaponSound) : d.weaponSound;
+  s.frameLimit = FRAME_LIMITS.includes(r.frameLimit as FrameLimit) ? (r.frameLimit as FrameLimit) : d.frameLimit;
+  s.trails = TRAIL_MODES.includes(r.trails as TrailMode) ? (r.trails as TrailMode) : d.trails;
+  s.backgrounds = typeof r.backgrounds === 'boolean' ? r.backgrounds : d.backgrounds;
+  s.damageNumbers = typeof r.damageNumbers === 'boolean' ? r.damageNumbers : d.damageNumbers;
+  s.showCompleted = r.showCompleted === true;
+  s.touchGain = typeof r.touchGain === 'number' && isFinite(r.touchGain) ? Math.max(TOUCH_GAIN_MIN, Math.min(TOUCH_GAIN_MAX, snap(r.touchGain, TOUCH_GAIN_STEP))) : d.touchGain;
+  s.shotSkin = typeof r.shotSkin === 'string' && r.shotSkin.length > 0 && r.shotSkin.length <= 40 ? r.shotSkin : d.shotSkin;
+  s.trailStyle = typeof r.trailStyle === 'string' && r.trailStyle.length > 0 && r.trailStyle.length <= 40 ? r.trailStyle : d.trailStyle;
+  const m: Record<string, number> = {};
+  if (r.soundMult && typeof r.soundMult === 'object') {
+    for (const [k, v] of Object.entries(r.soundMult as Record<string, unknown>)) if (typeof v === 'number' && isFinite(v)) m[k] = Math.max(0, Math.min(MAX_SOUND_MULT, v));
+  }
+  s.soundMult = m;
+  return s;
+}
+
 export function loadSettings(storage: Pick<Storage, 'getItem'> | null = defaultStorage()): Settings {
   try {
     const data = storage?.getItem(SETTINGS_KEY);
     if (!data) return { ...DEFAULT_SETTINGS, soundMult: {} };
-    const s = { ...DEFAULT_SETTINGS, ...JSON.parse(data) } as Settings;
-    s.masterVolume = clamp01(s.masterVolume, DEFAULT_SETTINGS.masterVolume);
-    s.sfxVolume = clamp01(s.sfxVolume, DEFAULT_SETTINGS.sfxVolume);
-    s.muted = s.muted === true;
-    if (!TOUCH_CONTROLS.includes(s.touchControl)) s.touchControl = 'relative';
-    if (!WEAPON_SOUNDS.includes(s.weaponSound)) s.weaponSound = 'off';
-    const m: Record<string, number> = {};
-    if (s.soundMult && typeof s.soundMult === 'object') {
-      for (const [k, v] of Object.entries(s.soundMult)) if (typeof v === 'number' && isFinite(v)) m[k] = Math.max(0, Math.min(MAX_SOUND_MULT, v));
-    }
-    s.soundMult = m;
-    return s;
+    return migrateSettings(JSON.parse(data));
   } catch {
     return { ...DEFAULT_SETTINGS, soundMult: {} };
   }

@@ -1,4 +1,4 @@
-import { loadSettings, MAX_SOUND_MULT, saveSettings, Settings, TouchControl, WeaponSound } from '../ui/settings';
+import { loadSettings, MAX_SOUND_MULT, migrateSettings, saveSettings, Settings, TouchControl, WeaponSound } from '../ui/settings';
 import { PEAK_CAP, PEAK_CAP_PROTECTED, SFX_BOOST, SFX_ORDER, SfxId, SoundDef, SOUNDS } from './sounds';
 
 /** At most this many sounds sound at once; the lowest-priority, oldest one is stolen for a newer one. */
@@ -138,6 +138,12 @@ export class SfxEngine {
   setMuted(m: boolean) { this.settings.muted = m; this.changed(); }
   setWeaponSound(w: WeaponSound) { this.settings.weaponSound = w; this.changed(); }
   setTouchControl(t: TouchControl) { this.settings.touchControl = t; this.changed(); }
+  /** Chunk 28b: the other settings (graphics, controls, cosmetics, hub). One setter, the value is validated by the same migration that loads them. */
+  set<K extends keyof Settings>(key: K, value: Settings[K]) {
+    const next = migrateSettings({ ...this.settings, [key]: value });
+    (this.settings as any)[key] = next[key];
+    this.changed();
+  }
 
   /** Tuning multiplier of one sound (1 = untouched). */
   soundMult(id: string): number { return this.settings.soundMult[id] ?? 1; }

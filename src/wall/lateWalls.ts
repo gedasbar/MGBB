@@ -6,7 +6,7 @@ import {
   byRank, LateType, DRIFT_BLOCKS, DRIFT_EACH_SPAN, DRIFT_GAP_SHARE, DRIFT_HP_MUL, DRIFT_SPEED_BASE, DRIFT_SPEED_PER_RANK, DRIFT_VARIANT, DriftVariant, FORTRESS_ARMOR, FORTRESS_HP_MUL,
   FORTRESS_SHIELD_SHARE, isLateMilestone, LATE_ARMOR_FRAC, LATE_FIRST, LATE_LAST, LATE_MILESTONES, LATE_ROWS, LATE_SHIELD_FRAC, LATE_TYPES, lateSlot,
   MAZE_HP_MUL, MAZE_PATH_WIDTH, MAZE_ROWS, MAZE_TURN_ROWS, MONOLITH_HP_MUL, MONOLITH_REWARD_SHARE, MONOLITH_ROWS,
-  CROSSWIND_ACCEL, crosswindSide, FOG_RADIUS, FOG_REACT_SECONDS, LateEffects, MITOSIS_CHILDREN, MITOSIS_HP_MUL, MITOSIS_HP_SHARE, MITOSIS_MAX_GEN, MITOSIS_SIZE_MUL,
+  CROSSWIND_ACCEL, crosswindSide, FOG_RADIUS, FOG_REACT_SECONDS, LateEffects, MITOSIS_CHILDREN, MITOSIS_HP_MUL, MITOSIS_HP_SHARE, MITOSIS_MAX_GEN,
   REGROWTH_DELAY, REGROWTH_PER_SEC, STRONG_WIND_SPEED_MUL, STRONG_WIND_TURN_DEG,
 } from '../data/lateTiers';
 import { approachSpeedFor, BOOST_MAX, CELL, WALL_COLS } from './constants';
@@ -38,7 +38,7 @@ export function effectsOf(type: LateType, tier: number, rank: number): LateEffec
     case 'crosswind': return { crosswind: { accel: crosswindSide(tier) * byRank(CROSSWIND_ACCEL, rank) } };
     case 'fog': return { fog: { radius: byRank(FOG_RADIUS, rank) } };
     case 'regrowth': return { regrowth: { delay: REGROWTH_DELAY, perSec: byRank(REGROWTH_PER_SEC, rank) } };
-    case 'mitosis_wall': return { mitosis: { children: MITOSIS_CHILDREN, hpShare: MITOSIS_HP_SHARE, maxGen: MITOSIS_MAX_GEN, sizeMul: MITOSIS_SIZE_MUL } };
+    case 'mitosis_wall': return { mitosis: { children: MITOSIS_CHILDREN, hpShare: MITOSIS_HP_SHARE, maxGen: MITOSIS_MAX_GEN } };
     default: return undefined;
   }
 }

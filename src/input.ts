@@ -50,11 +50,18 @@ export class InputManager {
   uiHit: ((x: number, y: number) => boolean) | null = null;
   /** The current press started on a UI control: the ship ignores it until it ends. */
   private captured = false;
+  /** Chunk 28b: listeners for a press that moved far enough not to be a tap (game-unit movement since the last event) and for the mouse wheel (the settings panel scrolls). */
+  private dragListeners: ((dx: number, dy: number) => void)[] = [];
+  private wheelListeners: ((dy: number) => void)[] = [];
+  private dragLast: { cx: number; cy: number } | null = null;
+  private dragging = false;
 
   constructor(private element: HTMLElement) {
     element.style.touchAction = 'none';
     element.addEventListener('pointerdown', (e) => {
       this.down = { cx: e.clientX, cy: e.clientY, t: performance.now() };
+      this.dragLast = { cx: e.clientX, cy: e.clientY };
+      this.dragging = false;
       // Chunk 24a: a press that lands on a UI control (the pause button, an open panel) belongs to the control: it never steers the ship.
       const p = clientToGame(e.clientX, e.clientY, this.element.getBoundingClientRect());
       this.captured = !!this.uiHit && this.uiHit(p.x, p.y);
@@ -71,10 +78,26 @@ export class InputManager {
       for (const f of this.tapListeners) f(p.x, p.y);
     });
     // Track on window so the ship keeps following when the cursor is in the letterbox.
-    window.addEventListener('pointermove', (e) => { if (!this.captured) this.updatePointer(e); });
+    window.addEventListener('pointermove', (e) => {
+      if (!this.captured) this.updatePointer(e);
+      if (this.down && this.dragLast && this.dragListeners.length > 0) {
+        if (!this.dragging && Math.hypot(e.clientX - this.down.cx, e.clientY - this.down.cy) > TAP_MAX_MOVE) this.dragging = true;
+        if (this.dragging) {
+          const rect = this.element.getBoundingClientRect();
+          const a = clientToGame(this.dragLast.cx, this.dragLast.cy, rect), b = clientToGame(e.clientX, e.clientY, rect);
+          for (const f of this.dragListeners) f(b.x - a.x, b.y - a.y);
+        }
+        this.dragLast = { cx: e.clientX, cy: e.clientY };
+      }
+    });
+    element.addEventListener('wheel', (e) => { for (const f of this.wheelListeners) f(e.deltaY); }, { passive: true });
     window.addEventListener('pointerup', () => { this.pointer.active = false; });
     window.addEventListener('pointercancel', () => { this.pointer.active = false; this.captured = false; });
   }
+
+  /** Chunk 28b: registers a drag listener (game-unit movement of a press that is no longer a tap) and a wheel listener (deltaY). */
+  onDrag(f: (dx: number, dy: number) => void) { this.dragListeners.push(f); }
+  onWheel(f: (dy: number) => void) { this.wheelListeners.push(f); }
 
   /** Registers a tap listener (game coordinates). */
   onTap(f: (x: number, y: number) => void) { this.tapListeners.push(f); }

@@ -31,10 +31,14 @@ export interface Block extends EnemyEntity {
   lastDamaged: number;
   /** Chunk 27b (Fog): this block has been hit, so it stays drawn whatever the distance. */
   revealed: boolean;
-  /** Chunk 27b (Mitosis Wall): 0 for a block of the wall, 1 for a child of one, 2 for a child of a child. */
+  /** Chunk 27b / 28b (Mitosis Wall): 0 for a whole block, 1 for a half, 2 for a small square. */
   gen: number;
-  /** Half of the block's side in px: CELL / 2, or smaller for a child. The hit tests and the drawing read it. */
-  half: number;
+  /** Half width and half height of the piece in px (28b): CELL / 2 both for a whole block, a half is CELL / 4 wide, a square CELL / 4 both. */
+  hw: number;
+  hh: number;
+  /** Offset of the piece's centre from the centre of its cell (0, 0 for a whole block). A Mitosis piece always stays inside its own cell. */
+  ox: number;
+  oy: number;
   /** Share of the normal credits this block pays (1; a child pays its parent's share x the HP share). */
   share: number;
 }
@@ -88,8 +92,11 @@ class BlockField implements TargetField {
       let c1 = Math.floor((x1 - sh) / CELL);
       if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
       for (let c = c0; c <= c1; c++) {
-        const b = w.blocks[r * cols + (w.ring ? ((c % cols) + cols) % cols : c)];
-        if (b) fn(b);
+        const idx = r * cols + (w.ring ? ((c % cols) + cols) % cols : c);
+        const head = w.blocks[idx];
+        if (!head) continue;
+        const ps = w.pieces ? w.pieces[idx] : null;
+        if (ps) for (let k = 0; k < ps.length; k++) fn(ps[k]); else fn(head);
       }
     }
   }
@@ -108,17 +115,26 @@ class BlockField implements TargetField {
       let c1 = Math.floor((px + hitR - sh) / CELL);
       if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
       for (let c = c0; c <= c1; c++) {
-        const b = w.blocks[r * cols + (w.ring ? ((c % cols) + cols) % cols : c)];
-        if (!b || b.id === skipId) continue;
-        const d = w.boxDistSq(px, py, b.col, b.row);
-        if (d <= bestD) { bestD = d; best = b; }
+        const idx = r * cols + (w.ring ? ((c % cols) + cols) % cols : c);
+        const head = w.blocks[idx];
+        if (!head) continue;
+        const ps = w.pieces ? w.pieces[idx] : null;
+        const n = ps ? ps.length : 1;
+        for (let k = 0; k < n; k++) {
+          const b = ps ? ps[k] : head;
+          if (b.id === skipId) continue;
+          const d = w.boxDistSq(px, py, b);
+          if (d <= bestD) { bestD = d; best = b; }
+        }
       }
     }
     return best;
   }
 
   byId(id: number): EnemyEntity | null {
-    return this.w.blocks[id] ?? null;
+    const b = this.w.blocks[id];
+    if (b && b.id === id) return b;
+    return this.w.pieceById.get(id) ?? null; // a Mitosis piece has an id above the grid's cells
   }
 
   nearestInCone(px: number, py: number, range: number, hx: number, hy: number, cosHalf: number, out: HomePick): boolean {
@@ -135,13 +151,20 @@ class BlockField implements TargetField {
       let c1 = Math.floor((px + range - sh) / CELL);
       if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
       for (let c = c0; c <= c1; c++) {
-        const b = w.blocks[r * cols + (w.ring ? ((c % cols) + cols) % cols : c)];
-        if (!b || b.hp <= 0) continue;
-        const dx = w.dxw(b.x, px), dy = b.y - py;
-        const d2 = dx * dx + dy * dy;
-        if (d2 > best) continue;
-        if (dx * hx + dy * hy < Math.sqrt(d2) * cosHalf) continue;
-        best = d2; found = b; bdx = dx; bdy = dy;
+        const idx = r * cols + (w.ring ? ((c % cols) + cols) % cols : c);
+        const head = w.blocks[idx];
+        if (!head) continue;
+        const ps = w.pieces ? w.pieces[idx] : null;
+        const n = ps ? ps.length : 1;
+        for (let k = 0; k < n; k++) {
+          const b = ps ? ps[k] : head;
+          if (b.hp <= 0) continue;
+          const dx = w.dxw(b.x, px), dy = b.y - py;
+          const d2 = dx * dx + dy * dy;
+          if (d2 > best) continue;
+          if (dx * hx + dy * hy < Math.sqrt(d2) * cosHalf) continue;
+          best = d2; found = b; bdx = dx; bdy = dy;
+        }
       }
     }
     if (!found) return false;
@@ -152,7 +175,7 @@ class BlockField implements TargetField {
   collectCircle(px: number, py: number, r: number, out: EnemyEntity[]) {
     out.length = 0;
     this.forEachIn(px - r, py - r, px + r, py + r, b => {
-      if (this.w.boxDistSq(px, py, b.col, b.row) <= r * r) out.push(b);
+      if (this.w.boxDistSq(px, py, b) <= r * r) out.push(b);
     });
   }
 
@@ -178,20 +201,20 @@ class BlockField implements TargetField {
 
   bounceInfo(t: EnemyEntity, px: number, py: number, r: number): BounceInfo | null {
     const b = t as Block;
-    const h = b.half;
-    const by = this.w.blockTop(b.row) + CELL / 2 - h; // top edge of the box (a child is a smaller box in the middle of its cell)
+    const hw = b.hw, hh = b.hh;
+    const by = this.w.blockTop(b.row) + CELL / 2 + b.oy - hh; // top edge of the box (a Mitosis piece is a part of its cell)
     // Position relative to the block centre (the short way round on a ring).
     const rx = this.w.dxw(px, b.x);
-    const qx = Math.max(-h, Math.min(rx, h));
-    const qy = Math.max(by, Math.min(py, by + 2 * h));
+    const qx = Math.max(-hw, Math.min(rx, hw));
+    const qy = Math.max(by, Math.min(py, by + 2 * hh));
     const dx = rx - qx;
     const dy = py - qy;
     const d = Math.hypot(dx, dy);
     if (d > EPS) return { nx: dx / d, ny: dy / d, push: Math.max(0, r - d) + 0.5 };
     // Centre inside the block: leave through the nearest face.
     const faces = [
-      { d: rx + h, nx: -1, ny: 0 }, { d: h - rx, nx: 1, ny: 0 },
-      { d: py - by, nx: 0, ny: -1 }, { d: by + 2 * h - py, nx: 0, ny: 1 },
+      { d: rx + hw, nx: -1, ny: 0 }, { d: hw - rx, nx: 1, ny: 0 },
+      { d: py - by, nx: 0, ny: -1 }, { d: by + 2 * hh - py, nx: 0, ny: 1 },
     ];
     const f = faces.reduce((a, c) => (c.d < a.d ? c : a));
     return { nx: f.nx, ny: f.ny, push: f.d + r + 0.5 };
@@ -217,8 +240,13 @@ export class WallWorld {
   /** Width of the wall in px: cols x CELL. */
   readonly worldW: number;
 
-  /** Row-major living blocks (null = empty or destroyed). */
+  /** Row-major living blocks (null = empty or destroyed). On a Mitosis Wall a cell holding pieces shows its first living piece here. */
   readonly blocks: (Block | null)[] = [];
+  /** Chunk 28b (Mitosis Wall): the living pieces of each cell (whole block, then halves, then squares); null on every other wall. */
+  readonly pieces: (Block[] | null)[] | null;
+  /** The living pieces by id (ids above the grid's cells), for the target field. */
+  readonly pieceById = new Map<number, Block>();
+  private nextPieceId = 0;
   /**
    * Chunk 27a (Drift): how far each row has slid sideways, in px, wrapped into [0, worldW). All zero for every wall but a Drift wall,
    * so every lookup subtracts it without a special case. A block's `x` already includes it.
@@ -317,17 +345,20 @@ export class WallWorld {
     bonus.vsShield = this.mods.vsShield;
 
     this.rowAlive = new Array(level.rows).fill(0);
+    this.pieces = level.effects?.mitosis ? [] : null;
+    this.nextPieceId = level.rows * level.cols;
     let alive = 0;
     for (let r = 0; r < level.rows; r++) {
       for (let c = 0; c < level.cols; c++) {
         const def = level.cells[r * level.cols + c];
-        if (!def) { this.blocks.push(null); continue; }
+        if (!def) { this.blocks.push(null); this.pieces?.push(null); continue; }
         const b: Block = {
           id: r * level.cols + c, col: c, row: r, x: c * CELL + CELL / 2, y: 0, radius: CELL / 2,
           hp: def.hp, maxHp: def.hp, armor: def.armor, shield: def.shield, maxShield: def.shield,
-          lastHit: -Infinity, flash: 0, lastDamaged: -Infinity, revealed: false, gen: 0, half: CELL / 2, share: 1,
+          lastHit: -Infinity, flash: 0, lastDamaged: -Infinity, revealed: false, gen: 0, hw: CELL / 2, hh: CELL / 2, ox: 0, oy: 0, share: 1,
         };
         this.blocks.push(b);
+        this.pieces?.push([b]);
         this.all.push(b);
         if (b.maxShield > 0) this.shielded.push(b);
         this.rowAlive[r]++;
@@ -374,12 +405,26 @@ export class WallWorld {
     return this.ring ? wrapDx(a, b, this.worldW) : a - b;
   }
 
-  /** Squared distance from a point (world x, screen y) to the box of a cell. */
-  boxDistSq(px: number, py: number, col: number, row: number): number {
-    const half = this.blocks[row * this.level.cols + col]?.half ?? CELL / 2; // a Mitosis child is a smaller box in the middle of its cell
-    const dx = Math.max(0, Math.abs(this.dxw(px, col * CELL + CELL / 2 + this.rowShift[row])) - half);
-    const dy = Math.max(0, Math.abs(py - (this.blockTop(row) + CELL / 2)) - half);
+  /** Squared distance from a point (world x, screen y) to the box of a block or piece (a Mitosis piece is a part of its cell). */
+  boxDistSq(px: number, py: number, b: Block): number {
+    const dx = Math.max(0, Math.abs(this.dxw(px, b.col * CELL + CELL / 2 + this.rowShift[b.row] + b.ox)) - b.hw);
+    const dy = Math.max(0, Math.abs(py - (this.blockTop(b.row) + CELL / 2 + b.oy)) - b.hh);
     return dx * dx + dy * dy;
+  }
+
+  /** The living pieces of a cell: the one block, or on a Mitosis Wall every piece it has split into. Empty when the cell is empty. */
+  piecesAt(idx: number): readonly Block[] {
+    const ps = this.pieces?.[idx];
+    if (ps) return ps;
+    const b = this.blocks[idx];
+    return b ? [b] : [];
+  }
+
+  /** True while the block is still on the wall (not destroyed). */
+  isLive(b: Block): boolean {
+    const idx = b.row * this.level.cols + b.col;
+    const ps = this.pieces?.[idx];
+    return ps ? ps.includes(b) : this.blocks[idx] === b;
   }
 
   /**
@@ -389,7 +434,7 @@ export class WallWorld {
   fogAlpha(b: Block): number {
     const fog = this.level.effects?.fog;
     if (!fog || b.revealed) return 1;
-    const d = Math.sqrt(this.boxDistSq(this.shipX, this.shipY, b.col, b.row));
+    const d = Math.sqrt(this.boxDistSq(this.shipX, this.shipY, b));
     return Math.max(0, Math.min(1, (fog.radius - d) / FOG_EDGE));
   }
 
@@ -406,7 +451,11 @@ export class WallWorld {
   /** The living block under a world position, if any. */
   blockAt(x: number, y: number): Block | null {
     const c = this.cellAt(x, y);
-    return c ? this.blocks[c.row * this.level.cols + c.col] : null;
+    if (!c) return null;
+    const idx = c.row * this.level.cols + c.col;
+    if (!this.pieces) return this.blocks[idx];
+    for (const b of this.piecesAt(idx)) if (this.boxDistSq(x, y, b) === 0) return b; // a Mitosis cell: the piece under the point, null in the gap of a destroyed one
+    return null;
   }
 
   /** Screen y of the lowest living block's bottom edge (-Infinity when the wall is gone). */
@@ -428,8 +477,8 @@ export class WallWorld {
 
   private syncY() {
     for (const b of this.all) {
-      b.y = this.blockTop(b.row) + CELL / 2;
-      if (this.driftSpeeds) b.x = wrapX(b.col * CELL + CELL / 2 + this.rowShift[b.row], this.worldW);
+      b.y = this.blockTop(b.row) + CELL / 2 + b.oy;
+      if (this.driftSpeeds) b.x = wrapX(b.col * CELL + CELL / 2 + this.rowShift[b.row] + b.ox, this.worldW);
     }
   }
 
@@ -443,13 +492,19 @@ export class WallWorld {
   /** Tests: slides the rows by `dt` seconds of drift at once (update() does this every step). */
   advanceDrift(dt: number) { this.slideRows(dt); this.syncY(); }
 
-  /** Removes a block, pays its credits. Safe to call once per block (a dead block is gone from the grid). */
+  /** Removes a block (or a Mitosis piece), pays its credits. Safe to call once per block (a dead block is gone from the grid). */
   destroyBlock(b: Block) {
     const idx = b.row * this.level.cols + b.col;
-    if (this.blocks[idx] !== b) return;
-    this.blocks[idx] = null;
+    const ps = this.pieces?.[idx];
+    if (ps) {
+      const k = ps.indexOf(b);
+      if (k < 0) return;
+      ps.splice(k, 1);
+      this.pieceById.delete(b.id);
+    } else if (this.blocks[idx] !== b) return;
+    this.blocks[idx] = ps ? (ps[0] ?? null) : null;
     b.hp = Math.min(b.hp, 0);
-    this.split(b); // before the row count drops: a child in the same row keeps it alive
+    this.split(b); // before the row count drops: a piece in the same row keeps it alive
     this.rowAlive[b.row]--;
     this.alive--;
     this.destroyed++;
@@ -460,42 +515,48 @@ export class WallWorld {
   }
 
   /**
-   * Chunk 27b (Mitosis Wall): a destroyed block of a generation below `maxGen` leaves `children` smaller blocks in the empty cells beside it: left and right first,
-   * then the cell behind it (the next row up the wall, further from the ship). With fewer empty cells there are fewer children (none when it is boxed in).
-   * A child has `hpShare` of its parent's max HP, its armor, `hpShare` of its shield and `sizeMul` of its size, and pays `hpShare` of its parent's credits.
+   * Chunk 28b (Mitosis Wall, reworked from 27b): a destroyed piece of a generation below `maxGen` splits INSIDE ITS OWN CELL, never into a neighbour.
+   * A whole block (gen 0) becomes two halves side by side (each CELL/2 wide, the full cell tall); a half (gen 1) becomes two small squares, one above the
+   * other; a square (gen 2) does not split. Each part has `hpShare` of the destroyed piece's max HP (and of its shield), its armor, and pays `hpShare` of
+   * its credits. The pieces are real targets and hazards at their real size.
    */
   private split(b: Block) {
     const m = this.level.effects?.mitosis;
-    if (!m || b.gen >= m.maxGen) return;
+    const ps = this.pieces?.[b.row * this.level.cols + b.col];
+    if (!m || !ps || b.gen >= m.maxGen) return;
     const cols = this.level.cols;
-    const spots: [number, number][] = [[b.row, b.col - 1], [b.row, b.col + 1], [b.row - 1, b.col]];
-    let made = 0;
-    for (const [r, c0] of spots) {
-      if (made >= m.children) break;
-      const c = this.ring ? ((c0 % cols) + cols) % cols : c0;
-      if (r < 0 || c < 0 || c >= cols || this.blocks[r * cols + c]) continue;
-      const hp = wholeHp(b.maxHp * m.hpShare);
-      const shield = b.maxShield > 0 ? wholeHp(b.maxShield * m.hpShare) : 0;
-      const half = (CELL / 2) * Math.pow(m.sizeMul, b.gen + 1);
+    const idx = b.row * cols + b.col;
+    const hp = wholeHp(b.maxHp * m.hpShare);
+    const shield = b.maxShield > 0 ? wholeHp(b.maxShield * m.hpShare) : 0;
+    const gen = b.gen + 1;
+    for (let k = 0; k < m.children; k++) {
+      const sign = k === 0 ? -1 : 1;
+      // Whole -> two halves side by side (left, right); half -> two squares one above the other (top, bottom).
+      const vertical = b.gen === 0;
+      const hw = vertical ? b.hw / 2 : b.hw;
+      const hh = vertical ? b.hh : b.hh / 2;
+      const ox = b.ox + (vertical ? sign * hw : 0);
+      const oy = b.oy + (vertical ? 0 : sign * hh);
       const child: Block = {
-        id: r * cols + c, col: c, row: r, x: wrapX(c * CELL + CELL / 2 + this.rowShift[r], this.worldW), y: this.blockTop(r) + CELL / 2, radius: half,
-        hp, maxHp: hp, armor: b.armor, armor0: b.armor0, shield, maxShield: shield,
-        lastHit: -Infinity, flash: 0, lastDamaged: -Infinity, revealed: b.revealed, gen: b.gen + 1, half, share: b.share * m.hpShare,
+        id: this.nextPieceId++, col: b.col, row: b.row, x: wrapX(b.col * CELL + CELL / 2 + this.rowShift[b.row] + ox, this.worldW), y: this.blockTop(b.row) + CELL / 2 + oy,
+        radius: Math.max(hw, hh), hp, maxHp: hp, armor: b.armor, armor0: b.armor0, shield, maxShield: shield,
+        lastHit: -Infinity, flash: 0, lastDamaged: -Infinity, revealed: b.revealed, gen, hw, hh, ox, oy, share: b.share * m.hpShare,
       };
-      this.blocks[r * cols + c] = child;
+      ps.push(child);
+      this.pieceById.set(child.id, child);
       this.all.push(child);
       if (shield > 0) this.shielded.push(child);
-      this.rowAlive[r]++;
+      this.rowAlive[b.row]++;
       this.alive++;
       this.totalBlocks++;
-      made++;
+      this.fx.splits++;
     }
-    this.fx.splits += made;
+    this.blocks[idx] = ps[0];
   }
 
   /** Debug/test helper: destroys every living block through the normal path. */
   destroyAll() {
-    for (const b of this.all) if (this.blocks[b.row * this.level.cols + b.col] === b) this.destroyBlock(b);
+    for (let i = 0; i < this.all.length; i++) if (this.isLive(this.all[i])) this.destroyBlock(this.all[i]); // pieces made on the way are visited too
   }
 
   /** Banks the credits once (win or lose). Returns false when it had already been banked. */
@@ -718,10 +779,13 @@ export class WallWorld {
       if (!this.ring) { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
       for (let c = c0; c <= c1; c++) {
         const cc = this.ring ? ((c % cols) + cols) % cols : c;
-        const b = this.blocks[r * cols + cc];
-        if (b && this.boxDistSq(x, y, cc, r) < R * R) {
-          if (!out) return true;
-          if (!out.includes(b)) out.push(b);
+        const idx = r * cols + cc;
+        if (!this.blocks[idx]) continue;
+        for (const b of this.piecesAt(idx)) {
+          if (this.boxDistSq(x, y, b) < R * R) {
+            if (!out) return true;
+            if (!out.includes(b)) out.push(b);
+          }
         }
       }
     }
