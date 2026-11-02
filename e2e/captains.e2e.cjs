@@ -31,7 +31,7 @@ const centre = (r) => [r.x + r.w / 2, r.y + r.h / 2];
   // ---- the tab opens the list; a fresh save has Cadet only and no Medals
   await tap(page, ...TAB.captain);
   let s = await state(page);
-  check(s.view === 'list' && s.buttons.filter(b => /^card:/.test(b.id)).length === 4 && s.buttons.some(b => b.id === 'achievements'), `Captain tab: list of ${s.buttons.filter(b => /^card:/.test(b.id)).length} cards and the Achievements button`);
+  check(s.view === 'list' && s.buttons.filter(b => /^card:/.test(b.id)).length === 4 && !s.buttons.some(b => b.id === 'achievements'), `Captain tab: list of ${s.buttons.filter(b => /^card:/.test(b.id)).length} cards, no Achievements button (moved to the ship hub in 28b)`);
   check(s.medals === 0 && s.activeText === 'Active: Cadet', `fresh save: ${s.medalsText}, ${s.activeText}`);
   await page.screenshot({ path: path.join(OUT, '1-captain-list.png'), clip: CLIP });
 
