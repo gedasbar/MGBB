@@ -56,6 +56,8 @@ export class AchievementsScreen implements Screen {
   scrollY = 0;
   private contentH = 0;
   private hits: Hit[] = [];
+  /** What the list shows now, for the e2e hook. */
+  private rows: { id: string; title: string; text: string; earned: boolean; open: boolean; value: number; goal: number }[] = [];
 
   constructor(private sm: ScreenManager, view: AchView = 'achievements') {
     this.view = view;
@@ -69,7 +71,7 @@ export class AchievementsScreen implements Screen {
     title.position.set(VIEW_W / 2, 27);
     this.mask.rect(0, LIST_TOP, VIEW_W, BOTTOM - LIST_TOP).fill(0xffffff);
     this.listC.mask = this.mask;
-    this.container.addChild(bg, this.listC, this.fixedC, bar, title);
+    this.container.addChild(bg, this.listC, bar, this.fixedC, title);
     this.tabs = makeTabButtons('tabCaptain', (id) => this.tapTab(id));
     for (const b of this.tabs) this.container.addChild(b.container);
     this.container.addChild(this.toast.container, this.mask);
@@ -136,6 +138,7 @@ export class AchievementsScreen implements Screen {
     for (const ch of this.listC.removeChildren()) ch.destroy({ children: true });
     for (const ch of this.fixedC.removeChildren()) ch.destroy({ children: true });
     this.hits = [];
+    this.rows = [];
     this.drawSegments();
     if (this.view === 'achievements') this.drawAchievements(); else this.drawChallenges();
     this.applyScroll();
@@ -192,6 +195,7 @@ export class AchievementsScreen implements Screen {
         const r: Rect = { x: PAD, y, w: W, h: ACH_H };
         const secret = !!a.hidden && !earned;
         this.box(L, r, earned ? EARNED : THEME.border);
+        this.rows.push({ id: a.id, title: secret ? '???' : a.name, text: secret ? (a.hint ?? 'Hidden.') : a.text, earned, open: true, value: pr.value, goal: pr.goal });
         this.label(L, secret ? '???' : a.name, r.x + 12, r.y + 8, 18, earned ? THEME.text : secret ? THEME.textDim : THEME.text);
         this.label(L, secret ? (a.hint ?? 'Hidden.') : a.text, r.x + 12, r.y + 31, 13, THEME.textDim, W - 24);
         if (earned) this.label(L, 'EARNED', r.x + r.w - 12, r.y + 10, 15, EARNED, 0, 1).anchor.set(1, 0);
@@ -224,6 +228,7 @@ export class AchievementsScreen implements Screen {
       const h = Math.max(92, 32 + bodyH + 28);
       const r: Rect = { x: PAD, y, w: W, h };
       this.box(L, r, done ? EARNED : THEME.border, open ? THEME.panel : THEME.bg);
+      this.rows.push({ id: c.id, title: c.name, text: lines.join(' | '), earned: done, open, value: 0, goal: 0 });
       this.label(L, c.name, r.x + 12, r.y + 8, 18, open ? THEME.text : THEME.textDim);
       let ty = r.y + 32;
       for (const t of texts) { t.position.set(r.x + 12, ty); L.addChild(t); ty += t.height + 2; }
@@ -247,7 +252,7 @@ export class AchievementsScreen implements Screen {
       screen: 'achievements',
       achievementsScreen: this,
       state: () => ({
-        view: this.view, scrollY: this.scrollY, contentH: this.contentH,
+        view: this.view, scrollY: this.scrollY, contentH: this.contentH, rows: this.rows,
         buttons: this.hits.map(h => ({ id: h.id, enabled: h.enabled, rect: this.screenRect(h) })),
       }),
     };

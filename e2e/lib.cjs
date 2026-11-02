@@ -187,7 +187,7 @@ function richProgressJson(tiers = true) {
 
 // `dart: true` keeps the truly fresh save (the free one-slot Dart). Otherwise the save starts on the Shuttle, which the older
 // scripts were written for (the hull ladder came later): the Shuttle is owned and selected, everything else is new-game.
-async function openGame(browser, { viewport = { width: 540, height: 960 }, clearStorage = true, permissions = [], rich = true, dart = false, tiers = true } = {}) {
+async function openGame(browser, { viewport = { width: 540, height: 960 }, clearStorage = true, permissions = [], rich = true, dart = false, tiers = true, summary = 'dismiss' } = {}) {
   const context = await browser.newContext({ viewport, permissions });
   const page = await context.newPage();
   page.on('pageerror', (err) => check(false, `page error: ${err.message}`));
@@ -209,7 +209,19 @@ async function openGame(browser, { viewport = { width: 540, height: 960 }, clear
   // The debug cheat panel is a lazy import: with ?debug=1 wait (up to 8 s) until it is there, so a cold dev server does not break scripts that click its buttons.
   if (/[?&]debug=1/.test(URL)) await page.waitForFunction(() => !!document.getElementById('dbg-fr-unlock'), null, { timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(400);
+  // Chunk 28a: a save from before the achievements is granted at load and the game opens ONE summary panel; scripts that are not about it close it.
+  if (summary === 'dismiss') await dismissAchievementSummary(page);
   return { page, context };
+}
+
+/** Closes the one-time achievement summary panel if it is open (chunk 28a). Returns whether it was. */
+async function dismissAchievementSummary(page) {
+  const open = await waitFor(() => page.evaluate(() => !!window.__mgbmSm && window.__mgbmSm.overlays && window.__mgbmSm.overlays.current === 'achSummary'), { timeout: 600 });
+  if (!open) return false;
+  const c = await page.evaluate(() => window.__mgbmSm.overlays.buttonCenter('achSummaryOk'));
+  await tap(page, c.x, c.y);
+  await waitFor(() => page.evaluate(() => window.__mgbmSm.overlays.current === 'none'), { timeout: 2000 });
+  return true;
 }
 
 const state = (page) => page.evaluate(() => window.__mgbm.state());
@@ -257,6 +269,6 @@ async function shot(page, name) {
 }
 
 module.exports = {
-  chromium, URL, OUT, VIEW, waitFor, seedRandom, check, counts, gameToClient, park, tap, drag, wheel,
+  chromium, URL, OUT, VIEW, dismissAchievementSummary, waitFor, seedRandom, check, counts, gameToClient, park, tap, drag, wheel,
   pixelAtClient, pixelsAtClient, countInRegion, countInImage, scanImage, isRedLine, AUTO_BADGE_PRED, PADLOCK_PRED, NO_SIGNAL_PRED, openGame, state, shot, hullRowRect,
 };
