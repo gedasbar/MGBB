@@ -12,6 +12,8 @@ import { fogRadiusFloor } from '../src/wall/lateWalls';
 import { LevelDef, makeTestWall } from '../src/wall/level';
 import { WallWorld } from '../src/wall/wallWorld';
 import type { LateEffects } from '../src/data/lateTiers';
+import { CROSSWIND_STRENGTH } from '../src/data/lateTiers';
+import { laneDamage } from '../scripts/lib/crosswind';
 
 // Chunk 27b: the five effect types of tiers 101-200 (docs/tiers-101-200-effects.md). One group per type.
 
@@ -154,6 +156,30 @@ describe('Crosswind', () => {
     expect(generateLevel(tiers[0]).effects!.crosswind!.accel).toBe(generateLevel(tiers[0]).effects!.crosswind!.accel);
     const sides = new Set(Array.from({ length: 100 }, (_, k) => crosswindSide(101 + k)));
     expect(sides.size).toBe(2);
+  });
+
+  it('28b: the wind is 3x the old one (a constant), rising with every appearance', () => {
+    expect(CROSSWIND_STRENGTH).toBe(3);
+    expect(CROSSWIND_ACCEL).toEqual([600, 840, 1080, 1380, 1740]);
+    const tiers = tiersOf('crosswind');
+    expect(tiers.map(t => Math.abs(generateLevel(t).effects!.crosswind!.accel))).toEqual([600, 840, 1080, 1380]);
+  });
+
+  it('28b: an uncorrected build misses the lane at long range on every Crosswind tier, and every tier has a counter at 250 px (Angle into the wind, Upturn, Centreline)', () => {
+    const times = (id: string, n: number) => Array.from({ length: n }, () => id);
+    const base = laneDamage([], 0);
+    expect(base).toBeGreaterThan(0);
+    for (const t of tiersOf('crosswind')) {
+      const accel = generateLevel(t).effects!.crosswind!.accel;
+      expect(laneDamage([], accel, 400), `tier ${t} uncorrected at 400 px`).toBe(0);
+      const into = accel > 0 ? 'angle_left' : 'angle_right'; // the side that leans into the wind
+      const counters: string[][] = [
+        ...[1, 2, 3, 4].map(k => times(into, k)), ...[1, 2, 3, 4].map(k => [...times('centreline', 4), ...times(into, k)]),
+        times('upturn', 3), times('upturn', 4),
+      ];
+      const best = Math.max(...counters.map(ids => laneDamage(ids, accel, 250)));
+      expect(best, `tier ${t} best counter at 250 px`).toBeGreaterThanOrEqual(base * 0.5);
+    }
   });
 
   it('an Angle block into the wind brings a shot that missed the lane back onto it', () => {

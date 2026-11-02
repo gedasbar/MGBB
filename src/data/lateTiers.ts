@@ -189,8 +189,15 @@ export interface LateEffects {
 export const STRONG_WIND_TURN_DEG = 180;
 export const STRONG_WIND_SPEED_MUL: readonly number[] = [1, 1.1, 1.2, 1.3, 1.4];
 
-/** CROSSWIND: sideways acceleration of every shot in px/s squared; the side (left or right) is fixed per tier (`crosswindSide`). One cell is 54 px. A shot that flies d px at 600 px/s drifts a x (d / 600)^2 / 2: at 100 px (a carving ship) 3 to 8 px, at 300 px 25 to 72 px, at 600 px 100 to 290 px, so the wind hurts long-range fire and leaves a ship at the wall alone. */
-export const CROSSWIND_ACCEL: readonly number[] = [200, 280, 360, 460, 580];
+/**
+ * CROSSWIND: sideways acceleration of every shot in px/s squared, rising with each appearance of the type; the side (left or right) is fixed per tier (`crosswindSide`).
+ * Chunk 28b: the 27b numbers (200 to 580) were too weak to matter, so every rank is multiplied by CROSSWIND_STRENGTH (3). One cell is 54 px. A shot that flies d px at
+ * 600 px/s drifts a x (d / 600)^2 / 2: at rank 1 (600) 100 px of range gives 8 px, 300 px gives 75 px, 600 px gives 300 px; at rank 5 (1,740) 300 px gives 218 px, an uncorrected
+ * build clearly misses at any range beyond the next row or two (docs/tiers-101-200-effects.md section 2).
+ */
+export const CROSSWIND_STRENGTH = 3;
+const CROSSWIND_BASE: readonly number[] = [200, 280, 360, 460, 580];
+export const CROSSWIND_ACCEL: readonly number[] = CROSSWIND_BASE.map(a => a * CROSSWIND_STRENGTH);
 /** -1 (to the left) or +1 (to the right), fixed by the tier number (the same every visit, alternating in a pattern the player cannot guess from the previous tier). */
 export const crosswindSide = (tier: number): -1 | 1 => (((tier * 2654435761) >>> 7) & 1 ? 1 : -1);
 
