@@ -110,7 +110,7 @@ const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
   check(/one row of huge blocks/i.test(st.sheet.typeLine), `panel type line: "${st.sheet.typeLine}"`);
   shots.push(await canvasShot(page)); caps.push('List past 100, Monolith tier');
   st = await selectTier(118); // (a tile in the right-hand column would be under the debug panel)
-  check(/Crosswind/.test(st.sheet.typeLine) && /not active yet/.test(st.sheet.typeLine), `an unbuilt type says so: "${st.sheet.typeLine}"`);
+  check(/Crosswind/.test(st.sheet.typeLine) && !/not active yet/.test(st.sheet.typeLine), `a built effect type has its own line, no "not active yet": "${st.sheet.typeLine}"`);
   st = await selectTier(101);
   check(st.sheet.typeLine === '', `an ordinary tier has no type line ("${st.sheet.typeLine}")`);
 
