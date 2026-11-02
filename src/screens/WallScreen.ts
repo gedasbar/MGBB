@@ -86,8 +86,8 @@ function lerpColor(a: number, b: number, t: number): number {
 }
 
 /** Side of the green square for a block of `hpFrac` HP left (exported for tests and the e2e hook). */
-function innerSize(hpFrac: number, armored: boolean): number {
-  const wellW = CELL - 2 * GAP - 2 * (armored ? FRAME_W_ARMOR : FRAME_W);
+function innerSize(hpFrac: number, armored: boolean, side = CELL): number {
+  const wellW = side - 2 * GAP - 2 * (armored ? FRAME_W_ARMOR : FRAME_W);
   const max = wellW - 2 * PAD;
   return Math.max(MIN_INNER, Math.round(max * Math.max(0, Math.min(1, hpFrac))));
 }
@@ -187,7 +187,7 @@ export class WallScreen implements Screen {
     }
 
     // Enough views for every cell that can be on screen at once (11 partial columns x 19 partial rows, with slack).
-    const slots = 12 * (Math.ceil(VIEW_H / CELL) + 2);
+    const slots = 12 * (Math.ceil(VIEW_H / CELL) + 2) * (levelDef.effects?.mitosis ? 4 : 1); // a Mitosis cell can hold four pieces
     for (let i = 0; i < slots; i++) {
       const v: BlockView = { frame: whiteSprite(FRAME), well: whiteSprite(INNER_BG), inner: whiteSprite(GREEN), shield: whiteSprite(SHIELD_BAR), status: whiteSprite(BURN_TINT) };
       v.status.alpha = OVERLAY_ALPHA;
@@ -417,20 +417,22 @@ export class WallScreen implements Screen {
       const rowLast = ring && sh !== 0 ? rowFirst + Math.ceil(VIEW_W / CELL) + 1 : last;
       for (let k = rowFirst; k <= rowLast; k++) {
         const c = ring ? ((k % cols) + cols) % cols : k;
-        const b = w.blocks[r * cols + c];
-        if (!b || used >= this.views.length) continue;
-        // Screen x of the block: the short way round from the viewport centre on a ring (no pop, no duplicate at the seam).
-        const left = ring ? this.sx(b.x) - CELL / 2 : c * CELL - camX;
+        const cellIdx = r * cols + c;
+        if (!w.blocks[cellIdx]) continue;
+        for (const b of w.piecesAt(cellIdx)) {
+        if (used >= this.views.length) break;
+        // Screen x of the cell: the short way round from the viewport centre on a ring (no pop, no duplicate at the seam).
+        const left = ring ? this.sx(b.x - b.ox) - CELL / 2 : c * CELL - camX;
         if (left < -CELL || left > VIEW_W) continue;
         const fog = w.fogAlpha(b); // chunk 27b: a Fog tier draws a block only near the ship or once it has been hit
         if (fog <= 0) continue;
         const v = this.views[used++];
         const armored = b.armor > 0;
-        // A Mitosis child is a smaller block in the middle of its cell (half = CELL / 2 for every other block).
-        const side = b.half * 2;
-        const x = left + (CELL - side) / 2 + GAP;
-        const y = w.blockTop(r) + (CELL - side) / 2 + GAP;
-        const size = side - 2 * GAP;
+        // A Mitosis piece (28b) is a part of its cell: a half is CELL / 2 wide, a square CELL / 2 both ways (hw / hh are half sizes).
+        const w2 = b.hw * 2, h2 = b.hh * 2;
+        const x = left + CELL / 2 + b.ox - b.hw + GAP;
+        const y = w.blockTop(r) + CELL / 2 + b.oy - b.hh + GAP;
+        const sizeW = w2 - 2 * GAP, sizeH = h2 - 2 * GAP;
         v.frame.alpha = v.well.alpha = v.inner.alpha = v.shield.alpha = fog;
         // Corrosion strips armor: the thick frame thins (and dims) in step with the armor that is left.
         const armorLeft = armored ? Math.min(1, b.armor / (b.armor0 ?? b.armor)) : 0;
@@ -438,14 +440,17 @@ export class WallScreen implements Screen {
         v.frame.visible = v.well.visible = v.inner.visible = true;
         v.frame.tint = armored ? (armorLeft >= 1 ? FRAME_ARMOR : lerpColor(FRAME, FRAME_ARMOR, armorLeft)) : FRAME;
         v.frame.position.set(x, y);
-        v.frame.width = v.frame.height = size;
+        v.frame.width = sizeW; v.frame.height = sizeH;
         v.well.position.set(x + ft, y + ft);
-        v.well.width = v.well.height = size - 2 * ft;
+        v.well.width = sizeW - 2 * ft; v.well.height = sizeH - 2 * ft;
         const hpFrac = b.hp / b.maxHp;
-        const inner = innerSize(hpFrac, armored);
+        // The green fill shrinks with the HP left; on a half or a square (28b) it follows the shape of the well (a half is a tall rectangle).
+        const innerW = Math.min(sizeW - 2 * ft - 2 * PAD, innerSize(hpFrac, armored, w2 + 2 * GAP));
+        const innerH = Math.min(sizeH - 2 * ft - 2 * PAD, innerSize(hpFrac, armored, h2 + 2 * GAP));
+        const inner = Math.max(innerW, innerH);
         v.inner.tint = b.flash > 0 ? wallFlashColor(b.maxHp) : wallFillColor(b.maxHp);
-        v.inner.width = v.inner.height = inner;
-        v.inner.position.set(x + (size - inner) / 2, y + (size - inner) / 2);
+        v.inner.width = innerW; v.inner.height = innerH;
+        v.inner.position.set(x + (sizeW - innerW) / 2, y + (sizeH - innerH) / 2);
         const burning = (b.burnT ?? 0) > 0;
         const frozen = (b.freezeT ?? 0) > 0;
         v.status.alpha = OVERLAY_ALPHA * fog;
@@ -453,19 +458,20 @@ export class WallScreen implements Screen {
           v.status.visible = true;
           v.status.tint = frozen && !burning ? FROZEN_TINT : BURN_TINT;
           v.status.position.set(x, y);
-          v.status.width = v.status.height = size;
+          v.status.width = sizeW; v.status.height = sizeH;
         } else {
           v.status.visible = false;
         }
         if (b.maxShield > 0 && b.shield > 0) {
           v.shield.visible = true;
           v.shield.position.set(x, y);
-          v.shield.width = size * Math.min(1, b.shield / b.maxShield);
+          v.shield.width = sizeW * Math.min(1, b.shield / b.maxShield);
           v.shield.height = SHIELD_H;
         } else {
           v.shield.visible = false;
         }
         if (DEBUG_ON) this.lastDrawn.push({ col: c, row: r, inner });
+        }
       }
     }
     for (let i = used; i < this.views.length; i++) {

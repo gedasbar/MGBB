@@ -34,8 +34,7 @@ function columnCost(w: WallWorld, col: number): number {
   let sum = 0;
   for (let r = 0; r < w.level.rows; r++) {
     if (!w.level.drift) {
-      const b = w.blocks[r * w.level.cols + col];
-      if (b) sum += blockCost(b);
+      for (const b of w.piecesAt(r * w.level.cols + col)) sum += blockCost(b);
       continue;
     }
     for (let c = 0; c < w.level.cols; c++) {

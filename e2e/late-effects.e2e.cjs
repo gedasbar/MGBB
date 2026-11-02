@@ -98,14 +98,12 @@ const FLIGHTS = [
       const w = window.__mgbm.wall; const cols = w.level.cols;
       if (window.__split) return true;
       const st = window.__mgbm.state();
-      // The block nearest the middle of the screen with a living block on each side and one above (the lowest rows first): clear both sides first (their own
-      // splits find no room), then it has two empty sides.
-      const at = (rr, cc) => w.blocks[rr * cols + cc];
+      // The block nearest the middle of the screen (the lowest rows first): destroy it, it splits INSIDE its own cell (28b).
       let best = null;
       for (let r = 1; r < w.level.rows; r++) {
         for (let c = 1; c < cols - 1; c++) {
-          const b = at(r, c);
-          if (!b || !at(r, c - 1) || !at(r, c + 1) || !at(r - 1, c)) continue;
+          const b = w.blocks[r * cols + c];
+          if (!b) continue;
           const sx = st.shipScreenX + w.dxw(b.x, w.shipX);
           if (sx < 60 || sx > 480 || b.y < 150) continue;
           const score = Math.abs(sx - 270) + Math.abs(b.y - 420) * 2;
@@ -113,19 +111,23 @@ const FLIGHTS = [
         }
       }
       if (best) {
-        const mid = at(best.r, best.c);
-        w.destroyBlock(at(best.r, best.c - 1)); w.destroyBlock(at(best.r, best.c + 1));
-        w.destroyBlock(mid);
+        const idx = best.r * cols + best.c;
+        w.destroyBlock(w.blocks[idx]);                       // whole -> two halves
+        window.__splitCell = idx;
         window.__split = true;
       }
       return !!window.__split;
     },
     check: () => {
       const w = window.__mgbm.wall; const cols = w.level.cols;
-      const kids = w.all.filter(b => b.gen === 1 && w.blocks[b.row * cols + b.col] === b);
+      const idx = window.__splitCell;
+      const halves = w.piecesAt(idx).filter(b => b.gen === 1);
       const parentHp = w.all.find(p => p.gen === 0).maxHp;
-      const small = kids.length > 0 && kids.every(b => b.half < 27 && b.maxHp > 0 && b.maxHp < parentHp);
-      return { kids: kids.length, splits: w.fx.splits, total: w.total, ok: kids.length >= 2 && small && w.total > w.level.cells.filter(Boolean).length };
+      const real = halves.length === 2 && halves.every(b => b.hw === 13.5 && b.hh === 27 && b.maxHp > 0 && b.maxHp < parentHp);
+      // Every neighbour cell of the split one is untouched (nothing leaked out of the cell).
+      const row = Math.floor(idx / cols), col = idx % cols;
+      const leaked = [[row, col - 1], [row, col + 1], [row - 1, col]].some(([rr, cc]) => w.piecesAt(rr * cols + cc).some(p => p.gen > 0));
+      return { halves: halves.length, splits: w.fx.splits, total: w.total, ok: real && !leaked && w.fx.splits === 2 && w.total > w.level.cells.filter(Boolean).length };
     },
   },
 ];
@@ -206,8 +208,8 @@ const FLIGHTS = [
       // A close-up of the children: 3x the region round them, so their size against the cell next to them can be seen.
       const at = await page.evaluate(() => {
         const w = window.__mgbm.wall; const st = window.__mgbm.state();
-        const kid = w.all.find(b => b.gen === 1 && w.blocks[b.row * w.level.cols + b.col] === b);
-        return { x: st.shipScreenX + w.dxw(kid.x, w.shipX), y: kid.y };
+        const kid = w.piecesAt(window.__splitCell)[0];
+        return { x: st.shipScreenX + w.dxw(kid.x - kid.ox, w.shipX), y: kid.y - kid.oy };
       });
       const zoom = await page.evaluate(async ({ shot, at }) => {
         const im = new Image(); im.src = 'data:image/png;base64,' + shot; await im.decode();
@@ -217,7 +219,7 @@ const FLIGHTS = [
         ctx.drawImage(im, sx, sy, 180, 320, 0, 0, 540, 960);
         return c.toDataURL('image/png').split(',')[1];
       }, { shot, at });
-      shots.push(zoom); caps.push('Mitosis Wall, the children x3');
+      shots.push(zoom); caps.push('Mitosis Wall, the two halves x3');
     }
   }
 

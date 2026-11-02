@@ -182,7 +182,7 @@ export interface LateEffects {
   crosswind?: { accel: number };
   fog?: { radius: number };
   regrowth?: { delay: number; perSec: number };
-  mitosis?: { children: number; hpShare: number; maxGen: number; sizeMul: number };
+  mitosis?: { children: number; hpShare: number; maxGen: number };
 }
 
 /** STRONG WIND: the launch direction is turned this many degrees (180 = straight back), and shots fly this much faster (a faster U-turn is a wider one). */
@@ -209,12 +209,12 @@ export const REGROWTH_DELAY = 1;
 export const REGROWTH_PER_SEC: readonly number[] = [0.04, 0.06, 0.09, 0.12, 0.16];
 
 /**
- * MITOSIS WALL: a destroyed block splits into MITOSIS_CHILDREN smaller blocks in the empty cells next to it (left and right first, then the cell behind it, further
- * up the wall), each with MITOSIS_HP_SHARE of the block's max HP and MITOSIS_SIZE_MUL of its size; a child may split once more (MITOSIS_MAX_GEN generations in all).
- * A child pays MITOSIS_HP_SHARE of what its parent paid. The wall's own blocks have this share of the tier's HP by rank.
+ * MITOSIS WALL (reworked in 28b): a destroyed block splits INSIDE ITS OWN CELL into MITOSIS_CHILDREN halves (side by side), each with MITOSIS_HP_SHARE of
+ * the block's max HP; a destroyed half splits into two small squares (one above the other), each with MITOSIS_HP_SHARE of the half's max HP; squares do not
+ * split (MITOSIS_MAX_GEN = 2 generations of splitting). A piece pays MITOSIS_HP_SHARE of what its parent paid. The wall's own blocks have this share of the
+ * tier's HP by rank.
  */
 export const MITOSIS_CHILDREN = 2;
 export const MITOSIS_HP_SHARE = 0.4;
 export const MITOSIS_MAX_GEN = 2;
-export const MITOSIS_SIZE_MUL = 0.75;
 export const MITOSIS_HP_MUL: readonly number[] = [0.6, 0.65, 0.7, 0.75, 0.8];
