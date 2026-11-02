@@ -62,7 +62,7 @@ describe('chunk 25a: an ejector takes a signal from any side', () => {
       return [id, compile(g).recipes.map(r => [r.direction, r.x, r.y, r.lane, !!r.extra, r.packet.damage])];
     });
     expect((rows.flat(2) as unknown[]).filter(v => v === 'E' || v === 'S' || v === 'W').length).toBe(0);
-    expect(fnv(JSON.stringify(rows))).toBe('157ff3e4');
+    expect(fnv(JSON.stringify(rows))).toBe('339dd437');
   });
 });
 

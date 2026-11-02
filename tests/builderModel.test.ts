@@ -149,7 +149,7 @@ describe('builder model: edits, inventory and rotation', () => {
     const m = richModel(null);
     const before = JSON.stringify(m.grid);
     const p = m.previewPlace(8, 4, 'percent_mult')!;
-    expect(p.compiled.stats.damagePerShot).toBe(2 * 1.5);
+    expect(p.compiled.stats.damagePerShot).toBeCloseTo(2 * 1.2, 9);
     expect(JSON.stringify(m.grid)).toBe(before);
     expect(m.previewPlace(5, 0, 'percent_mult')).toBeNull();
   });
@@ -258,7 +258,7 @@ describe('builder persistence', () => {
     };
     const m = richModel(throwing);
     expect(m.place(8, 4, 'percent_mult').ok).toBe(true);
-    expect(m.compiled.stats.damagePerShot).toBe(3);
+    expect(m.compiled.stats.damagePerShot).toBeCloseTo(2.4, 9);
   });
 
   it('copy / paste round-trips a layout and rejects junk with a message', () => {

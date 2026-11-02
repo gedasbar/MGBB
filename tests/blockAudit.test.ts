@@ -86,8 +86,8 @@ describe('block audit: the picker only offers blocks that compile and change Fly
       return typeof d === 'function' ? d(lv) : d;
     };
     expect(text('flat_plus')).toContain("+1 damage");
-    expect(text('percent_mult')).toContain('×1.5');
-    expect(text('percent_mult', 10)).toContain('×3');
+    expect(text('percent_mult')).toContain('×1.2');
+    expect(text('percent_mult', 10)).toContain('×2');
     expect(text('lucky_strike')).toBe('33% chance to double projectile damage.');
     expect(text('jackpot')).toContain('4%');
     expect(text('jackpot')).toContain('10');
@@ -121,8 +121,8 @@ describe('block audit: compiles correctly', () => {
   it('compiles: flat_plus adds 1', () => {
     expect(compile(withBlock('flat_plus')).recipes[0].packet.damage).toBe(3);
   });
-  it('compiles: percent_mult multiplies by 1.5 in path order', () => {
-    expect(compile(withBlock('percent_mult')).recipes[0].packet.damage).toBe(2 * 1.5);
+  it('compiles: percent_mult multiplies by 1.2 in path order', () => {
+    expect(compile(withBlock('percent_mult')).recipes[0].packet.damage).toBeCloseTo(2 * 1.2, 9);
   });
   it('compiles: lucky_strike adds a 33% x2 gate without changing the deterministic damage', () => {
     const p = compile(withBlock('lucky_strike')).recipes[0].packet;
@@ -177,7 +177,7 @@ describe('block audit: changes what the ship fires in Fly', () => {
     const f = newWorld(withBlock('flat_plus'));
     expect(f.pool.damage[fireOnce(f)[0]]).toBe(3);
     const m = newWorld(withBlock('percent_mult'));
-    expect(m.pool.damage[fireOnce(m)[0]]).toBeCloseTo(3, 6);
+    expect(m.pool.damage[fireOnce(m)[0]]).toBeCloseTo(2.4, 6);
   });
 
   const roll = (id: string, n = 3000) => {

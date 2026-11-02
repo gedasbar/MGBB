@@ -30,9 +30,9 @@ export const luckyProb = (l: number) => 0.33 + 0.05 * (l - 1);
 export const jackpotProb = (l: number) => 0.04 + 0.01 * (l - 1);
 /** Gambler's Gate: 40% at level 1 to 50% at level 3 (chunk 16c-2; it was 50% to 60%). */
 export const gamblerProb = (l: number) => 0.4 + 0.05 * (l - 1);
-/** Percent x per copy: x1.5 at level 1 to x3 at level 10, geometric in the level (chunk 16c-2; it was 1 + 0.5 L). */
-const PERCENT_MUL_L1 = 1.5;
-const PERCENT_MUL_MAX = 3;
+/** Percent x per copy: x1.2 at level 1 to x2 at level 10, geometric in the level (chunk 26a; 16c-2 had x1.5 to x3). */
+const PERCENT_MUL_L1 = 1.2;
+const PERCENT_MUL_MAX = 2;
 const PERCENT_MAX_LEVEL = 10;
 export const percentMul = (l: number) => PERCENT_MUL_L1 * Math.pow(PERCENT_MUL_MAX / PERCENT_MUL_L1, (l - 1) / (PERCENT_MAX_LEVEL - 1));
 
