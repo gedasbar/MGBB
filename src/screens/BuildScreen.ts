@@ -25,7 +25,6 @@ import { InfoPanel, Inspector, makeText, StatsStrip, Toast, UIButton } from '../
 import { Picker, REMOVE_TILE } from '../builder/picker';
 import { BUILD_KEY_HELP, BuildKeyAction, keyAction } from '../builder/keys';
 import { THEME } from '../ui/theme';
-import { CreditsBadge } from '../ui/hud';
 import { makeTabButtons } from '../builder/tabs';
 import { ShopScreen } from './ShopScreen';
 import { SkillsScreen } from './SkillsScreen';
@@ -33,6 +32,11 @@ import { CaptainScreen } from './CaptainScreen';
 import { sfx } from '../audio';
 import { fmtDamage } from '../ui/format';
 import { DEBUG_ON } from '../debug/enabled';
+import { WallScreen } from './WallScreen';
+import { generateLevel } from '../wall/generator';
+import { activeChallenge, endChallengeSession } from '../challenges/session';
+import { checkBuild, ruleLines } from '../challenges/rules';
+import { CreditsBadge, textButton, TextButton } from '../ui/hud';
 
 const HOVER_MS = 800;
 
@@ -84,6 +88,12 @@ export class BuildScreen implements Screen {
   private tipText = makeText('', 13, THEME.text, { lineHeight: 17 });
   private hover: { x: number; y: number; since: number } | null = null;
   readonly hullPicker: HullPicker;
+  /** Chunk 28a: the banner of a started challenge (rule lines, and why FLY is blocked or that it is ready) with its X. */
+  private banner = new Container();
+  private bannerBg = new Graphics();
+  private bannerText = makeText('', 14, THEME.text, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: VIEW_W - 64, lineHeight: 17 });
+  private bannerStatus = makeText('', 14, THEME.good, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: VIEW_W - 64, lineHeight: 17 });
+  private bannerClose!: TextButton;
 
   constructor(private sm: ScreenManager) {
     this.model = getBuilderModel();
@@ -97,6 +107,7 @@ export class BuildScreen implements Screen {
     const bg = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill(COLORS.bg);
     this.container.addChild(bg, this.gridR.container);
     this.buildHud();
+    this.buildBanner();
     this.dim.rect(0, LAYOUT.gridArea.y, VIEW_W, LAYOUT.sheet.y - LAYOUT.gridArea.y).fill({ color: THEME.dim, alpha: 0.28 });
     this.dim.visible = false;
     this.tip.visible = false;
@@ -315,6 +326,7 @@ export class BuildScreen implements Screen {
     for (const id of ['clearCell', 'rotCCW', 'auto', 'rotCW']) this.toolbar[id].setEnabled(hasBlock);
     this.toolbar.clearAll.setEnabled(true);
     if (!this.preview) this.updateInspector();
+    this.updateBanner();
   }
 
   private selectedBlockCell() {
@@ -374,6 +386,7 @@ export class BuildScreen implements Screen {
         hullPanelOpen: this.hullPicker.isOpen,
         credits: this.model.store.data.credits,
         creditsText: this.credits.text,
+        challenge: activeChallenge() ? { id: activeChallenge()!.id, text: this.bannerText.text, status: this.bannerStatus.text, visible: this.banner.visible } : null,
       }),
     };
   }
@@ -696,7 +709,48 @@ export class BuildScreen implements Screen {
     else this.toast.show(res.error);
   }
 
+  // ------------------------------------------------------------------ challenge banner (chunk 28a)
+  private buildBanner() {
+    this.banner.position.set(0, LAYOUT.gridArea.y);
+    this.bannerText.position.set(10, 6);
+    this.banner.addChild(this.bannerBg, this.bannerText, this.bannerStatus);
+    this.container.addChild(this.banner);
+    this.bannerClose = textButton('challengeEnd', { x: VIEW_W - 46, y: LAYOUT.gridArea.y + 4, w: 40, h: 36 }, 'X', () => { endChallengeSession(); this.toast.show('Challenge ended'); this.updateBanner(); }, 18);
+    this.addButton(this.bannerClose);
+    this.updateBanner();
+  }
+
+  /** Why the current circuit or hull may not fly the started challenge (null = it may, or no challenge is on). */
+  private challengeBlock(): string | null {
+    const ch = activeChallenge();
+    if (!ch) return null;
+    const owned = this.model.store.data.ownedHulls;
+    return checkBuild(ch.rules, this.model.grid, this.model.compiled, ch.rules.hulls?.some(h => owned.includes(h)) ?? true);
+  }
+
+  private updateBanner() {
+    const ch = activeChallenge();
+    this.banner.visible = !!ch;
+    this.bannerClose.container.visible = !!ch;
+    if (!ch) return;
+    this.bannerText.text = `CHALLENGE: ${ch.name}
+${ruleLines(ch).join('  ·  ')}`;
+    const why = this.challengeBlock();
+    this.bannerStatus.text = why ?? 'Ready: FLY starts this challenge.';
+    this.bannerStatus.style.fill = why ? THEME.bad : THEME.good;
+    this.bannerStatus.position.set(10, 6 + this.bannerText.height + 4);
+    const h = this.bannerStatus.y + this.bannerStatus.height + 8;
+    this.bannerBg.clear().rect(0, 0, VIEW_W, h).fill({ color: THEME.bg, alpha: 0.92 }).rect(0, h - 1, VIEW_W, 1).fill(THEME.border);
+  }
+
   fly() {
+    const ch = activeChallenge();
+    if (ch) {
+      const why = this.challengeBlock();
+      if (why) { sfx.play('denied'); this.toast.show(why, 4500); return; }
+      this.sm.switchTo(new WallScreen(this.sm, generateLevel(ch.tier), this.model.gridForFlight(), ch));
+      return;
+    }
     if (this.model.compiled.recipes.length === 0) {
       this.toast.show("Your circuit doesn't reach an ejector");
       return;

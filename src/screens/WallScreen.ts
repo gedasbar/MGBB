@@ -25,7 +25,7 @@ import { WallWorld } from '../wall/wallWorld';
 import { PointerGate } from '../engine/control';
 import { ShipView } from '../ui/shipArt';
 import { BackgroundView, backgroundForTier, forcedBackground } from '../ui/background';
-import { RunSummaryScreen, CaptainSummary } from './RunSummaryScreen';
+import { RunSummaryScreen, CaptainSummary, ChallengeSummary } from './RunSummaryScreen';
 import { KillBanker } from '../captains/state';
 import { CAPTAIN_BY_ID } from '../captains/data';
 import { Pausable, Screen, ScreenManager } from './ScreenManager';
@@ -35,6 +35,9 @@ import { sfx } from '../audio';
 import { SfxFeed } from '../audio/feed';
 import { ARC_MAX } from '../engine/projectiles';
 import { DEBUG_ON } from '../debug/enabled';
+import { ChallengeDef } from '../data/challenges';
+import { challengeRewardText, challengeVerdict } from '../challenges/rules';
+import { endChallengeSession } from '../challenges/session';
 
 /** The HUD box (top-left): plate position, first text column, row height and the narrowest the plate goes. */
 const HUD_PLATE_X = 10;
@@ -154,15 +157,16 @@ export class WallScreen implements Screen {
       this.finished = true;
       this.world.bank(getProgressStore());
       this.banker.flush(this.world.destroyed);
-      this.sm.switchTo(new WallScreen(this.sm, this.levelDef, this.grid));
+      this.sm.switchTo(new WallScreen(this.sm, this.levelDef, this.grid, this.challenge));
     },
     quit: () => { if (!this.finished) this.finish(); },
   };
 
-  constructor(private sm: ScreenManager, readonly levelDef: LevelDef, private grid: Grid) {
+  /** `challenge` (chunk 28a): the rule this run is flown under; the in-run rules go to the world, the verdict is given when the run ends. */
+  constructor(private sm: ScreenManager, readonly levelDef: LevelDef, private grid: Grid, readonly challenge: ChallengeDef | null = null) {
     const store = getProgressStore();
     this.banker = new KillBanker(store, store.data.captains.selected);
-    this.world = new WallWorld(levelDef, { grid, safeStart: true, modifiers: store.runModifiers() });
+    this.world = new WallWorld(levelDef, { grid, safeStart: true, modifiers: store.runModifiers(), rules: challenge ? { noFire: challenge.rules.noFire, timeLimit: challenge.rules.timeLimit } : undefined });
     debugHooks.wall = this.world;
     const worldW = this.world.worldW;
     // A ring wall: the camera is unclamped and wraps; a flat wall (wrap: false) clamps to its width.
@@ -279,6 +283,16 @@ export class WallScreen implements Screen {
     this.hudPlate.clear().rect(HUD_PLATE_X, HUD_Y, w, h).fill({ color: THEME.bg, alpha: 0.72 });
   }
 
+  /** The HUD line of a challenge run (hidden in an ordinary run): the time left, or the rule that is on. */
+  private challengeHud(): string {
+    const ch = this.challenge;
+    if (!ch) return '';
+    const w = this.world;
+    if (w.timeLimit !== undefined) return w.overTime ? 'Challenge: too slow' : `Challenge: ${Math.ceil(w.timeLimit - w.time)} s left`;
+    if (ch.rules.noFire) return 'Challenge: no firing';
+    return `Challenge: ${ch.name}`;
+  }
+
   private updateTexts() {
     const w = this.world;
     const hudDy = this.sm.stats.hudOffset;
@@ -286,7 +300,8 @@ export class WallScreen implements Screen {
     this.creditsText.text = `Credits +${fmtBig(w.credits)}`;
     const sq = this.levelDef.frontier;
     this.tierText.text = `Tier ${w.tier}`;
-    this.squareText.text = sq ? `${FRONTIER_NAME} (${fmtBig(sq.x)}, ${fmtBig(sq.y)})` : '';
+    this.squareText.text = sq ? `${FRONTIER_NAME} (${fmtBig(sq.x)}, ${fmtBig(sq.y)})` : this.challengeHud();
+    this.squareText.style.fill = w.overTime ? THEME.bad : THEME.textDim;
     this.layoutHud();
     this.blocksText.text = `Destroyed ${Math.floor(w.percentDestroyed)}%`;
     const h = (VIEW_H - 40) * w.progress;
@@ -502,19 +517,31 @@ export class WallScreen implements Screen {
     const sm = this.sm;
     const outcome = w.state === 'playing' ? 'crashed' : w.state;
     const won = outcome !== 'crashed';
-    const retry = { id: 'summaryRetry', label: 'Retry', onTap: () => sm.switchTo(new WallScreen(sm, level, grid)) };
+    const challenge = this.challenge;
+    const retry = { id: 'summaryRetry', label: 'Retry', onTap: () => sm.switchTo(new WallScreen(sm, level, grid, challenge)) };
     const build = { id: 'summaryBuild', label: 'Build', onTap: () => sm.switchTo(new BuildScreen(sm)) };
     let buttons;
     if (level.campaign) {
       const next = { id: 'summaryNext', label: 'Next tier', onTap: () => sm.switchTo(new WallScreen(sm, generateLevel(level.tier + 1), grid)) };
       const map = { id: 'summaryMap', label: 'Map', onTap: () => sm.switchTo(new MapScreen(sm)) };
       // Chunk 27a: tier 101 stays closed until every tier 1-100 is cleared, so "Next tier" is only offered when the next tier is open.
-      buttons = [won && level.tier < MAX_TIER && isUnlocked(store.data, level.tier + 1) ? next : retry, map, build];
+      buttons = [!challenge && won && level.tier < MAX_TIER && isUnlocked(store.data, level.tier + 1) ? next : retry, map, build];
     } else if (level.frontier) {
       // Chunk 15a: back to the Frontier (the camera and selection are where they were), or play the square again.
       buttons = [{ id: 'summaryFrontier', label: FRONTIER_NAME, onTap: () => sm.switchTo(new FrontierScreen(sm)) }, retry, build];
     } else {
       buttons = [build, retry]; // a debug test wall: as before
+    }
+    // Chunk 28a: a challenge run is judged by its rule; the first success pays the reward once.
+    let challengeSummary: ChallengeSummary | null = null;
+    if (challenge) {
+      const verdict = challengeVerdict(challenge, { outcome, time: w.time });
+      if (!verdict.ok) challengeSummary = { ok: false, text: `Challenge failed: ${verdict.reason}` };
+      else {
+        const paid = store.completeChallenge(challenge.id);
+        if (paid.paid) endChallengeSession();
+        challengeSummary = { ok: true, text: paid.paid ? `Challenge complete! ${'medals' in challenge.reward ? '+' : 'Reward: '}${challengeRewardText(challenge)}` : 'Challenge complete (reward already taken)' };
+      }
     }
     if (w.medalEarned) sfx.play('medal');
     const id = this.banker.captainId;
@@ -523,7 +550,7 @@ export class WallScreen implements Screen {
       medals: w.medalsEarned, doubled: w.medalDoubled,
       note: [w.fx.passBonus > 0 ? `pass bonus +${fmtBig(Math.floor(w.fx.passBonus))}` : '', w.fx.skillBonus > 0 ? `skill bonus +${fmtBig(Math.floor(w.fx.skillBonus))}` : ''].filter(Boolean).join('  ') || undefined,
     };
-    sm.switchTo(new RunSummaryScreen(sm, result, marks, { result: outcome, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }, captain, unlocked));
+    sm.switchTo(new RunSummaryScreen(sm, result, marks, { result: outcome, destroyed: w.destroyed, total: w.total, buttons, medal: w.medalEarned }, captain, unlocked, challengeSummary));
   }
 
   destroy() {

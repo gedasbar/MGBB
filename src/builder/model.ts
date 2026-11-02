@@ -87,6 +87,13 @@ export class BuilderModel {
     for (const s of Object.values(this.slots)) this.syncLevels(s.grid);
     this.trimmed += this.trimToInventory();
     this.compiled = compile(this.grid, this.compileOpts());
+    this.noteRecords();
+  }
+
+  /** Chunk 28a: tells the save how big the circuit is (the Builder achievements: 50 blocks in one circuit, a hull filled). */
+  private noteRecords() {
+    const cells = this.grid.cells;
+    this.store.noteCircuit(cells.reduce((n, c) => (c.blockId ? n + 1 : n), 0), cells.reduce((n, c) => (c.type === 'empty' ? n + 1 : n), 0));
   }
 
   /** Every placed block takes its level from the saved progress. */
@@ -152,6 +159,7 @@ export class BuilderModel {
 
   private commit() {
     this.compiled = compile(this.grid, this.compileOpts());
+    this.noteRecords();
     this.persist();
     for (const l of this.listeners) l();
   }
