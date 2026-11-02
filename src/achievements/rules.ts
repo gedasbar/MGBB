@@ -109,10 +109,10 @@ export function grantAchievements(p: Progress, defs: readonly AchievementDef[]):
   return { medals, cosmetics };
 }
 
-/** What the reward line of the panel says. Cosmetics are earned and stored now but not usable yet. */
+/** What the reward line of the panel says. A cosmetic is usable in the Customization tab of the ship hub (chunk 28b). */
 export function rewardText(reward: AchievementDef['reward']): string {
   if ('medals' in reward) return `${reward.medals} Medal${reward.medals === 1 ? '' : 's'}`;
-  return `${reward.cosmetic.kind === 'skin' ? 'projectile skin' : 'ship trail'} (coming soon)`;
+  return `${reward.cosmetic.kind === 'skin' ? 'projectile skin' : 'shot trail'}: ${reward.cosmetic.name}`;
 }
 
 /** Medals all achievements pay in total (the design note and the report quote it). */

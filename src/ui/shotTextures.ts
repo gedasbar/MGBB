@@ -1,5 +1,5 @@
 import { Application, Graphics, Texture } from 'pixi.js';
-import { SHOT_LOOKS, ShotShape } from './shotLook';
+import { ALL_LOOKS, ShotShape } from './shotLook';
 
 /** One white texture per shot shape (chunk 21b), tinted by the band's colour: the plain bar is the 1 x 1 white texture itself. */
 export type ShotTextures = Record<ShotShape, Texture>;
@@ -16,19 +16,26 @@ export function shotPolygon(shape: ShotShape, w: number, h: number): number[] {
       const k = 0.2;
       return [w / 2, 0, w * (0.5 + k), h * (0.5 - k), w, h / 2, w * (0.5 + k), h * (0.5 + k), w / 2, h, w * (0.5 - k), h * (0.5 + k), 0, h / 2, w * (0.5 - k), h * (0.5 - k)];
     }
+    case 'hex': return [w / 2, 0, w, h * 0.25, w, h * 0.75, w / 2, h, 0, h * 0.75, 0, h * 0.25];
+    case 'cross': {
+      // A plus sign: arms a third of the box thick.
+      const a = w / 3, b = (2 * w) / 3, c = h / 3, d = (2 * h) / 3;
+      return [a, 0, b, 0, b, c, w, c, w, d, b, d, b, h, a, h, a, d, 0, d, 0, c, a, c];
+    }
+    case 'chevron': return [w / 2, 0, w, h, w / 2, h * 0.68, 0, h];
     default: return [0, 0, w, 0, w, h, 0, h];
   }
 }
 
 /** Built once per app. Without a renderer (headless) every shape is the plain white texture, so a shot is simply drawn as a coloured box. */
 export function shotTextures(app: Application | null | undefined): ShotTextures {
-  const plain: ShotTextures = { bar: Texture.WHITE, diamond: Texture.WHITE, bolt: Texture.WHITE, star: Texture.WHITE };
+  const plain: ShotTextures = { bar: Texture.WHITE, diamond: Texture.WHITE, bolt: Texture.WHITE, star: Texture.WHITE, hex: Texture.WHITE, cross: Texture.WHITE, chevron: Texture.WHITE };
   if (!app) return plain;
   const hit = cache.get(app);
   if (hit) return hit;
   const t: ShotTextures = { ...plain };
-  for (const shape of ['diamond', 'bolt', 'star'] as const) {
-    const look = SHOT_LOOKS.find(l => l.shape === shape);
+  for (const shape of ['diamond', 'bolt', 'star', 'hex', 'cross', 'chevron'] as const) {
+    const look = ALL_LOOKS.find(l => l.shape === shape);
     if (!look) continue;
     try {
       const g = new Graphics().poly(shotPolygon(shape, look.w, look.h)).fill(0xffffff);

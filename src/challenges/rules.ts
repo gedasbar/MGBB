@@ -89,7 +89,7 @@ export function completeChallenge(p: Progress, id: string): { paid: boolean; med
 /** What a challenge pays, for the list and the summary. */
 export function challengeRewardText(c: ChallengeDef): string {
   if ('medals' in c.reward) return `${c.reward.medals} Medal${c.reward.medals === 1 ? '' : 's'}`;
-  return `${c.reward.cosmetic.name} (coming soon)`;
+  return `${c.reward.cosmetic.name} (see Customization)`;
 }
 
 export const challengeCounts = (p: Pick<Progress, 'challengesDone' | 'passedTiers'>) => ({

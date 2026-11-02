@@ -7,12 +7,13 @@ import { debugHooks } from '../debug/hooks';
 import { getProgressStore, isUnlocked, RunResult, unlockSummary } from '../econ/progress';
 import { ShotSprites } from '../ui/shotSprites';
 import { shotTextures } from '../ui/shotTextures';
+import { cosmeticsFor } from '../ui/cosmetics';
 import { fmtBig } from '../ui/format';
 import { makeSpikeBadge, SPIKE_BADGE } from '../ui/hud';
 import { THEME } from '../ui/theme';
 import { wallFillColor, wallFlashColor } from '../ui/wallBlockLook';
 import { ShipSteer } from '../engine/steer';
-import { touchMode } from '../ui/touchMode';
+import { backgroundsOn, touchGain, touchMode } from '../ui/touchMode';
 import { pushShipX, ringScreenX, WallCamera } from '../wall/camera';
 import { CELL, RESULT_DELAY_CLEARED, RESULT_DELAY_CRASHED, RESULT_DELAY_PASSED, SHIP_START_Y, VIEW_H, VIEW_W } from '../wall/constants';
 import { generateLevel, MAX_TIER } from '../wall/generator';
@@ -175,7 +176,7 @@ export class WallScreen implements Screen {
     this.ship = new ShipView(this.sm.app.renderer, grid.hullId ?? 'shuttle');
     this.container.addChild(this.blockLayer, this.projLayer, this.ship.container, this.fxLayer, this.uiLayer);
     this.fxLayer.addChild(this.fogG, this.fieldG, this.arcG);
-    const forcedBg = forcedBackground();
+    const forcedBg = forcedBackground() ?? (backgroundsOn() ? null : 'off'); // chunk 28b: Settings > Graphics > Backgrounds
     if (forcedBg !== 'off') {
       this.bg = new BackgroundView(this.sm.app.renderer, forcedBg ?? backgroundForTier(levelDef.tier, !!levelDef.spike));
       this.container.addChildAt(this.bg.container, 0);
@@ -196,6 +197,7 @@ export class WallScreen implements Screen {
     }
 
     this.shots = new ShotSprites(this.projLayer, this.world.pool.max, shotTextures(this.sm.app), VIEW_W, VIEW_H);
+    this.applyCosmetics();
 
     for (let i = 0; i < POPUPS; i++) {
       const t = new Text({ text: '', style: { fill: THEME.currency, fontSize: 14, fontWeight: 'bold', stroke: { color: 0x000000, width: 3 } } });
@@ -318,6 +320,7 @@ export class WallScreen implements Screen {
     // Chunk 24a: the pointer sets the ship's target (touch: by the finger's movement), the ship flies there at a capped speed, and the
     // camera's edge push follows the SHIP's place on the screen, so a ship held at a side keeps scrolling even after the finger is lifted.
     this.steer.mode = touchMode();
+    this.steer.gain = touchGain();
     this.steer.update(p);
     this.camera.update(dt, pushShipX(w.state === 'playing', w.controlStarted, this.sx(w.shipX)));
     const target = w.controlStarted ? { x: this.steer.x + this.camera.x, y: this.steer.y } : null;
@@ -488,6 +491,7 @@ export class WallScreen implements Screen {
   }
 
   private drawProjectiles() {
+    this.shots.trailMode = sfx.settings.trails; // chunk 28b: Settings > Graphics > Trails, read every frame
     this.shots.sync(this.world.pool, (x) => this.sx(x));
   }
 
@@ -563,4 +567,12 @@ export class WallScreen implements Screen {
     if (debugHooks.wall === this.world) debugHooks.wall = null;
     this.container.destroy({ children: true });
   }
+
+  /** Chunk 28b: the player's projectile skin and trail style (Customization tab), resolved against what is unlocked; read once when the run starts. */
+  private applyCosmetics() {
+    const c = cosmeticsFor(getProgressStore().data, sfx.settings.shotSkin, sfx.settings.trailStyle);
+    this.shots.setSkin(c.skinLook);
+    this.shots.trailColors = c.trailColors;
+  }
+
 }

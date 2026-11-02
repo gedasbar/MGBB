@@ -90,6 +90,8 @@ export class ScreenManager {
     this.overlays = new Overlays(this);
     this.app.stage.addChild(this.overlays.container);
     this.input.onTap((x, y) => { this.overlays?.tap(x, y); });
+    this.input.onDrag((_dx, dy) => this.overlays?.drag(dy));
+    this.input.onWheel((dy) => this.overlays?.wheel(dy));
     this.input.uiHit = (x, y) => !!this.overlays?.hitsUi(x, y);
   }
 

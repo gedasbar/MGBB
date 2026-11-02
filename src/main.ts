@@ -18,6 +18,7 @@ import { DEBUG_ON } from './debug/enabled';
 import { FRAME_MAX, planSteps } from './game/timestep';
 import { PlayTimeTracker } from './econ/playTime';
 import { getProgressStore } from './econ/progress';
+import { frameLimitFps } from './ui/touchMode';
 
 (async () => {
   const app = new Application();
@@ -94,6 +95,9 @@ import { getProgressStore } from './econ/progress';
   // Chunk 24a: no frame-rate cap (the ticker has no maxFPS) and no fixed 60 Hz step: every frame is simulated with the time that really
   // passed, in steps of at most 1/60 s (src/game/timestep.ts), so a 120 Hz screen gets a new picture on every frame at the same game speed.
   app.ticker.add(() => {
+    // Chunk 28b: Settings > Graphics > Frame rate limit (Auto = no cap, 30, 60). The ticker skips frames above the cap.
+    const cap = frameLimitFps(sfx.settings.frameLimit);
+    if (app.ticker.maxFPS !== cap) app.ticker.maxFPS = cap;
     const now = performance.now();
     const rawMs = now - lastTime;
     const frameTime = Math.min(rawMs / 1000, FRAME_MAX);

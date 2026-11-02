@@ -1,7 +1,7 @@
 import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import { CONFIG, shipHalfW } from '../config';
 import { ShipSteer } from '../engine/steer';
-import { touchMode } from '../ui/touchMode';
+import { backgroundsOn, damageNumbersOn, touchGain, touchMode } from '../ui/touchMode';
 import { World } from '../game/world';
 import { specialKind } from '../data/waves';
 import type { StatsInfo } from '../ui/stats';
@@ -16,6 +16,7 @@ import { makeSpikeBadge, SPIKE_BADGE } from '../ui/hud';
 import { getProgressStore, RunResult, unlockSummary } from '../econ/progress';
 import { ShotSprites } from '../ui/shotSprites';
 import { shotTextures } from '../ui/shotTextures';
+import { cosmeticsFor } from '../ui/cosmetics';
 import { debugHooks } from '../debug/hooks';
 import { RunSummaryScreen, fmtTime, CaptainSummary } from './RunSummaryScreen';
 import { KillBanker } from '../captains/state';
@@ -124,7 +125,7 @@ export class FlyScreen implements Screen {
   private crashSounded = false;
   /** Galaxy first, then the next theme every 3 minutes (3 s crossfade); ?bg=<id> forces one, ?bg=off hides it. */
   private bg: BackgroundView | null = null;
-  private bgForced = forcedBackground();
+  private bgForced = forcedBackground() ?? (backgroundsOn() ? null : 'off'); // chunk 28b: Settings > Graphics > Backgrounds off acts like ?bg=off
 
   /** The pause menu's view of this run: it may pause once the ship is under control and until the run ends. */
   readonly pausable: Pausable = {
@@ -183,6 +184,7 @@ export class FlyScreen implements Screen {
     }
 
     this.shots = new ShotSprites(this.projLayer, this.world.pool.max, shotTextures(this.screenManager.app), CONFIG.VIEW.W, CONFIG.VIEW.H);
+    this.applyCosmetics();
 
     for (let i = 0; i < CONFIG.CAPS.DAMAGE_NUMBERS; i++) {
       const t = new Text({ text: '', style: { fill: 0xffffff, fontSize: 18, fontWeight: 'bold', stroke: { color: 0x000000, width: 3 } } });
@@ -269,6 +271,7 @@ export class FlyScreen implements Screen {
   }
 
   showDamage(x: number, y: number, dmg: number) {
+    if (!damageNumbersOn()) return; // chunk 28b: Settings > Graphics > Damage numbers
     this.showNumber(x, y, fmtDamage(dmg), 0xffffff, 18);
   }
 
@@ -291,6 +294,7 @@ export class FlyScreen implements Screen {
     this.world.god = debugHooks.god;
     // Chunk 24a: the world follows the steered target (touch: moved by the finger's movement), at a capped speed.
     this.steer.mode = touchMode();
+    this.steer.gain = touchGain();
     this.steer.update(pointer);
     this.steerPointer.x = this.steer.x;
     this.steerPointer.y = this.steer.y;
@@ -309,12 +313,12 @@ export class FlyScreen implements Screen {
       this.sfxFeed.hit({ id: h.enemyId, damage: h.damage, kind: h.kind, armor: h.armor, shield: h.shield, maxShield: h.maxShield }, true);
       if (h.kind === 1) {
         // A burn tick: a small orange number, no hit flash.
-        this.showNumber(h.x, h.y, fmtDamage(h.damage), 0xff9a3c, 11);
+        if (damageNumbersOn()) this.showNumber(h.x, h.y, fmtDamage(h.damage), 0xff9a3c, 11);
         continue;
       }
       if (h.kind === HIT_CLOUD) {
         // A Residue Seed tick: a small number in the Mitosis colour, no hit flash.
-        this.showNumber(h.x, h.y, fmtDamage(h.damage), CATEGORY_COLOR.mitosis, 11);
+        if (damageNumbersOn()) this.showNumber(h.x, h.y, fmtDamage(h.damage), CATEGORY_COLOR.mitosis, 11);
         continue;
       }
       this.flash.set(h.enemyId, FLASH_TIME);
@@ -396,6 +400,7 @@ export class FlyScreen implements Screen {
     const hudDy = this.screenManager.stats.hudOffset;
     if (this.uiLayer.y !== hudDy) this.uiLayer.y = hudDy;
 
+    this.shots.trailMode = sfx.settings.trails; // chunk 28b: Settings > Graphics > Trails, read every frame
     this.shots.sync(this.world.pool);
 
     const alive = new Set<number>();
@@ -507,4 +512,12 @@ export class FlyScreen implements Screen {
     if (debugHooks.world === this.world) debugHooks.world = null;
     this.container.destroy({ children: true });
   }
+
+  /** Chunk 28b: the player's projectile skin and trail style (Customization tab), resolved against what is unlocked; read once when the run starts. */
+  private applyCosmetics() {
+    const c = cosmeticsFor(getProgressStore().data, sfx.settings.shotSkin, sfx.settings.trailStyle);
+    this.shots.setSkin(c.skinLook);
+    this.shots.trailColors = c.trailColors;
+  }
+
 }

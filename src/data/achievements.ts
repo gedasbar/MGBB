@@ -1,7 +1,7 @@
 // Chunk 28a: the achievements (docs/achievements.md). Plain data you can edit by hand: each entry names a METRIC (a number the game
 // can read from the save, see METRICS in src/achievements/metrics.ts) and a GOAL; it is earned the moment the metric reaches the goal.
-// Rewards: `medals` (paid once) or `cosmetic` (an id stored as earned; skins and trails come in a later chunk, so the game only says
-// "coming soon"). `hidden: true` shows only the `hint` until it is earned. Order here = order in the panel inside each group.
+// Rewards: `medals` (paid once) or `cosmetic` (an id stored as earned; skins and trails were stored ids in 28a and are real, usable items
+// in the Customization tab since 28b). `hidden: true` shows only the `hint` until it is earned. Order here = order in the panel inside each group.
 
 /** What the game measures. The goal of 'all' metrics is the size of the whole set (every hull, every ordinary block, all twelve legendary blocks). */
 export type AchievementMetric =
