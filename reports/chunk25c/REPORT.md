@@ -1,0 +1,10 @@
+# Chunk 25c report: ship art, style C, all 19 hulls
+
+Done: one code-described shape per hull (`src/ui/shipShapes.ts`), drawn in flight, the hull picker and the sheet; old generated and hand-drawn art removed; at most 4 accent pieces per ship; flat flames that flicker between two cached textures; three Zenith drawings behind `ZENITH_ART` (1 in the game). Contact sheet: `reports/chunk25c/ship-sheet.png`.
+
+Tests: typecheck clean, 956 unit tests pass (new: accent count, silhouette difference of neighbours and of every pair, Zenith options). Mutation checks: many accents on the Dart failed the accent test; making Twin a copy of Prong failed the silhouette test (and an earlier real run caught Twin and Prong at 80 % overlap, fixed). One e2e (`hulls.e2e.cjs`, fresh server): 25 passed, 0 failed. No gameplay, hit radius or size class changed, so the full e2e suite was not run.
+
+What the sheet shows (I opened it): Picker size, 19 hulls in ladder order, all readable. Flight size, 1x, on the galaxy background: small ships (Dart, Wisp, Lancet) are thin; all still show a nose and a flame. Zenith options: 1 spearhead with three wing layers, 2 two long hulls with a bridge and a cockpit between, 3 a crescent with a floating spear; they are clearly different.
+Hulls that still look alike at a glance: Dart / Wisp / Lancet (three narrow needles; Dart is a wider kite, Wisp has tail fins, Lancet has forward canards); Mantis / Halberd (both a Y with arms; Mantis is thin and V-shaped, Halberd has heavy square blades); Bastion / Citadel (both an armoured block with a dark centre; Citadel is bigger with battlements); Shuttle / Zenith 1 (swept shapes). The tests only guarantee a silhouette overlap below 80 % for neighbours.
+
+Not verified: how the ships look on a real phone (small ships are 26 x 34 px); the flame flicker in motion (checked only that textures swap, not seen animating); ships in the Shop or other screens (the only user of the art besides flight is the hull picker, whose screenshot I opened: Dart to Mantis and the Hornet info sheet are visible); the full e2e suite; style of the hulls against the owner's taste.

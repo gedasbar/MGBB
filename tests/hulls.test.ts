@@ -16,7 +16,7 @@ import { defaultProgress, loadProgress, ProgressStore, PROGRESS_VERSION, richPro
 import { BuilderModel } from '../src/builder/model';
 import { copyAffordable, hullAffordable } from '../src/builder/paletteLogic';
 import { buyAndSelectHull, hullRows, hullStatLine } from '../src/builder/hullPickerLogic';
-import { generateShipArt, artSizeOf, SHIP_ART } from '../src/ui/shipArt';
+import { artSizeOf } from '../src/ui/shipArt';
 import { fmtDamage } from '../src/ui/format';
 import { jump } from './helpers/jump';
 
@@ -28,8 +28,6 @@ const LADDER: [string, number, number, number, number, string][] = [
   ['galleon', 36, 5, 2, 0.9, 'big'], ['shuttle', 47, 1, 5, 1, 'big'], ['spire', 42, 6, 3.5, 1, 'big'], ['leviathan', 55, 4, 4, 1, 'big'],
   ['fan', 72, 3, 4, 1, 'big'], ['citadel', 64, 8, 3, 1, 'huge'], ['zenith', 80, 10, 4, 1, 'huge'],
 ];
-
-const count = (rows: string[], ch: string) => rows.join('').split(ch).length - 1;
 
 describe('hull ladder layouts', () => {
   it('has 19 hulls in the order of the brief', () => {
@@ -124,19 +122,6 @@ describe('size classes and shot speed', () => {
     expect(hitRadiusOf('nonsense')).toBe(8);
     expect(artSizeOf('citadel')).toEqual({ w: 56, h: 70 });
     expect(artSizeOf('wisp')).toEqual({ w: 26, h: 34 });
-  });
-
-  it('a generated hull art follows its layout: a plate per cell, a tip per ejector, inside the unit box', () => {
-    for (const id of HULL_ORDER) {
-      const def = SHIP_ART[id];
-      expect(def, id).toBeDefined();
-    }
-    const def = generateShipArt('citadel', HULL_ROWS.citadel);
-    expect(def.accents!.length).toBe(8);
-    const outer = def.layers.filter(l => l.role === 'outer');
-    expect(outer.length).toBe(count(HULL_ROWS.citadel, '_') + 8 + 1);          // free cells + ejectors + the generator
-    const hole = generateShipArt('citadel', HULL_ROWS.citadel);
-    expect(hole.layers.every(l => l.points.every(([x, y]) => x >= 0 && x <= 1 && y >= 0 && y <= 1))).toBe(true);
   });
 
   it('the world and the wall world take the hit radius from the hull', () => {
