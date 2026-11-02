@@ -36,3 +36,6 @@ export const CONFIG = {
   MITOSIS: { MAX_GENERATION: 4, GLOBAL_SPLIT_BUDGET_PER_SEC: 120, SWARM_MERGE_BONUS: 1.5 },
   ECON: { TIER_HP_GROWTH: 1.055, TIER_REWARD_GROWTH: 1.05 },
 };
+
+/** Which Zenith art is drawn (chunk 25c, `src/ui/shipShapes.ts`): 1 spearhead with layered wings, 2 split twin hull, 3 crescent. */
+export const ZENITH_ART: 1 | 2 | 3 = 1;

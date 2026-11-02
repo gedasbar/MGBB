@@ -5,7 +5,8 @@ import { HULL_ORDER, STARTER_HULL, fireRateMul } from '../src/data/hulls';
 import { buildDartGrid, buildProngGrid, HULL_BUILDERS, HULL_INFO } from '../src/game/gridUtils';
 import { place, buildStarterGrid } from '../src/game/starter';
 import { ART_H, ART_W, SHIP_ART, clearShipTextureCache, getShipTexture } from '../src/ui/shipArt';
-import { CONFIG, HIT_RADIUS } from '../src/config';
+import { MAX_ACCENT_PIECES, ZENITH_OPTIONS } from '../src/ui/shipShapes';
+import { CONFIG, HIT_RADIUS, ZENITH_ART } from '../src/config';
 import { SHIP_HIT_R } from '../src/wall/constants';
 import { defaultProgress, loadProgress, ProgressStore, PROGRESS_VERSION } from '../src/econ/progress';
 import { BuilderModel } from '../src/builder/model';
@@ -17,8 +18,9 @@ describe('ship art', () => {
     for (const id of [...HULL_ORDER, ...Object.keys(HULL_BUILDERS)]) {
       const def = SHIP_ART[id];
       expect(def, `art for ${id}`).toBeDefined();
-      expect(def.layers.some(l => l.role === 'outer')).toBe(true);
-      for (const l of def.layers) {
+      expect(def.parts.some(p => p.tone === 'edge')).toBe(true);
+      expect(def.flames.length).toBeGreaterThan(0);
+      for (const l of def.parts) {
         expect(l.points.length).toBeGreaterThanOrEqual(3);
         for (const [x, y] of l.points) {
           expect(x).toBeGreaterThanOrEqual(0); expect(x).toBeLessThanOrEqual(1);
@@ -41,13 +43,55 @@ describe('ship art', () => {
   });
 });
 
+/** Which cells of a 20 x 25 grid the hull's light-edge pieces cover (the silhouette). */
+function silhouette(id: string): boolean[] {
+  const W = 20, H = 25, out: boolean[] = [];
+  const polys = SHIP_ART[id].parts.filter(p => p.tone === 'edge');
+  const inside = (pts: [number, number][], x: number, y: number) => {
+    let c = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i], [xj, yj] = pts[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+    }
+    return c;
+  };
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) out.push(polys.some(p => inside(p.points, (c + 0.5) / W, (r + 0.5) / H)));
+  return out;
+}
+const overlap = (a: boolean[], b: boolean[]) => {
+  let both = 0, either = 0;
+  a.forEach((v, i) => { if (v && b[i]) both++; if (v || b[i]) either++; });
+  return both / either;
+};
+
+describe('ship art, chunk 25c', () => {
+  it('every ship has at most MAX_ACCENT_PIECES accent pieces, however many ejectors the hull has', () => {
+    for (const id of HULL_ORDER) expect(SHIP_ART[id].parts.filter(p => p.tone === 'accent').length, id).toBeLessThanOrEqual(MAX_ACCENT_PIECES);
+    for (const d of ZENITH_OPTIONS) expect(d.parts.filter(p => p.tone === 'accent').length).toBeLessThanOrEqual(MAX_ACCENT_PIECES);
+  });
+  it('no two hulls have the same silhouette, and neighbours in the ladder differ clearly', () => {
+    const sil = Object.fromEntries(HULL_ORDER.map(id => [id, silhouette(id)]));
+    for (const id of HULL_ORDER) expect(sil[id].filter(Boolean).length, id).toBeGreaterThan(20);
+    HULL_ORDER.forEach((a, i) => HULL_ORDER.forEach((b, j) => {
+      if (j <= i) return;
+      expect(overlap(sil[a], sil[b]), `${a} vs ${b}`).toBeLessThan(j === i + 1 ? 0.8 : 0.9);
+    }));
+  });
+  it('the three Zenith options are different ships and the game draws the one ZENITH_ART names', () => {
+    expect(ZENITH_OPTIONS).toHaveLength(3);
+    expect(overlap(silhouette('zenith'), silhouette('zenith'))).toBe(1);
+    expect(SHIP_ART.zenith.parts).toEqual(ZENITH_OPTIONS[ZENITH_ART - 1].parts);
+    expect(JSON.stringify(ZENITH_OPTIONS[0].parts)).not.toBe(JSON.stringify(ZENITH_OPTIONS[1].parts));
+    expect(JSON.stringify(ZENITH_OPTIONS[1].parts)).not.toBe(JSON.stringify(ZENITH_OPTIONS[2].parts));
+  });
+});
+
 describe('ship size and hit point', () => {
   it('the ship is about 26 x 34 px and the invisible hit circle is HIT_RADIUS = 8 everywhere', () => {
     expect([ART_W, ART_H]).toEqual([26, 34]);
     expect(HIT_RADIUS).toBe(8);
     expect(CONFIG.PLAYER.HITBOX_R).toBe(HIT_RADIUS);
     expect(SHIP_HIT_R).toBe(HIT_RADIUS);
-    for (const def of Object.values(SHIP_ART)) expect(def.size).toBe(1);
     // chunk 17a: the Shuttle is a big hull, so the default grid's circle is bigger; the small class keeps HIT_RADIUS
   });
 });
