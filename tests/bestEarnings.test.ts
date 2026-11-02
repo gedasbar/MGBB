@@ -72,7 +72,7 @@ describe('save version 9 (chunk 19a)', () => {
     const back = loadProgress(serializeProgress(p));
     expect(back.wallBestCredits).toEqual({ '5': 1200 });
     expect(back.squareBestCredits).toEqual({ '2,-3': 3.4e9 });
-    const bad = loadProgress(JSON.stringify({ ...JSON.parse(serializeProgress(p)), wallBestCredits: { '0': 5, '101': 5, '7': -1, '8': 'x', '9': null, '10': 15.9 }, squareBestCredits: { nope: 5, '1,1': -2, '3,4': 8 } }));
+    const bad = loadProgress(JSON.stringify({ ...JSON.parse(serializeProgress(p)), wallBestCredits: { '0': 5, '201': 5, '7': -1, '8': 'x', '9': null, '10': 15.9 }, squareBestCredits: { nope: 5, '1,1': -2, '3,4': 8 } }));
     expect(bad.wallBestCredits).toEqual({ '10': 15 });
     expect(bad.squareBestCredits).toEqual({ '3,4': 8 });
   });

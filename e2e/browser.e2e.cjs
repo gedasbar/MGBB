@@ -41,6 +41,8 @@ async function openGame(browser, viewport) {
 
 async function mouseTest(browser, viewport, label) {
   const page = await openGame(browser, viewport);
+  // The ship blinks (dimmed) while the spawn grace runs, 1.5 s from the first frame: sample its pixel only after that (chunk 27a: this check failed on origin/main when a sample fell in the dim half of a blink).
+  await lib.waitFor(() => page.evaluate(() => window.__mgbm.world.invuln <= 0), { timeout: 8000 });
   // Remove enemies so contact knockback can't move the ship during the measurement.
   await page.evaluate(() => { window.__mgbm.world.autoSpawn = false; window.__mgbm.world.mitosis.enemies.length = 0; });
   const rect = await page.evaluate(() => {

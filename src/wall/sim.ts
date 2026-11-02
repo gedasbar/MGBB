@@ -7,7 +7,8 @@ import { ShipTarget, WallState, WallWorld } from './wallWorld';
 import type { RunModifiers } from '../captains/modifiers';
 
 /** Which headless pilot plays the level. */
-export type BotKind = 'carve' | 'clearAll';
+/** 'flyer' (chunk 27a): fires nothing and only flies, up the open cells (how a Maze is passed with zero damage). */
+export type BotKind = 'carve' | 'clearAll' | 'flyer';
 
 export interface WallSimResult {
   state: WallState | 'timeout';
@@ -21,12 +22,26 @@ export interface WallSimResult {
 /** Effective HP of one block against direct damage: shield first, armor doubles what is left (armor 10 halves damage). */
 export const blockCost = (b: { hp: number; shield: number; armor: number }) => Math.max(0, b.shield) + Math.max(0, b.hp) * (1 + b.armor / 10);
 
+/**
+ * Chunk 27a (Drift): a lane is the strip around the centre of a cell column; a block is in it when its CURRENT x is within a block's half width
+ * plus the ship's hit radius (and a margin) of the lane centre. On every wall whose rows do not slide that is exactly the blocks of the column.
+ */
+const LANE_MARGIN = 4;
+const inLane = (w: WallWorld, b: { x: number }, col: number) => Math.abs(w.dxw(b.x, col * CELL + CELL / 2)) < CELL / 2 + w.hitR + LANE_MARGIN;
+
 /** Total effective HP of the living blocks of a column: what a lane through it costs to carve. */
 function columnCost(w: WallWorld, col: number): number {
   let sum = 0;
   for (let r = 0; r < w.level.rows; r++) {
-    const b = w.blocks[r * w.level.cols + col];
-    if (b) sum += blockCost(b);
+    if (!w.level.drift) {
+      const b = w.blocks[r * w.level.cols + col];
+      if (b) sum += blockCost(b);
+      continue;
+    }
+    for (let c = 0; c < w.level.cols; c++) {
+      const b = w.blocks[r * w.level.cols + c];
+      if (b && inLane(w, b, col)) sum += blockCost(b);
+    }
   }
   return sum;
 }
@@ -34,7 +49,14 @@ function columnCost(w: WallWorld, col: number): number {
 /** Bottom edge (screen y) of the lowest living block of a column, or null if the column is empty. */
 function columnBottom(w: WallWorld, col: number): number | null {
   for (let r = w.level.rows - 1; r >= 0; r--) {
-    if (w.blocks[r * w.level.cols + col]) return w.blockTop(r) + CELL;
+    if (!w.level.drift) {
+      if (w.blocks[r * w.level.cols + col]) return w.blockTop(r) + CELL;
+      continue;
+    }
+    for (let c = 0; c < w.level.cols; c++) {
+      const b = w.blocks[r * w.level.cols + c];
+      if (b && inLane(w, b, col)) return w.blockTop(r) + CELL;
+    }
   }
   return null;
 }
@@ -71,7 +93,8 @@ class CarveBot {
       }
     }
     const bottom = columnBottom(w, this.lane);
-    const wantY = bottom === null ? -200 : bottom + w.hitR + 9;
+    // A Monolith is broken from low on the screen: sitting under it would lift the wall's speed (the top-edge boost) and leave the ship a third of the time.
+    const wantY = bottom === null ? -200 : w.level.lateType === 'monolith' ? VIEW_H - CONFIG.PLAYER.MARGIN : bottom + w.hitR + 9;
     this.x = moveX(w, this.x, dotXFor(w, this.lane), dt);
     this.y = move(this.y, Math.min(wantY, VIEW_H - CONFIG.PLAYER.MARGIN), dt);
     return { x: this.x, y: this.y };
@@ -101,12 +124,74 @@ class ClearAllBot {
   }
 }
 
+/**
+ * Zero-damage pilot (chunk 27a): never fires; climbs at FLYER_SPEED and keeps sideways in the open cells shared by the rows the ship
+ * overlaps (and the one just above it), so it follows a Maze path. Not a general pathfinder: it needs rows that overlap.
+ */
+const FLYER_SPEED = 160;
+const FLYER_LOOKAHEAD_ROWS = 3;
+class FlyerBot {
+  private x = 0;
+  private y = 0;
+  private started = false;
+
+  private open(w: WallWorld, row: number): boolean[] {
+    const out: boolean[] = [];
+    for (let c = 0; c < w.level.cols; c++) out.push(row < 0 || row >= w.level.rows || !w.blocks[row * w.level.cols + c]);
+    return out;
+  }
+
+  step(w: WallWorld, dt: number): ShipTarget {
+    if (!this.started) { this.x = w.shipX; this.y = w.shipY; this.started = true; }
+    const cols = w.level.cols;
+    const rowOf = (y: number) => w.level.rows + Math.floor((y - w.wallOffsetY) / CELL);
+    const rLow = rowOf(this.y + w.hitR);
+    const rHigh = rowOf(this.y - w.hitR - 14);
+    let shared = new Array<boolean>(cols).fill(true);
+    for (let r = rHigh; r <= rLow; r++) { const o = this.open(w, r); shared = shared.map((v, c) => v && o[c]); }
+    // Where the path is heading a few rows ahead (or at the bottom row of the wall while the ship is still below it): the centre of the open run nearest the ship.
+    const lookRow = Math.min(w.level.rows - 1, rowOf(this.y - w.hitR) - FLYER_LOOKAHEAD_ROWS);
+    const ahead = this.open(w, lookRow);
+    const runCentre = (set: boolean[], from: number): number => {
+      let best = -1, bestD = Infinity;
+      for (let c = 0; c < cols; c++) {
+        if (!set[c]) continue;
+        const d = Math.abs(w.dxw(c * CELL + CELL / 2, from));
+        if (d < bestD) { bestD = d; best = c; }
+      }
+      if (best < 0) return from;
+      let a = 0, b = 0;
+      while (a > -cols && set[(((best + a - 1) % cols) + cols) % cols]) a--;
+      while (b < cols && set[(best + b + 1) % cols]) b++;
+      if (b - a + 1 >= cols) return from;
+      return from + w.dxw((best + (a + b) / 2) * CELL + CELL / 2, from);
+    };
+    const wanted = lookRow >= 0 ? runCentre(ahead, this.x) : this.x;
+    // Inside the cells the ship overlaps, go to the point nearest that: the nearest run of shared open cells, clamped to its middle part.
+    let targetX = wanted;
+    if (!shared.every(Boolean)) {
+      let best = -1, bestD = Infinity;
+      for (let c = 0; c < cols; c++) {
+        if (!shared[c]) continue;
+        const d = Math.abs(w.dxw(c * CELL + CELL / 2, wanted));
+        if (d < bestD) { bestD = d; best = c; }
+      }
+      if (best >= 0) targetX = wanted + w.dxw(best * CELL + CELL / 2, wanted);
+    }
+    this.x = moveX(w, this.x, targetX, dt);
+    this.y = Math.max(CONFIG.PLAYER.MARGIN, move(this.y, this.y - FLYER_SPEED * 2, dt * FLYER_SPEED / MAX_SPEED)); // the screen's top edge is as far as a ship goes
+    return { x: this.x, y: this.y };
+  }
+}
+
 /** Plays a level headlessly with a bot until it ends or `maxTime` seconds pass. */
-export function simulateWall(level: LevelDef, grid: Grid, bot: BotKind = 'carve', opts: { maxTime?: number; dt?: number; modifiers?: RunModifiers } = {}): WallSimResult {
+export function simulateWall(level: LevelDef, grid: Grid, bot: BotKind = 'carve', opts: { maxTime?: number; dt?: number; modifiers?: RunModifiers; /** Tests: called with the world before the first step. */ prep?: (w: WallWorld) => void } = {}): WallSimResult {
   const dt = opts.dt ?? 1 / 60;
   const maxTime = opts.maxTime ?? 240;
   const world = new WallWorld(level, { grid, modifiers: opts.modifiers });
-  const pilot = bot === 'carve' ? new CarveBot() : new ClearAllBot();
+  const pilot = bot === 'carve' ? new CarveBot() : bot === 'clearAll' ? new ClearAllBot() : new FlyerBot();
+  if (bot === 'flyer') world.autoFire = false;
+  opts.prep?.(world);
   while (world.state === 'playing' && world.time < maxTime) {
     world.update(dt, pilot.step(world, dt));
     world.hits.length = 0;

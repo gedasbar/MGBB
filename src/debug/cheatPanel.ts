@@ -2,7 +2,7 @@ import { getProgressStore } from '../econ/progress';
 import { getBuilderModel } from '../builder/session';
 import { SPECIES } from '../data/species';
 import { debugHooks } from './hooks';
-import { addCaptainKillsCheat, setHeroLevel, unlockAllCaptains, addCredits, addMedals, ownAllBlocks, ownAllHulls, resetCampaign, resetEverything, unlockAllTiers, unlockFrontier, clearFrontierSquare, clearFrontierRing, reachAllDirections } from './cheats';
+import { addCaptainKillsCheat, setHeroLevel, unlockAllCaptains, addCredits, addMedals, ownAllBlocks, ownAllHulls, resetCampaign, resetEverything, unlockAllTiers, clearAllClassicTiers, unlockFrontier, clearFrontierSquare, clearFrontierRing, reachAllDirections } from './cheats';
 import { frontierJump } from '../frontier/session';
 
 /**
@@ -83,6 +83,7 @@ export function addCheats(parent: HTMLElement) {
   // ---- Campaign
   const camp = group('dbg-g-camp', 'Campaign');
   button(camp, 'dbg-unlock-tiers', 'Unlock tiers 1-100', () => { unlockAllTiers(store()); say('tiers 1-100 open (no medals)'); });
+  button(camp, 'dbg-clear-tiers', 'Clear tiers 1-100 (opens 101-200)', () => { clearAllClassicTiers(store()); say('tiers 1-100 cleared (no medals): 101-200 open'); });
   button(camp, 'dbg-reset-campaign', 'Reset campaign progress', () => { resetCampaign(store()); say('campaign reset'); });
   let armed = 0;
   const resetBtn = button(camp, 'dbg-reset-all', 'Reset ENTIRE save', () => {

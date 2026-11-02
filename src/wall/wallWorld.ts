@@ -9,7 +9,7 @@ import { buildStarterGrid } from '../game/starter';
 import {
   BOOST_MAX, CELL, PASS_MARGIN_CELLS, SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC, SHIP_HIT_R, SHIP_START_Y, SWEEP_STEP_FRAC, TOP_ZONE, VIEW_H,
 } from './constants';
-import { LevelDef, rewardPerBlock } from './level';
+import { campaignRewardPerBlock, LevelDef, rewardPerBlock } from './level';
 import { wallResult } from './result';
 import { easeK, EASE_TIME, SPAWN_INVULN_SECONDS } from '../engine/control';
 import { fireRateMul, hitRadiusOf, shotSpeedMul } from '../data/hulls';
@@ -69,12 +69,13 @@ class BlockField implements TargetField {
   private forEachIn(x0: number, y0: number, x1: number, y1: number, fn: (b: Block) => void) {
     const w = this.w;
     const cols = w.level.cols;
-    let c0 = Math.floor(x0 / CELL);
-    let c1 = Math.floor(x1 / CELL);
-    if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
     const r0 = Math.max(0, w.level.rows + Math.floor((y0 - w.wallOffsetY) / CELL));
     const r1 = Math.min(w.level.rows - 1, w.level.rows + Math.floor((y1 - w.wallOffsetY) / CELL));
     for (let r = r1; r >= r0; r--) {
+      const sh = w.rowShift[r];
+      let c0 = Math.floor((x0 - sh) / CELL);
+      let c1 = Math.floor((x1 - sh) / CELL);
+      if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
       for (let c = c0; c <= c1; c++) {
         const b = w.blocks[r * cols + (w.ring ? ((c % cols) + cols) % cols : c)];
         if (b) fn(b);
@@ -86,14 +87,15 @@ class BlockField implements TargetField {
     // The same cell walk as forEachIn, written out: this runs for every shot every frame, so no closure is made.
     const w = this.w;
     const cols = w.level.cols;
-    let c0 = Math.floor((px - hitR) / CELL);
-    let c1 = Math.floor((px + hitR) / CELL);
-    if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
     const r0 = Math.max(0, w.level.rows + Math.floor((py - hitR - w.wallOffsetY) / CELL));
     const r1 = Math.min(w.level.rows - 1, w.level.rows + Math.floor((py + hitR - w.wallOffsetY) / CELL));
     let best: Block | null = null;
     let bestD = hitR * hitR;
     for (let r = r1; r >= r0; r--) {
+      const sh = w.rowShift[r];
+      let c0 = Math.floor((px - hitR - sh) / CELL);
+      let c1 = Math.floor((px + hitR - sh) / CELL);
+      if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
       for (let c = c0; c <= c1; c++) {
         const b = w.blocks[r * cols + (w.ring ? ((c % cols) + cols) % cols : c)];
         if (!b || b.id === skipId) continue;
@@ -111,15 +113,16 @@ class BlockField implements TargetField {
   nearestInCone(px: number, py: number, range: number, hx: number, hy: number, cosHalf: number, out: HomePick): boolean {
     const w = this.w;
     const cols = w.level.cols;
-    let c0 = Math.floor((px - range) / CELL);
-    let c1 = Math.floor((px + range) / CELL);
-    if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
     const r0 = Math.max(0, w.level.rows + Math.floor((py - range - w.wallOffsetY) / CELL));
     const r1 = Math.min(w.level.rows - 1, w.level.rows + Math.floor((py + range - w.wallOffsetY) / CELL));
     let best = range * range;
     let found: Block | null = null;
     let bdx = 0, bdy = 0;
     for (let r = r1; r >= r0; r--) {
+      const sh = w.rowShift[r];
+      let c0 = Math.floor((px - range - sh) / CELL);
+      let c1 = Math.floor((px + range - sh) / CELL);
+      if (w.ring) { if (c1 - c0 + 1 >= cols) { c0 = 0; c1 = cols - 1; } } else { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
       for (let c = c0; c <= c1; c++) {
         const b = w.blocks[r * cols + (w.ring ? ((c % cols) + cols) % cols : c)];
         if (!b || b.hp <= 0) continue;
@@ -167,7 +170,7 @@ class BlockField implements TargetField {
     const h = CELL / 2;
     const by = this.w.blockTop(b.row);
     // Position relative to the block centre (the short way round on a ring).
-    const rx = this.w.dxw(px, b.col * CELL + h);
+    const rx = this.w.dxw(px, b.x);
     const qx = Math.max(-h, Math.min(rx, h));
     const qy = Math.max(by, Math.min(py, by + CELL));
     const dx = rx - qx;
@@ -203,6 +206,12 @@ export class WallWorld {
 
   /** Row-major living blocks (null = empty or destroyed). */
   readonly blocks: (Block | null)[] = [];
+  /**
+   * Chunk 27a (Drift): how far each row has slid sideways, in px, wrapped into [0, worldW). All zero for every wall but a Drift wall,
+   * so every lookup subtracts it without a special case. A block's `x` already includes it.
+   */
+  readonly rowShift: Float64Array;
+  private driftSpeeds: number[] | null = null;
   /** Dev cheat (debugHooks.god): the ship cannot crash. */
   god = false;
   /** The active captain's effects for this level (neutral when none was given). */
@@ -264,6 +273,8 @@ export class WallWorld {
     this.invuln = opts.safeStart ? SPAWN_INVULN_SECONDS + this.mods.spawnInvuln : 0;
     this.ring = level.wrap !== false;
     this.worldW = level.cols * CELL;
+    this.rowShift = new Float64Array(level.rows);
+    this.driftSpeeds = level.drift && this.ring ? level.drift.speeds : null;
     this.shipX = this.worldW / 2;
     this.projSys.wrapW = this.ring ? this.worldW : 0;
     const hullGrid = opts.grid ?? buildStarterGrid();
@@ -338,7 +349,7 @@ export class WallWorld {
 
   /** Squared distance from a point (world x, screen y) to the box of a cell. */
   boxDistSq(px: number, py: number, col: number, row: number): number {
-    const dx = Math.max(0, Math.abs(this.dxw(px, col * CELL + CELL / 2)) - CELL / 2);
+    const dx = Math.max(0, Math.abs(this.dxw(px, col * CELL + CELL / 2 + this.rowShift[row])) - CELL / 2);
     const by = this.blockTop(row);
     const dy = py - Math.max(by, Math.min(py, by + CELL));
     return dx * dx + dy * dy;
@@ -346,10 +357,11 @@ export class WallWorld {
 
   /** Grid cell under a world position (x in world px, y in screen px), or null outside the wall (never sideways on a ring). */
   cellAt(x: number, y: number): { col: number; row: number } | null {
-    let col = Math.floor(x / CELL);
-    if (this.ring) col = ((col % this.level.cols) + this.level.cols) % this.level.cols;
     const row = this.level.rows + Math.floor((y - this.wallOffsetY) / CELL);
-    if (col < 0 || col >= this.level.cols || row < 0 || row >= this.level.rows) return null;
+    if (row < 0 || row >= this.level.rows) return null;
+    let col = Math.floor((x - this.rowShift[row]) / CELL);
+    if (this.ring) col = ((col % this.level.cols) + this.level.cols) % this.level.cols;
+    if (col < 0 || col >= this.level.cols) return null;
     return { col, row };
   }
 
@@ -377,8 +389,21 @@ export class WallWorld {
   }
 
   private syncY() {
-    for (const b of this.all) b.y = this.blockTop(b.row) + CELL / 2;
+    for (const b of this.all) {
+      b.y = this.blockTop(b.row) + CELL / 2;
+      if (this.driftSpeeds) b.x = wrapX(b.col * CELL + CELL / 2 + this.rowShift[b.row], this.worldW);
+    }
   }
+
+  /** Slides the rows of a Drift wall by their speeds for `dt` seconds (wrapped, so the slide is seamless on the cylinder). */
+  private slideRows(dt: number) {
+    const speeds = this.driftSpeeds;
+    if (!speeds) return;
+    for (let r = 0; r < speeds.length; r++) this.rowShift[r] = wrapX(this.rowShift[r] + speeds[r] * dt, this.worldW);
+  }
+
+  /** Tests: slides the rows by `dt` seconds of drift at once (update() does this every step). */
+  advanceDrift(dt: number) { this.slideRows(dt); this.syncY(); }
 
   /** Removes a block, pays its credits. Safe to call once per block (a dead block is gone from the grid). */
   destroyBlock(b: Block) {
@@ -390,7 +415,7 @@ export class WallWorld {
     this.alive--;
     this.destroyed++;
     if (b.row === this.lowRow && this.rowAlive[b.row] === 0) this.lowRow = this.findLowRow(b.row);
-    const reward = rewardPerBlock(this.level.tier) * this.mods.creditMul * this.mods.wallCreditMul;
+    const reward = (this.level.campaign ? campaignRewardPerBlock(this.level.tier) : rewardPerBlock(this.level.tier)) * (this.level.rewardMul ?? 1) * this.mods.creditMul * this.mods.wallCreditMul;
     this.creditsExact += reward;
     this.killEvents.push({ x: b.x, y: b.y, reward });
   }
@@ -489,6 +514,7 @@ export class WallWorld {
     // --- Wall: always approaching, faster the higher the ship is on the screen
     const scrollDy = this.scroll * dt;
     this.wallOffsetY += scrollDy;
+    this.slideRows(dt);
     this.projSys.shiftClouds(scrollDy); // a Residue Seed cloud stays where its block died
     this.syncY();
 
@@ -593,12 +619,13 @@ export class WallWorld {
   shipHitsBlock(out?: Block[], x = this.shipX, y = this.shipY): boolean {
     const R = this.hitR;
     const cols = this.level.cols;
-    let c0 = Math.floor((x - R) / CELL);
-    let c1 = Math.floor((x + R) / CELL);
-    if (!this.ring) { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
     const r0 = Math.max(0, this.level.rows + Math.floor((y - R - this.wallOffsetY) / CELL));
     const r1 = Math.min(this.level.rows - 1, this.level.rows + Math.floor((y + R - this.wallOffsetY) / CELL));
     for (let r = r0; r <= r1; r++) {
+      const sh = this.rowShift[r];
+      let c0 = Math.floor((x - R - sh) / CELL);
+      let c1 = Math.floor((x + R - sh) / CELL);
+      if (!this.ring) { c0 = Math.max(0, c0); c1 = Math.min(cols - 1, c1); }
       for (let c = c0; c <= c1; c++) {
         const cc = this.ring ? ((c % cols) + cols) % cols : c;
         const b = this.blocks[r * cols + cc];
