@@ -16,7 +16,6 @@ import type { LateEffects } from '../src/data/lateTiers';
 // Chunk 27b: the five effect types of tiers 101-200 (docs/tiers-101-200-effects.md). One group per type.
 
 const tiersOf = (type: LateType) => lateTypeTiers().filter(t => lateSlot(t)!.type === type);
-const firstOf = (type: LateType) => tiersOf(type)[0];
 
 /** A wall of `rows` rows of tier-115 blocks that does not move, with the given effect. */
 function wallWith(effects: LateEffects | undefined, rows = 10): LevelDef {
