@@ -126,9 +126,14 @@ export const LATE_ARMOR_FRAC: readonly [number, number] = [0.4, 0.6];
 export const LATE_SHIELD_FRAC: readonly [number, number] = [0.4, 0.6];
 
 // ------------------------------------------------------------------ the four layout types, by rank (index rank - 1, the last entry repeats)
-/** MONOLITH: rows of full-width huge blocks; HP is this many times the tier's normal block HP. */
+/**
+ * MONOLITH: rows of full-width huge blocks; HP is this many times the tier's normal block HP. The prompt's start was x500; the fit
+ * (docs/tiers-101-200.md section 5, `npm run late-tiers`) is this: a lane through the monolith costs rows x mul x HP, to be broken before the wall
+ * reaches the ship (about 29 s), which asks 1.5 x HP DPS at rank 1 up to 2.5 x HP at rank 5, where the ordinary walls of the same tier ask between
+ * 0.1 and 2.5 x HP (the median is about 1 x). At x500 it asked 16 x HP and more than the strongest build reaches from tier 134 on.
+ */
 export const MONOLITH_ROWS: readonly number[] = [1, 1, 2, 2, 3];
-export const MONOLITH_HP_MUL: readonly number[] = [500, 600, 700, 800, 900];
+export const MONOLITH_HP_MUL: readonly number[] = [45, 50, 30, 35, 25];
 /** A monolith has few blocks, so each pays more: the whole wall pays this share of what an ordinary wall of the tier pays. */
 export const MONOLITH_REWARD_SHARE = 0.5;
 
@@ -153,6 +158,6 @@ export const DRIFT_GAP_SHARE = 0.3;
 export const DRIFT_SPEED_BASE = 24;
 export const DRIFT_SPEED_PER_RANK = 0.3;
 export const DRIFT_EACH_SPAN = 0.4;
-export const DRIFT_HP_MUL: readonly number[] = [1, 1.1, 1.25, 1.4, 1.6];
+export const DRIFT_HP_MUL: readonly number[] = [0.8, 0.9, 1, 1.1, 1.2];
 
 export const byRank = <T>(list: readonly T[], rank: number): T => list[Math.max(0, Math.min(list.length - 1, rank - 1))];

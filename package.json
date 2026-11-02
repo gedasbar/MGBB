@@ -30,6 +30,7 @@
     "perf-legendary": "vite-node scripts/perf-legendary.ts",
     "perf-profile": "vite-node scripts/perf-profile.ts",
     "difficulty-audit": "vite-node scripts/difficulty-audit.ts",
+    "late-tiers": "vite-node scripts/late-tiers-fit.ts",
     "make-icons": "node scripts/make-icons.cjs"
   },
   "devDependencies": {

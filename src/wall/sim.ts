@@ -22,12 +22,26 @@ export interface WallSimResult {
 /** Effective HP of one block against direct damage: shield first, armor doubles what is left (armor 10 halves damage). */
 export const blockCost = (b: { hp: number; shield: number; armor: number }) => Math.max(0, b.shield) + Math.max(0, b.hp) * (1 + b.armor / 10);
 
+/**
+ * Chunk 27a (Drift): a lane is the strip around the centre of a cell column; a block is in it when its CURRENT x is within a block's half width
+ * plus the ship's hit radius (and a margin) of the lane centre. On every wall whose rows do not slide that is exactly the blocks of the column.
+ */
+const LANE_MARGIN = 4;
+const inLane = (w: WallWorld, b: { x: number }, col: number) => Math.abs(w.dxw(b.x, col * CELL + CELL / 2)) < CELL / 2 + w.hitR + LANE_MARGIN;
+
 /** Total effective HP of the living blocks of a column: what a lane through it costs to carve. */
 function columnCost(w: WallWorld, col: number): number {
   let sum = 0;
   for (let r = 0; r < w.level.rows; r++) {
-    const b = w.blocks[r * w.level.cols + col];
-    if (b) sum += blockCost(b);
+    if (!w.level.drift) {
+      const b = w.blocks[r * w.level.cols + col];
+      if (b) sum += blockCost(b);
+      continue;
+    }
+    for (let c = 0; c < w.level.cols; c++) {
+      const b = w.blocks[r * w.level.cols + c];
+      if (b && inLane(w, b, col)) sum += blockCost(b);
+    }
   }
   return sum;
 }
@@ -35,7 +49,14 @@ function columnCost(w: WallWorld, col: number): number {
 /** Bottom edge (screen y) of the lowest living block of a column, or null if the column is empty. */
 function columnBottom(w: WallWorld, col: number): number | null {
   for (let r = w.level.rows - 1; r >= 0; r--) {
-    if (w.blocks[r * w.level.cols + col]) return w.blockTop(r) + CELL;
+    if (!w.level.drift) {
+      if (w.blocks[r * w.level.cols + col]) return w.blockTop(r) + CELL;
+      continue;
+    }
+    for (let c = 0; c < w.level.cols; c++) {
+      const b = w.blocks[r * w.level.cols + c];
+      if (b && inLane(w, b, col)) return w.blockTop(r) + CELL;
+    }
   }
   return null;
 }

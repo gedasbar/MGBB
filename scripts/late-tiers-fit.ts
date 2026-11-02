@@ -1,44 +1,170 @@
-import { buildCatalogue, campaignNeeds, scoreOf, budgetAt, medalsAt, heroLevelFor, bestOwned } from './lib/difficultyModel';
+// Chunk 27a: fit and report for tiers 101-200 (docs/tiers-101-200.md section 7). READ-ONLY for game code.
+//   npm run late-tiers              the schedule table and what each tier asks (analytic: no bots)       -> docs/tiers-101-200-table.md
+//   PART=bots npm run late-tiers    bots (real engine) fly sample tiers with the strongest builds the model can build -> prints the report
+//   PART=reach npm run late-tiers   highest tier passed / cleared in 101-200 for each build (slow: several minutes)
+// "Need" numbers use the same arithmetic as the difficulty audit (scripts/lib/difficultyModel.ts wallNeeds) except for the Monolith, whose lane is
+// ONE block per row and whose time is the time before the wall reaches the ship (see monolithNeeds).
+import { writeFileSync } from 'node:fs';
+import { buildCatalogue, campaignNeeds, gridOfEntry, heroDamage, scoreOf, WallNeeds } from './lib/difficultyModel';
 import { fmtBig } from '../src/ui/format';
-const cat = buildCatalogue();
-const top = [...cat].sort((a, b) => scoreOf(b) - scoreOf(a)).slice(0, 5);
-for (const e of top) console.log(e.hull, e.fam, e.copies, 'L', e.level, 'cost', fmtBig(e.cost), 'est', fmtBig(e.est));
-for (const t of [60, 80, 100]) { const n = campaignNeeds(t); console.log(t, 'pass', fmtBig(n.pass), 'clear', fmtBig(n.clear), 'tough', fmtBig(n.toughest), 'hp', n.hp, 'rows', n.rows, 'blocks', n.blocks); }
-for (const e of [100, 150, 200]) { const b = budgetAt(e), m = medalsAt(e), h = heroLevelFor(m); const o = bestOwned(b, h); console.log('career', e, 'budget', fmtBig(b), 'medals', m, 'hero', h, o ? `${o.hull} ${o.fam} ${o.copies} L${o.level} est ${fmtBig(o.est)}` : '-'); }
-
 import { simulateWall } from '../src/wall/sim';
-import { generateLevel } from '../src/wall/generator';
-import { gridOfEntry } from './lib/difficultyModel';
-import { computeRunModifiers } from '../src/captains/modifiers';
-const best = [...cat].sort((a, b) => scoreOf(b) - scoreOf(a))[0];
-const grid = () => gridOfEntry(best)!;
-for (const t of [60, 80, 100]) {
-  const l = generateLevel(t);
-  for (const bot of ['carve', 'clearAll'] as const) { const r = simulateWall(l, grid(), bot); console.log('bot', bot, 'tier', t, r.state, r.destroyed + '/' + r.total, r.time.toFixed(0) + 's'); }
+import { generateLevel, MAX_TIER } from '../src/wall/generator';
+import { blockCost } from '../src/wall/sim';
+import { CELL, SHIP_START_Y } from '../src/wall/constants';
+import { LATE_FIRST, LATE_TYPES, lateSlot, lateTypeTiers } from '../src/data/lateTiers';
+import { campaignBlockHp, LevelDef, wholeHp } from '../src/wall/level';
+import { neutralModifiers } from '../src/captains/modifiers';
+import { parseLayout } from '../src/game/gridUtils';
+import { place } from '../src/game/starter';
+import { compile, Grid } from '../src/engine/compiler';
+
+const PART = process.env.PART ?? 'table';
+const f = (n: number) => fmtBig(Math.round(n));
+
+/** DPS to break the cheapest column of a Monolith before the wall reaches a ship sitting at the bottom of the screen. */
+function monolithNeeds(l: LevelDef): number {
+  let best = Infinity;
+  for (let c = 0; c < l.cols; c++) {
+    let sum = 0;
+    for (let r = 0; r < l.rows; r++) { const b = l.cells[r * l.cols + c]; if (b) sum += blockCost(b); }
+    best = Math.min(best, sum);
+  }
+  return best / (SHIP_START_Y / l.approachSpeed);
 }
 
-// ---- real-engine ceiling: perf hull with 10 +1 Projectile, 3 Flat+ L10, 10 Percent x L10 (+ optional), HP-scaled tier-100 wall
-import { parseLayout } from '../src/game/gridUtils';
-const PERF_ROWS = 40;
-const perfHull = () => { const rows = ['.E..E..E.']; for (let r = 2; r < PERF_ROWS; r++) rows.push('_________'); rows.push('....G....'); return parseLayout(rows); };
-import { place } from '../src/game/starter';
-import { wholeHp } from '../src/wall/level';
-import type { LevelDef } from '../src/wall/level';
-function realBuild(plus: number, flats: number, pcts: number, extra: string[] = []) {
-  const g = perfHull();
+function needsOf(t: number): { pass: number; clear: number } {
+  const l = generateLevel(t);
+  if (l.lateType === 'monolith') { const n = campaignNeeds(t); return { pass: monolithNeeds(l), clear: n.clear }; }
+  if (l.lateType === 'maze') { const n = campaignNeeds(t); return { pass: 0, clear: n.clear }; }
+  const n: WallNeeds = campaignNeeds(t);
+  return { pass: n.pass, clear: n.clear };
+}
+
+// ---------------------------------------------------------------- the real-engine builds the bots fly
+const TALL = 40;
+const tallHull = (): Grid => { const rows = ['.E..E..E.']; for (let r = 2; r < TALL; r++) rows.push('_________'); rows.push('....G....'); return parseLayout(rows); };
+/** A tall 9-wide test hull: `plus` +1 Projectile first (each new shot then gets every later block), `flats` Flat+ L10, `pcts` Percent x L10, then a Splitter 3 into the side ejectors. */
+function tallBuild(plus: number, flats: number, pcts: number): Grid {
+  const g = tallHull();
   const pre: [string, number][] = [];
-  place(g, 5, PERF_ROWS - 1, 'flat_plus', 10);
   for (let k = 0; k < plus; k++) pre.push(['plus_one', 1]);
   for (let k = 0; k < flats; k++) pre.push(['flat_plus', 10]);
   for (let k = 0; k < pcts; k++) pre.push(['percent_mult', 10]);
-  for (const e of extra) pre.push([e, 1]);
-  pre.forEach(([id, lv], k) => place(g, 5, PERF_ROWS - 2 - k, id, lv));
-  const row = PERF_ROWS - 2 - pre.length;
+  place(g, 5, TALL - 1, 'flat_plus', 10);
+  pre.forEach(([id, lv], k) => place(g, 5, TALL - 2 - k, id, lv));
+  const row = TALL - 2 - pre.length;
   place(g, 5, row, 'splitter_3'); place(g, 2, row, 'turn_r'); place(g, 8, row, 'turn_l');
   return g;
 }
-const scaled = (l: LevelDef, k: number): LevelDef => ({ ...l, cells: l.cells.map(c => (c ? { hp: wholeHp(c.hp * k), armor: c.armor, shield: c.shield > 0 ? wholeHp(c.shield * k) : 0 } : null)) });
-const BOT = (process.env.BOT ?? 'carve') as 'carve' | 'clearAll';
-const SPECS: [string, number, number, number][] = [['plus10', 10, 3, 10], ['plus8', 8, 3, 10]];
-for (const [name, plus, f, p] of SPECS) for (const k of [1, 10, 100]) { const r = simulateWall(scaled(generateLevel(100), k), realBuild(plus, f, p), 'carve', { maxTime: 200 }); console.log(name, k, r.state, r.destroyed, r.time.toFixed(0), 'pool', r.world.pool.refused, r.world.warnings.join('|')); }
-import { compile } from '../src/engine/compiler';
+
+interface BuildDef { name: string; mk: () => Grid; mods?: ReturnType<typeof neutralModifiers>; note: string }
+function builds(): BuildDef[] {
+  const cat = buildCatalogue();
+  const model = [...cat].sort((a, b) => scoreOf(b) - scoreOf(a))[0];
+  const heroMods = { ...neutralModifiers(), baseDamage: 1 + heroDamage(21) };
+  const list: BuildDef[] = [
+    { name: 'A model best', mk: () => gridOfEntry(model)!, mods: heroMods, note: `${model.hull}, ${model.flats} Flat+ + ${model.copies - model.flats!} Percent x L${model.level}, hero 21` },
+    { name: 'B 3 Flat+ 10 Percent x', mk: () => tallBuild(0, 3, 10), mods: heroMods, note: 'tall hull, no +1 Projectile, hero 21' },
+    { name: 'C 6 +1 Proj, 3 Flat+, 10 Percent x', mk: () => tallBuild(6, 3, 10), mods: heroMods, note: 'tall hull, 6 +1 Projectile, hero 21' },
+  ];
+  const only = process.env.BUILDS; // e.g. BUILDS=B,C
+  return only ? list.filter(b => only.split(',').includes(b.name[0])) : list;
+}
+
+function table() {
+  const lines: string[] = [];
+  const out = (s = '') => { lines.push(s); console.log(s); };
+  out('# Tiers 101-200: the table\n');
+  out('Generated by `npm run late-tiers`. Needs are in DPS (the difficulty audit\'s arithmetic): pass = carve the cheapest lane at max boost (Monolith: break the cheapest column before the wall reaches the ship; Maze: 0, fly), clear = destroy every block before the wall reaches a ship at the bottom. HP is the block HP.\n');
+  out('| tier | name | type | rank | block HP | blocks | rows | pass DPS | clear DPS |');
+  out('|---|---|---|---|---|---|---|---|---|');
+  for (let t = LATE_FIRST; t <= MAX_TIER; t++) {
+    const l = generateLevel(t);
+    const slot = lateSlot(t);
+    const n = needsOf(t);
+    const blocks = l.cells.filter(c => c).length;
+    const hp = Math.max(...l.cells.map(c => (c ? c.hp : 0)));
+    out(`| ${t} | ${l.name} | ${slot ? LATE_TYPES[slot.type].name + (LATE_TYPES[slot.type].built ? '' : ' (27b)') : ''} | ${slot?.rank ?? ''} | ${f(hp)} | ${blocks} | ${l.rows} | ${f(n.pass)} | ${f(n.clear)} |`);
+  }
+  out(`\nType tiers: ${lateTypeTiers().length}. Ordinary block HP at tier 100: ${f(campaignBlockHp(100))}, 130: ${f(campaignBlockHp(130))}, 165: ${f(campaignBlockHp(165))}, 200: ${f(campaignBlockHp(200))}.`);
+  if (process.env.WRITE !== '0') writeFileSync('docs/tiers-101-200-table.md', lines.join('\n') + '\n');
+}
+
+function botTable() {
+  const cat = builds();
+  const tiers = (process.env.TIERS ?? '101,110,120,130,140,150,160,170,180,190,200').split(',').map(Number);
+  for (const b of cat) {
+    console.log(`\n${b.name}: ${b.note}, estimate ${f(compile(b.mk()).stats.estDps)} DPS`);
+    for (const t of tiers) {
+      const l = generateLevel(t);
+      const carve = simulateWall(l, b.mk(), 'carve', { modifiers: b.mods, maxTime: 200 });
+      const clear = simulateWall(l, b.mk(), 'clearAll', { modifiers: b.mods, maxTime: 200 });
+      console.log(`  tier ${t} ${l.name}${l.lateType ? ' [' + l.lateType + ' ' + l.typeRank + ']' : ''}: carve ${carve.state} ${carve.destroyed}/${carve.total}, clearAll ${clear.state} ${clear.destroyed}/${clear.total}`);
+    }
+  }
+}
+
+/** Highest tier in 101-200 passed / cleared: every type tier is flown, the ordinary tiers by gallop and bisection, then the non-monotone ones are checked strictly. */
+function reachTable() {
+  const okState = (s: string) => s === 'passed' || s === 'cleared';
+  for (const b of builds()) {
+    const memo = new Map<string, boolean>();
+    const ok = (t: number, mode: 'pass' | 'clear') => {
+      const k = `${mode}${t}`;
+      if (!memo.has(k)) {
+        const l = generateLevel(t);
+        const run = (bot: 'carve' | 'clearAll' | 'flyer') => simulateWall(l, b.mk(), bot, { modifiers: b.mods, maxTime: 200 }).state;
+        memo.set(k, mode === 'clear' ? run('clearAll') === 'cleared' : (l.lateType === 'maze' ? okState(run('flyer')) : okState(run('carve')) || okState(run('clearAll'))));
+      }
+      return memo.get(k)!;
+    };
+    // Ordinary tiers only (the type tiers are not monotone: a Monolith or a Maze cannot be cleared at all), by bisection; type tiers below the result are listed.
+    const ordinary = Array.from({ length: 100 }, (_, i) => 101 + i).filter(t => !lateSlot(t));
+    const reach = (mode: 'pass' | 'clear') => {
+      if (ok(ordinary[ordinary.length - 1], mode)) return 200;
+      if (!ok(ordinary[0], mode)) return 100;
+      let lo = 0, hi = ordinary.length - 1;
+      while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ok(ordinary[m], mode)) lo = m; else hi = m; }
+      return ordinary[lo];
+    };
+    const pass = reach('pass'), clear = reach('clear');
+    const failsBelow = (mode: 'pass' | 'clear', top: number) => lateTypeTiers().filter(t => t <= top && LATE_TYPES[lateSlot(t)!.type].built && !(mode === 'clear' && ['monolith', 'maze'].includes(lateSlot(t)!.type)) && !ok(t, mode)).map(t => `${t} ${LATE_TYPES[lateSlot(t)!.type].name}`);
+    console.log(`${b.name} (${b.note}): passes up to tier ${pass} (built type tiers it fails below that: ${failsBelow('pass', pass).join(', ') || 'none'}); clears up to tier ${clear} (Monolith and Maze are not clearable by design; built type tiers it fails below that: ${failsBelow('clear', clear).join(', ') || 'none'})`);
+  }
+}
+
+
+/**
+ * PART=ratios: how much harder than its ordinary neighbours each built type tier is for a bot. For a tier, kmax = the largest factor on its block HP (and shields) that
+ * build B's carve / clear-all bot still passes (galloping, then bisection in log space). ratio = kmax of the ordinary neighbours (median of up to 4 tiers within 4, not
+ * type tiers and not milestones) / kmax of the type tier: 1 means as hard as a neighbour, 2 means it needs twice the HP headroom. Scale the type's HP multiplier by 1/ratio.
+ */
+function ratios() {
+  const b = builds()[0];
+  const scaledLevel = (l: LevelDef, k: number): LevelDef => ({ ...l, cells: l.cells.map(c => (c ? { hp: wholeHp(c.hp * k), armor: c.armor, shield: c.shield > 0 ? wholeHp(c.shield * k) : 0 } : null)) });
+  const okState = (st: string) => st === 'passed' || st === 'cleared';
+  const kmax = (t: number): number => {
+    const l = generateLevel(t);
+    const ok = (k: number) => { const sl = scaledLevel(l, k); return okState(simulateWall(sl, b.mk(), 'carve', { modifiers: b.mods, maxTime: 200 }).state) || okState(simulateWall(sl, b.mk(), 'clearAll', { modifiers: b.mods, maxTime: 200 }).state); };
+    let lo = 1 / 64, hi = 1;
+    if (ok(1)) { lo = 1; hi = 2; while (ok(hi) && hi < 256) { lo = hi; hi *= 2; } } else { while (!ok(lo) && lo > 1e-4) { hi = lo; lo /= 2; } }
+    for (let i = 0; i < 4; i++) { const m = Math.sqrt(lo * hi); if (ok(m)) lo = m; else hi = m; }
+    return lo;
+  };
+  const types = (process.env.TYPES ?? 'monolith,fortress,drift').split(',');
+  for (const type of types) {
+    for (const t of lateTypeTiers().filter(x => lateSlot(x)!.type === type).slice(0, Number(process.env.RANKS ?? 3))) {
+      const neigh = [-4, -2, 2, 4].map(d => t + d).filter(x => x >= LATE_FIRST && x <= 200 && !lateSlot(x) && x % 10 !== 0);
+      const ks = neigh.map(kmax).sort((x, y) => x - y);
+      const med = ks[Math.floor(ks.length / 2)];
+      const k = kmax(t);
+      console.log(`${type} tier ${t} rank ${lateSlot(t)!.rank}: kmax ${k.toFixed(2)}, neighbours ${neigh.join('/')} median ${med.toFixed(2)}, ratio ${(med / k).toFixed(2)}`);
+    }
+  }
+}
+
+if (PART === 'table') table();
+else if (PART === 'ratios') ratios();
+else if (PART === 'bots') botTable();
+else if (PART === 'reach') reachTable();
+void wholeHp; void CELL;

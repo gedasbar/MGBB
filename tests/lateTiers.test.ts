@@ -122,8 +122,9 @@ describe('curves', () => {
   });
   it('rewards past 100 grow slower than 1.05 a tier (1.02), the first hundred are untouched', () => {
     expect(campaignRewardPerBlock(100)).toBe(rewardPerBlock(100));
-    expect(campaignRewardPerBlock(101) / campaignRewardPerBlock(100)).toBeCloseTo(LATE_REWARD_GROWTH, 10);
-    expect(campaignRewardPerBlock(200) / campaignRewardPerBlock(100)).toBeCloseTo(Math.pow(LATE_REWARD_GROWTH, 100), 6);
+    expect(campaignRewardPerBlock(101) / campaignRewardPerBlock(100)).toBeCloseTo(1.02, 10);
+    expect(LATE_REWARD_GROWTH).toBe(1.02);
+    expect(campaignRewardPerBlock(200) / campaignRewardPerBlock(100)).toBeCloseTo(Math.pow(1.02, 100), 6);
     expect(campaignRewardPerBlock(50)).toBe(rewardPerBlock(50));
     expect(rewardPerBlock(150)).toBe(0.4 * Math.pow(1.05, 149));   // the Frontier's effective tiers keep the old curve
   });
