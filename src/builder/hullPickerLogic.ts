@@ -1,4 +1,5 @@
-import { HULL_ORDER, HULLS, hullTrait, SizeClass } from '../data/hulls';
+import { customHullInfo, HULL_ORDER, HULLS, HullStats, hullTrait, SizeClass } from '../data/hulls';
+import { customSlotOf } from '../shipyard/constants';
 import { HULL_ROWS } from '../data/hullLayouts';
 import { hullAffordable } from './paletteLogic';
 import { Rect } from './layout';
@@ -22,8 +23,9 @@ export interface HullStatLine {
 
 /** Numbers of one hull: the cell and ejector counts are read off its layout, the rest from the ladder data. */
 export function hullStatLine(id: string): HullStatLine {
-  const flat = HULL_ROWS[id].join('');
-  const h = HULLS[id as keyof typeof HULLS];
+  const custom = customHullInfo(id);
+  const flat = (HULL_ROWS[id] ?? custom?.rows ?? []).join('');
+  const h: HullStats = (HULLS as Record<string, HullStats>)[id] ?? custom!.stats;
   return {
     id, name: h.name, cells: (flat.match(/_/g) ?? []).length, ejectors: (flat.match(/E/g) ?? []).length,
     pulsesPerSec: h.pulsesPerSec, shotSpeed: h.shotSpeed, size: h.size, price: h.price,
@@ -37,9 +39,10 @@ export interface HullRow extends HullStatLine {
   dot: boolean;
 }
 
-/** Every hull in price order (the ladder order) with what the player owns and can afford. */
+/** Every hull in price order (the ladder order) with what the player owns and can afford, then the flyable custom hulls (Shipyard, chunk 31a) after the last one. */
 export function hullRows(ownedHulls: readonly string[], currentHull: string, credits: number): HullRow[] {
-  return HULL_ORDER.map(id => {
+  const customs = ownedHulls.filter(h => customSlotOf(h) >= 0 && customHullInfo(h)).sort();
+  return [...HULL_ORDER, ...customs].map(id => {
     const s = hullStatLine(id);
     const owned = ownedHulls.includes(id);
     return { ...s, owned, current: id === currentHull, dot: hullAffordable(owned, credits, s.price) };

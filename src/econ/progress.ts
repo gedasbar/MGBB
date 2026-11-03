@@ -18,18 +18,22 @@ import { CHALLENGE_BY_ID } from '../data/challenges';
 import { defaultRecords, grantAchievements, newlyEarned, noteCircuitRecords, noteRunRecords, Records, sanitizeRecords } from '../achievements/rules';
 import { completeChallenge } from '../challenges/rules';
 import { buySkill, respecSkills, sanitizeSkillList, skillEffects, skillPointsFor, SkillResult } from '../skills/rules';
+import { registerCustomHulls } from '../shipyard/registry';
+import { buyChunk, defaultShipyard, sanitizeShipyard, setDesign, ShipyardResult } from '../shipyard/state';
+import { customSlotOf } from '../shipyard/constants';
+import { shipyardOpen, Design } from '../shipyard/design';
 import {
   atCopyCap, copyPrice, DEFAULT_OWNED, HULL_PRICE, maxLevelOf, upgradePrice,
 } from './economy';
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none), 12 adds `timePlayed`, `newBlocks` and `skillPointsSeen` (chunk 24a: seconds played with the page visible; blocks unlocked and not yet looked at; skill points the player has seen. Older saves start at 0 / none / the points they already have, so nothing is marked new), 13 adds `achievements`, `records`, `challengesDone` and `cosmetics` (chunk 28a: earned achievement ids; the best hit / average DPS / circuit size records the achievements read; challenges done; cosmetic ids earned. A save from before starts with none and the game grants what it has already reached when it loads). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 13;
+/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none), 12 adds `timePlayed`, `newBlocks` and `skillPointsSeen` (chunk 24a: seconds played with the page visible; blocks unlocked and not yet looked at; skill points the player has seen. Older saves start at 0 / none / the points they already have, so nothing is marked new), 13 adds `achievements`, `records`, `challengesDone` and `cosmetics` (chunk 28a: earned achievement ids; the best hit / average DPS / circuit size records the achievements read; challenges done; cosmetic ids earned. A save from before starts with none and the game grants what it has already reached when it loads), 14 adds `cores`, `chunks` and `designs` (chunk 31a, the Shipyard: Cores earned in Free Fly, the chunk inventory and up to three saved custom hull designs; older saves start with 0 Cores, no chunks, no designs). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 14;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 13;
+  version: 14;
   /** A one-time message for the next screen that can show it (the economy refund of the version 8 migration); cleared when taken. */
   notice?: string;
   credits: number;
@@ -77,6 +81,10 @@ export interface Progress {
   challengesDone: string[];
   /** Chunk 28a: cosmetic ids earned (skins and trails come in a later chunk). */
   cosmetics: string[];
+  /** Chunk 31a: Cores (earned in Free Fly), the chunks owned (id -> copies) and the saved custom hull designs (3 slots). */
+  cores: number;
+  chunks: Record<string, number>;
+  designs: (Design | null)[];
 }
 
 export interface StorageLike {
@@ -90,10 +98,10 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 13, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    version: 14, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, wallBestCredits: {}, squareBestCredits: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
     frontier: defaultFrontier(), skills: [], timePlayed: 0, newBlocks: [], skillPointsSeen: 0,
-    achievements: [], records: defaultRecords(), challengesDone: [], cosmetics: [],
+    achievements: [], records: defaultRecords(), challengesDone: [], cosmetics: [], ...defaultShipyard(),
   };
 }
 
@@ -172,6 +180,8 @@ export function sanitizeProgress(raw: unknown): Progress {
   out.challengesDone = known(r.challengesDone, id => id in CHALLENGE_BY_ID);
   out.cosmetics = known(r.cosmetics, id => id.length > 0 && id.length <= 40).slice(0, 500);
   out.records = sanitizeRecords(r.records);
+  // v14 (chunk 31a): Cores, chunks and designs. A save from before has none of them: 0 Cores, no chunks, no designs.
+  Object.assign(out, sanitizeShipyard(typeof r.version === 'number' && r.version >= 14 ? r : null));
   out.highestCleared = out.clearedTiers.length ? out.clearedTiers[out.clearedTiers.length - 1] : 0;
   // A save older than v8 still holds the levels of blocks that lost them: read them with the old ceiling so the migration can refund them.
   const migrating = !(typeof r.version === 'number' && r.version >= 8);
@@ -411,7 +421,7 @@ export function buyHull(p: Progress, id: string): BuyResult {
   return { ok: true, price };
 }
 
-export interface RunResult { credits: number; kills: number; time: number; tier: number; /** Free Fly wave reached. */ wave?: number; /** Chunk 21a: the run's largest hit and total damage (shown on the summary, never saved). */ shots?: { bestShot: number; totalDamage: number } }
+export interface RunResult { credits: number; /** Chunk 31a: Cores earned (Free Fly and Frontier Free Fly squares only). */ cores?: number; kills: number; time: number; tier: number; /** Free Fly wave reached. */ wave?: number; /** Chunk 21a: the run's largest hit and total damage (shown on the summary, never saved). */ shots?: { bestShot: number; totalDamage: number } }
 
 /** The progress object plus its storage. Every change goes through `commit()`, which saves and notifies. */
 export class ProgressStore {
@@ -439,6 +449,7 @@ export class ProgressStore {
     this.reach = reachBySector(this.data.frontier);
     this.tierReach = highestPassed(this.data.passedTiers);
     this.skillPts = skillPointsFor(furthestRing(this.reach));
+    this.syncCustomHulls();
     // Chunk 28a: everything the save has already reached is granted now, as one summary (not a burst of toasts).
     const fresh = newlyEarned(this.data);
     if (fresh.length > 0) {
@@ -533,6 +544,7 @@ export class ProgressStore {
     const after = reachBySector(this.data.frontier);
     for (const u of newlyReached(this.reach, after)) this.noteUnlockedBlock(u.blockId);
     this.reach = after;
+    this.syncCustomHulls();
     // Passing a tier unlocks its blocks (announced once; a block the save already owns is not).
     const tierNow = highestPassed(this.data.passedTiers);
     if (tierNow > this.tierReach) {
@@ -564,11 +576,25 @@ export class ProgressStore {
   }
 
   /** Books a Frontier Free Fly encounter (chunk 15b). Returns the square outcome (Medal paid on a first clear). */
-  recordFrontierFly(run: { x: number; y: number; credits: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number; shots?: { bestShot: number; totalDamage: number }; time?: number }): SquareRunOutcome & { newBestEarnings: boolean } {
+  recordFrontierFly(run: { x: number; y: number; credits: number; cores?: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number; shots?: { bestShot: number; totalDamage: number }; time?: number }): SquareRunOutcome & { newBestEarnings: boolean } {
     noteRunRecords(this.data.records, run.shots, run.time ?? 0);
     const r = applyFrontierOutcome(this.data, { ...run, medalDouble: this.squareMedalChance(run.medalDouble), ...outcomeFlags(run.outcome) });
+    this.data.cores += Math.floor(run.cores ?? 0);
     this.commit();
     return r;
+  }
+
+  // ---- Shipyard (chunk 31a): rules live in shipyard/, the store commits and notifies.
+  /** The Shipyard is open (furthest Frontier ring 150). */
+  get shipyardOpen(): boolean { return shipyardOpen(this.skillRing); }
+  buyChunk(id: string): ShipyardResult { const r = buyChunk(this.data, id, this.skillRing); if (r.ok) this.commit(); return r; }
+  setDesign(slot: number, design: Design | null): ShipyardResult { const r = setDesign(this.data, slot, design, this.skillRing); if (r.ok) this.commit(); return r; }
+  /** Registers the flyable custom designs (layout and stats) and keeps `ownedHulls` in step: a custom hull is owned while its design is valid, fully owned and the Shipyard is open. */
+  private syncCustomHulls() {
+    const ids = registerCustomHulls(this.data, furthestRing(this.reach));
+    const kept = this.data.ownedHulls.filter(h => customSlotOf(h) < 0);
+    const next = [...kept, ...ids];
+    if (next.length !== this.data.ownedHulls.length || next.some((h, i) => h !== this.data.ownedHulls[i])) this.data.ownedHulls = next;
   }
 
   buyCopy(id: string): BuyResult { const r = buyCopy(this.data, id); if (r.ok) this.commit(); return r; }
@@ -635,6 +661,7 @@ export class ProgressStore {
     const newBestWave = (run.wave ?? 0) > d.bestWave;
     if (newBestWave) d.bestWave = run.wave!;
     d.credits += Math.floor(run.credits);
+    d.cores += Math.floor(run.cores ?? 0);
     d.totalKills += run.kills;
     d.runs++;
     if (newBestTier) d.bestTier = run.tier;

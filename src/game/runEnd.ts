@@ -3,8 +3,8 @@ import type { ProgressStore, RunResult } from '../econ/progress';
 import type { KillBanker } from '../captains/state';
 
 /** The Free Fly run as the summary and the save see it. A quit mid-run reports exactly what the run has so far. */
-export function flyRunResult(w: Pick<World, 'credits' | 'kills' | 'time' | 'maxTier' | 'wave'> & Partial<Pick<World, 'projSys'>>): RunResult {
-  const r: RunResult = { credits: w.credits, kills: w.kills, time: w.time, tier: w.maxTier, wave: Math.max(1, w.wave) };
+export function flyRunResult(w: Pick<World, 'credits' | 'kills' | 'time' | 'maxTier' | 'wave'> & Partial<Pick<World, 'projSys' | 'cores'>>): RunResult {
+  const r: RunResult = { credits: w.credits, cores: w.cores ?? 0, kills: w.kills, time: w.time, tier: w.maxTier, wave: Math.max(1, w.wave) };
   if (w.projSys) r.shots = { ...w.projSys.runStats };
   return r;
 }

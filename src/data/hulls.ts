@@ -67,7 +67,20 @@ export const HULLS: Record<HullId, HullStats> = {
 
 export const HULL_PRICES: Record<HullId, number> = Object.fromEntries(HULL_ORDER.map(id => [id, HULLS[id].price])) as Record<HullId, number>;
 
-const stats = (hullId?: string): HullStats | undefined => (hullId ? (HULLS as Record<string, HullStats>)[hullId] : undefined);
+/**
+ * Chunk 31a: custom hulls (the Shipyard). The progress store registers every flyable design here (shipyard/registry.ts), so the
+ * lookups below and the hull picker see "custom1".."custom3" like any other hull. `rows` is the compiled layout; the three trait
+ * numbers act inside a run (damage multiplier, crashes forgiven, Cores multiplier).
+ */
+export interface CustomHullInfo { name: string; stats: HullStats; rows: string[]; damageMul: number; lives: number; coresMul: number }
+const customHulls = new Map<string, CustomHullInfo>();
+export function setCustomHull(id: string, info: CustomHullInfo | null) { if (info) customHulls.set(id, info); else customHulls.delete(id); }
+export const customHullInfo = (id?: string): CustomHullInfo | undefined => (id ? customHulls.get(id) : undefined);
+
+const stats = (hullId?: string): HullStats | undefined => (hullId ? ((HULLS as Record<string, HullStats>)[hullId] ?? customHulls.get(hullId)?.stats) : undefined);
+
+/** Display name of any hull id (a normal hull, a custom one, or the id itself). */
+export const hullName = (hullId: string): string => stats(hullId)?.name ?? hullId;
 
 /** Pulse-rate multiplier of a hull as a share of CONFIG.PULSE.BASE_RATE (1 for an unknown id or no id: tests, the debug starter circuit). */
 export function fireRateMul(hullId?: string): number {

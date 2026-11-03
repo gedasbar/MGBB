@@ -16,7 +16,7 @@ import { fireRateMul, hitRadiusOf, shotSpeedMul } from '../data/hulls';
 import { wrapDx, wrapX } from '../engine/wrap';
 import { stepToward } from '../engine/steer';
 import { neutralModifiers, RunModifiers } from '../captains/modifiers';
-import { SECOND_CHANCE_INVULN } from '../captains/data';
+import { applyHullTraits } from '../shipyard/registry';
 import { FOG_EDGE } from '../data/lateTiers';
 
 /** One living block of a wall. x/y are the block centre (x in world px, y in screen px); `radius` is the half size. */
@@ -313,7 +313,7 @@ export class WallWorld {
   constructor(readonly level: LevelDef, opts: { grid?: Grid; safeStart?: boolean; modifiers?: RunModifiers; rules?: { noFire?: boolean; timeLimit?: number } } = {}) {
     this.noFire = !!opts.rules?.noFire;
     this.timeLimit = opts.rules?.timeLimit;
-    this.mods = opts.modifiers ?? neutralModifiers();
+    this.mods = applyHullTraits(opts.modifiers ?? neutralModifiers(), opts.grid?.hullId);
     this.secondChancesLeft = this.mods.secondChances;
     this.controlStarted = !opts.safeStart;
     this.controlT = opts.safeStart ? 0 : Infinity;
@@ -717,7 +717,7 @@ export class WallWorld {
         for (const b of touched) this.destroyBlock(b);
         this.secondChancesLeft--;
         this.fx.secondChance++;
-        this.invuln = SECOND_CHANCE_INVULN;
+        this.invuln = this.mods.chanceInvuln;
         if (this.alive === 0) this.end('cleared');
       } else this.state = 'crashed';
     } else if (result === 'passed') this.end('passed');

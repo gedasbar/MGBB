@@ -2,7 +2,7 @@ import { getProgressStore } from '../econ/progress';
 import { getBuilderModel } from '../builder/session';
 import { SPECIES } from '../data/species';
 import { debugHooks } from './hooks';
-import { addCaptainKillsCheat, setHeroLevel, unlockAllCaptains, addCredits, addMedals, ownAllBlocks, ownAllHulls, resetCampaign, resetEverything, unlockAllTiers, clearAllClassicTiers, unlockFrontier, clearFrontierSquare, clearFrontierRing, reachAllDirections } from './cheats';
+import { addCaptainKillsCheat, setHeroLevel, unlockAllCaptains, addCredits, addMedals, ownAllBlocks, ownAllHulls, resetCampaign, resetEverything, unlockAllTiers, clearAllClassicTiers, unlockFrontier, clearFrontierSquare, clearFrontierRing, reachAllDirections, addCores, ownAllChunks, saveSampleDesign } from './cheats';
 import { frontierJump } from '../frontier/session';
 
 /**
@@ -79,6 +79,10 @@ export function addCheats(parent: HTMLElement) {
     say(`all blocks x${int(copies)}${maxBox.checked ? ', max level' : ''}`);
   });
   button(eco, 'dbg-own-hulls', 'Own all hulls', () => { ownAllHulls(store()); say(`hulls ${store().data.ownedHulls.join(',')}`); });
+
+  button(eco, 'dbg-cores-1000', '+1,000 Cores', () => { addCores(store(), 1000); say(`cores ${store().data.cores}`); });
+  button(eco, 'dbg-own-chunks', 'Own all ship chunks (x copies)', () => { ownAllChunks(store(), int(copies)); say(`all chunks x${int(copies)}`); });
+  button(eco, 'dbg-sample-design', 'Save sample design in Custom 1', () => { saveSampleDesign(store()); say(store().shipyardOpen ? 'sample design saved' : 'saved? the Shipyard opens at ring 150'); });
 
   // ---- Campaign
   const camp = group('dbg-g-camp', 'Campaign');
