@@ -88,7 +88,7 @@ async function fillAndFly(page, blocks, { fly = true } = {}) {
     window.__mgbm.buildScreen.refresh();
   }, { blocks, OWN });
   if (!fly) return;
-  await page.evaluate(() => window.__mgbm.buildScreen.fly());
+  await lib.startFreeFly(page);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await page.evaluate(() => {
     const w = window.__mgbm.world;

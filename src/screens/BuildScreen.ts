@@ -370,7 +370,7 @@ export class BuildScreen implements Screen {
         hub: this.hubTab,
         credits: this.model.store.data.credits,
         creditsText: this.credits.text,
-        challenge: activeChallenge() ? { id: activeChallenge()!.id, text: this.bannerText.text, status: this.bannerStatus.text, visible: this.banner.visible } : null,
+        challenge: activeChallenge() ? { id: activeChallenge()!.id, text: this.bannerText.text, status: this.bannerStatus.text, visible: this.banner.visible, startRect: { ...this.bannerStart.rect }, barY: this.banner.y } : null,
       }),
     };
   }

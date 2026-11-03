@@ -2,14 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { UI } from '../src/ui/theme';
 import { segmentRects } from '../src/ui/widgets';
 import { hasKeyboard } from '../src/ui/touchMode';
-import { HUB_TABS, hubTabRects, HUB_PANEL } from '../src/builder/hub';
+import { HUB_TABS, hubTabRects, HUB_PANEL, HUB_TAB_H, hubBodyRect } from '../src/builder/hub';
+import { hullListRect } from '../src/builder/hullPickerLogic';
 
 const lum = (c: number) => ((c >> 16) & 255) * 0.299 + ((c >> 8) & 255) * 0.587 + (c & 255) * 0.114;
 
 describe('chunk 29a UI tokens', () => {
-  it('layers: modal is darker than the tiles inside it, and the selected fill is lighter than both', () => {
-    expect(lum(UI.color.modal)).toBeLessThan(lum(UI.color.tile) - 15);
-    expect(lum(UI.color.modal)).toBeLessThan(lum(UI.color.panel));
+  it('layers: the modal is the panel colour again (29b), the tiles inside it are lighter, their outline lighter still, and the selected fill is lighter than all', () => {
+    expect(UI.color.modal).toBe(UI.color.panel);
+    expect(lum(UI.color.modal)).toBeLessThan(lum(UI.color.tile) - 8);
+    expect(lum(UI.color.tileEdge)).toBeGreaterThan(lum(UI.color.tile) + 25);
+    expect(lum(UI.color.tileEdge)).toBeLessThan(lum(UI.color.selected));
     expect(lum(UI.color.selected)).toBeGreaterThan(lum(UI.color.tile) + 80);
     expect(Math.abs(lum(UI.color.onSelected) - lum(UI.color.selected))).toBeGreaterThan(100);
   });
@@ -31,5 +34,14 @@ describe('chunk 29a UI tokens', () => {
   });
   it('a machine with no matchMedia (node, or a touch-only phone) lists no keyboard keys', () => {
     expect(hasKeyboard()).toBe(false);
+  });
+
+  it('29b: the scrolling content of every hub tab starts a gap below the tab strip and ends inside the panel', () => {
+    const body = hubBodyRect();
+    expect(body.y).toBe(HUB_PANEL.y + HUB_TAB_H + UI.hubGap);
+    expect(UI.hubGap).toBeGreaterThan(0);
+    expect(body.y + body.h).toBe(HUB_PANEL.y + HUB_PANEL.h);
+    // the ships list is the same area (with its info sheet closed), so all three tabs clip at the same line
+    expect(hullListRect(false)).toEqual(body);
   });
 });

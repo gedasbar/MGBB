@@ -17,7 +17,6 @@ const FAN_OY = 116 + (704 - 10 * FAN_CELL) / 2;
 const fanCell = (col, row) => [6 + (col - 0.5) * FAN_CELL, FAN_OY + (row - 0.5) * FAN_CELL];
 const TB = { clearAll: 486, y: 880 };
 const SHIP = [28, 28];
-const FLY = [468, 789];
 // Tile layout: see builder.e2e.cjs (no tabs, list from y 470, 5 columns of 98 x 88 tiles).
 const tileCentre = (col, row) => [8 + col * 106 + 49, 470 + 8 + row * 96 + 44];
 const TILE = { turn_l: [0, 0], turn_r: [1, 0], splitter_3: [3, 0], flat_plus: [2, 1] };
@@ -163,7 +162,7 @@ async function place(page, at, tileKey) {
   check(missing.length === 0, `red line pixels along all three branches${missing.length ? ' - missing at ' + missing.join(' ') : ''}`);
 
   const expected = st.stats;
-  await tap(page, ...FLY);
+  await lib.startFreeFly(page);
   await page.mouse.move(...Object.values(await lib.gameToClient(page, 270, 800)));
   await page.waitForTimeout(300);
   await page.evaluate(() => {

@@ -12,7 +12,6 @@ require('fs').mkdirSync(OUT, { recursive: true });
 
 const centre = (r) => [r.x + r.w / 2, r.y + r.h / 2];
 const TAB = { build: [54, 932], shop: [162, 932] };
-const FLY_BTN = [478, 789];
 const SHIP_BTN = [28, 26];
 
 async function snap(page, name) {
@@ -72,8 +71,7 @@ async function aim(page, s) {
   const flatBefore = s.statsStrip[0];
 
   // ---- Fly: kills pay credits
-  await tap(page, ...FLY_BTN, { pause: 300 });
-  await page.waitForFunction(() => window.__mgbm && window.__mgbm.world, null, { timeout: 5000 });
+  await lib.startFreeFly(page);
   let shotFly = false;
   let t0 = Date.now();
   while (Date.now() - t0 < 40000) {
@@ -121,7 +119,7 @@ async function aim(page, s) {
   check(s.credits === run.credits, `credits were banked exactly once (store ${s.credits}, run ${run.credits})`);
 
   // ---- Build: top-bar currency equals the summary
-  await tap(page, 145, 832);
+  await tap(page, 440, 832); // Free Fly summary: Build
   s = await state(page);
   check(s.active === 'A' && s.credits === credits, `Build is back with the same circuit; store credits ${s.credits}`);
   check(s.creditsText === String(credits), `top-bar currency "${s.creditsText}" equals the summary's ${credits}`);

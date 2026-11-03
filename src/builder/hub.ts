@@ -20,7 +20,8 @@ export const HUB_PANEL: Rect = HULL_PANEL;
 export const HUB_TAB_H = HULL_TITLE_H;
 
 /** The area of a tab's own content: the panel below the tab strip. */
-export const hubBodyRect = (): Rect => ({ x: HUB_PANEL.x, y: HUB_PANEL.y + HUB_TAB_H, w: HUB_PANEL.w, h: HUB_PANEL.h - HUB_TAB_H });
+/** (29b: starts `UI.hubGap` below the strip, and the scrolling content is clipped there.) */
+export const hubBodyRect = (): Rect => ({ x: HUB_PANEL.x, y: HUB_PANEL.y + HUB_TAB_H + UI.hubGap, w: HUB_PANEL.w, h: HUB_PANEL.h - HUB_TAB_H - UI.hubGap });
 
 /** The rectangle of each tab button (equal thirds of the strip). */
 export function hubTabRects(): Rect[] {
@@ -47,4 +48,6 @@ export function drawHubFrame(into: Container, active: HubTab) {
     t.position.set(r.x + r.w / 2, r.y + r.h / 2);
     into.addChild(t);
   });
+  // Chunk 29b: a rule under the strip, so the tabs read as their own bar and not as part of the list.
+  into.addChild(new Graphics().rect(p.x, p.y + HUB_TAB_H, p.w, 2).fill(UI.color.border));
 }

@@ -3,6 +3,7 @@ import { HULL_ROWS } from '../data/hullLayouts';
 import { hullAffordable } from './paletteLogic';
 import { Rect } from './layout';
 import { fmtBig } from '../ui/format';
+import { UI } from '../ui/theme';
 import type { BuyResult } from '../econ/progress';
 
 /** Chunk 17a: the pure part of the hull picker (rows, info sheet text, geometry, the buy-and-select flow). No Pixi in here. */
@@ -81,7 +82,8 @@ const HULL_SHEET_H = 290;
 
 export function hullListRect(sheetOpen: boolean): Rect {
   const p = HULL_PANEL;
-  return { x: p.x, y: p.y + HULL_TITLE_H, w: p.w, h: p.h - HULL_TITLE_H - (sheetOpen ? HULL_SHEET_H : 0) };
+  // Chunk 29b: a gap of plain panel between the tab strip and the list; rows are clipped at its lower edge.
+  return { x: p.x, y: p.y + HULL_TITLE_H + UI.hubGap, w: p.w, h: p.h - HULL_TITLE_H - UI.hubGap - (sheetOpen ? HULL_SHEET_H : 0) };
 }
 
 export function hullSheetRect(): Rect {

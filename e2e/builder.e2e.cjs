@@ -9,7 +9,6 @@ const CELL = 48, OX = 6, OY = 204;
 const cell = (col, row) => [OX + (col - 0.5) * CELL, OY + (row - 0.5) * CELL];
 const TB = { clearCell: 54, rotCCW: 162, auto: 270, rotCW: 378, clearAll: 486, y: 880 };
 const CORNER = { fit: [28, 144], undo: [76, 144], redo: [124, 144], ab: [512, 144], paste: [464, 144], copy: [416, 144] };
-const FLY = [468, 789];
 const STATS_STRIP = [270, 837];
 // Palette: the sheet is y 470..960 and is all tile list (no tabs); 5 columns of 98 x 88 px tiles with 8 px gaps, rows 96 px apart,
 // ordered by category: pathing first (turn_l turn_r splitter_2 splitter_3 alternator on row 0), flat_plus at column 2 row 1.
@@ -313,7 +312,7 @@ async function placeViaPicker(page, col, row, tileKey) {
 
   // ------------------------------------------------------------------ 12. FLY
   const expected = (await state(page)).stats;
-  await tap(page, ...FLY);
+  await lib.startFreeFly(page);
   // In Fly the ship follows the pointer, so keep it in the lower play area like a player would.
   await page.mouse.move(...Object.values(await lib.gameToClient(page, 270, 800)));
   await page.waitForTimeout(1200);
@@ -332,7 +331,7 @@ async function placeViaPicker(page, col, row, tileKey) {
   await page.evaluate(() => { window.__mgbm.world.gameOver = true; });
   await page.waitForTimeout(1200); // the Run Summary replaces the old game-over button (chunk 5)
   await shot(page, 'b21_game_over_back_button.png');
-  await tap(page, 145, 832); // Run Summary "Build" button
+  await tap(page, 440, 832); // Run Summary "Build" button (Free Fly summary: Fly again, Map, Build)
   await page.waitForTimeout(300);
   st = await state(page);
   check(st.recipes === expected.projectilesPerPulse && JSON.stringify(st.stats) === JSON.stringify(expected), 'Back to Build shows the same circuit the player left');
@@ -340,11 +339,17 @@ async function placeViaPicker(page, col, row, tileKey) {
 
   // ------------------------------------------------------------------ 13. Broken circuit: FLY refuses
   await tap(page, TB.clearAll, TB.y);
-  await tap(page, ...FLY);
-  await page.waitForTimeout(250);
+  check(await page.evaluate(() => window.__mgbmNav.startFreeFly()) === 'noEjector', 'starting Free Fly with a circuit that reaches no ejector is refused');
+  // the Free Fly screen's own START shows the plain message (the builder has no FLY button any more)
+  await page.evaluate(() => window.__mgbmNav.openMode('freefly'));
+  await lib.waitFor(() => page.evaluate(() => window.__mgbm.screen === 'freefly-home'), { timeout: 5000 });
+  await tap(page, 270, 830);
+  await lib.waitFor(async () => (await state(page)).toast === "Your circuit doesn't reach an ejector", { timeout: 3000 });
   st = await state(page);
   check(st.toast === "Your circuit doesn't reach an ejector", `toast: "${st.toast}"`);
-  check(await page.evaluate(() => !!window.__mgbm.buildScreen && !window.__mgbm.world), 'still on the Build screen');
+  await tap(page, 54, 930); // Build tab
+  await lib.waitFor(() => page.evaluate(() => window.__mgbm.screen === 'build'), { timeout: 5000 });
+  check(await page.evaluate(() => !!window.__mgbm.buildScreen && !window.__mgbm.world), 'back on the Build screen without a run');
   await shot(page, 'b23_fly_refused_toast.png');
 
   await browser.close();

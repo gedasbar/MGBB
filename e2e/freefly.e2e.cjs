@@ -51,7 +51,7 @@ const statsNow = (page) => page.evaluate(() => { const n = window.__mgbmStats.nu
   // ---- Start with the real pointer parked at the top edge: the ship must wait.
   await move(page, 270, 6);
   await page.waitForTimeout(200);
-  await page.evaluate(() => window.__mgbm.buildScreen.fly());
+  await lib.startFreeFly(page);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await page.waitForTimeout(1500);
   let s = await state(page);

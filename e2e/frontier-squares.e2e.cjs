@@ -53,9 +53,7 @@ const readSquares = async (page, sqs, dx = 0, dy = 0) => {
   const caps = [];
 
   await page.evaluate(() => document.getElementById('dbg-fr-unlock').click());
-  await tap(page, 486, 930);
-  await waitScreen(page, 'map');
-  await page.evaluate(() => window.__mgbm.openFrontier());
+  await lib.openMode(page, 'frontier');
   await waitScreen(page, 'frontier');
 
   // ---- States: rings 0..3 cleared, one available medal square marked passed; camera so the ring-10 line is in view.
@@ -168,8 +166,7 @@ const readSquares = async (page, sqs, dx = 0, dy = 0) => {
   shots.push(await canvasShot(page)); caps.push('shop: gated blocks');
 
   // ---- Play a Free Fly square to a result (time x6, a real ship that only drifts a little), then back.
-  await tap(page, 486, 930); await waitScreen(page, 'map');
-  await page.evaluate(() => window.__mgbm.openFrontier()); await waitScreen(page, 'frontier');
+  await lib.openMode(page, 'frontier'); await waitScreen(page, 'frontier');
   const ffq = census.ffAvailable;
   await page.evaluate((q) => { window.__mgbm.select(q.x, q.y); }, ffq);
   const camBefore = (await state(page)).camera;

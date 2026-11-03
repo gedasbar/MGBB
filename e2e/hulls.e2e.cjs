@@ -142,7 +142,7 @@ async function revealRow(page, id) {
     }, hull);
     const rec = await page.evaluate(() => window.__mgbm.buildScreen.model.compiled.recipes.length);
     check(rec >= (hull === 'dart' ? 1 : 3), `${hull}: the standard circuit feeds ${hull === 'dart' ? 1 : 3} ejectors (${rec})`);
-    await page.evaluate(() => window.__mgbm.buildScreen.fly());
+    await lib.startFreeFly(page);
     await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
     const hit = await page.evaluate(() => window.__mgbm.world.hitR);
     check(hit === ({ dart: 8, galleon: 10, citadel: 11 })[hull], `${hull}: hit radius ${hit}`);

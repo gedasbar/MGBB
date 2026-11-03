@@ -75,7 +75,7 @@ const freeze = (page) => page.evaluate(() => window.__mgbm.setTimeScale(0));
 (async () => {
   const browser = await lib.chromium.launch({ headless: true });
   const { page } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, rich: true });
-  await page.evaluate(() => window.__mgbm.buildScreen.fly());
+  await lib.startFreeFly(page);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await move(page, 270, 760);
 

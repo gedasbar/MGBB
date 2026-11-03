@@ -58,9 +58,7 @@ const lum = (p) => (p[0] + p[1] + p[2]) / 3;
   const browser = await lib.chromium.launch({ headless: true });
   const { page } = await lib.openGame(browser, { rich: true });
   await page.evaluate(() => document.getElementById('dbg-fr-unlock').click());
-  await tap(page, 486, 930);
-  await waitScreen(page, 'map');
-  await page.evaluate(() => window.__mgbm.openFrontier());
+  await lib.openMode(page, 'frontier');
   await waitScreen(page, 'frontier');
 
   // States: rings 0..2 cleared; the nearest medal square made available and marked passed (as in frontier15a).

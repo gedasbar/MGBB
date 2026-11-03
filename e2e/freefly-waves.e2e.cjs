@@ -91,7 +91,7 @@ async function montage(page, shots, captions, file) {
   check(fs.statSync(sheetFile).size > 5000, `species contact sheet written (${sheetFile})`);
 
   // ---- Fly on the Shuttle starter circuit, time-scaled, with the hull held up, through WAVES waves.
-  await page.evaluate(() => window.__mgbm.buildScreen.fly());
+  await lib.startFreeFly(page);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   const p0 = await lib.gameToClient(page, 270, 760);
   await page.mouse.move(p0.x, p0.y);

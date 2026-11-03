@@ -70,7 +70,7 @@ async function flyFan(page, blocks) {
     window.__mgbm.buildScreen.refresh();
     return m.grid.cells.filter(c => c.blockId).map(c => c.blockId);
   }, blocks);
-  await page.evaluate(() => window.__mgbm.buildScreen.fly());
+  await lib.startFreeFly(page);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await page.evaluate(() => {
     const w = window.__mgbm.world;
@@ -146,9 +146,7 @@ async function flyFan(page, blocks) {
 
   // ---- Frontier Unlocks panel.
   await page.evaluate(() => document.getElementById('dbg-fr-unlock').click());
-  await tap(page, ...TAB.map);
-  await waitScreen(page, 'map');
-  await page.evaluate(() => window.__mgbm.openFrontier());
+  await lib.openMode(page, 'frontier');
   await waitScreen(page, 'frontier');
   await page.evaluate(() => window.__mgbm.openUnlocks());
   await page.waitForTimeout(200);

@@ -86,7 +86,7 @@ async function snap(page, name) {
   // ---- Free Fly is still one fixed screen: no camera, enemies inside the width
   await page.close();
   const { page: p2 } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, rich: false });
-  await p2.evaluate(() => window.__mgbm.buildScreen.fly());
+  await p2.evaluate(() => window.__mgbmNav.startFreeFly());
   await p2.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await move(p2, 100, 700);
   await p2.evaluate(() => { window.__mgbm.setTimeScale(4); window.__keep = setInterval(() => { const w = window.__mgbm.world; w.hull = 100; w.invuln = 1e9; }, 30); });

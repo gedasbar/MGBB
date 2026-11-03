@@ -1,7 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
 import { inRect, Rect } from './layout';
 import { makeText } from './ui';
-import { THEME } from '../ui/theme';
+import { THEME, UI } from '../ui/theme';
 import { fmtBig } from '../ui/format';
 import { CATEGORY_COLOR } from './draw';
 import { shipThumbnail, TextureMaker } from '../ui/shipArt';
@@ -128,8 +128,8 @@ export class HullPicker {
       const rc = rects[i];
       const row = new Container();
       const sel = this.selected === r.id;
-      const bg = new Graphics().rect(rc.x, rc.y, rc.w, rc.h).fill(THEME.buttonFill)
-        .stroke({ color: r.current ? THEME.select : sel ? THEME.warn : THEME.border, width: r.current || sel ? 3 : 1.5 });
+      const bg = new Graphics().rect(rc.x, rc.y, rc.w, rc.h).fill(UI.color.tile)
+        .stroke({ color: r.current ? UI.color.selected : sel ? THEME.warn : UI.color.tileEdge, width: r.current || sel ? 3 : UI.stroke.thin });
       const thumb = shipThumbnail(this.renderer, r.id, 56);
       thumb.position.set(rc.x + 36, rc.y + rc.h / 2);
       const name = makeText(r.name, 20, THEME.text, { fontWeight: 'bold' });

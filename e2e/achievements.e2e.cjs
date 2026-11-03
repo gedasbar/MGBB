@@ -54,6 +54,12 @@ async function tapButton(page, id, screen) {
   }
 }
 
+/** Chunk 29b: taps the challenge bar's own START button (its rectangle is in the builder's state). */
+async function tapStart(page) {
+  const r = (await state(page)).challenge.startRect;
+  await tap(page, r.x + r.w / 2, r.y + r.h / 2);
+}
+
 (async () => {
   const browser = await lib.chromium.launch({ headless: true });
   // The standard rich save is version 8 (an "old" save): 100 tiers passed, 20 blocks, the Shuttle and the Fan.
@@ -124,10 +130,10 @@ async function tapButton(page, id, screen) {
   s = await state(page);
   check(s.challenge && s.challenge.id === 'c_no_aoe' && s.challenge.visible && /No AoE - Circle, AoE - Rectangle/.test(s.challenge.text) && /Clear tier 45/.test(s.challenge.text), `the builder shows the rule: ${s.challenge && s.challenge.text.replace(/\n/g, ' / ')}`);
   check(/Not allowed in this challenge: AoE - Circle/.test(s.challenge.status), `and says why it cannot fly: "${s.challenge.status}"`);
-  await tap(page, 468, 789); // FLY
+  await tapStart(page); // the challenge bar's START
   await page.waitForTimeout(200);
   s = await state(page);
-  check(s.toast && /Not allowed in this challenge/.test(s.toast), `FLY gives the plain message instead of flying: "${s.toast}"`);
+  check(s.toast && /Not allowed in this challenge/.test(s.toast), `START gives the plain message instead of flying: "${s.toast}"`);
   check((await page.evaluate(() => window.__mgbm.screen)) === 'build', 'and stays in the builder');
   shots.push(await canvasShot(page)); caps.push('5 Builder blocked by a rule');
   await page.evaluate(([x, y]) => window.__mgbm.model.remove(x, y), [aoe.x, aoe.y]);
@@ -146,10 +152,10 @@ async function tapButton(page, id, screen) {
   s = await state(page);
   check(/Ready/.test(s.challenge.status), `with the Dart picked it is ready: "${s.challenge.status}"`);
   const before = await saved(page);
-  await tap(page, 468, 789); // FLY: the challenge's tier
+  await tapStart(page); // START: the challenge's tier
   await waitScreen(page, 'wall');
   const lvl = await page.evaluate(() => ({ tier: window.__mgbm.level.tier, hud: window.__mgbm.state().hud.square }));
-  check(lvl.tier === 10 && /Challenge/.test(lvl.hud), `FLY flies the challenge's tier with the rule on the HUD: tier ${lvl.tier}, "${lvl.hud}"`);
+  check(lvl.tier === 10 && /Challenge/.test(lvl.hud), `START flies the challenge's tier with the rule on the HUD: tier ${lvl.tier}, "${lvl.hud}"`);
   await page.evaluate(() => window.__mgbm.wall.destroyAll());
   await waitScreen(page, 'summary');
   s = await state(page);
@@ -175,7 +181,7 @@ async function tapButton(page, id, screen) {
   await page.evaluate(() => window.__mgbm.buildScreen.achPanel.show('challenges'));
   await tapButton(page, 'start:c_fast_25');
   await waitFor(async () => (await hubTab(page)) === null, { timeout: 3000 });
-  await tap(page, 468, 789);
+  await tapStart(page);
   await waitScreen(page, 'wall');
   await page.evaluate(() => { window.__mgbm.wall.time = 40; window.__mgbm.wall.destroyAll(); });
   await waitScreen(page, 'summary');
