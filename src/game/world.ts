@@ -2,7 +2,7 @@ import { CONFIG, HIT_RADIUS, shipHalfW, TOUCH_DIRECT_OFFSET_Y } from '../config'
 import { segDistSq, stepToward } from '../engine/steer';
 import { ProjectilePool } from '../engine/pools';
 import { MitosisSystem } from '../engine/mitosis';
-import { ProjectileSystem } from '../engine/projectiles';
+import { ProjectileSystem, beyondDespawn } from '../engine/projectiles';
 import { SpatialHash } from '../engine/spatialHash';
 import { compile, EjectorRecipe, Grid } from '../engine/compiler';
 import { Gun, PX_PER_CELL, spawnOffsetsFor } from './fire';
@@ -435,7 +435,7 @@ export class World {
         this.projSys.retire(i);
         continue;
       }
-      if (pool.x[i] < -50 || pool.x[i] > VW + 50 || pool.y[i] < -50 || pool.y[i] > CONFIG.VIEW.H + 50) {
+      if (beyondDespawn(pool.x[i], pool.y[i], -50, VW, CONFIG.VIEW.H)) {
         this.projSys.retire(i);
       }
     }

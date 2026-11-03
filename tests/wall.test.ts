@@ -490,7 +490,10 @@ describe('Shared hit pipeline on a wall', () => {
     const up = shoot(w, 20, -300, 10, [], { vy: -600 });
     w.update(1 / 60, null);
     expect(w.pool.active[up]).toBe(0);
-    const down = shoot(w, 20, CONFIG.VIEW.H + 49, 10, [], { vy: 600 });
+    const near = shoot(w, 20, CONFIG.VIEW.H + 49, 10, [], { vy: 600 }); // chunk 30a: below the screen is kept within CONFIG.DESPAWN.BELOW
+    w.update(1 / 60, null);
+    expect(w.pool.active[near]).toBe(1);
+    const down = shoot(w, 20, CONFIG.VIEW.H + CONFIG.DESPAWN.BELOW - 1, 10, [], { vy: 600 });
     w.update(1 / 60, null);
     expect(w.pool.active[down]).toBe(0);
     const old = shoot(w, 20, 600, 10, [], { vx: 0, vy: 0 });

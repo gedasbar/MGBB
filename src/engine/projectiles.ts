@@ -1326,3 +1326,14 @@ export class ProjectileSystem {
     }
   }
 }
+
+/**
+ * Shot despawn margin (chunk 30a, CONFIG.DESPAWN): true when a shot at (x, y) is so far outside the view that it is removed early.
+ * `top` is the first y above the view that still counts (the wall's top; Free Fly passes a margin above the screen), `viewW` the screen width.
+ * Sideways only when `sideways` (a ring wall wraps, so it has no side edge).
+ */
+export function beyondDespawn(x: number, y: number, top: number, viewW: number, viewH: number, sideways = true): boolean {
+  const d = CONFIG.DESPAWN;
+  if (y < top || y > viewH + d.BELOW) return true;
+  return sideways && (x < -d.SIDE || x > viewW + d.SIDE);
+}
