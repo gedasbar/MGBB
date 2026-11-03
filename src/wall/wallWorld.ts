@@ -696,7 +696,7 @@ export class WallWorld {
           continue;
         }
       }
-      if (pool.y[i] < wallTop || pool.y[i] > VIEW_H + 50 || pool.age[i] > pool.life[i]) this.projSys.retire(i);
+      if (pool.y[i] < wallTop || pool.y[i] > VIEW_H + CONFIG.DESPAWN.BELOW || pool.age[i] > pool.life[i]) this.projSys.retire(i);
     }
 
     // --- Burn ticks, freeze timers, arc lifetimes (blocks die inside the hit callback)

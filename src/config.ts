@@ -31,6 +31,12 @@ export const CONFIG = {
    * nothing for `STALE_AGE` seconds are removed before anything else (EXPIRE_PER_FRAME at most, so one frame never does the whole sweep). VIEW_MARGIN: how far outside the screen still counts as on it.
    */
   OVERLOAD: { EXPIRE_FROM: 0.85, STALE_AGE: 1.5, EXPIRE_PER_FRAME: 400, VIEW_MARGIN: 60, REFUSE_FROM: { fork: 0.8, mirror: 0.88, extra: 0.94, normal: 1 } },
+  /**
+   * Shot despawn margin (chunk 30a). A shot outside the view keeps flying for its normal lifetime while it is within this margin of the view
+   * (BELOW: one screen height under the bottom edge, SIDE: half a screen width to each side), so a shot that curves or is blown back can return
+   * (Strong Wind). Only shots beyond it are removed early. The overload rules (OVERLOAD) are separate and unchanged.
+   */
+  DESPAWN: { BELOW: 960, SIDE: 270 },
   GRID: { CELL: 48, MAX_W: 11, MAX_H: 11 },
   PULSE: { BASE_RATE: 4 },                  // generator pulses per second at firerate stat = 4
   MITOSIS: { MAX_GENERATION: 4, GLOBAL_SPLIT_BUDGET_PER_SEC: 120, SWARM_MERGE_BONUS: 1.5 },

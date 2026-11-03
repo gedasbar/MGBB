@@ -31,11 +31,10 @@ The game is hosted on Cloudflare Pages (build `npm run build` = `tsc --noEmit -p
 
 ## Housekeeping (chunk 21b)
 - When you finish, stop every dev server you started and remove every worktree you created. Never run `npm ci` or `npm install` in a worktree whose `node_modules` is linked to another folder (the 9a and 21a incidents). Start dev servers as background tasks you can stop (not with a trailing `&`), and say in the report which ports you could not stop.
-- A PR is only opened when the WHOLE e2e suite passes in one run (rerun the whole suite after fixing scripts). If a script fails on `origin/main` too, fix it in the same chunk. Run the suite on a freshly started dev server (a server that has seen source edits can hand a page a second copy of a module).
+- A PR for a big chunk (see Test scope) is only opened when the WHOLE e2e suite passes in one run (rerun the whole suite after fixing scripts); for a small chunk the scripts named in the report must pass. If a script fails on `origin/main` too, fix it in the same chunk. Run the suite on a freshly started dev server (a server that has seen source edits can hand a page a second copy of a module).
 
 ## Test scope
-- Tiny UI-only changes (colours, spacing, removing a control): typecheck, unit tests, and at most ONE relevant e2e script. Do not run the whole e2e suite.
-- Run the full e2e suite only for chunks that change gameplay, saves, the compiler or the economy, and say so in the report.
+- Small gameplay or UI changes: typecheck, unit tests and only the e2e scripts that cover the changed area (name them in the report). The FULL e2e suite only for big chunks (new systems, save shape changes, compiler or economy rework) or when the owner asks.
 - **No known failures:** since the 17-cleanup chunk every `e2e/*.e2e.cjs` script passes (a failure is a real regression or a stale script: find out which, never ignore it). The Frontier map's frame rate is printed as `INFO`, not checked (headless software rendering is not a phone). Unit tests and e2e scripts are named after the topic they test (`hulls.test.ts`, `block-economy.e2e.cjs`), not after the chunk. The e2e scripts overwrite some old PNGs in `reports/`; run `git checkout -- reports` and delete newly created old-chunk images before committing.
 - Removed in 17-cleanup (git history has them): the old planet data (`captains`, `worldMap`, `quests`, `skillTree`, `tutorial`, `gen/backgrounds`, `debug/autoplay`) and the boss module (`engine/boss.ts`, `data/bosses.ts`; bosses will be redesigned). `SPEC.md` (original master prompt, out of date) and the old root `REPORT.md` are in `docs/archive/`.
 
