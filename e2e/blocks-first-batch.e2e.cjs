@@ -55,7 +55,7 @@ const effects = (page) => page.evaluate(() => window.__mgbm.state().effects);
 /** Fly with the pointer chasing the lowest rock; `onTick` may stage things in the world. */
 /** Flies at least `seconds` (wall clock, 6x sim) and, while `until(effects)` is not true yet, up to 2.5 times as long (24d: whether a rock is burning by then is luck of the waves). */
 async function fly(page, seconds, onTick, until) {
-  await page.evaluate(() => window.__mgbm.buildScreen.fly());
+  await lib.startFreeFly(page);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await move(page, 270, 700);
   await page.evaluate(() => window.__mgbm.setTimeScale(6));
@@ -205,7 +205,7 @@ async function fly(page, seconds, onTick, until) {
   await page.waitForTimeout(400);
   await tap(page, ...TAB.build);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.buildScreen);
-  await page.evaluate(() => window.__mgbm.buildScreen.fly());
+  await lib.startFreeFly(page);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await page.evaluate(() => {
     const w = window.__mgbm.world;

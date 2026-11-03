@@ -145,7 +145,7 @@ const FLIGHTS = [
     }
     await waitScreen(page, name, 1000);
   };
-  const openMap = () => goTab(MAP_TAB, 'map');
+  const openMap = () => lib.openCampaign(page);
   const reopenMap = async () => { await goTab([54, 930], 'build'); await openMap(); };
   const selectTier = async (t) => {
     // The debug panel covers the right-hand column of the list: hide it while tapping.
@@ -182,6 +182,7 @@ const FLIGHTS = [
   for (const f of FLIGHTS) {
     await page.reload(); await page.waitForFunction(() => !!window.__mgbm);
     await openMap();
+    await lib.waitFor(() => page.evaluate(() => !!document.getElementById('dbg-god')), { timeout: 8000 }); // the debug panel is a lazy import
     await page.evaluate(() => { const g = document.getElementById('dbg-god'); g.checked = true; g.dispatchEvent(new Event('change')); });
     await seed(page, range(1, 100), range(1, f.tier - 1));
     await reopenMap();

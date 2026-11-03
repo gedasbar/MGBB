@@ -102,8 +102,7 @@ const times = {};
   }
 
   // ------------------------------------------------------------------ campaign tier 1: CLEARED / PASSED / CRASHED timing
-  await tap(page, 468, 735, { pause: 300 });
-  await waitScreen(page, 'map');
+  await lib.openCampaign(page);
   await tap(page, ...START, { pause: 300 });
   await waitScreen(page, 'wall');
   times.cleared = await timeToSummary(page, 'window.__mgbm.wall.destroyAll()');

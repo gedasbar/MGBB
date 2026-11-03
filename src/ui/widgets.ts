@@ -4,7 +4,7 @@ import { UI } from './theme';
 /** Chunk 29a: the shared control drawings. Pure drawing into a Graphics; hit testing stays with each screen. */
 export interface WRect { x: number; y: number; w: number; h: number }
 
-/** A modal / hub panel: the darkest layer, so the tiles inside it stand out. */
+/** A modal / hub panel (the panel colour; the tiles inside stand out by their lighter fill and outline). */
 export function drawModal(g: Graphics, r: WRect): Graphics {
   return g.rect(r.x, r.y, r.w, r.h).fill(UI.color.modal).stroke({ color: UI.color.border, width: UI.stroke.thick });
 }
@@ -16,9 +16,9 @@ export function drawButtonFace(g: Graphics, r: WRect, o: { selected?: boolean; e
   return g.rect(r.x, r.y, r.w, r.h).fill(fill).stroke({ color: enabled ? UI.color.text : UI.color.disabled, width: UI.stroke.thin });
 }
 
-/** A tile inside a modal (a skin, an achievement card): raised, a thin border, a white one when selected. */
+/** A tile inside a modal (a skin, an achievement card, a ship row): raised, a thin lighter outline (`tileEdge`, chunk 29b), a thick white one when selected. */
 export function drawTileFace(g: Graphics, r: WRect, o: { selected?: boolean } = {}): Graphics {
-  return g.rect(r.x, r.y, r.w, r.h).fill(UI.color.tile).stroke({ color: o.selected ? UI.color.selected : UI.color.border, width: o.selected ? 3 : UI.stroke.thin });
+  return g.rect(r.x, r.y, r.w, r.h).fill(UI.color.tile).stroke({ color: o.selected ? UI.color.selected : UI.color.tileEdge, width: o.selected ? 3 : UI.stroke.thin });
 }
 
 /** Text colour that goes with a face drawn with `selected`. */

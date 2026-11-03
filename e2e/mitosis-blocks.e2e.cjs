@@ -187,7 +187,7 @@ async function flyWave10(page, seconds, wave = 10) {
 
   // ---- Screenshot: a staged Free Fly frame. Real engine code; only the rocks and shots are placed.
   await reloadToBuild(page);
-  await page.evaluate(() => window.__mgbm.buildScreen.fly());
+  await lib.startFreeFly(page);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await move(page, 270, 760);
   const staged = await page.evaluate(() => {

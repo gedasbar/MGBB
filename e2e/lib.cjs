@@ -227,6 +227,29 @@ async function dismissAchievementSummary(page) {
 const state = (page) => page.evaluate(() => window.__mgbm.state());
 
 /**
+ * Chunk 29b: navigation through the dev hooks of `window.__mgbmNav` (set in src/main.ts), so a script never depends on where a button sits.
+ * openMode('campaign' | 'frontier' | 'freefly') opens that mode's own screen and waits for it; startFreeFly() / startTier(n) start a run with the current circuit.
+ */
+const MODE_SCREEN = { campaign: 'map', frontier: 'frontier', freefly: 'freefly-home' };
+async function openMode(page, mode, tier) {
+  const ok = await page.evaluate(([m, t]) => window.__mgbmNav.openMode(m, t), [mode, tier]);
+  if (!ok) return false;
+  return !!(await waitFor(() => page.evaluate((s) => window.__mgbm && window.__mgbm.screen === s, MODE_SCREEN[mode]), { timeout: 8000 }));
+}
+const openCampaign = (page, tier) => openMode(page, 'campaign', tier);
+/** Starts Free Fly (what the Free Fly screen's START does) and waits for the fly screen. Returns the start result. */
+async function startFreeFly(page) {
+  const r = await page.evaluate(() => window.__mgbmNav.startFreeFly());
+  if (r === 'ok') await waitFor(() => page.evaluate(() => !!window.__mgbm && !!window.__mgbm.world), { timeout: 8000 });
+  return r;
+}
+async function startTier(page, tier) {
+  const r = await page.evaluate((t) => window.__mgbmNav.startTier(t), tier);
+  if (r === 'ok') await waitFor(() => page.evaluate(() => window.__mgbm && window.__mgbm.screen === 'wall'), { timeout: 8000 });
+  return r;
+}
+
+/**
  * Waits for a condition instead of sleeping a fixed time (24d: fixed waits assume a fast machine, and the suite flaked on a loaded one).
  * `fn` is called every `interval` ms (it may be async) until it returns something truthy, which is returned; on timeout the last
  * (falsy) value is returned, so the check that follows reports the failure with its own message. The rule for every new script:
@@ -271,4 +294,5 @@ async function shot(page, name) {
 module.exports = {
   chromium, URL, OUT, VIEW, dismissAchievementSummary, waitFor, seedRandom, check, counts, gameToClient, park, tap, drag, wheel,
   pixelAtClient, pixelsAtClient, countInRegion, countInImage, scanImage, isRedLine, AUTO_BADGE_PRED, PADLOCK_PRED, NO_SIGNAL_PRED, openGame, state, shot, hullRowRect,
+  openMode, openCampaign, startFreeFly, startTier,
 };

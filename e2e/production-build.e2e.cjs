@@ -93,7 +93,7 @@ async function open(browser, url, init) {
     check(dbg.panel && (dbg.cheats || dbg2.cheats) && dbg.sm === 'object', `?debug=1 shows the debug panel with cheats and the hooks (${JSON.stringify({ ...dbg, ...dbg2 })})`);
     await p2.evaluate(() => { document.getElementById('debug-panel').style.display = 'none'; });
 
-    await p2.evaluate(() => window.__mgbm.buildScreen.fly());
+    await p2.evaluate(() => window.__mgbmNav.startFreeFly());
     await p2.waitForFunction(() => window.__mgbm && window.__mgbm.world, null, { timeout: 15000 });
     const p0 = await gameToClient(p2, 270, 700);
     await p2.touchscreen.tap(p0.x, p0.y);

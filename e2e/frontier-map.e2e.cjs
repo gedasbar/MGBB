@@ -77,24 +77,29 @@ async function panFps(page, zoom) {
   const shots = [];
   const caps = [];
 
-  // ---- Entry: the Map's Frontier button is greyed until tier 25 is passed.
+  // ---- Entry: the Frontier card of the Map carousel is locked until tier 25 is passed (29b: the Frontier button of the campaign header is gone).
   await tap(page, 486, 930); // Map tab
-  await waitScreen(page, 'map');
-  let fb = await page.evaluate(() => window.__mgbm.frontierButton());
-  check(!fb.enabled, 'Map: the Frontier button is greyed before tier 25 is passed');
-  await tap(page, fb.rect.x + fb.rect.w / 2, fb.rect.y + fb.rect.h / 2);
-  let mapState = await state(page);
-  check(mapState.toast.includes('tier 25') && (await screenName(page)) === 'map', `tapping it explains why: "${mapState.toast}"`);
+  await waitScreen(page, 'carousel');
+  await page.keyboard.press('ArrowRight'); // the arrow keys move the carousel (the debug panel covers the peeking card at this width)
+  await lib.waitFor(async () => (await state(page)).mode === 'frontier', { timeout: 3000 });
+  let car = await state(page);
+  check(car.cards[1].locked && /tier 25/.test(car.cards[1].line), `Carousel: the Frontier card is locked before tier 25 is passed ("${car.cards[1].line}")`);
+  await tap(page, 270, 420);
+  await lib.waitFor(async () => /tier 25/.test((await state(page)).toast), { timeout: 3000 });
+  car = await state(page);
+  check(car.toast.includes('tier 25') && (await screenName(page)) === 'carousel', `tapping it explains why: "${car.toast}"`);
 
   await page.evaluate(() => document.getElementById('dbg-fr-unlock').click());
-  await tap(page, 54, 930); // Build tab, then back to the Map (it rebuilds with the new progress)
+  await tap(page, 54, 930); // Build tab, then back to the Map (the carousel is rebuilt with the new progress)
   await tap(page, 486, 930);
-  await waitScreen(page, 'map');
-  fb = await page.evaluate(() => window.__mgbm.frontierButton());
-  check(fb.enabled, 'after passing tier 25 (cheat) the Frontier button is enabled');
-  await tap(page, fb.rect.x + fb.rect.w / 2, fb.rect.y + fb.rect.h / 2);
+  await waitScreen(page, 'carousel');
+  await page.keyboard.press('ArrowRight');
+  await lib.waitFor(async () => (await state(page)).mode === 'frontier', { timeout: 3000 });
+  car = await state(page);
+  check(!car.cards[1].locked, 'after passing tier 25 (cheat) the Frontier card is open');
+  await tap(page, 270, 420);
   await waitScreen(page, 'frontier');
-  check(true, 'tapping it opens the Frontier screen');
+  check(true, 'tapping the centre card opens the Frontier screen');
 
   // ---- States: clear rings 0..2 (cheat), then make the medal square nearest to the cleared area available (clear one
   // open neighbour of it with the cheat) and mark it passed.

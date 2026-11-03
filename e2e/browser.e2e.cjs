@@ -31,10 +31,9 @@ async function pixelAt(page, x, y) {
 }
 
 async function openGame(browser, viewport) {
-  // The game starts on the Build screen: press FLY with the default circuit to reach the Fly screen.
+  // The game starts on the Build screen: start Free Fly with the default circuit (the Free Fly screen's START, through the dev hook) to reach the Fly screen.
   const { page } = await lib.openGame(browser, { viewport });
-  await lib.tap(page, 468, 789);
-  await page.waitForFunction(() => !!window.__mgbm && !!window.__mgbm.world);
+  await lib.startFreeFly(page);
   await page.waitForTimeout(300);
   return page;
 }

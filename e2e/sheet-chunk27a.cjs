@@ -19,8 +19,7 @@ const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
   const shots = [];
   for (const tier of [120, 160]) {
     const { page, context } = await lib.openGame(browser, { rich: true });
-    await tap(page, 486, 930);
-    await page.waitForFunction(() => window.__mgbm && window.__mgbm.screen === 'map');
+    await lib.openCampaign(page);
     await page.evaluate((tier) => {
       const s = window.__mgbm.progress;
       s.data.clearedTiers = Array.from({ length: 100 }, (_, i) => i + 1);

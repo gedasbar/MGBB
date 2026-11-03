@@ -5,7 +5,7 @@ import { Screen, ScreenManager } from './ScreenManager';
 import { BuildScreen } from './BuildScreen';
 import { ShopScreen } from './ShopScreen';
 import { CaptainScreen } from './CaptainScreen';
-import { MapScreen } from './MapScreen';
+import { openMapTab } from '../map/nav';
 import { GestureTracker } from '../builder/gestures';
 import { inRect, LAYOUT, Rect, VIEW_W } from '../builder/layout';
 import { makeTabButtons } from '../builder/tabs';
@@ -357,7 +357,7 @@ export class SkillsScreen implements Screen {
     if (id === 'tabBuild') this.sm.switchTo(new BuildScreen(this.sm));
     else if (id === 'tabShop') this.sm.switchTo(new ShopScreen(this.sm));
     else if (id === 'tabCaptain') this.sm.switchTo(new CaptainScreen(this.sm));
-    else if (id === 'tabMap') this.sm.switchTo(new MapScreen(this.sm));
+    else if (id === 'tabMap') openMapTab(this.sm);
   }
 
   update(dt: number) {

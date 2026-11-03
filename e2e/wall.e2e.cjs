@@ -134,11 +134,10 @@ const setScale = async (page, n) => { await page.fill('#dbg-time-scale', String(
   // ---- 7. Free Fly still works
   await tap(page, 145, 832);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.buildScreen, null, { timeout: 5000 });
-  await tap(page, 478, 789, { pause: 400 });
-  await page.waitForFunction(() => window.__mgbm && window.__mgbm.world, null, { timeout: 5000 });
+  await lib.startFreeFly(page);
   await page.waitForTimeout(1500);
   s = await state(page);
-  check(s.tier === 1 && s.recipes >= 1 && typeof s.hull === 'number', `FLY button still starts Free Fly (hull ${s.hull})`);
+  check(s.tier === 1 && s.recipes >= 1 && typeof s.hull === 'number', `Free Fly still starts (hull ${s.hull})`);
 
   const c = lib.counts();
   console.log(`\n${c.passes} passed, ${c.failures} failed`);

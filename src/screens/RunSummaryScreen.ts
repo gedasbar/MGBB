@@ -3,9 +3,8 @@ import { CONFIG } from '../config';
 import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
 import { BuildScreen } from './BuildScreen';
-import { FlyScreen } from './FlyScreen';
+import { openModeScreen, NO_EJECTOR_TEXT, startFreeFly } from '../map/nav';
 import { GestureTracker } from '../builder/gestures';
-import { getBuilderModel } from '../builder/session';
 import { inRect, VIEW_W } from '../builder/layout';
 import { makeText, Toast, UIButton } from '../builder/ui';
 import { getProgressStore, RunResult } from '../econ/progress';
@@ -194,8 +193,10 @@ export class RunSummaryScreen implements Screen {
         });
       })()
       : [
-        textButton('summaryBuild', { x: 40, y: SUMMARY_BUTTONS_Y, w: 210, h: 64 }, 'Build', () => this.sm.switchTo(new BuildScreen(this.sm)), 24),
-        textButton('summaryFly', { x: 290, y: SUMMARY_BUTTONS_Y, w: 210, h: 64 }, 'Fly again', () => this.flyAgain(), 24),
+        // Chunk 29b: a Free Fly run's summary also has Map (the Free Fly screen, where the run came from).
+        textButton('summaryFly', { x: 20, y: SUMMARY_BUTTONS_Y, w: 160, h: 64 }, 'Fly again', () => this.flyAgain(), 20),
+        textButton('summaryMap', { x: 190, y: SUMMARY_BUTTONS_Y, w: 160, h: 64 }, 'Map', () => openModeScreen(this.sm, 'freefly'), 20),
+        textButton('summaryBuild', { x: 360, y: SUMMARY_BUTTONS_Y, w: 160, h: 64 }, 'Build', () => this.sm.switchTo(new BuildScreen(this.sm)), 20),
       ];
     for (const b of buttons) {
       this.buttons.push(b);
@@ -242,11 +243,6 @@ export class RunSummaryScreen implements Screen {
 
   /** A new run with the current circuit, if it reaches an ejector. */
   private flyAgain() {
-    const model = getBuilderModel();
-    if (model.compiled.recipes.length === 0) {
-      this.toast.show("Your circuit doesn't reach an ejector");
-      return;
-    }
-    this.sm.switchTo(new FlyScreen(this.sm, model.gridForFlight()));
+    if (startFreeFly(this.sm) === 'noEjector') this.toast.show(NO_EJECTOR_TEXT);
   }
 }

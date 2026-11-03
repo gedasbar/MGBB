@@ -75,8 +75,12 @@ async function flyLane(page, { shots = false } = {}) {
   const { page } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, tiers: false });
   const mv = async (gx, gy) => { const p = await gameToClient(page, gx, gy); await page.mouse.move(p.x, p.y); };
 
-  // ---- Build screen: CAMPAIGN opens the map
-  await tap(page, 468, 735, { pause: 300 });
+  // ---- Map tab -> carousel -> the campaign card opens the tier list (the builder has no CAMPAIGN button since 29b)
+  await tap(page, 486, 930, { pause: 300 });
+  await waitScreen(page, 'carousel');
+  let car = await state(page);
+  check(car.mode === 'campaign' && car.cards.length === 3, `the Map tab opens the carousel on Campaign (${car.cards.map(c => c.mode).join(', ')})`);
+  await tap(page, 270, 420, { pause: 300 });
   await waitScreen(page, 'map');
   let s = await state(page);
   check(s.tiles.length === 100 && s.tiles[0].state === 'open' && s.tiles[0].next, `map shows ${s.tiles.length} tiles, tier 1 open and next`);
@@ -181,13 +185,18 @@ async function flyLane(page, { shots = false } = {}) {
   s = await state(page);
   check(/Cleared \d+:\d\d$/.test(s.sheet.best), `inspector of the cleared tier: "${s.sheet.best}"`);
 
-  // ---- Free Fly is still separate: Build -> FLY
-  await tap(page, 30, 26); // back
-  await page.waitForFunction(() => window.__mgbm && window.__mgbm.buildScreen, null, { timeout: 5000 });
-  await tap(page, 478, 789, { pause: 400 });
+  // ---- Free Fly is still separate: its own screen's START
+  await tap(page, 30, 26); // "<" back to the carousel
+  await waitScreen(page, 'carousel');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight'); // two steps right: Frontier, then Free Fly
+  await lib.waitFor(async () => (await state(page)).mode === 'freefly', { timeout: 3000 });
+  await tap(page, 270, 420, { pause: 300 }); // the centre card opens its screen
+  await waitScreen(page, 'freefly-home');
+  await tap(page, 270, 830, { pause: 400 }); // START
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world, null, { timeout: 5000 });
   s = await state(page);
-  check(s.tier === 1 && typeof s.hull === 'number', `FLY still starts Free Fly (tier ${s.tier}, hull ${s.hull})`);
+  check(s.tier === 1 && typeof s.hull === 'number', `the Free Fly screen's START starts Free Fly (tier ${s.tier}, hull ${s.hull})`);
 
   const c = lib.counts();
   console.log(`\n${c.passes} passed, ${c.failures} failed`);

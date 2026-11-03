@@ -67,7 +67,7 @@ const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
     }
     await waitScreen(page, name, 1000);
   };
-  const openMap = () => goTab(MAP_TAB, 'map');
+  const openMap = () => lib.openCampaign(page);
   const reopenMap = async () => { await goTab([54, 930], 'build'); await openMap(); }; // Build tab, then Map tab: the Map is rebuilt from the seeded progress
   const selectTier = async (t) => {
     for (let attempt = 0; attempt < 5; attempt++) {

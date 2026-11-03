@@ -120,8 +120,7 @@ async function montage(page, shots, captions, file) {
   // ---- Seed: tiers 1..25 passed (opens the Frontier), best earnings on tier 3 and 2, on the origin square.
   // Seed through the Map screen's own store (window.__mgbm.progress): a dynamic import of progress.ts can be a second copy of the module
   // (Vite adds ?t= to edited files), whose store the app never sees.
-  await tap(page, 486, 930);
-  await waitScreen(page, 'map');
+  await lib.openCampaign(page);
   await page.evaluate(() => {
     const s = window.__mgbm.progress;
     const d = s.data;
@@ -155,8 +154,7 @@ async function montage(page, shots, captions, file) {
   check(st.sheet.earned === '', `tier 6 (never played): nothing shown ("${st.sheet.earned}")`);
 
   // ---- Frontier panel
-  const fb = await page.evaluate(() => window.__mgbm.frontierButton());
-  await tap(page, fb.rect.x + fb.rect.w / 2, fb.rect.y + fb.rect.h / 2);
+  await lib.openMode(page, 'frontier');
   await waitScreen(page, 'frontier');
   await page.evaluate(() => { const m = window.__mgbm; m.jump(0, 0, 44); m.select(0, 0); });
   await page.waitForTimeout(300);

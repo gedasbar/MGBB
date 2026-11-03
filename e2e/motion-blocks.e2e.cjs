@@ -74,7 +74,7 @@ async function flyFan(page, blocks) {
     window.__mgbm.buildScreen.refresh();
     return m.grid.cells.filter(c => c.blockId).map(c => c.blockId);
   }, blocks);
-  await page.evaluate(() => window.__mgbm.buildScreen.fly());
+  await lib.startFreeFly(page);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await page.evaluate(() => {
     const w = window.__mgbm.world;

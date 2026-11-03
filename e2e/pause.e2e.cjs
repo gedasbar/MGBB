@@ -32,7 +32,7 @@ const snapshot = (page) => page.evaluate(() => {
   const browser = await lib.chromium.launch({ headless: true });
   const { page } = await lib.openGame(browser, { viewport: { width: 900, height: 960 }, rich: false });
   await page.evaluate(() => window.__mgbmStats.set(false));
-  await page.evaluate(() => window.__mgbm.buildScreen.fly());
+  await lib.startFreeFly(page);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world);
   await move(page, 270, 700);
   await page.waitForTimeout(600);
@@ -114,7 +114,7 @@ const snapshot = (page) => page.evaluate(() => {
   await page.waitForTimeout(150);
   check((await ov(page)).view === 'none', 'Escape closes the settings');
 
-  await page.evaluate(() => window.__mgbm.buildScreen.fly());
+  await lib.startFreeFly(page);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world);
   await move(page, 270, 700); await page.waitForTimeout(400); await move(page, 320, 700); await page.waitForTimeout(1500);
   await click(page, 513, 27);

@@ -155,7 +155,7 @@ export class AchievementsPanel {
   }
 
   private box(layer: Container, r: Rect, border: number = THEME.border, fill: number = UI.color.tile) {
-    layer.addChild(new Graphics().rect(r.x, r.y, r.w, r.h).fill(fill).stroke({ color: border === THEME.border ? UI.color.border : border, width: UI.stroke.thin }));
+    layer.addChild(new Graphics().rect(r.x, r.y, r.w, r.h).fill(fill).stroke({ color: border === THEME.border ? UI.color.tileEdge : border, width: UI.stroke.thin }));
   }
 
   /** A button drawn into `layer` at `r` (local to the body for fixed ones, to the list's content for the others). */

@@ -46,15 +46,18 @@ export const THEME = {
 
 /**
  * Chunk 29a: the shared UI rules. Every screen and overlay takes its colours, text sizes and spacing from here and draws buttons, tabs, segmented controls and toggles
- * with the helpers in `widgets.ts`. Layers, darkest to lightest: `modal` (a hub, Settings or a dialog) < `panel` (a screen's own boxes) < `tile` (anything tappable inside
- * a modal). `selected` is the inverted look (light fill, dark text) used for the active tab, segment, tile and ticked box.
+ * with the helpers in `widgets.ts`. Layers, darkest to lightest: `modal` = `panel` (a hub, Settings, a dialog or a screen's own boxes) < `tile` (anything tappable inside
+ * a modal, with a lighter `tileEdge` outline). `selected` is the inverted look (light fill, dark text) used for the active tab, segment, tile and ticked box.
  */
 export const UI = {
   color: {
     page: THEME.bg,
-    modal: 0x131315,
+    /** Chunk 29b: back to the panel colour (29a had made it darker). */
+    modal: THEME.panel,
     panel: THEME.panel,
     tile: 0x38383c,
+    /** Chunk 29b: the thin outline of a tile inside a hub / modal (lighter than the tile and the tab cells, so a tile reads as its own box). */
+    tileEdge: 0x77777d,
     tilePressed: 0x4a4a4f,
     selected: THEME.pressedFill,
     onSelected: THEME.pressedIcon,
@@ -72,4 +75,6 @@ export const UI = {
   /** Heights of the shared controls. */
   control: { button: 48, segment: 44, tab: 44, checkbox: 40 },
   stroke: { thin: 1.5, thick: 2 },
+  /** Chunk 29b: the hub keeps this many px of plain panel between the tab strip and the scrolling content (content is clipped at the gap's lower edge). */
+  hubGap: 8,
 } as const;
