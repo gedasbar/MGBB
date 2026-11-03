@@ -114,7 +114,7 @@ async function tapStart(page) {
   s = await astate(page);
   const open = s.rows.filter(r => r.open).length;
   check(s.rows.length === 31 && open === 25, `31 challenges, the 25 on tiers 1-100 are open (the six on tiers 106-150 are not): ${open} open`);
-  check(!s.rows.find(r => r.id === 'c_maze_nofire').open && /Locked: pass tier 106/.test(s.rows.find(r => r.id === 'c_maze_nofire').text), 'a challenge on a tier not passed shows "Locked: pass tier 106 first"');
+  check(!s.rows.find(r => r.id === 'c_maze_nofire').open && /Locked · tier 106/.test(s.rows.find(r => r.id === 'c_maze_nofire').text), 'a challenge on a tier not passed shows "Locked · tier 106"');
   shots.push(await canvasShot(page)); caps.push('4 Challenges list');
 
   // ---- 5. Start one with a rule the circuit breaks: the builder shows the rule and FLY is refused.

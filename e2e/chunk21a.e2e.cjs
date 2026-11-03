@@ -170,8 +170,8 @@ const world = (page) => page.evaluate(() => {
   await page.evaluate(() => window.__mgbm.buildScreen.info.hide());
   await page.evaluate(() => { const b = window.__mgbm.buildScreen; b.selected = { x: 4, y: 8 }; });
   await page.keyboard.press('f');
-  await page.waitForFunction(() => window.__mgbm && window.__mgbm.world, null, { timeout: 5000 });
-  check(true, 'F starts the flight');
+  await page.waitForTimeout(400); // a fixed wait is right here: we check that nothing happens
+  check(await page.evaluate(() => !!window.__mgbm.buildScreen && !window.__mgbm.world), 'F does nothing without a challenge (29b: Free Fly starts from its own screen)');
 
   // ---- 2. +1 Projectile: two shots side by side, base damage on the new one.
   await fillAndFly(page, [['flat_plus', 4, 8], ['plus_one', 4, 7]]);

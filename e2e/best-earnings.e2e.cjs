@@ -154,8 +154,7 @@ async function montage(page, shots, captions, file) {
   check(st.sheet.earned === '', `tier 6 (never played): nothing shown ("${st.sheet.earned}")`);
 
   // ---- Frontier panel
-  const fb = await page.evaluate(() => window.__mgbm.frontierButton());
-  await tap(page, fb.rect.x + fb.rect.w / 2, fb.rect.y + fb.rect.h / 2);
+  await lib.openMode(page, 'frontier');
   await waitScreen(page, 'frontier');
   await page.evaluate(() => { const m = window.__mgbm; m.jump(0, 0, 44); m.select(0, 0); });
   await page.waitForTimeout(300);
