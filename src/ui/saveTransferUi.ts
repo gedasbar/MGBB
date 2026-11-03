@@ -16,10 +16,10 @@ import { checkImportString, exportFileName, exportSaveString, saveStringFromFile
  */
 export const OPEN_TEXT = '-webkit-touch-callout:default;-webkit-user-select:text;user-select:text;touch-action:auto;';
 export const BOX = `position:fixed;inset:0;z-index:20000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);font:16px system-ui,sans-serif;color:#e8e8ea;${OPEN_TEXT}`;
-export const PANEL = `box-sizing:border-box;width:min(92vw,480px);max-height:92vh;overflow:auto;background:#2a2a2d;border:2px solid #55555a;padding:16px;display:flex;flex-direction:column;gap:10px;${OPEN_TEXT}`;
+export const PANEL = `box-sizing:border-box;width:min(92vw,480px);max-height:92vh;overflow:auto;background:#131315;border:2px solid #4d4d52;padding:16px;display:flex;flex-direction:column;gap:10px;${OPEN_TEXT}`;
 // 16 px: iOS zooms the page when a field with a smaller font gets focus, and the game cannot zoom back.
-export const AREA = `box-sizing:border-box;width:100%;height:150px;resize:none;background:#1c1c1e;color:#e8e8ea;border:1px solid #55555a;font:16px monospace;padding:6px;${OPEN_TEXT}`;
-const BTN = 'flex:1;min-height:48px;font:bold 16px system-ui,sans-serif;background:#3a3a3f;color:#e8e8ea;border:1.5px solid #8a8a90;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:manipulation;';
+export const AREA = `box-sizing:border-box;width:100%;height:150px;resize:none;background:#38383c;color:#e8e8ea;border:1px solid #4d4d52;font:16px monospace;padding:6px;${OPEN_TEXT}`;
+const BTN = 'flex:1;min-height:48px;font:bold 16px system-ui,sans-serif;background:#38383c;color:#e8e8ea;border:1.5px solid #e6e6e6;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:manipulation;';
 const HINT = 'font-size:14px;color:#b0b0b6;';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, css: string, text?: string): HTMLElementTagNameMap[K] {
@@ -59,7 +59,6 @@ function row(panel: HTMLElement): HTMLElement {
 export function openExportSave() {
   open('EXPORT SAVE', (panel, close) => {
     const text = exportSaveString(getProgressStore().data, safeStorage()?.getItem(STORAGE_KEY) ?? null);
-    panel.appendChild(el('div', HINT, 'This one line is your whole save. Copy it, save it as a file or share it, then use Import save on the other device. (The home-screen app keeps its own save, apart from Safari.)'));
     const area = el('textarea', AREA);
     area.id = 'export-text';
     area.readOnly = true;
@@ -127,7 +126,6 @@ export function openExportSave() {
 
 export function openImportSave(reload: () => void = () => location.reload()) {
   open('IMPORT SAVE', (panel, close) => {
-    panel.appendChild(el('div', HINT, 'Paste the save string from the other device, or load it from a file. This replaces the save on THIS device.'));
     const area = el('textarea', AREA);
     area.id = 'import-text';
     area.placeholder = 'MGBM1:...';
@@ -137,7 +135,7 @@ export function openImportSave(reload: () => void = () => location.reload()) {
     area.setAttribute('autocorrect', 'off');
     panel.appendChild(area);
     const canRead = typeof navigator !== 'undefined' && typeof navigator.clipboard?.readText === 'function';
-    const pasteHint = el('div', HINT, canRead ? 'Tap Paste, or long-press the box and choose Paste.' : 'Long-press the box and choose Paste.');
+    const pasteHint = el('div', HINT, canRead ? '' : 'Long-press the box and choose Paste.');
     pasteHint.id = 'import-hint';
     panel.appendChild(pasteHint);
     const msg = el('div', 'font-size:14px;min-height:36px;overflow-wrap:anywhere;');

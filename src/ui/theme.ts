@@ -43,3 +43,33 @@ export const THEME = {
   mark: 0xd4d4d8,
   markEdge: 0x161618,
 } as const;
+
+/**
+ * Chunk 29a: the shared UI rules. Every screen and overlay takes its colours, text sizes and spacing from here and draws buttons, tabs, segmented controls and toggles
+ * with the helpers in `widgets.ts`. Layers, darkest to lightest: `modal` (a hub, Settings or a dialog) < `panel` (a screen's own boxes) < `tile` (anything tappable inside
+ * a modal). `selected` is the inverted look (light fill, dark text) used for the active tab, segment, tile and ticked box.
+ */
+export const UI = {
+  color: {
+    page: THEME.bg,
+    modal: 0x131315,
+    panel: THEME.panel,
+    tile: 0x38383c,
+    tilePressed: 0x4a4a4f,
+    selected: THEME.pressedFill,
+    onSelected: THEME.pressedIcon,
+    border: 0x4d4d52,
+    text: THEME.text,
+    textDim: THEME.textDim,
+    disabled: THEME.disabled,
+    accent: THEME.currency,
+    good: THEME.good,
+  },
+  /** Text sizes in game px (the game is 540 wide): title / section header / body / small. */
+  text: { title: 24, header: 17, body: 14, small: 12 },
+  /** Spacing steps. */
+  space: { xs: 4, s: 8, m: 12, l: 16, xl: 24 },
+  /** Heights of the shared controls. */
+  control: { button: 48, segment: 44, tab: 44, checkbox: 40 },
+  stroke: { thin: 1.5, thick: 2 },
+} as const;

@@ -233,7 +233,6 @@ export class CaptainScreen implements Screen {
   // ---- list view
   private drawList() {
     const c = this.store.data.captains;
-    this.label(this.listC, 'Tap a captain to see its upgrades. All of them can be previewed.', PAD, TOP + 12, 14, THEME.textDim, W);
     CAPTAINS.forEach((def, i) => {
       const col = i % 2, row = Math.floor(i / 2);
       const r: Rect = { x: PAD + col * (CARD_W + 8), y: CARD_Y0 + row * (CARD_H + 8), w: CARD_W, h: CARD_H };

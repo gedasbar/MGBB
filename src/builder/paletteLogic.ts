@@ -162,7 +162,7 @@ export function sheetContent(i: SheetInput): SheetContent {
 
 export function removeSheetContent(): SheetContent {
   return {
-    title: 'Remove', levelLine: '', body: 'Clears this cell and returns the block to your inventory.', stack: '', ownedLine: '',
+    title: 'Remove', levelLine: '', body: '', stack: '', ownedLine: '',
     lockText: null, place: { label: 'Remove', enabled: true }, buy: null, upgrade: null,
   };
 }

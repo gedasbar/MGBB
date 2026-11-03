@@ -1,7 +1,8 @@
 import { Container, Graphics } from 'pixi.js';
 import { inRect, Rect, VIEW_H, VIEW_W } from './layout';
 import { makeText } from './ui';
-import { THEME } from '../ui/theme';
+import { UI } from '../ui/theme';
+import { drawModal, drawTabCell } from '../ui/widgets';
 import { HULL_PANEL, HULL_TITLE_H } from './hullPickerLogic';
 
 /**
@@ -33,15 +34,15 @@ export function hubTabAt(x: number, y: number): HubTab | null {
   return i < 0 ? null : HUB_TABS[i].id;
 }
 
-/** Draws the dimmed backdrop, the panel and the tab strip with `active` highlighted. */
+/** Draws the dimmed backdrop, the dark modal panel and the tab strip with `active` highlighted (the full active cell is light, the others raised and dark). */
 export function drawHubFrame(into: Container, active: HubTab) {
   const p = HUB_PANEL;
-  into.addChild(new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill({ color: THEME.dim, alpha: 0.6 }));
-  into.addChild(new Graphics().rect(p.x, p.y, p.w, p.h).fill(THEME.panel).stroke({ color: THEME.border, width: 2 }));
+  into.addChild(new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill({ color: 0x000000, alpha: 0.6 }));
+  into.addChild(drawModal(new Graphics(), p));
   hubTabRects().forEach((r, i) => {
     const on = HUB_TABS[i].id === active;
-    into.addChild(new Graphics().rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2).fill(on ? THEME.pressedFill : THEME.buttonFill).stroke({ color: on ? THEME.select : THEME.border, width: on ? 2 : 1 }));
-    const t = makeText(HUB_TABS[i].label, 15, on ? THEME.pressedIcon : THEME.text, { fontWeight: 'bold' });
+    into.addChild(drawTabCell(new Graphics(), r, on));
+    const t = makeText(HUB_TABS[i].label, UI.text.body + 1, on ? UI.color.onSelected : UI.color.textDim, { fontWeight: 'bold' });
     t.anchor.set(0.5);
     t.position.set(r.x + r.w / 2, r.y + r.h / 2);
     into.addChild(t);
