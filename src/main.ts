@@ -19,6 +19,9 @@ import { FRAME_MAX, planSteps } from './game/timestep';
 import { PlayTimeTracker } from './econ/playTime';
 import { getProgressStore } from './econ/progress';
 import { frameLimitFps } from './ui/touchMode';
+import { backToCarousel, openMapTab, openModeScreen, startCampaignTier, startFreeFly } from './map/nav';
+import { mapMemory } from './map/memory';
+import { MapMode } from './map/constants';
 
 (async () => {
   const app = new Application();
@@ -79,6 +82,24 @@ import { frameLimitFps } from './ui/touchMode';
       const model = getBuilderModel();
       const grid = model.compiled.recipes.length > 0 ? model.gridForFlight() : buildStarterGrid();
       screenManager.switchTo(new WallScreen(screenManager, generateLevel(tier), grid));
+    };
+  }
+  if (DEBUG_ON) {
+    // Chunk 29b: navigation hooks for the e2e scripts, so they never depend on where a button sits (`window.__mgbm` is replaced by every screen, this one stays).
+    (window as any).__mgbmNav = {
+      /** The Map tab, exactly as a tap on it behaves (remembered mode screen, else the carousel). */
+      openMapTab: () => openMapTab(screenManager),
+      /** A mode's own screen: 'campaign' (optionally selecting a tier), 'frontier', 'freefly'. False when the mode is locked. */
+      openMode: (mode: MapMode, tier?: number) => openModeScreen(screenManager, mode, { tier }),
+      /** The "<" of a mode screen. */
+      backToCarousel: (mode: MapMode) => backToCarousel(screenManager, mode),
+      /** Starts Free Fly with the current circuit (what the Free Fly screen's START does): 'ok' | 'noEjector'. */
+      startFreeFly: () => startFreeFly(screenManager),
+      /** Starts campaign tier `tier` with the current circuit (what the tier panel's START does): 'ok' | 'locked' | 'noEjector'. */
+      startTier: (tier: number) => startCampaignTier(screenManager, tier),
+      /** `startMode('freefly')` or `startMode('campaign', tier)`. */
+      startMode: (mode: MapMode, tier?: number) => (mode === 'freefly' ? startFreeFly(screenManager) : mode === 'campaign' ? startCampaignTier(screenManager, tier ?? 1) : openModeScreen(screenManager, mode) ? 'ok' : 'locked'),
+      memory: () => mapMemory().get(),
     };
   }
   new DebugPanel().init();

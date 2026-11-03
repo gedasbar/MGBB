@@ -7,7 +7,7 @@ import { heroCostWith } from '../captains/state';
 import { skillEffects } from '../skills/rules';
 import { SkillsScreen } from './SkillsScreen';
 import { ShopScreen } from './ShopScreen';
-import { MapScreen } from './MapScreen';
+import { openMapTab } from '../map/nav';
 import { GestureTracker } from '../builder/gestures';
 import { getBuilderModel } from '../builder/session';
 import { inRect, LAYOUT, Rect, VIEW_H, VIEW_W } from '../builder/layout';
@@ -168,7 +168,7 @@ export class CaptainScreen implements Screen {
     if (id === 'tabCaptain') { if (this.view === 'detail') this.show('list'); return; }
     if (id === 'tabBuild') { this.sm.switchTo(new BuildScreen(this.sm)); return; }
     if (id === 'tabShop') { this.sm.switchTo(new ShopScreen(this.sm)); return; }
-    if (id === 'tabMap') { this.sm.switchTo(new MapScreen(this.sm)); return; }
+    if (id === 'tabMap') { openMapTab(this.sm); return; }
     if (id === 'tabSkills') { this.sm.switchTo(new SkillsScreen(this.sm)); return; }
   }
 

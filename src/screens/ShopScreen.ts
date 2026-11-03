@@ -3,7 +3,7 @@ import { CONFIG } from '../config';
 import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
 import { BuildScreen } from './BuildScreen';
-import { MapScreen } from './MapScreen';
+import { openMapTab } from '../map/nav';
 import { CaptainScreen } from './CaptainScreen';
 import { GestureTracker } from '../builder/gestures';
 import { getBuilderModel } from '../builder/session';
@@ -220,7 +220,7 @@ export class ShopScreen implements Screen {
   private tapTab(id: string) {
     if (id === 'tabShop') return;
     if (id === 'tabBuild') { this.sm.switchTo(new BuildScreen(this.sm)); return; }
-    if (id === 'tabMap') { this.sm.switchTo(new MapScreen(this.sm)); return; }
+    if (id === 'tabMap') { openMapTab(this.sm); return; }
     if (id === 'tabCaptain') { this.sm.switchTo(new CaptainScreen(this.sm)); return; }
     if (id === 'tabSkills') { this.sm.switchTo(new SkillsScreen(this.sm)); return; }
   }

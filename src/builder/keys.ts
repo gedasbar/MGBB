@@ -5,7 +5,7 @@
  *   R / Shift+R   rotate the selected block right / left     Q   rotate left
  *   D, Delete, Backspace   delete the selected block         A   auto-orient the selected block
  *   Ctrl+Z   undo      Ctrl+Y or Ctrl+Shift+Z   redo
- *   Esc   close the open sheet, else deselect                F   fly
+ *   Esc   close the open sheet, else deselect                F   start the challenge (when one is on)
  * (Cmd works like Ctrl.) Nothing fires while typing in an input, for a repeating key, or for a combination this table does not list.
  */
 export type BuildKeyAction = 'rotateRight' | 'rotateLeft' | 'delete' | 'autoOrient' | 'undo' | 'redo' | 'escape' | 'fly';
@@ -27,7 +27,7 @@ export const BUILD_KEY_HELP: readonly string[] = [
   'A: auto-orient the selected block',
   'Ctrl+Z: undo.  Ctrl+Y or Ctrl+Shift+Z: redo',
   'Esc: close the sheet, or deselect',
-  'F: fly',
+  'F: start the started challenge',
 ];
 
 export function isTypingTarget(t: KeyLike['target']): boolean {

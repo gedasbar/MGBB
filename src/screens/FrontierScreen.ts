@@ -2,11 +2,9 @@ import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CONFIG } from '../config';
 import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
-import { BuildScreen } from './BuildScreen';
-import { ShopScreen } from './ShopScreen';
-import { SkillsScreen } from './SkillsScreen';
-import { CaptainScreen } from './CaptainScreen';
-import { MapScreen } from './MapScreen';
+import { backToCarousel } from '../map/nav';
+import { goToTab } from '../map/tabs';
+import { mapMemory } from '../map/memory';
 import { WallScreen } from './WallScreen';
 import { FlyScreen } from './FlyScreen';
 import { GestureTracker } from '../builder/gestures';
@@ -123,7 +121,7 @@ export class FrontierScreen implements Screen {
     this.medalsText.anchor.set(0, 0.5);
     this.medalsText.position.set(64 + this.title.width + 16, 28);
 
-    const back = textButton('frontierBack', { x: 6, y: 6, w: 46, h: 40 }, '<', () => this.sm.switchTo(new MapScreen(this.sm)), 24);
+    const back = textButton('frontierBack', { x: 6, y: 6, w: 46, h: 40 }, '<', () => backToCarousel(this.sm, 'frontier'), 24);
     const bw = Math.floor((VIEW_W - 5 * 8) / 4);
     const by = PANEL_Y + 10;
     const bx = (i: number) => 8 + i * (bw + 8);
@@ -421,6 +419,7 @@ export class FrontierScreen implements Screen {
 
   // ------------------------------------------------------------------ input
   init() {
+    mapMemory().setOpen('frontier');
     this.gestures = new GestureTracker(
       this.sm.app.canvas as HTMLCanvasElement,
       (cx, cy) => clientToGame(cx, cy, this.sm.app.canvas.getBoundingClientRect(), CONFIG.VIEW.W, CONFIG.VIEW.H),
@@ -457,11 +456,7 @@ export class FrontierScreen implements Screen {
   }
 
   private tapTab(id: string) {
-    if (id === 'tabMap') { this.sm.switchTo(new MapScreen(this.sm)); return; }
-    if (id === 'tabBuild') this.sm.switchTo(new BuildScreen(this.sm));
-    else if (id === 'tabShop') this.sm.switchTo(new ShopScreen(this.sm));
-    else if (id === 'tabCaptain') this.sm.switchTo(new CaptainScreen(this.sm));
-    else if (id === 'tabSkills') this.sm.switchTo(new SkillsScreen(this.sm));
+    if (id !== 'tabMap') goToTab(this.sm, id); // the Map tab is this screen (chunk 29b)
   }
 
   play() {

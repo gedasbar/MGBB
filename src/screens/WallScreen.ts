@@ -18,7 +18,7 @@ import { pushShipX, ringScreenX, WallCamera } from '../wall/camera';
 import { CELL, RESULT_DELAY_CLEARED, RESULT_DELAY_CRASHED, RESULT_DELAY_PASSED, SHIP_START_Y, VIEW_H, VIEW_W } from '../wall/constants';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 import { BuildScreen } from './BuildScreen';
-import { MapScreen } from './MapScreen';
+import { openModeScreen } from '../map/nav';
 import { FrontierScreen } from './FrontierScreen';
 import { FRONTIER_NAME } from '../frontier/constants';
 import { LevelDef } from '../wall/level';
@@ -533,7 +533,7 @@ export class WallScreen implements Screen {
     let buttons;
     if (level.campaign) {
       const next = { id: 'summaryNext', label: 'Next tier', onTap: () => sm.switchTo(new WallScreen(sm, generateLevel(level.tier + 1), grid)) };
-      const map = { id: 'summaryMap', label: 'Map', onTap: () => sm.switchTo(new MapScreen(sm)) };
+      const map = { id: 'summaryMap', label: 'Map', onTap: () => openModeScreen(sm, 'campaign') };
       // Chunk 27a: tier 101 stays closed until every tier 1-100 is cleared, so "Next tier" is only offered when the next tier is open.
       buttons = [!challenge && won && level.tier < MAX_TIER && isUnlocked(store.data, level.tier + 1) ? next : retry, map, build];
     } else if (level.frontier) {

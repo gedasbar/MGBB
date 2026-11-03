@@ -1,8 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
 import { CONFIG } from '../config';
 import { Screen, ScreenManager } from './ScreenManager';
-import { FlyScreen } from './FlyScreen';
-import { MapScreen } from './MapScreen';
+import { openMapTab } from '../map/nav';
 import { clientToGame } from '../input';
 import { BLOCKS, MOD_LABEL } from '../data/blocks';
 import { HULL_INFO } from '../game/gridUtils';
@@ -29,7 +28,7 @@ import { Picker, REMOVE_TILE } from '../builder/picker';
 import { HULLS, HullId } from '../data/hulls';
 import { hasKeyboard } from '../ui/touchMode';
 import { BUILD_KEY_HELP, BuildKeyAction, keyAction } from '../builder/keys';
-import { THEME } from '../ui/theme';
+import { THEME, UI } from '../ui/theme';
 import { makeTabButtons } from '../builder/tabs';
 import { ShopScreen } from './ShopScreen';
 import { SkillsScreen } from './SkillsScreen';
@@ -60,6 +59,11 @@ const HELP_BASE =
   'The red line is automatic: it leaves the generator and runs straight until a block changes it, ending at an ejector. ' +
   'A block you place turns to face the line that reaches it, once, and keeps that facing. Rotate turns the selected block; Auto-orient turns just that block to face the line again.\n\n' +
   'Drag to pan, pinch or use the wheel to zoom, and use the corner-arrows button to fit the hull.';
+
+/** Chunk 29b: the challenge bar at the bottom of the grid: least height, button sizes and the width left for its text. */
+const BANNER_MIN_H = 64;
+const BANNER_BTN = { start: 96, end: 46, h: 48 };
+const BANNER_TEXT_W = VIEW_W - BANNER_BTN.start - BANNER_BTN.end - 34;
 
 /**
  * The circuit builder. All state lives in BuilderModel; this screen only renders it and turns
@@ -99,9 +103,10 @@ export class BuildScreen implements Screen {
   /** Chunk 28a: the banner of a started challenge (rule lines, and why FLY is blocked or that it is ready) with its X. */
   private banner = new Container();
   private bannerBg = new Graphics();
-  private bannerText = makeText('', 14, THEME.text, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: VIEW_W - 64, lineHeight: 17 });
-  private bannerStatus = makeText('', 14, THEME.good, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: VIEW_W - 64, lineHeight: 17 });
+  private bannerText = makeText('', 14, THEME.text, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: BANNER_TEXT_W, lineHeight: 17 });
+  private bannerStatus = makeText('', 14, THEME.good, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: BANNER_TEXT_W, lineHeight: 17 });
   private bannerClose!: TextButton;
+  private bannerStart!: TextButton;
 
   constructor(private sm: ScreenManager) {
     this.model = getBuilderModel();
@@ -282,45 +287,12 @@ export class BuildScreen implements Screen {
       this.toolbar[d.id] = this.addButton(b);
     });
 
-    // FLY pill.
-    const fly = new UIButton({
-      id: 'fly', rect: { x: VIEW_W - 134, y: LAYOUT.gridArea.y + LAYOUT.gridArea.h - 54, w: 124, h: 46 }, onTap: () => this.fly(),
-      draw: (g, b) => {
-        g.rect(0, 0, b.rect.w, b.rect.h).fill(b.lit ? THEME.buttonFill : THEME.pressedFill);
-        g.poly([86, 12, 86, 34, 104, 23]).fill(b.lit ? THEME.buttonIcon : THEME.pressedIcon);
-        if (this.flyLabel) this.flyLabel.style.fill = b.lit ? THEME.buttonIcon : THEME.pressedIcon;
-      },
-    });
-    const flyLabel = makeText('FLY', 24, THEME.pressedIcon, { fontWeight: 'bold' });
-    this.flyLabel = flyLabel;
-    flyLabel.anchor.set(0.5);
-    flyLabel.position.set(46, 23);
-    fly.container.addChild(flyLabel);
-    this.addButton(fly);
-
-    // CAMPAIGN pill above FLY: the tier map. FLY stays Free Fly.
-    const campaign = new UIButton({
-      id: 'campaign', rect: { x: VIEW_W - 134, y: LAYOUT.gridArea.y + LAYOUT.gridArea.h - 108, w: 124, h: 46 }, onTap: () => this.sm.switchTo(new MapScreen(this.sm)),
-      draw: (g, b) => {
-        g.rect(1, 1, b.rect.w - 2, b.rect.h - 2).fill(b.lit ? THEME.pressedFill : THEME.buttonFill).stroke({ color: THEME.buttonLine, width: 1.5 });
-        if (this.campaignLabel) this.campaignLabel.style.fill = b.lit ? THEME.pressedIcon : THEME.text;
-      },
-    });
-    const campaignLabel = makeText('CAMPAIGN', 17, THEME.text, { fontWeight: 'bold' });
-    this.campaignLabel = campaignLabel;
-    campaignLabel.anchor.set(0.5);
-    campaignLabel.position.set(62, 23);
-    campaign.container.addChild(campaignLabel);
-    this.addButton(campaign);
-
     // Tab bar.
     for (const b of makeTabButtons('tabBuild', (id) => this.tapTab(id))) this.addButton(b);
   }
 
   private credits!: CreditsBadge;
   private abLabel!: ReturnType<typeof makeText>;
-  private flyLabel: ReturnType<typeof makeText> | null = null;
-  private campaignLabel: ReturnType<typeof makeText> | null = null;
 
   // ------------------------------------------------------------------ rendering
   /** Redraws everything that depends on the model, the selection or the picker preview. */
@@ -483,7 +455,7 @@ export class BuildScreen implements Screen {
   private tapTab(id: string) {
     if (id === 'tabBuild') return;
     if (id === 'tabShop') { this.sm.switchTo(new ShopScreen(this.sm)); return; }
-    if (id === 'tabMap') { this.sm.switchTo(new MapScreen(this.sm)); return; }
+    if (id === 'tabMap') { openMapTab(this.sm); return; }
     if (id === 'tabCaptain') { this.sm.switchTo(new CaptainScreen(this.sm)); return; }
     if (id === 'tabSkills') { this.sm.switchTo(new SkillsScreen(this.sm)); return; }
   }
@@ -728,7 +700,7 @@ export class BuildScreen implements Screen {
       case 'autoOrient': if (!this.selectedBlockCell()) return false; this.autoOrient(); return true;
       case 'undo': this.undo(); return true;
       case 'redo': this.redo(); return true;
-      case 'fly': this.fly(); return true;
+      case 'fly': if (!activeChallenge()) return false; this.startChallengeRun(); return true;
     }
   }
 
@@ -764,13 +736,15 @@ export class BuildScreen implements Screen {
     else this.toast.show(res.error);
   }
 
-  // ------------------------------------------------------------------ challenge banner (chunk 28a)
+  // ------------------------------------------------------------------ challenge bar (chunk 28a, moved to the bottom and given its own START in 29b)
   private buildBanner() {
-    this.banner.position.set(0, LAYOUT.gridArea.y);
     this.bannerText.position.set(10, 6);
     this.banner.addChild(this.bannerBg, this.bannerText, this.bannerStatus);
     this.container.addChild(this.banner);
-    this.bannerClose = textButton('challengeEnd', { x: VIEW_W - 50, y: LAYOUT.gridArea.y + 2, w: 46, h: 46 }, 'X', () => { endChallengeSession(); this.toast.show('Challenge ended'); this.updateBanner(); }, 18);
+    const by = LAYOUT.stats.y - BANNER_MIN_H;
+    this.bannerStart = textButton('challengeStart', { x: VIEW_W - BANNER_BTN.start - BANNER_BTN.end - 14, y: by + 8, w: BANNER_BTN.start, h: BANNER_BTN.h }, 'START', () => this.startChallengeRun(), 20);
+    this.bannerClose = textButton('challengeEnd', { x: VIEW_W - BANNER_BTN.end - 6, y: by + 8, w: BANNER_BTN.end, h: BANNER_BTN.h }, 'X', () => { endChallengeSession(); this.toast.show('Challenge ended'); this.updateBanner(); }, 18);
+    this.addButton(this.bannerStart);
     this.addButton(this.bannerClose);
     this.updateBanner();
   }
@@ -783,33 +757,32 @@ export class BuildScreen implements Screen {
     return checkBuild(ch.rules, this.model.grid, this.model.compiled, ch.rules.hulls?.some(h => owned.includes(h)) ?? true);
   }
 
+  /** The bar sits just above the stats strip, so it never covers the copy / paste / A buttons at the top of the grid. Not shown without a challenge. */
   private updateBanner() {
     const ch = activeChallenge();
     this.banner.visible = !!ch;
     this.bannerClose.container.visible = !!ch;
+    this.bannerStart.container.visible = !!ch;
     if (!ch) return;
     this.bannerText.text = `CHALLENGE: ${ch.name}
 ${ruleLines(ch).join('  ·  ')}`;
     const why = this.challengeBlock();
-    this.bannerStatus.text = why ?? 'Ready: FLY starts this challenge.';
+    this.bannerStatus.text = why ?? 'Ready: START flies this challenge.';
     this.bannerStatus.style.fill = why ? THEME.bad : THEME.good;
     this.bannerStatus.position.set(10, 6 + this.bannerText.height + 4);
-    const h = this.bannerStatus.y + this.bannerStatus.height + 8;
-    this.bannerBg.clear().rect(0, 0, VIEW_W, h).fill({ color: THEME.bg, alpha: 0.92 }).rect(0, h - 1, VIEW_W, 1).fill(THEME.border);
+    const h = Math.max(BANNER_MIN_H, this.bannerStatus.y + this.bannerStatus.height + 8);
+    const y = LAYOUT.stats.y - h;
+    this.banner.position.set(0, y);
+    for (const b of [this.bannerStart, this.bannerClose]) { b.spec.rect.y = y + 8; b.container.y = y + 8; }
+    this.bannerBg.clear().rect(0, 0, VIEW_W, h).fill({ color: UI.color.panel, alpha: 0.96 }).rect(0, 0, VIEW_W, 1).fill(UI.color.border);
   }
 
-  fly() {
+  /** The bar's START (and the F key): flies the started challenge's tier, or says what the build breaks. */
+  startChallengeRun() {
     const ch = activeChallenge();
-    if (ch) {
-      const why = this.challengeBlock();
-      if (why) { sfx.play('denied'); this.toast.show(why, 4500); return; }
-      this.sm.switchTo(new WallScreen(this.sm, generateLevel(ch.tier), this.model.gridForFlight(), ch));
-      return;
-    }
-    if (this.model.compiled.recipes.length === 0) {
-      this.toast.show("Your circuit doesn't reach an ejector");
-      return;
-    }
-    this.sm.switchTo(new FlyScreen(this.sm, this.model.gridForFlight()));
+    if (!ch) return;
+    const why = this.challengeBlock();
+    if (why) { sfx.play('denied'); this.toast.show(why, 4500); return; }
+    this.sm.switchTo(new WallScreen(this.sm, generateLevel(ch.tier), this.model.gridForFlight(), ch));
   }
 }

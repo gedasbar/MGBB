@@ -2,28 +2,22 @@ import { Container, Graphics } from 'pixi.js';
 import { CONFIG } from '../config';
 import { clientToGame } from '../input';
 import { Screen, ScreenManager } from './ScreenManager';
-import { BuildScreen } from './BuildScreen';
-import { ShopScreen } from './ShopScreen';
-import { SkillsScreen } from './SkillsScreen';
-import { CaptainScreen } from './CaptainScreen';
-import { WallScreen } from './WallScreen';
 import { GestureTracker } from '../builder/gestures';
-import { getBuilderModel } from '../builder/session';
 import { inRect, LAYOUT, Rect, VIEW_H, VIEW_W } from '../builder/layout';
 import { makeTabButtons } from '../builder/tabs';
 import { makeText, Toast, UIButton } from '../builder/ui';
-import { classicClearedCount, getProgressStore, isCleared, isFrontierUnlocked, isPassed, isUnlocked, lateTiersOpen, nextTier } from '../econ/progress';
+import { classicClearedCount, getProgressStore, isCleared, isPassed, isUnlocked, lateTiersOpen, nextTier } from '../econ/progress';
 import { drawLateTypeIcon } from '../ui/lateTypeIcon';
 import { CLASSIC_TIERS, LATE_FIRST, LATE_TYPES, LateType, lateSlot } from '../data/lateTiers';
-import { CreditsBadge, textButton, TextButton } from '../ui/hud';
-import { FrontierScreen } from './FrontierScreen';
-import { FRONTIER_NAME, MAP_UNLOCK_TIER } from '../frontier/constants';
+import { CreditsBadge, textButton } from '../ui/hud';
+import { backToCarousel, NO_EJECTOR_TEXT, openModeScreen, startCampaignTier } from '../map/nav';
+import { mapMemory } from '../map/memory';
+import { goToTab } from '../map/tabs';
 import { fmtTime } from './RunSummaryScreen';
 import { fmtBig } from '../ui/format';
 import { THEME } from '../ui/theme';
 import { generateLevel, MAX_TIER } from '../wall/generator';
 import { DEBUG_ON } from '../debug/enabled';
-import { endChallengeSession } from '../challenges/session';
 
 const MAP_COLS = 5;
 const GRID_TOP = 52;
@@ -63,7 +57,6 @@ export class MapScreen implements Screen {
   private sheet = new Container();
   private buttons: UIButton[] = [];
   private startButton: UIButton;
-  private frontierButton: TextButton;
   private gestures: GestureTracker | null = null;
   private medalsText = makeText('', 22, THEME.text, { fontWeight: 'bold' });
   private title = makeText('', 20, THEME.text, { fontWeight: 'bold' });
@@ -93,13 +86,9 @@ export class MapScreen implements Screen {
     this.medalsText.anchor.set(0, 0.5);
     this.medalsText.position.set(64, 27);
 
-    const back = textButton('mapBack', { x: 6, y: 6, w: 46, h: 40 }, '<', () => this.sm.switchTo(new BuildScreen(this.sm)), 24);
+    // Chunk 29b: "<" returns to the mode carousel (the Frontier has its own card there, so the header button is gone).
+    const back = textButton('mapBack', { x: 6, y: 6, w: 46, h: 40 }, '<', () => backToCarousel(this.sm, 'campaign'), 24);
     this.buttons.push(back);
-    // Chunk 15a: the Frontier grid map opens here once tier MAP_UNLOCK_TIER is passed (greyed until then).
-    const open = isFrontierUnlocked(p);
-    this.frontierButton = textButton('mapFrontier', { x: 196, y: 6, w: 150, h: 40 }, open ? FRONTIER_NAME : `${FRONTIER_NAME}\nPass tier ${MAP_UNLOCK_TIER}`, () => this.openFrontier(), open ? 18 : 13);
-    this.frontierButton.setEnabled(open);
-    this.buttons.push(this.frontierButton);
 
     const sheetBg = new Graphics().rect(0, SHEET_Y, VIEW_W, SHEET_H).fill(THEME.panel).rect(0, SHEET_Y, VIEW_W, 1).fill(THEME.border);
     this.title.position.set(14, SHEET_Y + 10);
@@ -114,7 +103,7 @@ export class MapScreen implements Screen {
 
     const tabs = makeTabButtons('tabMap', (id) => this.tapTab(id));
     this.buttons.push(...tabs);
-    this.container.addChild(bg, this.listC, this.mask, bar, this.medalsText, this.credits.container, back.container, this.frontierButton.container, this.sheet);
+    this.container.addChild(bg, this.listC, this.mask, bar, this.medalsText, this.credits.container, back.container, this.sheet);
     for (const t of tabs) this.container.addChild(t.container);
     this.toast.container.y = -80; // the toast's usual spot is behind the bottom sheet here
     this.container.addChild(this.toast.container);
@@ -243,6 +232,7 @@ export class MapScreen implements Screen {
 
   // ------------------------------------------------------------------ input
   init() {
+    mapMemory().setOpen('campaign');
     this.gestures = new GestureTracker(
       this.sm.app.canvas as HTMLCanvasElement,
       (cx, cy) => clientToGame(cx, cy, this.sm.app.canvas.getBoundingClientRect(), CONFIG.VIEW.W, CONFIG.VIEW.H),
@@ -269,7 +259,6 @@ export class MapScreen implements Screen {
     if (b) {
       if (b.enabled) { b.flash(); b.spec.onTap(); }
       else if (b === this.startButton) this.toast.show(`Pass tier ${this.selected - 1} first`);
-      else if (b === this.frontierButton) this.toast.show(`The ${FRONTIER_NAME} opens after you pass tier ${MAP_UNLOCK_TIER}`);
       return;
     }
     if (!this.inGrid(x, y)) return;
@@ -288,28 +277,15 @@ export class MapScreen implements Screen {
   }
 
   private tapTab(id: string) {
-    if (id === 'tabMap') return;
-    if (id === 'tabBuild') this.sm.switchTo(new BuildScreen(this.sm));
-    else if (id === 'tabShop') this.sm.switchTo(new ShopScreen(this.sm));
-    else if (id === 'tabCaptain') this.sm.switchTo(new CaptainScreen(this.sm));
-    else if (id === 'tabSkills') this.sm.switchTo(new SkillsScreen(this.sm));
+    if (id !== 'tabMap') goToTab(this.sm, id);
   }
 
   private start() {
-    if (!isUnlocked(this.store.data, this.selected)) return;
-    const model = getBuilderModel();
-    if (model.compiled.recipes.length === 0) {
-      this.toast.show("Your circuit doesn't reach an ejector");
-      return;
-    }
-    endChallengeSession(); // a normal tier is not a challenge run
-    this.sm.switchTo(new WallScreen(this.sm, generateLevel(this.selected), model.gridForFlight()));
+    if (startCampaignTier(this.sm, this.selected) === 'noEjector') this.toast.show(NO_EJECTOR_TEXT);
   }
 
-  openFrontier() {
-    if (!isFrontierUnlocked(this.store.data)) return;
-    this.sm.switchTo(new FrontierScreen(this.sm));
-  }
+  /** Dev / test shortcut: the Frontier's own screen (the player gets there from the carousel). */
+  openFrontier() { openModeScreen(this.sm, 'frontier'); }
 
   update(dt: number) {
     this.toast.update(dt * 1000);
@@ -334,7 +310,6 @@ export class MapScreen implements Screen {
       }),
       tileScreenRect: (tier: number) => this.tileScreenRect(tier),
       scrollTo: (y: number) => { this.scrollY = y; this.applyScroll(); this.rebuild(); },
-      frontierButton: () => ({ rect: this.frontierButton.rect, enabled: this.frontierButton.enabled }),
       openFrontier: () => this.openFrontier(),
       progress: this.store,
     };
