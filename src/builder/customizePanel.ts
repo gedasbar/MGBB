@@ -2,7 +2,8 @@ import { Container, Graphics } from 'pixi.js';
 import { inRect, Rect } from './layout';
 import { makeText } from './ui';
 import { getProgressStore } from '../econ/progress';
-import { THEME } from '../ui/theme';
+import { THEME, UI } from '../ui/theme';
+import { drawTileFace } from '../ui/widgets';
 import { sfx } from '../audio';
 import { fmtBig } from '../ui/format';
 import { SKIN_AUTO, TRAIL_STYLE_DEFAULT } from '../ui/settings';
@@ -17,7 +18,7 @@ const PAD = 12;
 const GAP = 8;
 const COLS = 3;
 const TILE_H = 122;
-const HEAD_H = 36;
+const HEAD_H = 32;
 
 export interface CustomizePanelEvents {
   tab(t: HubTab): void;
@@ -30,7 +31,7 @@ interface Tile { id: string; kind: 'skin' | 'trail'; rect: Rect; unlocked: boole
 /**
  * Chunk 28b: the CUSTOMIZATION tab of the hub. PROJECTILE SKIN: Auto (the look follows damage) or one look locked for every shot; the five damage-band looks unlock when the best
  * shot reaches their band, the three reward skins by the achievement or challenge that pays them. TRAILS: the colour style of the fading trail behind shots (its length,
- * Off / Short / Long, is in Settings > Graphics). A locked tile shows what unlocks it; tapping it says so. What is chosen is saved with the settings.
+ * Off / Short / Long, is in Settings > Graphics). A locked tile only says LOCKED (29a); tapping it names what unlocks it in a toast. What is chosen is saved with the settings.
  */
 export class CustomizePanel {
   readonly container = new Container();
@@ -114,15 +115,11 @@ export class CustomizePanel {
     this.scrollBy(0);
   }
 
-  private head(text: string, y: number, sub?: string) {
-    const t = makeText(text, 18, THEME.currency, { fontWeight: 'bold' });
+  /** A section header (29a: the header alone, no helper line under it). */
+  private head(text: string, y: number) {
+    const t = makeText(text, UI.text.header, UI.color.accent, { fontWeight: 'bold' });
     t.position.set(PAD, y + 4);
     this.listC.addChild(t);
-    if (sub) {
-      const s = makeText(sub, 13, THEME.textDim, { wordWrap: true, wordWrapWidth: HUB_PANEL.w - 2 * PAD });
-      s.position.set(PAD, y + 26);
-      this.listC.addChild(s);
-    }
   }
 
   private drawList() {
@@ -132,8 +129,8 @@ export class CustomizePanel {
     this.tiles = [];
     const tw = (HUB_PANEL.w - 2 * PAD - (COLS - 1) * GAP) / COLS;
     let y = 6;
-    this.head('PROJECTILE SKIN', y, `Auto: the look follows the shot's damage. Best shot so far: ${fmtBig(p.records.bestShot)}.`);
-    y += HEAD_H + 22;
+    this.head('PROJECTILE SKIN', y);
+    y += HEAD_H;
     // Auto first, then the eight looks.
     const skinTiles: { id: string; name: string; unlocked: boolean; hint: string; look: ShotLook | null }[] = [
       { id: SKIN_AUTO, name: 'Auto', unlocked: true, hint: '', look: null },
@@ -146,8 +143,8 @@ export class CustomizePanel {
       this.drawTile(tile, s.name, (g, cx, cy) => (s.look ? this.drawLook(g, s.look, cx, cy, 1.5) : this.drawAutoSet(g, cx, cy)));
     });
     y += Math.ceil(skinTiles.length / COLS) * (TILE_H + GAP) + 10;
-    this.head('SHOT TRAIL', y, `Colour of the fading trail. Length: Settings > Graphics > Trails (now ${sfx.settings.trails}).`);
-    y += HEAD_H + 22;
+    this.head('SHOT TRAIL', y);
+    y += HEAD_H;
     TRAIL_STYLES.forEach((t, i) => {
       const r: Rect = { x: PAD + (i % COLS) * (tw + GAP), y: y + Math.floor(i / COLS) * (TILE_H + GAP), w: tw, h: TILE_H };
       const tile: Tile = { id: t.id, kind: 'trail', rect: r, unlocked: trailUnlocked(t, p), selected: trailSel === t.id, hint: unlockHint(t.unlock, fmtBig) };
@@ -162,14 +159,14 @@ export class CustomizePanel {
   /** One tile: a frame, a preview drawn by `art` at the tile's upper centre, the name and the status line. */
   private drawTile(t: Tile, name: string, art: (g: Graphics, cx: number, cy: number) => void) {
     const r = t.rect;
-    const g = new Graphics().rect(r.x, r.y, r.w, r.h).fill(THEME.buttonFill).stroke({ color: t.selected ? THEME.select : THEME.border, width: t.selected ? 3 : 1.5 });
+    const g = drawTileFace(new Graphics(), r, { selected: t.selected });
     const preview = new Graphics();
     art(preview, r.x + r.w / 2, r.y + 44);
     if (!t.unlocked) preview.alpha = 0.3;
     const label = makeText(name, 14, t.unlocked ? THEME.text : THEME.textDim, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: r.w - 8 });
     label.anchor.set(0.5, 0);
     label.position.set(r.x + r.w / 2, r.y + 80);
-    const status = makeText(t.selected ? 'SELECTED' : t.unlocked ? 'Unlocked' : `LOCKED  ${t.hint}`, 11, t.selected ? THEME.good : t.unlocked ? THEME.textDim : THEME.warn, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: r.w - 8 });
+    const status = makeText(t.selected ? 'SELECTED' : t.unlocked ? '' : 'LOCKED', UI.text.small, t.selected ? THEME.good : t.unlocked ? THEME.textDim : THEME.warn, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: r.w - 8 });
     status.anchor.set(0.5, 0);
     status.position.set(r.x + r.w / 2, r.y + 80 + label.height + 1);
     this.listC.addChild(g, preview, label, status);

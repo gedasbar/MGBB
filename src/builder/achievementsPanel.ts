@@ -7,16 +7,20 @@ import { CHALLENGES } from '../data/challenges';
 import { progressOf, rewardText } from '../achievements/rules';
 import { challengeCounts, challengeDone, challengeRewardText, challengeUnlocked, ruleLines } from '../challenges/rules';
 import { fmtBig } from '../ui/format';
-import { THEME } from '../ui/theme';
+import { THEME, UI } from '../ui/theme';
+import { drawButtonFace, drawCheckbox, drawSegmented, faceTextColor, segmentRects } from '../ui/widgets';
 import { sfx } from '../audio';
 import { drawHubFrame, hubBodyRect, hubTabAt, HubTab, HUB_PANEL, HUB_TAB_H } from './hub';
 
-const PAD = 8;
-const GAP = 8;
-const SEG_H = 44;
-const TOGGLE_H = 40;
-/** Top of the scrolling list below the two view buttons and the "Show completed" row (local to the body). */
-const LIST_TOP = SEG_H + TOGGLE_H + 4;
+const PAD = UI.space.m;
+const GAP = UI.space.s;
+const SEG_H = UI.control.segment;
+const BOX = UI.control.checkbox;
+/** The switch row (Achievements / Challenges + the "show completed" checkbox) sits one spacing step below the hub's tab strip; then a Medals line. */
+const SEG_Y = UI.space.m;
+const MEDALS_H = 26;
+/** Top of the scrolling list below the switch row and the Medals line (local to the body). */
+const LIST_TOP = SEG_Y + SEG_H + MEDALS_H + UI.space.xs;
 const ACH_H = 88;
 const GROUP_H = 34;
 const BAR_H = 8;
@@ -150,34 +154,48 @@ export class AchievementsPanel {
     return t;
   }
 
-  private box(layer: Container, r: Rect, border: number = THEME.border, fill: number = THEME.panel) {
-    layer.addChild(new Graphics().rect(r.x, r.y, r.w, r.h).fill(fill).stroke({ color: border, width: 1.5 }));
+  private box(layer: Container, r: Rect, border: number = THEME.border, fill: number = UI.color.tile) {
+    layer.addChild(new Graphics().rect(r.x, r.y, r.w, r.h).fill(fill).stroke({ color: border === THEME.border ? UI.color.border : border, width: UI.stroke.thin }));
   }
 
   /** A button drawn into `layer` at `r` (local to the body for fixed ones, to the list's content for the others). */
   private button(layer: Container, id: string, r: Rect, text: string, enabled: boolean, act: () => void, opts: { fixed?: boolean; size?: number; selected?: boolean } = {}) {
     const b = opts.fixed ? this.body : { x: 0, y: 0 };
-    const g = new Graphics().rect(b.x + r.x + 1, b.y + r.y + 1, r.w - 2, r.h - 2).fill(opts.selected ? THEME.pressedFill : THEME.buttonFill).stroke({ color: enabled ? THEME.buttonLine : THEME.disabled, width: 1.5 });
-    const t = makeText(text, opts.size ?? 15, opts.selected ? THEME.pressedIcon : enabled ? THEME.text : THEME.disabled, { fontWeight: 'bold', align: 'center' });
+    const g = drawButtonFace(new Graphics(), { x: b.x + r.x, y: b.y + r.y, w: r.w, h: r.h }, { selected: opts.selected, enabled });
+    const t = makeText(text, opts.size ?? UI.text.body + 1, faceTextColor({ selected: opts.selected, enabled }), { fontWeight: 'bold', align: 'center' });
     t.anchor.set(0.5);
     t.position.set(b.x + r.x + r.w / 2, b.y + r.y + r.h / 2);
     layer.addChild(g, t);
     this.hits.push({ id, rect: r, enabled, act, fixed: opts.fixed });
   }
 
-  /** The two view buttons and the "Show completed" row (body-local, fixed above the list). */
+  /** The Achievements / Challenges segmented control (shared style) with the small "show completed" checkbox beside it, and the Medals line (body-local, fixed above the list). */
   private drawControls() {
     const L = this.fixedC;
     const w = HUB_PANEL.w;
-    const half = (w - 2 * PAD - GAP) / 2;
     const p = getProgressStore().data;
     const cc = challengeCounts(p);
-    this.button(L, 'viewAchievements', { x: PAD, y: 4, w: half, h: SEG_H - 8 }, `Achievements ${p.achievements.length} / ${ACHIEVEMENTS.length}`, true, () => this.show('achievements'), { fixed: true, selected: this.view === 'achievements' });
-    this.button(L, 'viewChallenges', { x: PAD + half + GAP, y: 4, w: half, h: SEG_H - 8 }, `Challenges ${cc.done} / ${cc.total}`, true, () => this.show('challenges'), { fixed: true, selected: this.view === 'challenges' });
-    this.button(L, 'showCompleted', { x: PAD, y: SEG_H + 2, w: 200, h: TOGGLE_H - 6 }, `Show completed: ${this.showCompleted ? 'On' : 'Off'}`, true, () => this.setShowCompleted(!this.showCompleted), { fixed: true, size: 14, selected: this.showCompleted });
     const b = this.body;
-    const m = this.label(L, `Medals ${p.medals}`, b.x + w - 12, b.y + SEG_H + 8, 18, THEME.currency, 0, 1);
-    m.anchor.set(1, 0);
+    const segW = w - 2 * PAD - GAP - BOX;
+    const seg: Rect = { x: b.x + PAD, y: b.y + SEG_Y, w: segW, h: SEG_H };
+    const active = this.view === 'achievements' ? 0 : 1;
+    L.addChild(drawSegmented(new Graphics(), seg, active, 2));
+    const names = [`Achievements ${p.achievements.length} / ${ACHIEVEMENTS.length}`, `Challenges ${cc.done} / ${cc.total}`];
+    segmentRects(seg, 2).forEach((r, i) => {
+      const t = makeText(names[i], UI.text.body, i === active ? UI.color.onSelected : UI.color.text, { fontWeight: 'bold' });
+      t.anchor.set(0.5);
+      t.position.set(r.x + r.w / 2, r.y + r.h / 2);
+      L.addChild(t);
+      this.hits.push({ id: i === 0 ? 'viewAchievements' : 'viewChallenges', rect: { x: r.x - b.x, y: r.y - b.y, w: r.w, h: r.h }, enabled: true, act: () => this.show(i === 0 ? 'achievements' : 'challenges'), fixed: true });
+    });
+    // The checkbox: ticked = finished entries are shown. Same height as the switch so the row reads as one.
+    const cb: Rect = { x: b.x + w - PAD - BOX, y: b.y + SEG_Y + (SEG_H - BOX) / 2, w: BOX, h: BOX };
+    L.addChild(drawCheckbox(new Graphics(), cb, this.showCompleted));
+    this.hits.push({ id: 'showCompleted', rect: { x: cb.x - b.x, y: cb.y - b.y, w: cb.w, h: cb.h }, enabled: true, act: () => this.setShowCompleted(!this.showCompleted), fixed: true });
+    const rowY = b.y + SEG_Y + SEG_H + UI.space.xs;
+    this.label(L, `Medals ${p.medals}`, b.x + PAD + 2, rowY, UI.text.header, UI.color.accent);
+    const d = this.label(L, 'Done', cb.x + cb.w / 2, rowY + 2, UI.text.small, UI.color.textDim);
+    d.anchor.set(0.5, 0);
   }
 
   private drawAchievements() {
@@ -216,7 +234,7 @@ export class AchievementsPanel {
       }
       y += 4;
     }
-    if (shown === 0) this.label(L, 'Everything is done. Turn on "Show completed" to see them.', PAD + 2, y + 8, 15, THEME.textDim, HUB_PANEL.w - 2 * PAD - 4);
+    if (shown === 0) this.label(L, 'All done', PAD + 2, y + 8, UI.text.header, UI.color.textDim);
     this.contentH = y + PAD + (shown === 0 ? 40 : 0);
   }
 
@@ -225,19 +243,17 @@ export class AchievementsPanel {
     const L = this.listC;
     const W = HUB_PANEL.w - 2 * PAD;
     let y = PAD;
-    this.label(L, 'Each challenge is a campaign tier with a rule. It opens when you pass the tier; the reward is paid once.', PAD + 2, y, 13, THEME.textDim, W - 4);
-    y += 40;
     const sorted = CHALLENGES.filter(c => this.showCompleted || !challengeDone(p, c.id)).sort((a, b) => Number(challengeDone(p, a.id)) - Number(challengeDone(p, b.id)) || a.tier - b.tier);
-    if (sorted.length === 0) { this.label(L, 'Everything is done. Turn on "Show completed" to see them.', PAD + 2, y, 15, THEME.textDim, W - 4); y += 40; }
+    if (sorted.length === 0) { this.label(L, 'All done', PAD + 2, y, UI.text.header, UI.color.textDim); y += 40; }
     for (const c of sorted) {
       const open = challengeUnlocked(p, c);
       const done = challengeDone(p, c.id);
-      const lines = open ? ruleLines(c) : [`Locked: pass tier ${c.tier} first`];
+      const lines = open ? ruleLines(c) : [`Locked · tier ${c.tier}`];
       const texts = lines.map(ln => makeText(ln, 13, open ? THEME.textDim : THEME.disabled, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: W - 140, lineHeight: 17 }));
       const bodyH = texts.reduce((n, t) => n + t.height + 2, 0);
       const h = Math.max(92, 32 + bodyH + 28);
       const r: Rect = { x: PAD, y, w: W, h };
-      this.box(L, r, done ? EARNED : THEME.border, open ? THEME.panel : THEME.bg);
+      this.box(L, r, done ? EARNED : THEME.border, open ? UI.color.tile : UI.color.panel);
       this.rows.push({ id: c.id, title: c.name, text: lines.join(' | '), earned: done, open, value: 0, goal: 0 });
       this.label(L, c.name, r.x + 12, r.y + 8, 18, open ? THEME.text : THEME.textDim);
       let ty = r.y + 32;

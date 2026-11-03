@@ -22,3 +22,8 @@ export const damageNumbersOn = () => sfx.settings.damageNumbers !== false;
 export function frameLimitFps(limit: number): number {
   return FRAME_LIMITS.includes(limit as 0 | 30 | 60) ? limit : 0;
 }
+
+/** Chunk 29a: true on a device with a keyboard and mouse (a phone or tablet with only a touch screen says false); the keyboard keys are listed in the Build help only there. */
+export function hasKeyboard(): boolean {
+  try { return typeof matchMedia === 'function' && matchMedia('(any-hover: hover) and (any-pointer: fine)').matches; } catch { return false; }
+}

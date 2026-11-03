@@ -26,6 +26,8 @@ import {
 } from '../builder/draw';
 import { InfoPanel, Inspector, makeText, StatsStrip, Toast, UIButton } from '../builder/ui';
 import { Picker, REMOVE_TILE } from '../builder/picker';
+import { HULLS, HullId } from '../data/hulls';
+import { hasKeyboard } from '../ui/touchMode';
 import { BUILD_KEY_HELP, BuildKeyAction, keyAction } from '../builder/keys';
 import { THEME } from '../ui/theme';
 import { makeTabButtons } from '../builder/tabs';
@@ -52,12 +54,12 @@ function cellCenterOf(v: View, cx: number, cy: number) {
   return { x: v.ox + (cx + 0.5) * v.scale, y: v.oy + (cy + 0.5) * v.scale };
 }
 
-const HELP_TEXT =
+const helpText = () => HELP_BASE + (hasKeyboard() ? '\n\nKeyboard:\n' + [...BUILD_KEY_HELP, 'P: pause a run.  Backtick (`): stats overlay'].join('\n') : '');
+const HELP_BASE =
   'Tap a cell to select and inspect it; tap it again to open the block picker. Tap a tile to preview it, tap it again to place it.\n\n' +
   'The red line is automatic: it leaves the generator and runs straight until a block changes it, ending at an ejector. ' +
   'A block you place turns to face the line that reaches it, once, and keeps that facing. Rotate turns the selected block; Auto-orient turns just that block to face the line again.\n\n' +
-  'Drag to pan, pinch or use the wheel to zoom, and use the corner-arrows button to fit the hull.' +
-  '\n\nKeyboard:\n' + BUILD_KEY_HELP.join('\n');
+  'Drag to pan, pinch or use the wheel to zoom, and use the corner-arrows button to fit the hull.';
 
 /**
  * The circuit builder. All state lives in BuilderModel; this screen only renders it and turns
@@ -219,7 +221,7 @@ export class BuildScreen implements Screen {
       draw: (g, b) => this.flatFace(g, b, 'ship', 30),
     }));
     this.addButton(new UIButton({
-      id: 'help', rect: { x: 56, y: 4, w: 44, h: 44 }, onTap: () => this.info.show('How the builder works', HELP_TEXT),
+      id: 'help', rect: { x: 56, y: 4, w: 44, h: 44 }, onTap: () => this.info.show('How the builder works', helpText()),
       draw: (g, b) => this.flatFace(g, b, 'help', 28),
     }));
 
@@ -347,7 +349,7 @@ export class BuildScreen implements Screen {
   private updateInspector() {
     const sel = this.selected;
     if (!sel) {
-      this.inspector.set('Circuit builder', 'Tap a cell to inspect it; tap it again to build. The red line runs from the generator to an ejector.');
+      this.inspector.set(HULLS[this.model.hullId as HullId]?.name ?? 'Circuit', '');
       return;
     }
     const cell = this.model.cellAt(sel.x, sel.y);
@@ -363,7 +365,7 @@ export class BuildScreen implements Screen {
         return;
     }
     if (!cell.blockId) {
-      this.inspector.set('Empty cell', 'Buildable. The red line passes straight through. Tap it again to build here.');
+      this.inspector.set('Empty cell', '');
       return;
     }
     const def = BLOCKS[cell.blockId];
@@ -537,7 +539,7 @@ export class BuildScreen implements Screen {
       const text = blockText(def, this.model.levelOf(blockId));
       this.inspector.set(ok ? def.name : `${def.name} · no ejector reached`, text.short, ok ? THEME.text : THEME.warn, text.stack ?? '');
     } else {
-      this.inspector.set('Remove', 'Clears this cell and returns the block to your inventory.');
+      this.inspector.set('Remove', '');
     }
   }
 

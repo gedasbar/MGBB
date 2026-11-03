@@ -3,6 +3,7 @@ import { Container, Graphics, Text, TextStyleOptions } from 'pixi.js';
 import { CompileStats } from '../engine/compiler';
 import { COLORS } from './draw';
 import { THEME } from '../ui/theme';
+import { drawButtonFace, drawModal } from '../ui/widgets';
 import { inRect, LAYOUT, Rect, VIEW_W } from './layout';
 import { sfx } from '../audio';
 
@@ -251,8 +252,8 @@ export class InfoPanel {
     this.body.position.set(x + 16, y + 48);
     const h = 48 + this.body.height + 56;
     this.dim.clear().rect(0, 0, VIEW_W, 960).fill({ color: THEME.dim, alpha: 0.55 });
-    this.panel.clear().rect(x, y, w, h).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
-    this.panel.rect(x + w - 112, y + h - 40, 96, 28).fill(THEME.buttonFill).stroke({ color: THEME.buttonLine, width: 1.5 });
+    drawModal(this.panel.clear(), { x, y, w, h });
+    drawButtonFace(this.panel, { x: x + w - 112, y: y + h - 40, w: 96, h: 28 });
     this.container.visible = true;
     if (!this.closeLabel) {
       this.closeLabel = makeText('Close', 14, THEME.text, { fontWeight: 'bold' });

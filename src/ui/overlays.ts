@@ -2,9 +2,9 @@ import { Container, Graphics, Text } from 'pixi.js';
 import { CONFIG } from '../config';
 import { makeText } from '../builder/ui';
 import { sfx } from '../audio';
-import { THEME } from './theme';
+import { THEME, UI } from './theme';
+import { drawButtonFace, drawCheckbox, drawModal } from './widgets';
 import { FRAME_LIMITS, TOUCH_GAIN_MAX, TOUCH_GAIN_MIN, TOUCH_GAIN_STEP, TRAIL_MODES, WEAPON_SOUNDS } from './settings';
-import { BUILD_KEY_HELP } from '../builder/keys';
 import type { ScreenManager } from '../screens/ScreenManager';
 import { PROGRESS_KEY } from '../econ/progress';
 import { LEGACY_KEY, STORAGE_KEY } from '../builder/persist';
@@ -40,8 +40,6 @@ const SET_BACK_H = 76;
 const SET_ROW_H = 48;
 const SET_ROW_GAP = 8;
 const SET_SECTION_H = 40;
-/** The keys that are not the Build screen's (the Build ones come from BUILD_KEY_HELP). */
-const OTHER_KEYS: readonly string[] = ['Esc or P: pause a run (Esc also closes this panel)', 'Backtick (`): stats overlay on / off'];
 
 const fmtPct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -242,8 +240,8 @@ ${a.length === 1 ? rewardText(first.reward) : `${medals} Medal${medals === 1 ? '
   private panelBox(w: number, h: number, title: string): { x: number; y: number } {
     const x = (W - w) / 2;
     const y = (H - h) / 2;
-    const g = new Graphics().rect(x, y, w, h).fill(THEME.panel).stroke({ color: THEME.border, width: 2 });
-    const t = makeText(title, 26, THEME.text, { fontWeight: 'bold' });
+    const g = drawModal(new Graphics(), { x, y, w, h });
+    const t = makeText(title, UI.text.title + 2, UI.color.text, { fontWeight: 'bold' });
     t.anchor.set(0.5, 0);
     t.position.set(W / 2, y + 16);
     this.panel.addChild(g, t);
@@ -265,7 +263,7 @@ ${a.length === 1 ? rewardText(first.reward) : `${medals} Medal${medals === 1 ? '
   }
 
   private drawFace(g: Graphics, x: number, y: number, w: number, h: number, lit: boolean) {
-    g.clear().rect(x, y, w, h).fill(lit ? THEME.pressedFill : THEME.buttonFill).stroke({ color: THEME.buttonLine, width: 1.5 });
+    drawButtonFace(g.clear(), { x, y, w, h }, { pressed: lit });
   }
 
   private buildPause() {
@@ -294,14 +292,26 @@ ${a.length === 1 ? rewardText(first.reward) : `${medals} Medal${medals === 1 ? '
     let cy = 6;
     const btn = (id: string, bx: number, by: number, bw: number, label: string, act: (px: number) => void, size = 20) => this.addButton(id, bx, by, bw, SET_ROW_H, label, act, size, content, true);
     const section = (title: string) => {
-      const t = makeText(title.toUpperCase(), 17, THEME.currency, { fontWeight: 'bold' });
+      const t = makeText(title.toUpperCase(), UI.text.header, UI.color.accent, { fontWeight: 'bold' });
       t.position.set(L, cy + 10);
-      content.addChild(t, new Graphics().rect(L, cy + 34, FW, 2).fill(THEME.border));
+      content.addChild(t, new Graphics().rect(L, cy + 34, FW, 2).fill(UI.color.border));
       cy += SET_SECTION_H;
     };
     const next = () => { cy += SET_ROW_H + SET_ROW_GAP; };
     const toggle = (id: string, label: () => string, act: () => void) => {
       const b = btn(id, L, cy, FW, label(), () => { act(); b.text.text = label(); });
+      next();
+    };
+    /** Chunk 29a: the shared toggle style, a button row with the label on the left and a tick box on the right (on = ticked). */
+    const check = (id: string, label: string, get: () => boolean, set: () => void) => {
+      const box = { x: L + FW - UI.space.m - UI.control.checkbox + 4, y: cy + (SET_ROW_H - 32) / 2, w: 32, h: 32 };
+      const b = btn(id, L, cy, FW, label, () => { set(); redraw(); });
+      b.text.anchor.set(0, 0.5);
+      b.text.position.set(L + UI.space.m, cy + SET_ROW_H / 2);
+      const tick = new Graphics();
+      b.node.addChild(tick);
+      const redraw = () => { tick.clear(); drawCheckbox(tick, box, get()); };
+      redraw();
       next();
     };
     const stepper = (id: 'master' | 'sfx', label: string, get: () => number, set: (v: number) => void) => {
@@ -330,9 +340,9 @@ ${a.length === 1 ? rewardText(first.reward) : `${medals} Medal${medals === 1 ? '
       const i = TRAIL_MODES.indexOf(sfx.settings.trails);
       sfx.set('trails', TRAIL_MODES[(i + 1) % TRAIL_MODES.length]);
     });
-    toggle('backgrounds', () => `Backgrounds: ${sfx.settings.backgrounds ? 'ON' : 'OFF'}`, () => sfx.set('backgrounds', !sfx.settings.backgrounds));
-    toggle('damageNumbers', () => `Damage numbers: ${sfx.settings.damageNumbers ? 'ON' : 'OFF'}`, () => sfx.set('damageNumbers', !sfx.settings.damageNumbers));
-    toggle('statsToggle', () => `Stats overlay: ${this.sm.stats.enabled ? 'ON' : 'OFF'}`, () => this.sm.stats.toggle());
+    check('backgrounds', 'Backgrounds', () => sfx.settings.backgrounds !== false, () => sfx.set('backgrounds', !sfx.settings.backgrounds));
+    check('damageNumbers', 'Damage numbers', () => sfx.settings.damageNumbers !== false, () => sfx.set('damageNumbers', !sfx.settings.damageNumbers));
+    check('statsToggle', 'Stats overlay', () => this.sm.stats.enabled, () => this.sm.stats.toggle());
 
     // ---- Controls
     section('Controls');
@@ -364,19 +374,12 @@ ${a.length === 1 ? rewardText(first.reward) : `${medals} Medal${medals === 1 ? '
       slider.face.clear(); // the track is its own drawing
       next();
     }
-    {
-      const keys = ['Keyboard keys', ...BUILD_KEY_HELP, ...OTHER_KEYS].join('\n');
-      const t = makeText(keys, 14, THEME.textDim, { lineHeight: 20, wordWrap: true, wordWrapWidth: FW });
-      t.position.set(L, cy);
-      content.addChild(t);
-      cy += t.height + SET_ROW_GAP;
-    }
 
     // ---- Audio
     section('Audio');
     stepper('master', 'Volume', () => sfx.settings.masterVolume, (v) => sfx.setMasterVolume(round1(v)));
     stepper('sfx', 'SFX volume', () => sfx.settings.sfxVolume, (v) => sfx.setSfxVolume(round1(v)));
-    toggle('mute', () => `Sound: ${sfx.settings.muted ? 'MUTED' : 'ON'}`, () => sfx.setMuted(!sfx.settings.muted));
+    check('mute', 'Sound', () => !sfx.settings.muted, () => sfx.setMuted(!sfx.settings.muted));
     const WORD: Record<string, string> = { off: 'Off', soft: 'Soft', normal: 'Normal' };
     toggle('weapon', () => `Weapon sound: ${WORD[sfx.settings.weaponSound]}`, () => {
       const i = WEAPON_SOUNDS.indexOf(sfx.settings.weaponSound);
@@ -433,8 +436,8 @@ ${a.length === 1 ? rewardText(first.reward) : `${medals} Medal${medals === 1 ? '
     const pw = 420, ph = 250;
     const { x, y } = this.panelBox(pw, ph, second ? 'REALLY ERASE?' : 'RESET SAVE?');
     const t = makeText(second
-      ? 'Last chance. Everything on this device\nis erased and the game restarts.\nExport the save first if unsure.'
-      : 'This erases ALL progress: credits, blocks,\nhulls, medals and your saved circuit.\nIt cannot be undone.', 17, THEME.textDim, { align: 'center', lineHeight: 24 });
+      ? 'Last chance. Everything is erased.'
+      : 'Erases ALL progress on this device.\nIt cannot be undone.', UI.text.header, UI.color.textDim, { align: 'center', lineHeight: 24 });
     t.anchor.set(0.5, 0);
     t.position.set(W / 2, y + 64);
     this.panel.addChild(t);

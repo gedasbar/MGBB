@@ -212,7 +212,7 @@ export class MapScreen implements Screen {
     const p = this.store.data;
     if (this.lockedEntry() && this.selected === LATE_FIRST) {
       this.title.text = 'What happens after 100?';
-      this.hint.text = 'Clear every tier from 1 to 100 (destroy all their blocks) to find out.';
+      this.hint.text = '';
       this.spikeLine.text = '';
       this.bestLine.text = `${classicClearedCount(p)} / ${CLASSIC_TIERS} cleared`;
       this.earnLine.text = '';
