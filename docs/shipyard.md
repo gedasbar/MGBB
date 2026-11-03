@@ -6,7 +6,7 @@ Part 1 builds the rules and the data of the Shipyard: a new currency (Cores), 3x
 
 - Display name is one constant, `CURRENCY_CORES_NAME` = "Cores" (`src/shipyard/constants.ts`). Code says `cores`.
 - **Earned only in Free Fly and in Frontier Free Fly squares**, on top of the credits. Earned from the first minute of the game, so the bank is full when the Shipyard opens (ring 150).
-- Free Fly: when wave `w` starts (w >= 2, so wave `w - 1` was survived) the run earns `round(2 x 1.08^(w-2))` Cores (wave 2: 2, wave 10: 4, wave 20: 9, wave 30: 19, wave 50: 87). Reaching a Medal-wave milestone (5, 10, 15, 20, 30, 40, 50) adds `2 x wave` more, EVERY time (the Medal itself is still once per save). The Core Magnet trait multiplies the run's earnings.
+- Free Fly: when wave `w` starts (w >= 2, so wave `w - 1` was survived) the run earns `round(2 x 1.08^(w-2))` Cores (wave 2: 2, wave 10: 4, wave 20: 8, wave 30: 17, wave 50: 80). Reaching a Medal-wave milestone (5, 10, 15, 20, 30, 40, 50) adds `2 x wave` more, EVERY time (the Medal itself is still once per save). The Core Magnet trait multiplies the run's earnings.
 - Frontier Free Fly square: one `coresForWave(min(wave equivalent, 30))` for every full 40 s survived, no milestone bonus (a square has no waves; the cap keeps a late square from paying more than a good normal run).
 - Quitting mid-run keeps what the run has earned so far, like credits.
 - Shown in the Free Fly HUD (`Cores +N`), on the run summary (a line under the credits total) and on the Free Fly home screen ("Cores: used in the Shipyard, which opens at Frontier ring 150").
@@ -18,11 +18,11 @@ A chunk is a 3x3 pattern (`_` buildable, `.` outside, `G` generator, `E` ejector
 | kind | chunks |
 |---|---|
 | Plain | Full, Corridor, Bar, Corner, T-junction, Cross, Ring |
-| Generator | Generator (G on the bottom edge; exactly one per ship, bottom row of the build area) |
+| Generator | Generator (6 cells over a G on the bottom edge; exactly one per ship, bottom row of the build area) |
 | Guns | Front Gun (1 ejector, top), Twin Gun (2 ejectors, top corners), Side Gun (ejectors left and right, they fire sideways since 25a) |
 | Traits | Wide Open (9 cells, -0.2 pulses/s, -30% damage), Overdrive (3 cells, +0.5 pulses/s), Extra Life (4 cells, one crash forgiven), Core Magnet (5 cells, +10% Cores), Long Barrel (4 cells, +20% shot speed) |
 
-Trait effects add per copy placed (two Overdrives = +1.0 pulses/s; damage and shot speed multiply). Extra Life reuses the captains' Second Chance (the crash is forgiven, 1 s of untouchable time; the brief asks for 1.5 s, see DECISIONS).
+Trait effects add per copy placed (two Overdrives = +1.0 pulses/s; damage and shot speed multiply). Extra Life reuses the captains' Second Chance (the crash is forgiven and the ship is untouchable for 1.5 s; `RunModifiers.chanceInvuln`).
 
 ## 3. Designs and the hull rules
 
@@ -37,7 +37,7 @@ The design compiles into the same `ROWS` text layout as a normal hull (empty out
 
 **Stats** (constants in `src/shipyard/constants.ts`): pulses/s = `5.0 - 0.025 x cells` (cells = buildable `_` cells), never below 1.5, then the traits; shot speed 1.0 then traits; size class from the occupied slots (1-2 small, 3-5 medium, 6-9 big, 10+ huge, the normal hit-radius table).
 
-**Ownership.** Chunks are bought into an inventory (`chunks`: id -> count owned; Cores). A chunk placed in a design uses one copy; the same chunk in two designs counts twice against the inventory per design (a copy is lent to ONE design at a time is NOT enforced: designs are blueprints, each is checked alone against the inventory; see DECISIONS). Up to 3 saved designs. A design flies only when valid and every chunk in it is owned in the numbers it uses.
+**Ownership.** Chunks are bought into an inventory (`chunks`: id -> count owned; Cores). A chunk placed in a design uses one copy. Designs are blueprints: each is checked alone against the inventory, so two designs may use the same copies (only one ship flies at a time; DECISIONS 520). Up to 3 saved designs. A design flies only when valid and every chunk in it is owned in the numbers it uses.
 
 ## 4. Unlock and flying
 

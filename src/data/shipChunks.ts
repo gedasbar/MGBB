@@ -46,43 +46,43 @@ export const CHUNK_GROWTH = 1.5;
 
 export const CHUNKS: readonly ChunkDef[] = [
   // ---- plain: cells only
-  { id: 'full', name: 'Full', kind: 'plain', basePrice: 12, growth: CHUNK_GROWTH, text: 'A solid 3 x 3 block of cells.',
+  { id: 'full', name: 'Full', kind: 'plain', basePrice: 25, growth: CHUNK_GROWTH, text: 'A solid 3 x 3 block of cells.',
     rows: ['___', '___', '___'] },
-  { id: 'corridor', name: 'Corridor', kind: 'plain', basePrice: 8, growth: CHUNK_GROWTH, text: 'A vertical line of three.',
+  { id: 'corridor', name: 'Corridor', kind: 'plain', basePrice: 15, growth: CHUNK_GROWTH, text: 'A vertical line of three.',
     rows: ['._.', '._.', '._.'] },
-  { id: 'bar', name: 'Bar', kind: 'plain', basePrice: 8, growth: CHUNK_GROWTH, text: 'A horizontal line of three.',
+  { id: 'bar', name: 'Bar', kind: 'plain', basePrice: 15, growth: CHUNK_GROWTH, text: 'A horizontal line of three.',
     rows: ['...', '___', '...'] },
-  { id: 'corner', name: 'Corner', kind: 'plain', basePrice: 8, growth: CHUNK_GROWTH, text: 'A turn: connects the right and the bottom edge.',
+  { id: 'corner', name: 'Corner', kind: 'plain', basePrice: 15, growth: CHUNK_GROWTH, text: 'A turn: connects the right and the bottom edge.',
     rows: ['...', '.__', '._.'] },
-  { id: 'tjunction', name: 'T-junction', kind: 'plain', basePrice: 10, growth: CHUNK_GROWTH, text: 'Left, right and bottom edges joined.',
+  { id: 'tjunction', name: 'T-junction', kind: 'plain', basePrice: 20, growth: CHUNK_GROWTH, text: 'Left, right and bottom edges joined.',
     rows: ['...', '___', '._.'] },
-  { id: 'cross', name: 'Cross', kind: 'plain', basePrice: 12, growth: CHUNK_GROWTH, text: 'All four edges joined.',
+  { id: 'cross', name: 'Cross', kind: 'plain', basePrice: 25, growth: CHUNK_GROWTH, text: 'All four edges joined.',
     rows: ['._.', '___', '._.'] },
-  { id: 'ring', name: 'Ring', kind: 'plain', basePrice: 15, growth: CHUNK_GROWTH, text: 'Eight cells round a hole: two routes through.',
+  { id: 'ring', name: 'Ring', kind: 'plain', basePrice: 30, growth: CHUNK_GROWTH, text: 'Eight cells round a hole: two routes through.',
     rows: ['___', '_._', '___'] },
 
   // ---- generator: exactly one per ship, in the bottom row of the build area
-  { id: 'generator', name: 'Generator', kind: 'generator', basePrice: 40, growth: CHUNK_GROWTH, text: 'The signal source. One per ship, bottom row.',
-    rows: ['_._', '___', '.G.'] },
+  { id: 'generator', name: 'Generator', kind: 'generator', basePrice: 60, growth: CHUNK_GROWTH, text: 'The signal source. One per ship, bottom row.',
+    rows: ['___', '___', '.G.'] },
 
   // ---- guns: ejectors
-  { id: 'front_gun', name: 'Front Gun', kind: 'gun', basePrice: 150, growth: CHUNK_GROWTH, text: 'One ejector at the top.',
+  { id: 'front_gun', name: 'Front Gun', kind: 'gun', basePrice: 250, growth: CHUNK_GROWTH, text: 'One ejector at the top.',
     rows: ['.E.', '._.', '._.'] },
-  { id: 'twin_gun', name: 'Twin Gun', kind: 'gun', basePrice: 400, growth: CHUNK_GROWTH, text: 'Two ejectors at the top corners.',
+  { id: 'twin_gun', name: 'Twin Gun', kind: 'gun', basePrice: 700, growth: CHUNK_GROWTH, text: 'Two ejectors at the top corners.',
     rows: ['E.E', '___', '._.'] },
-  { id: 'side_gun', name: 'Side Gun', kind: 'gun', basePrice: 300, growth: CHUNK_GROWTH, text: 'Ejectors on the left and right: shots leave sideways.',
+  { id: 'side_gun', name: 'Side Gun', kind: 'gun', basePrice: 500, growth: CHUNK_GROWTH, text: 'Ejectors on the left and right: shots leave sideways.',
     rows: ['...', 'E_E', '._.'] },
 
   // ---- traits: cells plus an effect
-  { id: 'wide_open', name: 'Wide Open', kind: 'trait', basePrice: 600, growth: CHUNK_GROWTH, text: '9 cells, but -0.2 pulses/s and -30% damage.',
+  { id: 'wide_open', name: 'Wide Open', kind: 'trait', basePrice: 900, growth: CHUNK_GROWTH, text: '9 cells, but -0.2 pulses/s and -30% damage.',
     rows: ['___', '___', '___'], effect: { pulses: -0.2, damage: -0.3 } },
-  { id: 'overdrive', name: 'Overdrive', kind: 'trait', basePrice: 1200, growth: CHUNK_GROWTH, text: '+0.5 pulses/s.',
+  { id: 'overdrive', name: 'Overdrive', kind: 'trait', basePrice: 2000, growth: CHUNK_GROWTH, text: '+0.5 pulses/s.',
     rows: ['._.', '._.', '._.'], effect: { pulses: 0.5 } },
-  { id: 'extra_life', name: 'Extra Life', kind: 'trait', basePrice: 1500, growth: CHUNK_GROWTH, text: 'One crash forgiven per run.',
+  { id: 'extra_life', name: 'Extra Life', kind: 'trait', basePrice: 2500, growth: CHUNK_GROWTH, text: 'One crash forgiven per run.',
     rows: ['._.', '___', '...'], effect: { lives: 1 } },
-  { id: 'core_magnet', name: 'Core Magnet', kind: 'trait', basePrice: 900, growth: CHUNK_GROWTH, text: '+10% Cores earned.',
+  { id: 'core_magnet', name: 'Core Magnet', kind: 'trait', basePrice: 1500, growth: CHUNK_GROWTH, text: '+10% Cores earned.',
     rows: ['._.', '___', '._.'], effect: { cores: 0.1 } },
-  { id: 'long_barrel', name: 'Long Barrel', kind: 'trait', basePrice: 1000, growth: CHUNK_GROWTH, text: '+20% shot speed.',
+  { id: 'long_barrel', name: 'Long Barrel', kind: 'trait', basePrice: 1600, growth: CHUNK_GROWTH, text: '+20% shot speed.',
     rows: ['__.', '__.', '...'], effect: { shotSpeed: 0.2 } },
 ];
 
