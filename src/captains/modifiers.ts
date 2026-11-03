@@ -1,5 +1,5 @@
 import { NO_SKILLS, SkillEffects } from '../skills/effects';
-import { CAPTAIN_BY_ID, Effect, HERO_LEVEL_BASE_DAMAGE, MEDAL_DOUBLE_MAX, OPTION_BY_ID } from './data';
+import { CAPTAIN_BY_ID, Effect, HERO_LEVEL_BASE_DAMAGE, MEDAL_DOUBLE_MAX, OPTION_BY_ID, SECOND_CHANCE_INVULN } from './data';
 
 /**
  * What the active captain changes in a run, as plain numbers. Built once at run start by computeRunModifiers() and handed to
@@ -29,6 +29,10 @@ export interface RunModifiers {
   medalDouble: number;
   /** Second Chance charges per run. */
   secondChances: number;
+  /** Seconds untouchable after a Second Chance / Extra Life saves the ship. */
+  chanceInvuln: number;
+  /** Chunk 31a: multiplier on the Cores a Free Fly run earns (the Core Magnet chunk; 1 = none). */
+  coresMul: number;
   /** Seconds added to the spawn invulnerability. */
   spawnInvuln: number;
   /** Free Fly hull multiplier, and hull healed per kill. */
@@ -45,7 +49,7 @@ export interface RunModifiers {
 export function neutralModifiers(): RunModifiers {
   return {
     baseDamage: 0, damageMul: 1, fireRateMul: 1, projSpeedMul: 1, vsArmor: 0, vsShield: 0, vsFragment: 0, wallDamageMul: 1,
-    creditMul: 1, wallCreditMul: 1, waveBonusMul: 1, passCredits: 0, medalDouble: 0, secondChances: 0, spawnInvuln: 0,
+    creditMul: 1, wallCreditMul: 1, waveBonusMul: 1, passCredits: 0, medalDouble: 0, secondChances: 0, chanceInvuln: SECOND_CHANCE_INVULN, coresMul: 1, spawnInvuln: 0,
     hullMul: 1, killHeal: 0, boostZone: 1, furthestRing: 0, skills: NO_SKILLS,
   };
 }

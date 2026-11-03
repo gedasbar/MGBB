@@ -25,7 +25,7 @@ import {
 } from '../builder/draw';
 import { InfoPanel, Inspector, makeText, StatsStrip, Toast, UIButton } from '../builder/ui';
 import { Picker, REMOVE_TILE } from '../builder/picker';
-import { HULLS, HullId } from '../data/hulls';
+import { hullName } from '../data/hulls';
 import { hasKeyboard } from '../ui/touchMode';
 import { BUILD_KEY_HELP, BuildKeyAction, keyAction } from '../builder/keys';
 import { THEME, UI } from '../ui/theme';
@@ -322,7 +322,7 @@ export class BuildScreen implements Screen {
   private updateInspector() {
     const sel = this.selected;
     if (!sel) {
-      this.inspector.set(HULLS[this.model.hullId as HullId]?.name ?? 'Circuit', '');
+      this.inspector.set(hullName(this.model.hullId), '');
       return;
     }
     const cell = this.model.cellAt(sel.x, sel.y);

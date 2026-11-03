@@ -318,12 +318,12 @@ describe('time played (24a)', () => {
     s.addPlayTime(Infinity);
     s.flushPlayTime();
     const again = loadProgress(serializeProgress(s.data));
-    expect(again.version).toBe(13);
+    expect(again.version).toBe(14);
     expect(again.timePlayed).toBeCloseTo(125.5, 9);
     const old: any = JSON.parse(serializeProgress(defaultProgress()));
     old.version = 11; delete old.timePlayed; delete old.newBlocks; delete old.skillPointsSeen;
     const migrated = loadProgress(JSON.stringify(old));
-    expect(migrated.version).toBe(13);
+    expect(migrated.version).toBe(14);
     expect(migrated.timePlayed).toBe(0);
     expect(migrated.newBlocks).toEqual([]);
     expect(loadProgress(JSON.stringify({ ...old, version: 12, timePlayed: -3 })).timePlayed).toBe(0);

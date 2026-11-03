@@ -6,6 +6,7 @@ import { fmtBig } from '../ui/format';
 import { CATEGORY_COLOR } from './draw';
 import { shipThumbnail, TextureMaker } from '../ui/shipArt';
 import { HULL_ROWS } from '../data/hullLayouts';
+import { customHullInfo } from '../data/hulls';
 import {
   hullBuyLabel, hullBuyRect, hullContentH, HULL_PANEL, HULL_TITLE_H, hullListRect, hullRowRects, hullRows, HullRow, hullSheetLines, hullSheetRect, hullSummary, hullTraitLine,
 } from './hullPickerLogic';
@@ -185,7 +186,7 @@ export class HullPicker {
 
   /** A flat drawing of the hull's cells: buildable cells grey, ejectors in an accent colour, the generator in the signal red. */
   private drawLayoutPreview(g: Graphics, id: string, box: Rect) {
-    const rows = HULL_ROWS[id];
+    const rows = HULL_ROWS[id] ?? customHullInfo(id)?.rows ?? ['.'];
     const gw = rows[0].length, gh = rows.length;
     const cs = Math.min(box.w / gw, box.h / gh, 22);
     const ox = box.x + (box.w - gw * cs) / 2, oy = box.y + (box.h - gh * cs) / 2;

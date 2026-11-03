@@ -7,6 +7,8 @@ import { CAPTAINS, HERO_LEVEL_SANITY_MAX } from '../captains/data';
 import { MAP_UNLOCK_TIER } from '../frontier/constants';
 import { SQ_CLEARED } from '../frontier/state';
 import { getWorld, sqKey } from '../frontier/world';
+import { CHUNKS } from '../data/shipChunks';
+import { designOf } from '../shipyard/design';
 
 /**
  * Dev cheats (?debug=1 panel, dev builds only). Each one changes the progress through the normal store and commits, so the
@@ -59,6 +61,24 @@ export function ownAllBlocks(store: ProgressStore, copies: number, maxLevel: boo
 export function ownAllHulls(store: ProgressStore) {
   for (const id of Object.keys(HULL_BUILDERS)) if (!store.data.ownedHulls.includes(id)) store.data.ownedHulls.push(id);
   store.commit();
+}
+
+/** Chunk 31a: Cores (never below zero). */
+export function addCores(store: ProgressStore, n: number) {
+  store.data.cores = Math.max(0, store.data.cores + Math.floor(n));
+  store.commit();
+}
+
+/** Chunk 31a: `copies` of every ship chunk, no Cores spent (the Shipyard screen comes in part 2; until then this and the sample design are how a design is tried). */
+export function ownAllChunks(store: ProgressStore, copies: number) {
+  const n = Math.max(0, Math.floor(copies));
+  for (const c of CHUNKS) store.data.chunks[c.id] = n;
+  store.commit();
+}
+
+/** Chunk 31a: saves a small valid sample design in slot 1 (Generator under a Corridor under a Front Gun). Needs the Shipyard open and the chunks owned to fly. */
+export function saveSampleDesign(store: ProgressStore) {
+  store.setDesign(0, designOf([[null, 'front_gun'], [null, 'corridor'], [null, 'generator']]));
 }
 
 /** Marks tiers 1..100 passed (the Map opens them all; tiers 101-200 also need every tier cleared, see clearAllTiers). No Medal, nothing cleared, no best times. */

@@ -6,6 +6,8 @@ import { LAYOUT, VIEW_H, VIEW_W } from '../builder/layout';
 import { CreditsBadge, textButton } from '../ui/hud';
 import { drawTileFace } from '../ui/widgets';
 import { UI } from '../ui/theme';
+import { CORES_HINT, CURRENCY_CORES_NAME } from '../shipyard/constants';
+import { fmtBig } from '../ui/format';
 import { DEBUG_ON } from '../debug/enabled';
 import { getProgressStore } from '../econ/progress';
 import { clientToGame } from '../input';
@@ -55,6 +57,13 @@ export class FreeFlyHomeScreen implements Screen {
       this.container.addChild(this.row(y, label, value, UI.color.accent));
       y += ROW_H + ROW_GAP;
     }
+    // Chunk 31a: Cores, the Shipyard's currency, earned only in Free Fly.
+    this.container.addChild(this.row(y, CURRENCY_CORES_NAME, fmtBig(p.cores), UI.color.accent));
+    y += ROW_H + ROW_GAP;
+    const coresHint = makeText(CORES_HINT, UI.text.small, UI.color.textDim);
+    coresHint.position.set(PAD, y - 2);
+    this.container.addChild(coresHint);
+    y += coresHint.height + UI.space.s;
     // Medal wave milestones.
     y += UI.space.s;
     const head = makeText('MEDAL WAVES', UI.text.header, UI.color.textDim, { fontWeight: 'bold' });
@@ -120,7 +129,7 @@ export class FreeFlyHomeScreen implements Screen {
     const p = this.store.data;
     (window as any).__mgbm = {
       screen: 'freefly-home',
-      state: () => ({ bestWave: p.bestWave, bestTime: flyBestTime(p), milestones: flyMilestones(p), toast: this.toast.message }),
+      state: () => ({ cores: p.cores, bestWave: p.bestWave, bestTime: flyBestTime(p), milestones: flyMilestones(p), toast: this.toast.message }),
       buttonRect: (id: string) => this.buttons.find(b => b.id === id)?.rect,
       start: () => this.start(),
     };

@@ -11,7 +11,8 @@ import { getProgressStore, RunResult } from '../econ/progress';
 import { fmtBig } from '../ui/format';
 import { shotLines } from '../ui/runStats';
 import { textButton } from '../ui/hud';
-import { THEME } from '../ui/theme';
+import { THEME, UI } from '../ui/theme';
+import { CURRENCY_CORES_NAME } from '../shipyard/constants';
 import { DEBUG_ON } from '../debug/enabled';
 
 export function fmtTime(seconds: number): string {
@@ -145,6 +146,13 @@ export class RunSummaryScreen implements Screen {
     total.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP);
     this.container.addChild(total);
 
+    // Chunk 31a: the Cores a Free Fly run earned, at the left of the Medal line.
+    if ((result.cores ?? 0) > 0) {
+      const k = makeText(`+${fmtBig(result.cores!)} ${CURRENCY_CORES_NAME}`, 22, UI.color.accent, { fontWeight: 'bold' });
+      k.anchor.set(0, 0.5);
+      k.position.set(40, MEDAL_Y);
+      this.container.addChild(k);
+    }
     const medals = captain?.medals ?? (wall?.medal ? 1 : 0);
     if (medals > 0) {
       const m = makeText(`+${medals} Medal${medals === 1 ? '' : 's'}`, 22, THEME.currency, { fontWeight: 'bold' });
@@ -207,7 +215,7 @@ export class RunSummaryScreen implements Screen {
     if (DEBUG_ON) {
       (window as any).__mgbm = {
         screen: 'summary',
-        state: () => ({ title: title.text, unlocked, challenge, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
+        state: () => ({ title: title.text, cores: result.cores ?? 0, unlocked, challenge, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
       };
     }
   }

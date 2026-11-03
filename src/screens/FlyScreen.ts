@@ -8,7 +8,8 @@ import type { StatsInfo } from '../ui/stats';
 import { clientToGame, PointerState } from '../input';
 import { Pausable, Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
-import { CATEGORY_COLOR, THEME } from '../ui/theme';
+import { CATEGORY_COLOR, THEME, UI } from '../ui/theme';
+import { CURRENCY_CORES_NAME } from '../shipyard/constants';
 import { HIT_CLOUD } from '../engine/projectiles';
 import { fmtBig, fmtDamage } from '../ui/format';
 import { makeText } from '../builder/ui';
@@ -90,6 +91,8 @@ export class FlyScreen implements Screen {
   tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
   waveText = makeText('Wave 1', 16, THEME.text, { fontWeight: 'bold' });
   killsText = makeText('Kills 0', 16, THEME.textDim, { fontWeight: 'bold' });
+  /** Chunk 31a: the Cores this run has earned (Free Fly and Frontier Free Fly squares pay them). */
+  coresText = makeText(`${CURRENCY_CORES_NAME} +0`, 16, UI.color.accent, { fontWeight: 'bold' });
   /** Chunk 24a: a dim plate behind the HUD rows (like the wall's), and the SPIKE badge of a Frontier spike square inside it. */
   private hudPlate = new Graphics();
   private hudPlateW = 0;
@@ -198,8 +201,9 @@ export class FlyScreen implements Screen {
     this.tierText.position.set(20, 56);
     this.waveText.position.set(20, 76);
     this.killsText.position.set(20, 96);
+    this.coresText.position.set(20, 116);
     this.spikeBadge.visible = !!opts.frontier?.spike;
-    this.uiLayer.addChild(this.creditsText, this.tierText, this.spikeBadge, this.waveText, this.killsText);
+    this.uiLayer.addChild(this.creditsText, this.tierText, this.spikeBadge, this.waveText, this.killsText, this.coresText);
     const panel = new Graphics().rect(-BANNER_W / 2, -BANNER_H / 2, BANNER_W, BANNER_H).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
     this.bannerTitle.anchor.set(0.5);
     this.bannerTitle.position.set(0, -8);
@@ -230,7 +234,7 @@ export class FlyScreen implements Screen {
           projectiles: this.world.pool.count, recipes: this.world.recipes.length,
           damagePerShot: this.world.recipes.map(r => r.packet.damage),
           hull: this.world.hull, credits: this.world.credits, tier: this.world.tier, kills: this.world.kills, time: this.world.time,
-          hud: { credits: this.creditsText.text, tier: this.tierText.text, wave: this.waveText.text, kills: this.killsText.text, spike: this.spikeBadge.visible, plateW: this.hudPlateW },
+          hud: { credits: this.creditsText.text, tier: this.tierText.text, wave: this.waveText.text, kills: this.killsText.text, cores: this.coresText.text, spike: this.spikeBadge.visible, plateW: this.hudPlateW },
           wave: this.world.wave, waveTimeLeft: this.world.waveTimeLeft, seed: this.world.seed,
           banner: this.banner.visible ? { title: this.bannerTitle.text, sub: this.bannerSub.text, alpha: this.banner.alpha } : null,
           species: this.world.mitosis.enemies.map(e => e.defId),
@@ -346,9 +350,10 @@ export class FlyScreen implements Screen {
       this.timeBarFg.clear().rect(0, 0, (CONFIG.VIEW.W - 40) * (left / enc.duration), 6).fill(this.world.time >= enc.duration * FREEFLY_PASS_SHARE ? PROGRESS_COLOR : THEME.currency);
     } else this.waveText.text = `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
     this.killsText.text = `Kills ${this.world.kills}`;
+    this.coresText.text = `${CURRENCY_CORES_NAME} +${fmtBig(this.world.cores)}`;
     this.spikeBadge.position.set(20 + this.tierText.width + 12, 56 + (this.tierText.height - SPIKE_BADGE.h) / 2);
-    const plateW = Math.round(Math.max(190, this.spikeBadge.visible ? this.spikeBadge.x + SPIKE_BADGE.w + 14 : 0, ...[this.creditsText, this.tierText, this.waveText, this.killsText].map(t => 20 + t.width + 14)));
-    if (plateW !== this.hudPlateW) { this.hudPlateW = plateW; this.hudPlate.clear().rect(10, 14, plateW - 10, 108).fill({ color: THEME.bg, alpha: 0.72 }); }
+    const plateW = Math.round(Math.max(190, this.spikeBadge.visible ? this.spikeBadge.x + SPIKE_BADGE.w + 14 : 0, ...[this.creditsText, this.tierText, this.waveText, this.killsText, this.coresText].map(t => 20 + t.width + 14)));
+    if (plateW !== this.hudPlateW) { this.hudPlateW = plateW; this.hudPlate.clear().rect(10, 14, plateW - 10, 128).fill({ color: THEME.bg, alpha: 0.72 }); }
     for (const ev of this.world.waveEvents) {
       sfx.play('wave');
       const kind = specialKind(ev.wave);
@@ -462,7 +467,7 @@ export class FlyScreen implements Screen {
     const fr = this.opts.frontier!;
     const w = this.world;
     this.outcome = encounterOutcome(w.time, fr.params.duration, w.survived);
-    const r = getProgressStore().recordFrontierFly({ x: fr.x, y: fr.y, credits: w.credits, kills: w.kills, outcome: this.outcome, medalDouble: this.mods.medalDouble, shots: { ...w.projSys.runStats }, time: w.time });
+    const r = getProgressStore().recordFrontierFly({ x: fr.x, y: fr.y, credits: w.credits, cores: w.cores, kills: w.kills, outcome: this.outcome, medalDouble: this.mods.medalDouble, shots: { ...w.projSys.runStats }, time: w.time });
     this.banker.flush(w.kills);
     return { medals: r.medals, doubled: r.medalDoubled, newBestEarnings: r.newBestEarnings };
   }
@@ -496,7 +501,7 @@ export class FlyScreen implements Screen {
       name: CAPTAIN_BY_ID[id]?.name ?? id, killsAdded: this.banker.added, killsTotal: store.data.captains.heroes[id]?.kills ?? 0,
       medals: paid.medals, doubled: paid.doubled,
     };
-    const result: RunResult = { credits: w.credits, kills: w.kills, time: w.time, tier: w.tier, shots: { ...w.projSys.runStats } };
+    const result: RunResult = { credits: w.credits, cores: w.cores, kills: w.kills, time: w.time, tier: w.tier, shots: { ...w.projSys.runStats } };
     sm.switchTo(new RunSummaryScreen(sm, result, { newBestTier: false, newBestTime: false, newBestEarnings: paid.newBestEarnings }, {
       result: this.outcome!, destroyed: 0, total: 0, medal: paid.medals > 0,
       encounter: { duration: opts.frontier!.params.duration, kills: w.kills },

@@ -23,7 +23,8 @@ import { EncounterDirector } from '../frontier/encounter';
 import { SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC } from '../wall/constants';
 import type { MitosisEnemy } from '../engine/mitosis';
 import { neutralModifiers, RunModifiers } from '../captains/modifiers';
-import { SECOND_CHANCE_INVULN } from '../captains/data';
+import { applyHullTraits } from '../shipyard/registry';
+import { encounterCores, waveStartCores } from '../shipyard/cores';
 
 export const TOUCH_OFFSET_Y = TOUCH_DIRECT_OFFSET_Y; // finger sits below the ship on touch (direct mode)
 export { PX_PER_CELL };
@@ -111,6 +112,13 @@ export class World {
   /** Reused by the separation query of the enemy loop. */
   private readonly nearIds: number[] = [];
   bonusCredits = 0;
+  /** Chunk 31a: Cores earned by a normal Free Fly run so far (exact; the Core Magnet multiplier is already in). An encounter's are worked out from its time (see `cores`). */
+  private coresExact = 0;
+  /** Whole Cores this run has earned: Free Fly pays when each wave starts (plus the milestone bonus), a Frontier square one block per full 40 s survived. */
+  get cores(): number {
+    const exact = this.encounter ? encounterCores(this.encounter.wave, this.time) * this.mods.coresMul : this.coresExact;
+    return Math.floor(exact + 1e-9);
+  }
   /** Waves that started during the last update() calls (the screen shows a banner); consumers clear it. */
   waveEvents: { wave: number; bonus: number }[] = [];
   private kicks = new Map<number, { vx: number; vy: number }>();
@@ -132,7 +140,7 @@ export class World {
   private startWave: number;
 
   constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean; seed?: number; startWave?: number; modifiers?: RunModifiers; encounter?: World['encounter'] } = {}) {
-    this.mods = opts.modifiers ?? neutralModifiers();
+    this.mods = applyHullTraits(opts.modifiers ?? neutralModifiers(), opts.grid?.hullId);
     this.encounter = opts.encounter ?? null;
     this.maxHull = BASE_HULL * this.mods.hullMul;
     this.hull = this.maxHull;
@@ -259,6 +267,7 @@ export class World {
     this.applyStartWave();
     this.survived = false;
     this.bonusCredits = 0;
+    this.coresExact = 0;
     this.waveEvents.length = 0;
     this.hull = this.maxHull;
     this.secondChancesLeft = this.mods.secondChances;
@@ -410,6 +419,7 @@ export class World {
         this.bonusCredits += bonus;
         this.creditsExact += bonus;
         this.waveEvents.push({ wave: started, bonus });
+        if (!this.encounter) this.coresExact += waveStartCores(started) * this.mods.coresMul;
       }
       const hpMul = waveHpMul(this.director.wave) * (this.encounter ? this.encounter.hpMul : 1);
       for (const s of this.due) {
@@ -527,7 +537,7 @@ export class World {
           // Second Chance: this contact deals no damage; the ship is untouchable for a second.
           this.secondChancesLeft--;
           this.fx.secondChance++;
-          this.invuln = SECOND_CHANCE_INVULN;
+          this.invuln = this.mods.chanceInvuln;
         } else {
           this.hull -= CONTACT_DAMAGE;
           this.invuln = 0.5;

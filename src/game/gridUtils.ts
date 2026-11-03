@@ -25,7 +25,7 @@ export function parseLayout(rows: string[]): Grid {
   return { w, h, cells };
 }
 
-function withHull(id: string, rows: string[]): Grid {
+export function withHull(id: string, rows: string[]): Grid {
   const g = parseLayout(rows);
   g.hullId = id;
   return g;
