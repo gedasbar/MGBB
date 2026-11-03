@@ -29,6 +29,7 @@ import { HULLS, HullId } from '../data/hulls';
 import { hasKeyboard } from '../ui/touchMode';
 import { BUILD_KEY_HELP, BuildKeyAction, keyAction } from '../builder/keys';
 import { THEME, UI } from '../ui/theme';
+import { challengeStart } from '../challenges/start';
 import { makeTabButtons } from '../builder/tabs';
 import { ShopScreen } from './ShopScreen';
 import { SkillsScreen } from './SkillsScreen';
@@ -780,9 +781,8 @@ ${ruleLines(ch).join('  ·  ')}`;
   /** The bar's START (and the F key): flies the started challenge's tier, or says what the build breaks. */
   startChallengeRun() {
     const ch = activeChallenge();
-    if (!ch) return;
-    const why = this.challengeBlock();
-    if (why) { sfx.play('denied'); this.toast.show(why, 4500); return; }
-    this.sm.switchTo(new WallScreen(this.sm, generateLevel(ch.tier), this.model.gridForFlight(), ch));
+    const act = challengeStart(!!ch, this.challengeBlock());
+    if (act.kind === 'blocked') { sfx.play('denied'); this.toast.show(act.why, 4500); }
+    else if (act.kind === 'fly' && ch) this.sm.switchTo(new WallScreen(this.sm, generateLevel(ch.tier), this.model.gridForFlight(), ch));
   }
 }

@@ -106,10 +106,6 @@ export class MapCarouselScreen implements Screen {
       lock.position.set(0, -30);
       lock.scale.set(1.8);
       c.addChild(lock);
-      const unlock = makeText(`Unlocks when you pass tier ${MAP_UNLOCK_TIER}`, UI.text.body, UI.color.textDim, { align: 'center', wordWrap: true, wordWrapWidth: w - 40 });
-      unlock.anchor.set(0.5, 0);
-      unlock.position.set(0, h / 2 - 50);
-      c.addChild(unlock);
     }
     return { mode, container: c, art, locked: st.locked, line: st.line };
   }
