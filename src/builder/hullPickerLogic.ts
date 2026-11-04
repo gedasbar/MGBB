@@ -86,7 +86,8 @@ const HULL_SHEET_H = 290;
 export function hullListRect(sheetOpen: boolean): Rect {
   const p = HULL_PANEL;
   // Chunk 29b: a gap of plain panel between the tab strip and the list; rows are clipped at its lower edge.
-  return { x: p.x, y: p.y + HULL_TITLE_H + UI.hubGap, w: p.w, h: p.h - HULL_TITLE_H - UI.hubGap - (sheetOpen ? HULL_SHEET_H : 0) };
+  // Chunk 31b: the pinned Shipyard entry takes the first HULL_ENTRY_H of it.
+  return { x: p.x, y: p.y + HULL_TITLE_H + UI.hubGap + HULL_ENTRY_H, w: p.w, h: p.h - HULL_TITLE_H - UI.hubGap - HULL_ENTRY_H - (sheetOpen ? HULL_SHEET_H : 0) };
 }
 
 export function hullSheetRect(): Rect {
@@ -94,19 +95,19 @@ export function hullSheetRect(): Rect {
   return { x: p.x, y: p.y + p.h - HULL_SHEET_H, w: p.w, h: HULL_SHEET_H };
 }
 
-/** Chunk 31b: the SHIPYARD entry is one row at the top of the list; the hull rows start below it. */
-export const HULL_ENTRY_TOP = HULL_ROW_H + HULL_ROW_GAP;
-
-/** Row rectangles in content coordinates (y from the top of the list); `top` pushes them down (the Shipyard entry's room). */
-export function hullRowRects(count: number, top = 0): Rect[] {
+/** Row rectangles in content coordinates (y from the top of the list). */
+export function hullRowRects(count: number): Rect[] {
   const w = HULL_PANEL.w - 24;
-  return Array.from({ length: count }, (_, i) => ({ x: 12, y: top + HULL_ROW_GAP + i * (HULL_ROW_H + HULL_ROW_GAP), w, h: HULL_ROW_H }));
+  return Array.from({ length: count }, (_, i) => ({ x: 12, y: HULL_ROW_GAP + i * (HULL_ROW_H + HULL_ROW_GAP), w, h: HULL_ROW_H }));
 }
 
-/** The Shipyard entry's rectangle in content coordinates. */
-export const shipyardEntryRect = (): Rect => ({ x: 12, y: HULL_ROW_GAP, w: HULL_PANEL.w - 24, h: HULL_ROW_H });
+export const hullContentH = (count: number) => HULL_ROW_GAP + count * (HULL_ROW_H + HULL_ROW_GAP);
 
-export const hullContentH = (count: number, top = 0) => top + HULL_ROW_GAP + count * (HULL_ROW_H + HULL_ROW_GAP);
+/** Chunk 31b: the SHIPYARD entry is pinned under the tab strip (it does not scroll); the hull list starts below it. */
+export const HULL_ENTRY_H = HULL_ROW_H;
+
+/** The Shipyard entry's rectangle in screen coordinates. */
+export const shipyardEntryRect = (): Rect => ({ x: HULL_PANEL.x + 12, y: HULL_PANEL.y + HULL_TITLE_H + UI.hubGap, w: HULL_PANEL.w - 24, h: HULL_ROW_H });
 
 /** The entry's second line: what the Shipyard is, or what opens it. */
 export const shipyardEntryText = (open: boolean, ring: number): string => (open ? 'Design a custom ship from chunks' : `Locked: Frontier ring ${ring}`);

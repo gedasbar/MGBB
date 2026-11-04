@@ -179,7 +179,7 @@ export class ShipyardScreen implements Screen {
 
   private exportCells() {
     const text = this.cell.exportText();
-    try { void navigator.clipboard?.writeText(text); } catch { /* the box below still has the text */ }
+    try { navigator.clipboard?.writeText(text).catch(() => { /* not allowed here: the box below has the text */ }); } catch { /* the box below still has the text */ }
     openTextDialog('EXPORT LAYOUT', text, 'Paste into src/data/hullLayouts.ts, then add the hull to the tables in hulls.ts.');
   }
 

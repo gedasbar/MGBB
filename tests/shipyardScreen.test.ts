@@ -10,7 +10,7 @@ import { CHUNKS } from '../src/data/shipChunks';
 import { CUSTOM_SHIP_ART, MAX_ACCENT_PIECES } from '../src/ui/shipShapes';
 import { artSizeOf, getShipTexture, clearShipTextureCache, TextureMaker } from '../src/ui/shipArt';
 import { setCustomHull } from '../src/data/hulls';
-import { hullRowRects, hullContentH, HULL_ENTRY_TOP } from '../src/builder/hullPickerLogic';
+import { hullListRect, shipyardEntryRect, HULL_PANEL, HULL_TITLE_H } from '../src/builder/hullPickerLogic';
 import { Texture } from 'pixi.js';
 
 /** A store with the Shipyard open and a handful of chunks, backed by the real pure save functions. */
@@ -222,10 +222,13 @@ describe('screen geometry', () => {
       expect(cellAtPoint(w, h, m.ox + m.size * (w - 0.5), m.oy + m.size * (h - 0.5))).toEqual({ x: w - 1, y: h - 1 });
     }
   });
-  it('the hull list makes room for the Shipyard entry', () => {
-    expect(hullRowRects(3, HULL_ENTRY_TOP)[0].y).toBe(hullRowRects(3)[0].y + HULL_ENTRY_TOP);
-    expect(hullContentH(3, HULL_ENTRY_TOP)).toBe(hullContentH(3) + HULL_ENTRY_TOP);
+  it('the Shipyard entry is pinned under the tab strip and the hull list starts below it', () => {
+    const e = shipyardEntryRect();
+    expect(e.y).toBeGreaterThanOrEqual(HULL_PANEL.y + HULL_TITLE_H);
+    expect(hullListRect(false).y).toBeGreaterThanOrEqual(e.y + e.h);
+    expect(hullListRect(false).y + hullListRect(false).h).toBe(HULL_PANEL.y + HULL_PANEL.h);
   });
+
 });
 
 describe('debug cell mode', () => {
