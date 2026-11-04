@@ -112,14 +112,15 @@ export class ShipyardScreen implements Screen {
     ];
     const made = tools.map((d, i) => this.add(this.toolButton(d.id, { x: i * 108, y: SY_TOOLBAR.y + 2, w: 108, h: SY_TOOLBAR.h - 2 }, d.icon, d.label, d.act)));
     [this.clearB, this.rotLB, this.rotRB, this.undoB, this.redoB] = made;
-    this.useB = this.add(textButton('use', SY_USE, 'Use this ship', () => this.use(), 20));
+    const useW = DEBUG_ON ? SY_USE.w - 190 : SY_USE.w;
+    this.useB = this.add(textButton('use', { ...SY_USE, w: useW }, 'Use this ship', () => this.use(), 20));
     if (DEBUG_ON) {
-      this.cellModeB = this.add(textButton('cellMode', { x: 330, y: 6, w: 110, h: 40 }, 'Cell mode', () => this.setCellMode(true), 14));
+      this.cellModeB = this.add(textButton('cellMode', { x: SY_USE.x + useW + 6, y: SY_USE.y, w: 184, h: SY_USE.h }, 'Cell mode', () => this.setCellMode(true), 18));
       // Cell-mode toolbars (debug only): size and export above, the three flights below.
       const row1: [string, string, number, () => void][] = [
-        ['cellWminus', 'W-', 90, () => this.resizeCells(-1, 0)], ['cellWplus', 'W+', 90, () => this.resizeCells(1, 0)],
-        ['cellHminus', 'H-', 90, () => this.resizeCells(0, -1)], ['cellHplus', 'H+', 90, () => this.resizeCells(0, 1)],
-        ['cellExport', 'Export', 160, () => this.exportCells()],
+        ['cellWminus', 'W-', 80, () => this.resizeCells(-1, 0)], ['cellWplus', 'W+', 80, () => this.resizeCells(1, 0)],
+        ['cellHminus', 'H-', 80, () => this.resizeCells(0, -1)], ['cellHplus', 'H+', 80, () => this.resizeCells(0, 1)],
+        ['cellExport', 'Export', 150, () => this.exportCells()],
       ];
       let x = 10;
       for (const [id, label, w, fn] of row1) {
