@@ -4,15 +4,16 @@ import { CHUNK_CELLS } from '../shipyard/constants';
  * SHIP CHUNKS - the building bricks of custom hulls (Shipyard, chunk 31a; rules in shipyard/design.ts, note in docs/shipyard.md).
  *
  * A chunk is a 3x3 pattern, same legend as data/hullLayouts.ts (rows top to bottom):
- *   _  = buildable cell      .  = outside      G = generator (bottom row of its chunk)      E = ejector
- * Two chunks connect where buildable cells touch across their shared edge. An ejector needs nothing buildable above it, and
- * every cell of a chunk should be reachable from its other cells (tests/shipyard.test.ts checks both, in plain words).
+ *   _  = buildable cell      .  = outside      E = ejector
+ * (No chunk has a G: since chunk 31c the generator is a fixed cell below the build area, shipyard/constants.ts GENERATOR_COLUMN.)
+ * Two chunks connect where buildable cells touch across their shared edge. Every cell of a chunk should be reachable from its
+ * other cells (tests/shipyard.test.ts checks it, in plain words). A placed chunk can be turned 0 / 90 / 180 / 270 degrees (ejectors turn with it).
  *
  * Prices are in Cores: the n-th copy you own costs  basePrice x growth^(copies already owned). Plain chunks are cheap, guns
  * cost medium, traits are expensive (fit and income model: scripts/shipyard-model.ts, docs/shipyard.md).
  * An `effect` works once per copy placed in a design (pulses add, damage / shot speed / Cores multiply, lives add).
  */
-export type ChunkKind = 'plain' | 'generator' | 'gun' | 'trait';
+export type ChunkKind = 'plain' | 'gun' | 'trait';
 
 export interface ChunkEffect {
   /** Added to pulses per second. */
@@ -61,10 +62,6 @@ export const CHUNKS: readonly ChunkDef[] = [
   { id: 'ring', name: 'Ring', kind: 'plain', basePrice: 30, growth: CHUNK_GROWTH, text: 'Eight cells round a hole: two routes through.',
     rows: ['___', '_._', '___'] },
 
-  // ---- generator: exactly one per ship, in the bottom row of the build area
-  { id: 'generator', name: 'Generator', kind: 'generator', basePrice: 60, growth: CHUNK_GROWTH, text: 'The signal source. One per ship, bottom row.',
-    rows: ['___', '___', '.G.'] },
-
   // ---- guns: ejectors
   { id: 'front_gun', name: 'Front Gun', kind: 'gun', basePrice: 250, growth: CHUNK_GROWTH, text: 'One ejector at the top.',
     rows: ['.E.', '._.', '._.'] },
@@ -95,19 +92,16 @@ export function validateChunk(c: ChunkDef): string[] {
   if (c.rows.length !== CHUNK_CELLS) bad(`needs ${CHUNK_CELLS} rows, has ${c.rows.length}`);
   c.rows.forEach((r, y) => {
     if (r.length !== CHUNK_CELLS) bad(`row ${y + 1} has ${r.length} characters, needs ${CHUNK_CELLS}`);
-    [...r].forEach((ch, x) => { if (!'._GE'.includes(ch)) bad(`the character "${ch}" at row ${y + 1}, column ${x + 1} is not allowed; use only _ . G E`); });
+    [...r].forEach((ch, x) => { if (!'._E'.includes(ch)) bad(`the character "${ch}" at row ${y + 1}, column ${x + 1} is not allowed; use only _ . E`); });
   });
   const flat = c.rows.join('');
   const count = (ch: string) => flat.split(ch).length - 1;
-  if (c.kind === 'generator') {
-    if (count('G') !== 1) bad(`needs exactly one G, found ${count('G')}`);
-    if (!c.rows[CHUNK_CELLS - 1]?.includes('G')) bad('the G must be on the bottom row');
-  } else if (count('G') > 0) bad('only the Generator chunk may have a G');
+  if (count('G') > 0) bad('a chunk has no G: the generator is a fixed cell below the build area');
   if (c.kind === 'gun' && count('E') < 1) bad('a gun needs at least one E');
   if (c.kind !== 'gun' && count('E') > 0) bad('only gun chunks may have an E');
   if (!(c.basePrice > 0)) bad('needs a Cores price above 0');
   if (!(c.growth >= 1)) bad('the price growth per copy cannot be below 1');
-  // Every cell reachable from the others inside the chunk; nothing above an ejector.
+  // Every cell reachable from the others inside the chunk (an ejector may have cells above it since 31c: it fires out of the side opposite its entry).
   const at = (x: number, y: number) => (y >= 0 && y < c.rows.length && x >= 0 && x < (c.rows[y]?.length ?? 0) ? c.rows[y][x] : '.');
   const cells: [number, number][] = [];
   c.rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') cells.push([x, y]); }));
@@ -123,6 +117,16 @@ export function validateChunk(c: ChunkDef): string[] {
     }
     if (seen.size !== cells.length) bad('its cells are not all joined to each other');
   }
-  c.rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === 'E' && at(x, y - 1) !== '.') bad(`the ejector at row ${y + 1}, column ${x + 1} has a cell above it`); }));
   return out;
+}
+
+/** A pattern turned clockwise by `quarters` quarter turns (0..3; any integer is taken modulo 4). Ejectors and cells move together: new[r][c] = old[n-1-c][r] per turn. */
+export function rotateRows(rows: readonly string[], quarters: number): string[] {
+  let cur = [...rows];
+  const turns = ((Math.round(quarters) % 4) + 4) % 4;
+  for (let t = 0; t < turns; t++) {
+    const n = cur.length;
+    cur = Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => cur[n - 1 - c][r]).join(''));
+  }
+  return cur;
 }

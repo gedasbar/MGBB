@@ -71,8 +71,13 @@ describe('hull ladder layouts', () => {
     cut[3] = '__.__';                                                            // cuts the bottom row in two
     expect(validateHullLayout('Hornet', cut)).toContain('Hornet: the cell at row 3, column 1 cannot be reached from G');
     expect(validateHullLayout('Hornet', ['E', '_', 'x', 'G'])).toEqual(['Hornet: the character "x" at row 3, column 1 is not allowed; use only _ . G E']);
-    expect(validateHullLayout('Hornet', ['E', '_', 'G', '_'])).toContain('Hornet: the generator (G) is on row 3 but must be on the bottom row, row 4');
-    expect(validateHullLayout('Hornet', ['E', '_', '_', 'G', '.']).length).toBeGreaterThan(0);
+    // Chunk 31c: the generator may sit on any row and an ejector may have cells above it; one generator, one ejector at least, everything joined stay.
+    expect(validateHullLayout('Hornet', ['E', '_', 'G', '_'])).toEqual([]);
+    expect(validateHullLayout('Hornet', ['E', '_', '_', 'G', '.'])).toEqual([]);
+    expect(validateHullLayout('Hornet', ['_', 'E', '_', 'G'])).toEqual([]);
+    expect(validateHullLayout('Hornet', ['_', 'G'])).toContain('Hornet: needs at least 1 ejector (E), found none');
+    expect(validateHullLayout('Hornet', ['E', '.', 'G'])).toContain('Hornet: the cell above the generator (row 2, column 1) must be part of the hull, the signal only leaves upward');
+    expect(validateHullLayout('Hornet', ['E', '_', 'G', 'G'])).toContain('Hornet: needs exactly 1 generator (G), found 2');
   });
 
   it.each(LADDER.map(l => [l[0], l[2]] as [string, number]))('%s: every ejector can be fed by a plain straight-and-turn path', (id, ejectors) => {
@@ -247,7 +252,7 @@ describe('saves with the bigger ladder', () => {
     const raw = { ...defaultProgress(), ownedHulls: ['dart', 'fan', 'shuttle', 'wisp', 'zenith', 'not_a_hull', 7] };
     const p = loadProgress(JSON.stringify(raw));
     expect(p.version).toBe(PROGRESS_VERSION);
-    expect(PROGRESS_VERSION).toBe(14);
+    expect(PROGRESS_VERSION).toBe(15);
     expect(p.ownedHulls.sort()).toEqual(['dart', 'fan', 'shuttle', 'wisp', 'zenith'].sort());
     expect(richProgress().ownedHulls.length).toBe(19);
   });

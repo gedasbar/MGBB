@@ -18,7 +18,6 @@ A chunk is a 3x3 pattern (`_` buildable, `.` outside, `G` generator, `E` ejector
 | kind | chunks |
 |---|---|
 | Plain | Full, Corridor, Bar, Corner, T-junction, Cross, Ring |
-| Generator | Generator (6 cells over a G on the bottom edge; exactly one per ship, bottom row of the build area) |
 | Guns | Front Gun (1 ejector, top), Twin Gun (2 ejectors, top corners), Side Gun (ejectors left and right, they fire sideways since 25a) |
 | Traits | Wide Open (9 cells, -0.2 pulses/s, -30% damage), Overdrive (3 cells, +0.5 pulses/s), Extra Life (4 cells, one crash forgiven), Core Magnet (5 cells, +10% Cores), Long Barrel (4 cells, +20% shot speed) |
 
@@ -28,10 +27,11 @@ Trait effects add per copy placed (two Overdrives = +1.0 pulses/s; damage and sh
 
 A design is a 4x4 grid of chunk slots (12 x 12 cells), row-major, `null` = empty slot = outside the hull. Rules (`src/shipyard/design.ts`, pure, every error a plain sentence with rows and columns counted from 1):
 
-1. Exactly one Generator chunk, in the bottom row (row 4).
-2. At least one ejector.
+(Rules as of chunk 31c, section 8: the generator is fixed, not a chunk.)
+
+1. The cell directly above the fixed generator is part of the ship ("The cell above the generator must be part of the ship").
+2. At least one ejector (on the assembled, rotated grid).
 3. Every buildable cell and every ejector is connected to the generator through buildable cells, also across chunk edges (a flood fill on the assembled grid; the message names the chunk: "Twin Gun at row 2, column 3 is not connected to the generator").
-4. Nothing buildable above an ejector (the same rule as normal hulls; the message names the chunk).
 
 The design compiles into the same `ROWS` text layout as a normal hull (empty outer rows and columns trimmed, the bottom row kept), so the builder, compiler and flight need no special case; the compiled rows also pass `validateHullLayout`.
 
@@ -64,3 +64,17 @@ The numbers and the income model are in `scripts/shipyard-model.ts` (prints the 
 **Debug cell mode** (`?debug=1` or a dev server only): the grid becomes single cells (up to 12 x 12, W- W+ H- H+). A tap cycles outside -> buildable -> generator -> ejector -> outside. The strip shows `validateHullLayout`'s sentences. Export shows and copies ROWS text for `src/data/hullLayouts.ts`; Fly test flies the layout in Free Fly without saving.
 
 Pure parts: `editor.ts`, `cellMode.ts`, `viewLogic.ts`. Tests: `tests/shipyardScreen.test.ts`, `e2e/shipyard.e2e.cjs`, sheet `e2e/sheet-chunk31b.cjs` (`reports/chunk31b/`).
+
+## 8. Chunk 31c: the fixed generator, rotation, a builder-like screen, the debug sandbox
+
+**Fixed generator.** There is no Generator chunk any more. The generator is one cell in a 13th row under the 12 x 12 build area, in column 7 of 12 (`GENERATOR_COLUMN` = 6 from 0). It fires up into the cell above it, which must belong to the ship. That cell is the bottom-left cell of the third slot column's bottom slot, so that slot needs a chunk with a cell there (Full, Ring, Wide Open, or any chunk turned so a cell lands there). The shipyard draws the generator with the builder's art under the grid. Saves that owned Generator chunks get their Cores back (60, then 90, 135, ... for the copies, `generatorRefund`) and the chunk leaves their designs.
+
+**Validity.** For designs, official hulls and cell mode: one generator, a buildable cell above it, at least one ejector, every cell and ejector joined to the generator. Removed: "generator on the bottom row" and "nothing above an ejector" (an ejector fires out of the side opposite its entry since 25a, and a chunk can now be turned). Cell mode: the generator can sit on any row but needs a cell above it.
+
+**Rotation.** Every placed chunk turns 0 / 90 / 180 / 270 degrees clockwise (`Design.rot`, `rotateRows`); cells and ejectors move together. Placed at 0, turned afterwards with Rotate left / right (toolbar, or Q / R / Shift+R). Saved with the design (save version 15; older designs have rotation 0).
+
+**The screen** works like the circuit builder: the builder's grid drawing (the red line from the generator included), tap a slot to select it (yellow outline) and open the palette sheet, tap a chunk tile to select it, tap it again to place it, Buy in the sheet when no copy is free; Clear / Rotate left / Rotate right / Undo / Redo on the toolbar (D / Delete, Q, R, Ctrl+Z / Ctrl+Y); an error line and the stats strip (cells, ejectors, pulses/s, shot speed, size) under the grid; Use this ship below them.
+
+**Debug sandbox** (`?debug=1`, cell mode, "Build & fly"): the drawn layout opens in the real circuit builder as the hull `celltest` with every block free and unlimited, an amber SANDBOX banner and an EXIT button. Fly it from the Map tab (Free Fly or any tier). Nothing is saved to the player's circuits, inventory or hulls (runs still pay the real credits and records). EXIT returns to cell mode with the layout intact. Export stays.
+
+Tests: `tests/shipyard.test.ts` (rules, rotation, migration), `tests/shipyardScreen.test.ts` (editor, geometry), `tests/sandbox.test.ts` (isolation), `tests/hulls.test.ts` (official hulls under the looser validator), `e2e/shipyard.e2e.cjs`; sheet `e2e/sheet-chunk31c.cjs` (`reports/chunk31c/`).

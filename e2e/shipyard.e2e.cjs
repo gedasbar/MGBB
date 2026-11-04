@@ -59,42 +59,58 @@ async function place(page, slot, chunk) {
   await tap(page, ...center(entry.rect), { pause: 250 });
   check(await onScreen(page, 'shipyard'), 'tapping the entry opens the Shipyard screen');
 
-  // ---- build a small ship: Front Gun, Corridor, Generator in the second column (slots 5, 9, 13)
+  // ---- build a small ship: a Twin Gun turned upside down (slot 10) over a Full chunk (slot 14), which sits right above the fixed generator
   let s = await st(page);
-  check(/Generator/.test(s.status) && !s.canUse, `an empty design says what it needs: "${s.status}"`);
-  await place(page, 5, 'front_gun');
-  await place(page, 9, 'corridor');
+  check(/above the generator/.test(s.status) && !s.canUse, `an empty design says what it needs: "${s.status}"`);
+  const g0 = await page.evaluate(() => window.__mgbm.generatorRect());
+  const s14 = await page.evaluate(() => window.__mgbm.slotRect(14));
+  check(Math.abs(g0.y - (s14.y + s14.h)) < 1 && Math.abs(g0.x - (s14.x)) < 1, 'the fixed generator is drawn right under the bottom row, at the left cell of the third slot column (column 7 of 12)');
+  await place(page, 10, 'twin_gun');
+  await place(page, 14, 'corridor');
   s = await st(page);
-  check(/Generator/.test(s.status) && !s.canUse, `still no generator: "${s.status}", Use is not allowed`);
+  check(/above the generator/.test(s.status) && !s.canUse, `a Corridor has no cell above the generator: "${s.status}", Use is not allowed`);
   await tapButton(page, 'use');
-  check(await waitFor(async () => /Generator/.test((await st(page)).toast || ''), { timeout: 2000 }) && (await page.evaluate(() => window.__mgbm.screen)) === 'shipyard', 'tapping the greyed Use button says why and stays');
-  await place(page, 13, 'generator');
+  check(await waitFor(async () => /above the generator/.test((await st(page)).toast || ''), { timeout: 2000 }) && (await page.evaluate(() => window.__mgbm.screen)) === 'shipyard', 'tapping the greyed Use button says why and stays');
+  await place(page, 14, 'full'); // replaces the Corridor
   s = await st(page);
   check(s.status === 'VALID' && s.canUse, `the finished design reads VALID (${s.status})`);
   check(/cells/.test(s.stats) && /ejector/.test(s.stats), `and shows its stats: "${s.stats}"`);
 
+  // ---- rotation: the slot stays selected after placing; Rotate right (button) and R (key) turn it
+  await tap(page, ...center(await page.evaluate(() => window.__mgbm.slotRect(10))), { pause: 150 }); // select slot 10 again (the palette opens), then close it
+  await waitFor(async () => (await st(page)).selectedSlot === 10, { timeout: 2000 });
+  await tap(page, ...center(await page.evaluate(() => window.__mgbm.slotRect(10))), { pause: 150 });
+  check(await waitFor(async () => { const t = await st(page); return !t.paletteOpen && t.selectedSlot === 10; }, { timeout: 2000 }), 'tapping the selected slot again closes the palette and keeps the slot selected');
+  await tapButton(page, 'rotCW');
+  check(await waitFor(async () => (await st(page)).rotations[10] === 1, { timeout: 2000 }), 'Rotate right turns the chunk a quarter turn');
+  await page.keyboard.press('r');
+  check(await waitFor(async () => (await st(page)).rotations[10] === 2, { timeout: 2000 }), 'the R key turns it again (the Twin Gun now fires out of its bottom corners)');
+  s = await st(page);
+  check(s.status === 'VALID', `still VALID turned upside down (${s.status})`);
+  await tapButton(page, 'rotCCW');
+  await waitFor(async () => (await st(page)).rotations[10] === 1, { timeout: 2000 });
+  await page.keyboard.press('q');
+  check(await waitFor(async () => (await st(page)).rotations[10] === 0, { timeout: 2000 }), 'Rotate left and the Q key turn it back');
+  await tapButton(page, 'rotCW'); await tapButton(page, 'rotCW');
+  check(await waitFor(async () => (await st(page)).rotations[10] === 2, { timeout: 2000 }), 'turned upside down for the flight');
+
   // ---- undo / redo
   await tapButton(page, 'undo');
-  check(await waitFor(async () => (await st(page)).design.slots[13] === null, { timeout: 2000 }), 'Undo takes the generator out again');
+  check(await waitFor(async () => (await st(page)).rotations[10] === 1, { timeout: 2000 }), 'Undo takes the last turn back');
   await tapButton(page, 'redo');
-  check(await waitFor(async () => (await st(page)).design.slots[13] === 'generator', { timeout: 2000 }), 'Redo puts it back');
+  check(await waitFor(async () => (await st(page)).rotations[10] === 2, { timeout: 2000 }), 'Redo turns it again');
 
-  // ---- a placed chunk is removed from the palette (the Remove tile), and Undo brings it back
-  await tap(page, ...center(await page.evaluate(() => window.__mgbm.slotRect(9))), { pause: 150 });
-  await page.evaluate(() => window.__mgbm.shipyard.palette.reveal('__remove'));
-  for (let i = 0; i < 4 && (await st(page)).design.slots[9] !== null; i++) {
-    await tap(page, ...center(await page.evaluate(() => window.__mgbm.tileRect('__remove'))), { pause: 150 });
-    await waitFor(async () => (await st(page)).design.slots[9] === null, { timeout: 700 });
-  }
-  check((await st(page)).design.slots[9] === null, 'the Remove tile takes the Corridor out of its slot');
+  // ---- Clear (toolbar) removes the chunk of the selected slot, Undo brings it back
+  await tapButton(page, 'clearCell');
+  check(await waitFor(async () => (await st(page)).design.slots[10] === null, { timeout: 2000 }), 'Clear takes the Twin Gun out of its slot');
   await tapButton(page, 'undo');
-  check(await waitFor(async () => (await st(page)).design.slots[9] === 'corridor' && (await st(page)).canUse, { timeout: 2000 }), 'Undo brings it back and the ship is VALID again');
+  check(await waitFor(async () => (await st(page)).design.slots[10] === 'twin_gun' && (await st(page)).canUse && (await st(page)).rotations[10] === 2, { timeout: 2000 }), 'Undo brings it back, turned, and the ship is VALID again');
 
   // ---- designs and the name
   await tapButton(page, 'design2');
   check(await waitFor(async () => (await st(page)).slot === 1 && (await st(page)).design.slots.every(x => x === null), { timeout: 2000 }), 'design 2 is a separate, empty design');
   await tapButton(page, 'design1');
-  check(await waitFor(async () => (await st(page)).slot === 0 && (await st(page)).design.slots[5] === 'front_gun', { timeout: 2000 }), 'design 1 is still there');
+  check(await waitFor(async () => (await st(page)).slot === 0 && (await st(page)).design.slots[10] === 'twin_gun', { timeout: 2000 }), 'design 1 is still there');
   await tap(page, ...center(await page.evaluate(() => window.__mgbm.nameBoxRect())), { pause: 200 });
   await page.waitForSelector('#shipyard-name', { timeout: 3000 });
   await page.fill('#shipyard-name', 'Spear');
@@ -112,9 +128,9 @@ async function place(page, slot, chunk) {
   const t0 = (await st(page)).time;
   await waitFor(async () => (await st(page)).time > t0 + 3, { timeout: 15000 });
   s = await st(page);
-  // The ship's hit radius comes from its size class: this design has 3 chunks = medium = 9 (the Shuttle the save started on is big = 10).
+  // The ship's hit radius comes from its size class: this design has 2 chunks = small = 8.
   const w = await page.evaluate(() => ({ hitR: window.__mgbm.world.hitR, rate: window.__mgbm.world.fireRateMul }));
-  check(w.hitR === 9 && s.recipes >= 1 && w.rate > 0, `the run flies the custom ship: hit radius ${w.hitR}, ${s.recipes} gun(s), rate x${w.rate.toFixed(2)}, ${s.time.toFixed(1)} s in, alive`);
+  check(w.hitR === 8 && s.recipes >= 1 && w.rate > 0, `the run flies the custom ship: hit radius ${w.hitR}, ${s.recipes} gun(s), rate x${w.rate.toFixed(2)}, ${s.time.toFixed(1)} s in, alive`);
 
   // ---- debug cell mode (a fresh session)
   const { page: p2 } = await lib.openGame(browser, { rich: true });
@@ -142,6 +158,34 @@ async function place(page, slot, chunk) {
   await click(p2, 'shipyard-export-close');
   await tapButton(p2, 'cellFly');
   check(await waitFor(() => p2.evaluate(() => !!window.__mgbm.world && window.__mgbm.world.recipes.length === 1 && window.__mgbm.world.hitR === 8), { timeout: 8000 }), 'Fly test flies the drawn layout in Free Fly (one gun, small hit radius)');
+
+  // ---- Build & fly: the layout opens in the real builder as a sandbox; EXIT returns to cell mode with the layout intact
+  const { page: p3 } = await lib.openGame(browser, { rich: true });
+  await click(p3, 'dbg-fr-reach-all');
+  await openHubShips(p3);
+  await tap(p3, ...center((await entryOf(p3)).rect), { pause: 250 });
+  await onScreen(p3, 'shipyard');
+  await tapButton(p3, 'cellMode');
+  await waitFor(async () => (await st(p3)).cellMode, { timeout: 2000 });
+  const cellTap3 = async (x, y, n = 1) => { for (let i = 0; i < n; i++) await tap(p3, ...center(await p3.evaluate(([a, b]) => window.__mgbm.cellRect(a, b), [x, y])), { pause: 80 }); };
+  await cellTap3(2, 1, 3); await cellTap3(2, 2); await cellTap3(2, 3); await cellTap3(2, 4); await cellTap3(2, 5, 2);
+  const drawn = JSON.stringify((await st(p3)).cell.rows);
+  const dump = () => p3.evaluate(() => Object.keys(localStorage).sort().map(k => k + '=' + localStorage.getItem(k)).filter(x => !/mgbm_settings|mgbm_mapnav/.test(x)).join('|'));
+  const builderKeyOf = (t) => (t.split('|').find(x => x.startsWith('mgbm.builder')) || '');
+  const circuitsBefore = await dump();
+  await tapButton(p3, 'cellSandbox');
+  check(await onScreen(p3, 'build'), 'Build & fly opens the circuit builder');
+  const sb = await p3.evaluate(() => ({ hull: window.__mgbm.model.hullId, w: window.__mgbm.model.grid.w, h: window.__mgbm.model.grid.h, owned: window.__mgbm.model.owned['splitter_2'] ?? 0 }));
+  check(sb.hull === 'celltest' && sb.w === 1 && sb.h === 5 && sb.owned >= 50, `with the drawn layout as a temporary hull (${JSON.stringify(sb)}) and blocks in numbers no save has`);
+  await p3.evaluate(() => { const d = document.getElementById('debug-panel'); if (d) d.style.display = 'none'; }); // the debug panel covers the right edge of the canvas
+  await tap(p3, 474, 84, { pause: 200 }); // the banner's EXIT
+  check(await onScreen(p3, 'shipyard') && await waitFor(async () => (await st(p3)).cellMode && JSON.stringify((await st(p3)).cell.rows) === drawn, { timeout: 4000 }), 'EXIT returns to the Shipyard in cell mode with the same layout');
+  await tapButton(p3, 'cellSandbox');
+  await onScreen(p3, 'build');
+  const r3 = await lib.startFreeFly(p3);
+  check(r3 === 'ok', `the sandbox ship flies in Free Fly (${r3})`);
+  check(await waitFor(() => p3.evaluate(() => !!window.__mgbm.world && window.__mgbm.world.recipes.length === 1 && window.__mgbm.world.hitR === 8), { timeout: 8000 }), 'one gun, small hit radius');
+  check(builderKeyOf(circuitsBefore) === builderKeyOf(await dump()), 'the saved circuits did not change while the sandbox ran');
 
   await browser.close();
   const c = lib.counts();

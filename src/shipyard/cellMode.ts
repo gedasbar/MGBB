@@ -26,6 +26,12 @@ export class CellEditor {
 
   get(x: number, y: number): Cell { return x >= 0 && y >= 0 && x < this.w && y < this.h ? this.cells[y * this.w + x] : '.'; }
 
+  /** Sets one cell (anything that is not a cell character becomes outside); a point outside the grid is ignored. */
+  set(x: number, y: number, ch: string) {
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    this.cells[y * this.w + x] = (CELL_CYCLE as readonly string[]).includes(ch) ? (ch as Cell) : '.';
+  }
+
   /** Moves the cell to the next kind in the cycle; returns the new kind (null when the tap is outside the grid). */
   cycle(x: number, y: number): Cell | null {
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return null;

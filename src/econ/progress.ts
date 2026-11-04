@@ -28,12 +28,12 @@ import {
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version: 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none), 12 adds `timePlayed`, `newBlocks` and `skillPointsSeen` (chunk 24a: seconds played with the page visible; blocks unlocked and not yet looked at; skill points the player has seen. Older saves start at 0 / none / the points they already have, so nothing is marked new), 13 adds `achievements`, `records`, `challengesDone` and `cosmetics` (chunk 28a: earned achievement ids; the best hit / average DPS / circuit size records the achievements read; challenges done; cosmetic ids earned. A save from before starts with none and the game grants what it has already reached when it loads), 14 adds `cores`, `chunks` and `designs` (chunk 31a, the Shipyard: Cores earned in Free Fly, the chunk inventory and up to three saved custom hull designs; older saves start with 0 Cores, no chunks, no designs). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 14;
+/** Save format version (15, chunk 31c: each placed Shipyard chunk has a rotation, the Generator chunk is gone and its copies are refunded in Cores; older designs have rotation 0): 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none), 12 adds `timePlayed`, `newBlocks` and `skillPointsSeen` (chunk 24a: seconds played with the page visible; blocks unlocked and not yet looked at; skill points the player has seen. Older saves start at 0 / none / the points they already have, so nothing is marked new), 13 adds `achievements`, `records`, `challengesDone` and `cosmetics` (chunk 28a: earned achievement ids; the best hit / average DPS / circuit size records the achievements read; challenges done; cosmetic ids earned. A save from before starts with none and the game grants what it has already reached when it loads), 14 adds `cores`, `chunks` and `designs` (chunk 31a, the Shipyard: Cores earned in Free Fly, the chunk inventory and up to three saved custom hull designs; older saves start with 0 Cores, no chunks, no designs). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 15;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 14;
+  version: 15;
   /** A one-time message for the next screen that can show it (the economy refund of the version 8 migration); cleared when taken. */
   notice?: string;
   credits: number;
@@ -98,7 +98,7 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 14, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    version: 15, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, wallBestCredits: {}, squareBestCredits: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
     frontier: defaultFrontier(), skills: [], timePlayed: 0, newBlocks: [], skillPointsSeen: 0,
     achievements: [], records: defaultRecords(), challengesDone: [], cosmetics: [], ...defaultShipyard(),

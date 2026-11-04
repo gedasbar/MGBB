@@ -18,7 +18,9 @@ export function validateHullLayout(name: string, rows: string[], expect?: HullEx
   const gens = count('G');
   if (gens !== 1) bad(`needs exactly 1 generator (G), found ${gens}`);
   const gy = rows.findIndex(r => r.includes('G'));
-  if (gy >= 0 && gy !== rows.length - 1) bad(`the generator (G) is on row ${gy + 1} but must be on the bottom row, row ${rows.length}`);
+  // Chunk 31c: the generator may sit on any row (it fires up, so the cell above it must be part of the hull), and an ejector may have cells above it
+  // (since 25a it fires out of the side opposite the one a signal entered by). What stays: one generator, at least one ejector, everything joined.
+  if (count('E') < 1) bad('needs at least 1 ejector (E), found none');
   if (gens === 1) {
     const gx = rows[gy].indexOf('G');
     if (at(gx, gy - 1) === '.') bad(`the cell above the generator (row ${gy}, column ${gx + 1}) must be part of the hull, the signal only leaves upward`);
@@ -34,9 +36,6 @@ export function validateHullLayout(name: string, rows: string[], expect?: HullEx
       if (ch !== '.' && !seen.has(`${x},${y}`)) bad(`the cell at row ${y + 1}, column ${x + 1} cannot be reached from G`);
     }));
   }
-  rows.forEach((r, y) => [...r].forEach((ch, x) => {
-    if (ch === 'E' && at(x, y - 1) !== '.') bad(`the ejector (E) at row ${y + 1}, column ${x + 1} has a cell above it; nothing may sit above an ejector`);
-  }));
   if (expect) {
     if (count('E') !== expect.ejectors) bad(`needs ${expect.ejectors} ejectors, found ${count('E')}`);
     if (count('_') !== expect.cells) bad(`needs ${expect.cells} buildable cells (_), found ${count('_')}`);

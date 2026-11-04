@@ -78,7 +78,7 @@ describe('save export / import', () => {
     const r = checkImportString(b64({ app: 'mgbm', format: 1, progress: old, builder: null }));
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.progress.version).toBe(14);
+    expect(r.progress.version).toBe(15);
     expect(r.progress.skills).toEqual([]);
     expect(r.progress.wallBestCredits).toEqual({});
     expect(r.progress.owned.percent_mult).toBeLessThanOrEqual(10);

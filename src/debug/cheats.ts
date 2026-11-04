@@ -76,9 +76,12 @@ export function ownAllChunks(store: ProgressStore, copies: number) {
   store.commit();
 }
 
-/** Chunk 31a: saves a small valid sample design in slot 1 (a Front Gun over a Corridor over the Generator, which sits in the bottom row). Needs the Shipyard open and the chunks owned to fly. */
+/** Chunk 31a: saves a small valid sample design in slot 1 (a Twin Gun turned upside down over a Full chunk: one ejector is straight above the fixed generator, so it fires with no block). Needs the Shipyard open and the chunks owned to fly. */
 export function saveSampleDesign(store: ProgressStore) {
-  store.setDesign(0, designOf([[], [null, 'front_gun'], [null, 'corridor'], [null, 'generator']]));
+  const d = designOf([[], [], [null, null, 'twin_gun'], [null, null, 'full']]);
+  d.rot = new Array(16).fill(0);
+  d.rot[10] = 2;
+  store.setDesign(0, d);
 }
 
 /** Marks tiers 1..100 passed (the Map opens them all; tiers 101-200 also need every tier cleared, see clearAllTiers). No Medal, nothing cleared, no best times. */

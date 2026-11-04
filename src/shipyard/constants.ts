@@ -25,6 +25,15 @@ export const CORES_HINT = `${CURRENCY_CORES_NAME}: used in the Shipyard, which o
 /** A chunk is CHUNK_CELLS x CHUNK_CELLS cells; a design is DESIGN_SLOTS x DESIGN_SLOTS chunk slots. */
 export const CHUNK_CELLS = 3;
 export const DESIGN_SLOTS = 4;
+/**
+ * Chunk 31c: the Generator is a FIXED cell just below the build area (the build area is DESIGN_SLOTS x CHUNK_CELLS = 12 cells wide), under the bottom row, in this column
+ * (counted from 0: column 7 of 12, right of centre). It fires up into the cell above it, which every custom ship must have.
+ */
+export const GENERATOR_COLUMN = 6;
+/** The Generator chunk that existed in 31a / 31b (removed in 31c): its frozen price, to refund the copies a save owned (basePrice x growth^i for the i-th copy). */
+export const LEGACY_GENERATOR_CHUNK = 'generator';
+export const LEGACY_GENERATOR_BASE_PRICE = 60;
+export const LEGACY_GENERATOR_GROWTH = 1.5;
 /** Saved designs, and the ids they fly under ("custom1" ...). */
 export const MAX_DESIGNS = 3;
 export const CUSTOM_HULL_PREFIX = 'custom';
@@ -65,6 +74,8 @@ export const DESIGN_NAME_MAX = 16;
 export const CELL_MODE_MAX = 12;
 export const CELL_MODE_DEFAULT_W = 5;
 export const CELL_MODE_DEFAULT_H = 6;
+/** Debug sandbox (chunk 31c): the sandbox circuit builder owns this many copies of every block, at its highest level. */
+export const SANDBOX_COPIES = 99;
 /** The id the debug "Fly test" gives the layout it flies (never saved, never owned). It draws with the custom ship art. */
 export const CELL_TEST_HULL = 'celltest';
 /** Custom designs and the debug test hull share the one fixed custom ship drawing (ui/shipShapes.ts). */
