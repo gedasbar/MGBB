@@ -1,6 +1,6 @@
 # Shipyard, part 1 (chunk 31a)
 
-Part 1 builds the rules and the data of the Shipyard: a new currency (Cores), 3x3 ship chunks, and custom hulls assembled from chunks. It has no Shipyard screen yet (that is part 2): until then chunks and designs are set through the debug panel and the unit tests. A valid design already flies in every mode through the hull picker.
+Part 1 (chunk 31a) builds the rules and the data of the Shipyard: a new currency (Cores), 3x3 ship chunks, and custom hulls assembled from chunks. Part 2 (chunk 31b, section 7 below) adds the screen, the fixed custom ship art and a debug cell mode. A valid design flies in every mode through the hull picker.
 
 ## 1. Cores
 
@@ -50,3 +50,17 @@ Version 14 adds `cores` (number), `chunks` (id -> count) and `designs` (3 entrie
 ## 6. Prices and income
 
 The numbers and the income model are in `scripts/shipyard-model.ts` (prints the table) and in DECISIONS. Aim: the Cores of about 10-15 hours of Free Fly buy a full sensible ship; a maxed ship is much more.
+
+## 7. Part 2 (chunk 31b): the screen, the art, the debug cell mode
+
+**Where.** The hub's SHIPS tab has a pinned SHIPYARD entry above the hull list: locked (padlock, "Locked: Frontier ring 150") before the ring, with the Cores balance; after it a tap opens `ShipyardScreen`. A valid, fully owned design is "Custom 1 / 2 / 3" in the list with the custom ship's art.
+
+**The screen** (540 x 960): header (back "<", Cores) / design buttons 1 2 3 and the name box (tap to rename) / 4 x 4 grid of chunk slots showing each chunk's pattern (grey buildable cells, orange ejectors, red generator) / status strip: VALID or the first plain-language problem, then the stats (cells, ejectors, pulses/s, shot speed, size class); a slot named in an error has a red outline / toolbar: Undo, Redo, Use this ship (greyed unless valid and fully owned; a tap says why) / the chunk palette.
+
+**Placing.** Tap a slot: the palette opens (the block palette's tile component: pattern, free-copy badge, yellow dot when the next copy is affordable). Tap a tile to see its sheet (text, owned / free, Place, Buy +1 with the Cores price), tap it again to place. An owned-out chunk has Place greyed ("No X left") and Buy is the way. The Remove tile (first, when the slot is occupied) takes the chunk out; placing another chunk on an occupied slot replaces it. Every edit is saved at once.
+
+**Art.** All custom ships share one drawing (`CUSTOM_SHIP_ART`, `src/ui/shipShapes.ts`): a broad solid rectangular hull, short nose, side plates, two engines with flames, flat greys, three accent pieces in one colour (`CUSTOM_ACCENT`). It is scaled by the design's size class like every hull.
+
+**Debug cell mode** (`?debug=1` or a dev server only): the grid becomes single cells (up to 12 x 12, W- W+ H- H+). A tap cycles outside -> buildable -> generator -> ejector -> outside. The strip shows `validateHullLayout`'s sentences. Export shows and copies ROWS text for `src/data/hullLayouts.ts`; Fly test flies the layout in Free Fly without saving.
+
+Pure parts: `editor.ts`, `cellMode.ts`, `viewLogic.ts`. Tests: `tests/shipyardScreen.test.ts`, `e2e/shipyard.e2e.cjs`, sheet `e2e/sheet-chunk31b.cjs` (`reports/chunk31b/`).

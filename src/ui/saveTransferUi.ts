@@ -19,10 +19,10 @@ export const BOX = `position:fixed;inset:0;z-index:20000;display:flex;align-item
 export const PANEL = `box-sizing:border-box;width:min(92vw,480px);max-height:92vh;overflow:auto;background:#131315;border:2px solid #4d4d52;padding:16px;display:flex;flex-direction:column;gap:10px;${OPEN_TEXT}`;
 // 16 px: iOS zooms the page when a field with a smaller font gets focus, and the game cannot zoom back.
 export const AREA = `box-sizing:border-box;width:100%;height:150px;resize:none;background:#38383c;color:#e8e8ea;border:1px solid #4d4d52;font:16px monospace;padding:6px;${OPEN_TEXT}`;
-const BTN = 'flex:1;min-height:48px;font:bold 16px system-ui,sans-serif;background:#38383c;color:#e8e8ea;border:1.5px solid #e6e6e6;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:manipulation;';
+export const BTN = 'flex:1;min-height:48px;font:bold 16px system-ui,sans-serif;background:#38383c;color:#e8e8ea;border:1.5px solid #e6e6e6;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:manipulation;';
 const HINT = 'font-size:14px;color:#b0b0b6;';
 
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, css: string, text?: string): HTMLElementTagNameMap[K] {
+export function el<K extends keyof HTMLElementTagNameMap>(tag: K, css: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   e.style.cssText = css;
   if (text !== undefined) e.textContent = text;
@@ -33,7 +33,7 @@ function safeStorage(): Storage | null {
   try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; }
 }
 
-function open(title: string, build: (panel: HTMLElement, close: () => void) => void) {
+export function open(title: string, build: (panel: HTMLElement, close: () => void) => void) {
   document.getElementById('save-transfer')?.remove();
   const box = el('div', BOX);
   box.id = 'save-transfer';
@@ -50,7 +50,7 @@ function open(title: string, build: (panel: HTMLElement, close: () => void) => v
   document.body.appendChild(box);
 }
 
-function row(panel: HTMLElement): HTMLElement {
+export function row(panel: HTMLElement): HTMLElement {
   const r = el('div', 'display:flex;gap:10px;');
   panel.appendChild(r);
   return r;

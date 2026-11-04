@@ -77,9 +77,9 @@ const ACCENT: Record<string, number> = {
 };
 
 interface Spec { pieces: Pt[][]; details?: ShipPart[]; eng: { dxs: number[]; y0: number; y1: number; w: number; flame: number } }
-function ship(id: string, s: Spec): ShipArtDef {
+function ship(id: string, s: Spec, accent: number = ACCENT[id]): ShipArtDef {
   const e = engines(s.eng.dxs, s.eng.y0, s.eng.y1, s.eng.w, s.eng.flame);
-  return { id, parts: [...plates(s.pieces), ...(s.details ?? []), ...e.parts], flames: e.flames, accent: ACCENT[id] };
+  return { id, parts: [...plates(s.pieces), ...(s.details ?? []), ...e.parts], flames: e.flames, accent };
 }
 
 /** Zenith art options (chunk 25c): 1 = spearhead with layered wings, 2 = split twin hull, 3 = crescent with a floating spear. */
@@ -242,3 +242,19 @@ const SPECS: Record<string, Spec> = {
 export const SHIP_ART: Record<string, ShipArtDef> = Object.fromEntries(Object.entries(SPECS).map(([id, s]) => [id, ship(id, s)]));
 /** The three Zenith options (for the contact sheet and the owner's switch). */
 export const ZENITH_OPTIONS: ShipArtDef[] = ([1, 2, 3] as const).map(n => ship('zenith', ZENITH_SPECS[n]));
+
+/**
+ * Chunk 31b: the ONE drawing every custom ship (Shipyard designs and the debug cell-mode test hull) uses, scaled to the design's size class by the same
+ * code as every hull: a broad, solid, rectangular hull with a short nose, side plates, two engine blocks with flames, flat greys, three accent pieces
+ * (a cockpit and a pair of gun tips) in one accent colour. No silhouette is generated from the layout.
+ */
+export const CUSTOM_ACCENT: number = A.status;
+const CUSTOM_SPEC: Spec = {
+  pieces: [
+    sym([[0, 0], [0.12, 0], [0.18, 0.14], [0.36, 0.14], [0.36, 0.92], [0, 0.92]]),
+    ...duo(box(0.36, 0.5, 0.34, 0.86)),
+  ],
+  details: [cockpit(0.3, 0.5, 0.06), ...tips(0.3, 0.14, 0.05, 0.08)],
+  eng: { dxs: [0, 0.2], y0: 0.9, y1: 0.99, w: 0.12, flame: 0.12 },
+};
+export const CUSTOM_SHIP_ART: ShipArtDef = ship('custom', CUSTOM_SPEC, CUSTOM_ACCENT);

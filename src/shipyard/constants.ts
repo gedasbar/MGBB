@@ -56,3 +56,16 @@ export const SIZE_BY_SLOTS: readonly { maxSlots: number; size: 'small' | 'medium
 
 /** Seconds untouchable after an Extra Life saves the ship (the captains' Second Chance gives 1 s). */
 export const EXTRA_LIFE_INVULN = 1.5;
+
+// ---------------------------------------------------------------- the Shipyard screen (chunk 31b)
+
+/** A design's name (the box at the top of the Shipyard screen) is at most this many characters. */
+export const DESIGN_NAME_MAX = 16;
+/** Debug cell mode (?debug=1): the grid of single cells goes from 1 x 1 up to this, and starts at the default size. */
+export const CELL_MODE_MAX = 12;
+export const CELL_MODE_DEFAULT_W = 5;
+export const CELL_MODE_DEFAULT_H = 6;
+/** The id the debug "Fly test" gives the layout it flies (never saved, never owned). It draws with the custom ship art. */
+export const CELL_TEST_HULL = 'celltest';
+/** Custom designs and the debug test hull share the one fixed custom ship drawing (ui/shipShapes.ts). */
+export const hasCustomArt = (id: string): boolean => customSlotOf(id) >= 0 || id === CELL_TEST_HULL;

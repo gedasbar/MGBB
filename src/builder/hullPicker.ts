@@ -2,6 +2,7 @@ import { Container, Graphics } from 'pixi.js';
 import { inRect, Rect } from './layout';
 import { makeText } from './ui';
 import { THEME, UI } from '../ui/theme';
+import { drawTileFace } from '../ui/widgets';
 import { fmtBig } from '../ui/format';
 import { CATEGORY_COLOR } from './draw';
 import { shipThumbnail, TextureMaker } from '../ui/shipArt';
@@ -9,7 +10,9 @@ import { HULL_ROWS } from '../data/hullLayouts';
 import { customHullInfo } from '../data/hulls';
 import {
   hullBuyLabel, hullBuyRect, hullContentH, HULL_PANEL, HULL_TITLE_H, hullListRect, hullRowRects, hullRows, HullRow, hullSheetLines, hullSheetRect, hullSummary, hullTraitLine,
+  shipyardEntryRect, shipyardEntryText,
 } from './hullPickerLogic';
+import { CURRENCY_CORES_NAME, SHIPYARD_UNLOCK_RING } from '../shipyard/constants';
 import { clampScroll, scrollToReveal } from './paletteLogic';
 import { drawHubFrame, hubTabAt, HubTab } from './hub';
 
@@ -21,8 +24,12 @@ export interface HullPickerEvents {
   buy(id: string): void;
   /** Chunk 28b: another tab of the hub was tapped (the owner opens it; this tab is the Ships tab). */
   tab?(t: HubTab): void;
-  /** What the picker reads: owned hulls, the hull being built and the credits. */
-  state(): { ownedHulls: readonly string[]; current: string; credits: number };
+  /** Chunk 31b: the SHIPYARD entry was tapped while the Shipyard is open (the owner opens its screen). */
+  shipyard?(): void;
+  /** Chunk 31b: a short message (the locked Shipyard entry was tapped). */
+  message?(m: string): void;
+  /** What the picker reads: owned hulls, the hull being built and the credits; the Cores balance and whether the Shipyard is open (chunk 31b). */
+  state(): { ownedHulls: readonly string[]; current: string; credits: number; cores?: number; shipyardOpen?: boolean };
 }
 
 /** Unowned rows are dimmed; the yellow dot says which of them can be bought now. */
@@ -38,7 +45,10 @@ export class HullPicker {
   private listC = new Container();
   private maskG = new Graphics();
   private sheetC = new Container();
+  private entryC = new Container();
   private rows: HullRow[] = [];
+  private cores = 0;
+  private yardOpen = false;
   private scroll = 0;
   selected: string | null = null;
   isOpen = false;
@@ -46,7 +56,7 @@ export class HullPicker {
   constructor(private renderer: TextureMaker, private events: HullPickerEvents) {
     this.container.visible = false;
     this.listC.mask = this.maskG;
-    this.container.addChild(this.maskG, this.listC, this.sheetC);
+    this.container.addChild(this.maskG, this.listC, this.sheetC, this.entryC);
   }
 
   open() {
@@ -97,6 +107,11 @@ export class HullPicker {
     return this.rows.map(r => ({ ...r, alpha: r.owned ? 1 : UNOWNED_ALPHA }));
   }
 
+  /** The Shipyard entry as drawn (test view): whether it is open, the Cores it shows, its sub line and its screen rectangle. */
+  entryView(): { open: boolean; cores: number; text: string; rect: Rect } {
+    return { open: this.yardOpen, cores: this.cores, text: shipyardEntryText(this.yardOpen, SHIPYARD_UNLOCK_RING), rect: shipyardEntryRect() };
+  }
+
   buyButtonRect(): Rect | null { return this.sheetOpen ? hullBuyRect() : null; }
 
   /** Redraws everything from the current state (after a purchase, a selection, a scroll reset). */
@@ -104,19 +119,22 @@ export class HullPicker {
     if (!this.isOpen) return;
     const st = this.events.state();
     this.rows = hullRows(st.ownedHulls, st.current, st.credits);
+    this.cores = st.cores ?? 0;
+    this.yardOpen = st.shipyardOpen ?? false;
     if (this.selected && this.rows.find(r => r.id === this.selected)?.owned) this.selected = null;
     this.scroll = clampScroll(this.scroll, hullContentH(this.rows.length), this.listRect.h);
     this.drawFrame();
     this.drawList();
+    this.drawShipyardEntry();
     this.layoutList();
     this.drawSheet(st.credits);
   }
 
   private drawFrame() {
-    for (const ch of this.container.removeChildren()) if (ch !== this.maskG && ch !== this.listC && ch !== this.sheetC) ch.destroy({ children: true });
+    for (const ch of this.container.removeChildren()) if (ch !== this.maskG && ch !== this.listC && ch !== this.sheetC && ch !== this.entryC) ch.destroy({ children: true });
     const frame = new Container();
     drawHubFrame(frame, 'ships');
-    this.container.addChild(frame, this.listC, this.sheetC);
+    this.container.addChild(frame, this.listC, this.sheetC, this.entryC);
     const lr = this.listRect;
     this.maskG.clear().rect(lr.x, lr.y, lr.w, lr.h).fill(0xffffff);
     this.container.addChild(this.maskG);
@@ -147,6 +165,30 @@ export class HullPicker {
       if (r.dot) row.addChild(new Graphics().circle(rc.x + rc.w - 14 - DOT_R, rc.y + rc.h - 16, DOT_R).fill(THEME.currency));
       this.listC.addChild(row);
     });
+  }
+
+  /** Chunk 31b: the SHIPYARD entry at the top of the list: a lock and the ring that opens it, or the way in; the Cores balance either way. */
+  private drawShipyardEntry() {
+    for (const ch of this.entryC.removeChildren()) ch.destroy({ children: true });
+    const rc = shipyardEntryRect();
+    const open = this.yardOpen;
+    const face = new Container();
+    face.addChild(drawTileFace(new Graphics(), rc));
+    const name = makeText('SHIPYARD', 20, UI.color.text, { fontWeight: 'bold' });
+    name.position.set(rc.x + (open ? 14 : 48), rc.y + 10);
+    const sub = makeText(shipyardEntryText(open, SHIPYARD_UNLOCK_RING), 13, UI.color.textDim);
+    sub.position.set(rc.x + (open ? 14 : 48), rc.y + 42);
+    face.addChild(name, sub);
+    if (!open) {
+      // A padlock: a light body with an arched shackle.
+      const lx = rc.x + 16, ly = rc.y + 26;
+      face.addChild(new Graphics().rect(lx, ly, 20, 15).fill(THEME.warn).moveTo(lx + 4, ly).lineTo(lx + 4, ly - 5).arc(lx + 10, ly - 5, 6, Math.PI, 0).lineTo(lx + 16, ly).stroke({ color: THEME.warn, width: 3 }));
+      face.alpha = UNOWNED_ALPHA;
+    }
+    const cores = makeText(`${fmtBig(this.cores)} ${CURRENCY_CORES_NAME}`, 16, UI.color.accent, { fontWeight: 'bold' });
+    cores.anchor.set(1, 0);
+    cores.position.set(rc.x + rc.w - 14, rc.y + 12);
+    this.entryC.addChild(face, cores);
   }
 
   private layoutList() {
@@ -208,6 +250,10 @@ export class HullPicker {
       if (inRect(hullSheetRect(), x, y)) return;
     }
     if (y < p.y + HULL_TITLE_H) return;
+    if (inRect(shipyardEntryRect(), x, y)) {
+      if (this.yardOpen) this.events.shipyard?.(); else this.events.message?.(`The Shipyard opens at Frontier ring ${SHIPYARD_UNLOCK_RING}`);
+      return;
+    }
     if (!this.inList(x, y)) return;
     const lr = this.listRect;
     const rects = hullRowRects(this.rows.length);

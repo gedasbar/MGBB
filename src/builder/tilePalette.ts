@@ -44,6 +44,8 @@ export interface PaletteOptions {
   tapAgain: 'close' | 'place';
   /** The builder's bottom sheet draws its own panel; the Shop sits on its own background. */
   panel: boolean;
+  /** Chunk 31b: draws a tile's picture centred on (0, 0) in a square of `size` px. Default: the block plate (the Shipyard passes the chunk pattern). */
+  drawFace?: (g: Graphics, id: string, size: number) => void;
 }
 
 export interface PaletteEvents {
@@ -249,6 +251,7 @@ export class TilePalette {
     newG.addChild(newBg, newT);
     newG.visible = false;
     if (id === REMOVE_TILE) drawX(plate, 0, 0, 14, THEME.bad, 5);
+    else if (this.opts.drawFace) this.opts.drawFace(plate, id, this.geo.metrics.w - 4);
     else drawPlate(plate, id, this.geo.metrics.w - 4, 0);
     c.addChild(bg, plate, badgeBg, badge, lock, dotG, newG);
     this.listC.addChild(c);

@@ -319,6 +319,19 @@ export class BuilderModel {
     return { ok: true };
   }
 
+  /**
+   * Chunk 31b: the layout of the hull being built was changed from outside (a Shipyard design was edited, or the design stopped being flyable). The saved circuits are
+   * checked again against the layouts as they are now (blocks that no longer fit return to the inventory) and the hull is loaded again; a hull that is no longer owned
+   * falls back to the starter hull.
+   */
+  reloadHull() {
+    this.persist();
+    this.saved = loadBuilder(serializeBuilder(this.saved));
+    this.trimmed = 0;
+    this.loadHull(this.hullId);
+    this.commit();
+  }
+
   switchSlot(slot: SlotId) {
     if (slot === this.active) return;
     this.active = slot;

@@ -6,6 +6,7 @@ import { clientToGame } from '../input';
 import { BLOCKS, MOD_LABEL } from '../data/blocks';
 import { HULL_INFO } from '../game/gridUtils';
 import { HullPicker } from '../builder/hullPicker';
+import { ShipyardScreen } from './ShipyardScreen';
 import { AchievementsPanel } from '../builder/achievementsPanel';
 import { CustomizePanel } from '../builder/customizePanel';
 import type { HubTab } from '../builder/hub';
@@ -115,7 +116,12 @@ export class BuildScreen implements Screen {
       choose: (id) => this.chooseHull(id),
       buy: (id) => this.buyHull(id),
       tab: (t) => this.openHub(t),
-      state: () => ({ ownedHulls: this.model.store.data.ownedHulls, current: this.model.hullId, credits: this.model.store.data.credits }),
+      shipyard: () => this.sm.switchTo(new ShipyardScreen(this.sm)),
+      message: (m) => this.toast.show(m, 2600),
+      state: () => ({
+        ownedHulls: this.model.store.data.ownedHulls, current: this.model.hullId, credits: this.model.store.data.credits,
+        cores: this.model.store.data.cores, shipyardOpen: this.model.store.shipyardOpen,
+      }),
     });
     this.customPanel = new CustomizePanel({ tab: (t) => this.openHub(t), toast: (m) => this.toast.show(m, 2600) });
     this.achPanel = new AchievementsPanel({ tab: (t) => this.openHub(t), start: (id) => this.startChallenge(id) });

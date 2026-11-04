@@ -10,7 +10,11 @@ import {
  * A design is a DESIGN_SLOTS x DESIGN_SLOTS grid of chunk slots (row-major, null = an empty slot = outside the hull). It becomes
  * a normal ROWS layout (compileDesign) that the builder, the compiler and the flight read like any hull.
  */
-export interface Design { slots: (string | null)[] }
+export interface Design {
+  slots: (string | null)[];
+  /** Chunk 31b: the player's name for the design (optional, at most DESIGN_NAME_MAX characters; absent = "Custom 1" ...). Not part of the hull rules. */
+  name?: string;
+}
 
 export const SLOT_COUNT = DESIGN_SLOTS * DESIGN_SLOTS;
 const GRID = DESIGN_SLOTS * CHUNK_CELLS;
