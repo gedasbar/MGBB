@@ -15,7 +15,7 @@ import { describeBlock } from '../engine/compilerTypes';
 import { blockText } from '../data/blockText';
 import { CompiledShip, Grid } from '../engine/compiler';
 import { BuilderModel, statsDelta } from '../builder/model';
-import { getBuilderModel } from '../builder/session';
+import { getBuilderModel, inSandbox, leaveSandbox } from '../builder/session';
 import { GestureTracker } from '../builder/gestures';
 import { GridRenderer } from '../builder/gridView';
 import {
@@ -131,6 +131,7 @@ export class BuildScreen implements Screen {
     this.container.addChild(bg, this.gridR.container);
     this.buildHud();
     this.buildBanner();
+    this.buildSandboxBanner();
     this.dim.rect(0, LAYOUT.gridArea.y, VIEW_W, LAYOUT.sheet.y - LAYOUT.gridArea.y).fill({ color: THEME.dim, alpha: 0.28 });
     this.dim.visible = false;
     this.tip.visible = false;
@@ -459,8 +460,33 @@ export class BuildScreen implements Screen {
     this.select(c);
   }
 
+  /**
+   * Chunk 31c (debug): the SANDBOX banner over the hull-name strip while the builder holds a hand-drawn layout from the Shipyard's cell mode. Every block is free there and nothing is
+   * saved; EXIT closes the sandbox and goes back to cell mode with the layout intact.
+   */
+  private sandboxBanner = new Container();
+  private buildSandboxBanner() {
+    const r = LAYOUT.inspector;
+    const bg = new Graphics().rect(r.x, r.y, r.w, r.h).fill(0x6b4a12).rect(r.x, r.y + r.h - 1, r.w, 1).fill(THEME.border);
+    const t = makeText('SANDBOX', 22, 0xffd36b, { fontWeight: 'bold' });
+    t.position.set(12, r.y + 8);
+    const sub = makeText('Every block is free. Nothing is saved. Fly it from the Map tab.', 12, THEME.text, { wordWrap: true, wordWrapWidth: VIEW_W - 150, lineHeight: 15 });
+    sub.position.set(12, r.y + 34);
+    this.sandboxBanner.addChild(bg, t, sub);
+    this.sandboxBanner.visible = inSandbox();
+    this.container.addChild(this.sandboxBanner);
+    const exit = textButton('sandboxExit', { x: VIEW_W - 120, y: r.y + 10, w: 108, h: 44 }, 'EXIT', () => {
+      leaveSandbox();
+      this.sm.switchTo(new ShipyardScreen(this.sm, { cellMode: true }));
+    }, 20);
+    this.sandboxBanner.addChild(exit.container);
+    this.buttons.push(exit);
+    exit.container.visible = inSandbox();
+  }
+
   private tapTab(id: string) {
     if (id === 'tabBuild') return;
+    if (inSandbox() && (id === 'tabShop' || id === 'tabCaptain' || id === 'tabSkills')) leaveSandbox(); // those screens work on the real progress
     if (id === 'tabShop') { this.sm.switchTo(new ShopScreen(this.sm)); return; }
     if (id === 'tabMap') { openMapTab(this.sm); return; }
     if (id === 'tabCaptain') { this.sm.switchTo(new CaptainScreen(this.sm)); return; }
@@ -605,6 +631,7 @@ export class BuildScreen implements Screen {
 
   /** Opens a tab of the hub, closing whichever was open. */
   openHub(t: HubTab) {
+    if (inSandbox()) { this.toast.show('Sandbox ship: tap EXIT to leave it', 2400); return; }
     this.hullPicker.close(); this.customPanel.close(); this.achPanel.close();
     if (t === 'ships') this.hullPicker.open();
     else if (t === 'custom') this.customPanel.open();

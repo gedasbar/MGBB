@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CHUNKS, CHUNK_BY_ID, validateChunk, ChunkDef } from '../src/data/shipChunks';
 import {
-  assemble, basePulses, chunkPrice, chunkUsage, compileDesign, designOf, designProblems, designStats, emptyDesign, missingChunks, shipyardOpen, sizeOfChunks,
-  validateDesign, Design,
+  assemble, basePulses, chunkPrice, chunkUsage, compileDesign, copyDesign, designOf, designProblems, designStats, emptyDesign, GENERATOR_CELL, missingChunks, NO_CELL_ABOVE_GENERATOR,
+  rotAt, shipyardOpen, sizeOfChunks, slotRows, validateDesign, Design,
 } from '../src/shipyard/design';
+import { GENERATOR_COLUMN } from '../src/shipyard/constants';
+import { rotateRows } from '../src/data/shipChunks';
+import { withHull } from '../src/game/gridUtils';
 import { coresForWave, encounterCores, encounterCoresPerBlock, milestoneCores, waveStartCores } from '../src/shipyard/cores';
-import { buyChunk, defaultShipyard, sanitizeShipyard, setDesign } from '../src/shipyard/state';
+import { buyChunk, cleanRot, defaultShipyard, generatorRefund, sanitizeShipyard, setDesign } from '../src/shipyard/state';
 import { applyHullTraits, flightProblems, registerCustomHulls } from '../src/shipyard/registry';
 import { CURRENCY_CORES_NAME, MAX_DESIGNS, SHIPYARD_UNLOCK_RING } from '../src/shipyard/constants';
 import { validateHullLayout } from '../src/data/hullValidate';
@@ -28,17 +31,34 @@ import { CONFIG } from '../src/config';
 const DT = 1 / 60;
 const idle = (): PointerState => ({ x: 0, y: 0, active: false, type: 'mouse', seen: false });
 
-/** Chunks stacked in the second column, the last one on the bottom row (row 4), where the Generator must sit. */
-const stack = (...ids: string[]) => designOf([...new Array(4 - ids.length).fill([]), ...ids.map(id => [null, id])]);
-/** A Front Gun over a Corridor over the Generator: a small valid ship. */
-const SMALL = () => stack('front_gun', 'corridor', 'generator');
-/** Nine chunks: two guns on corridors over a row of three Crosses, an Overdrive stub and the Generator under the middle Cross. */
+/**
+ * Chunks stacked in the third column (slot column 2), the last one on the bottom row (row 4). The fixed generator (31c) sits under the bottom row at cell column 7 of 12,
+ * i.e. under the LEFT cell of the third slot column, so the chunk on the bottom row of that column needs a cell there (Full does).
+ */
+const stack = (...ids: string[]) => designOf([...new Array(4 - ids.length).fill([]), ...ids.map(id => [null, null, id])]);
+/** A Front Gun over a Full chunk: a small valid ship (the Full chunk sits right above the fixed generator). */
+const SMALL = () => stack('front_gun', 'full');
+/** Nine chunks: two guns on corridors over a row of three Crosses, an Overdrive stub and a Full chunk over the generator. */
 const MEDIUM = () => designOf([
   ['front_gun', null, 'front_gun'],
   ['corridor', null, 'corridor'],
   ['cross', 'cross', 'cross'],
-  ['overdrive', 'generator', null],
+  [null, 'overdrive', 'full'],
 ]);
+/** A Twin Gun turned upside down over a Full chunk: one of its ejectors sits straight above the generator column, so the red line reaches it with no block. */
+const STRAIGHT = () => { const d = designOf([[], [], [null, null, 'twin_gun'], [null, null, 'full']]); d.rot = new Array(16).fill(0); d.rot[10] = 2; return d; };
+/** SMALL with one more chunk, in the first empty slot (and the first rotation) where the ship stays valid; null when nowhere fits. */
+function attach(id: string, base: Design = SMALL()): Design | null {
+  for (let i = 0; i < 16; i++) {
+    if (base.slots[i] !== null) continue;
+    for (let r = 0; r < 4; r++) {
+      const d: Design = { slots: [...base.slots], rot: new Array(16).fill(0) };
+      d.slots[i] = id; d.rot![i] = r;
+      if (validateDesign(d).length === 0) return d;
+    }
+  }
+  return null;
+}
 
 /** A store whose furthest Frontier ring is exactly `ring` (one cleared square, the first that is not a hole; the Shipyard opens at 150). */
 function storeAtRing(ring: number): ProgressStore {
@@ -57,9 +77,11 @@ describe('chunk data', () => {
     for (const c of CHUNKS) expect(validateChunk(c), c.id).toEqual([]);
   });
 
-  it('the starting set is all there: 7 plain, a generator, 3 guns, 5 traits', () => {
+  it('the starting set is all there: 7 plain, 3 guns, 5 traits, and no Generator chunk (31c)', () => {
     const kinds = (k: string) => CHUNKS.filter(c => c.kind === k).length;
-    expect([kinds('plain'), kinds('generator'), kinds('gun'), kinds('trait')]).toEqual([7, 1, 3, 5]);
+    expect([kinds('plain'), kinds('gun'), kinds('trait')]).toEqual([7, 3, 5]);
+    expect(CHUNK_BY_ID.generator).toBeUndefined();
+    expect(CHUNKS.some(c => c.rows.join('').includes('G'))).toBe(false);
     expect(CHUNK_BY_ID.ring.rows.join('').split('_').length - 1).toBe(8);
     expect(CHUNK_BY_ID.wide_open.rows.join('').split('_').length - 1).toBe(9);
     expect(CHUNK_BY_ID.overdrive.rows.join('').split('_').length - 1).toBe(3);
@@ -72,11 +94,11 @@ describe('chunk data', () => {
   });
 
   it('the validator explains a bad chunk', () => {
-    const bad: ChunkDef = { ...CHUNK_BY_ID.front_gun, rows: ['.E.', '.E.', '._.'] }; // an ejector with a cell above it
-    expect(validateChunk(bad).join(' ')).toContain('has a cell above it');
+    // 31c: a cell above an ejector is fine now (the chunk can be rotated, and an ejector fires out of the side opposite its entry)
+    expect(validateChunk({ ...CHUNK_BY_ID.front_gun, rows: ['.E.', '.E.', '._.'] })).toEqual([]);
     const split: ChunkDef = { ...CHUNK_BY_ID.full, rows: ['_._', '...', '_._'] }; // cells not joined
     expect(validateChunk(split).join(' ')).toContain('not all joined');
-    expect(validateChunk({ ...CHUNK_BY_ID.generator, rows: ['___', '_G_', '___'] }).join(' ')).toContain('bottom row');
+    expect(validateChunk({ ...CHUNK_BY_ID.full, rows: ['___', '_G_', '___'] }).join(' ')).toContain('no G');
     expect(validateChunk({ ...CHUNK_BY_ID.full, basePrice: 0 }).join(' ')).toContain('price above 0');
   });
 
@@ -90,46 +112,57 @@ describe('chunk data', () => {
 });
 
 describe('design validity, every rule with its plain error', () => {
-  it('a Generator under a Corridor under a Front Gun is valid', () => {
+  it('a Full chunk over the fixed generator with a gun on top is valid', () => {
     expect(validateDesign(SMALL())).toEqual([]);
     expect(validateDesign(MEDIUM())).toEqual([]);
   });
 
-  it('exactly one Generator', () => {
-    expect(validateDesign(designOf([[null, 'front_gun'], [null, 'corridor']]))).toContain('The ship needs a Generator chunk, in the bottom row');
-    const two = designOf([[null, 'front_gun', 'front_gun'], [null, 'corridor', 'corridor'], [null, 'generator', 'generator']]);
-    expect(validateDesign(two)).toContain('The ship needs exactly one Generator chunk, found 2');
+  it('the fixed generator: the cell above it must be part of the ship', () => {
+    // A Corridor in the bottom row of the generator column has no cell at its bottom-left: nothing sits above the generator.
+    const d = stack('front_gun', 'corridor');
+    expect(validateDesign(d)).toContain('The cell above the generator must be part of the ship');
+    expect(compileDesign(d)).toBeNull();
+    // The same chunk one column to the right does not help either; the generator is where it is.
+    expect(validateDesign(designOf([[], [], [null, null, null, 'front_gun'], [null, null, null, 'full']]))).toContain(NO_CELL_ABOVE_GENERATOR);
+    // Full gives the cell; so does a chunk turned so that a cell lands there.
+    expect(validateDesign(stack('front_gun', 'full'))).toEqual([]);
+    expect(GENERATOR_COLUMN).toBe(6); // column 7 of 12
   });
 
-  it('the Generator must be in the bottom row', () => {
-    const d = designOf([[null, 'front_gun'], [null, 'corridor'], [null, 'generator'], [null, 'corridor']]);
-    expect(validateDesign(d)).toContain('The Generator at row 3, column 2 must be in the bottom row (row 4)');
+  it('the generator is a fixed row of the assembled grid, never a chunk', () => {
+    const g = assemble(SMALL());
+    expect(g).toHaveLength(13);
+    expect(g[12]).toBe('......G.....');
+    expect(g.slice(0, 12).some(r => r.includes('G'))).toBe(false);
+    expect(GENERATOR_CELL).toEqual({ x: 6, y: 12 });
   });
 
   it('at least one ejector', () => {
-    expect(validateDesign(designOf([[null, 'corridor'], [null, 'generator']]))).toContain('The ship has no gun: add a Front Gun, Twin Gun or Side Gun');
+    expect(validateDesign(stack('full'))).toContain('The ship has no gun: add a Front Gun, Twin Gun or Side Gun');
+  });
+
+  it('an ejector may sit anywhere a signal reaches: cells above it are fine (31c)', () => {
+    // A Front Gun with a Full chunk ABOVE it: the old "nothing above an ejector" rule is gone.
+    const d = designOf([[], [null, null, 'full'], [null, null, 'front_gun'], [null, null, 'full']]);
+    expect(validateDesign(d)).toEqual([]);
+    expect(compileDesign(d)).not.toBeNull();
   });
 
   it('every gun and cell must be connected to the generator, across chunk edges, with the chunk named', () => {
-    // A Twin Gun at row 2, column 3 hangs in the air: nothing under it joins the generator.
-    const d = designOf([[null, 'front_gun'], [null, 'corridor', null, 'twin_gun'], [null, 'corridor'], [null, 'generator']]);
+    // A Twin Gun at row 2, column 4 hangs in the air: nothing under it joins the generator.
+    const d = designOf([[], [null, null, 'front_gun', 'twin_gun'], [null, null, 'corridor'], [null, null, 'full']]);
     expect(validateDesign(d)).toEqual(['Twin Gun at row 2, column 4 is not connected to the generator']);
   });
 
-  it('a chunk that does not touch the generator across an edge is reported', () => {
-    // A Corner (cells on its right and bottom edges only) next to the Generator: nothing of it touches the Generator edge.
-    const d = designOf([[null, 'front_gun'], [null, 'corridor'], [null, 'corridor'], [null, 'generator', 'corner']]);
-    expect(validateDesign(d)).toEqual(['Corner at row 4, column 3 is not connected to the generator']);
+  it('a chunk that does not touch the rest across an edge is reported', () => {
+    // A Corner (cells on its right and bottom edges only) right of the Full chunk: nothing of it touches the Full chunk's edge.
+    const d = designOf([[], [], [null, null, 'front_gun'], [null, null, 'full', 'corner']]);
+    expect(validateDesign(d)).toEqual(['Corner at row 4, column 4 is not connected to the generator']);
   });
 
-  it('a Bar to the right of the Generator connects through the touching edge cells', () => {
-    const d = designOf([[null, 'front_gun'], [null, 'corridor'], [null, 'corridor'], [null, 'generator', 'bar']]);
+  it('a Bar to the right of the Full chunk connects through the touching edge cells', () => {
+    const d = designOf([[], [], [null, null, 'front_gun'], [null, null, 'full', 'bar']]);
     expect(validateDesign(d)).toEqual([]);
-  });
-
-  it('nothing above an ejector', () => {
-    const d = designOf([[null, 'corridor'], [null, 'front_gun'], [null, 'corridor'], [null, 'generator']]);
-    expect(validateDesign(d)).toEqual(['Front Gun at row 2, column 2 has a cell above its ejector; leave the space above a gun empty']);
   });
 
   it('an unknown chunk id and a wrong slot count are explained', () => {
@@ -137,6 +170,8 @@ describe('design validity, every rule with its plain error', () => {
     d.slots[0] = 'warp_drive';
     expect(validateDesign(d)).toContain('The slot at row 1, column 1 holds "warp_drive", which is not a chunk');
     expect(validateDesign({ slots: ['full'] })[0]).toContain('16 slots');
+    // The old Generator chunk id is simply "not a chunk" now.
+    expect(validateDesign(designOf([[], [], [null, null, 'front_gun'], [null, null, 'generator']]))).toContain('The slot at row 4, column 3 holds "generator", which is not a chunk');
   });
 
   it('an empty design reports what is missing, never throws', () => {
@@ -146,21 +181,72 @@ describe('design validity, every rule with its plain error', () => {
   });
 });
 
+describe('rotating a chunk (31c)', () => {
+  it('rotateRows turns the whole pattern clockwise, ejectors included; four turns are the identity', () => {
+    const twin = CHUNK_BY_ID.twin_gun.rows; // E.E / ___ / ._.
+    expect(rotateRows(twin, 0)).toEqual(['E.E', '___', '._.']);
+    expect(rotateRows(twin, 1)).toEqual(['._E', '__.', '._E']);
+    expect(rotateRows(twin, 2)).toEqual(['._.', '___', 'E.E']);
+    expect(rotateRows(twin, 3)).toEqual(['E_.', '.__', 'E_.']);
+    expect(rotateRows(twin, 4)).toEqual([...twin]);
+    expect(rotateRows(twin, -1)).toEqual(rotateRows(twin, 3));
+    for (const c of CHUNKS) for (let r = 0; r < 4; r++) {
+      const flat = rotateRows(c.rows, r).join('');
+      expect(flat.split('E').length, c.id).toBe(c.rows.join('').split('E').length); // as many ejectors
+      expect(flat.split('_').length, c.id).toBe(c.rows.join('').split('_').length); // as many cells
+    }
+  });
+
+  it('a Front Gun turned 90 degrees has its ejector on the right edge, and the design assembles it there', () => {
+    const d = designOf([[], [], [null, null, 'front_gun'], [null, null, 'full']]);
+    d.rot = new Array(16).fill(0); d.rot[10] = 1;
+    expect(slotRows(d, 10)).toEqual(['...', '__E', '...']);
+    expect(assemble(d)[7]).toBe('......__E...'); // the ejector is at the right edge of the slot (cell column 9 of 12), row 8; the cells left of it
+  });
+
+  it('rotation changes which cells connect: a Corner joins the Full chunk below only when turned', () => {
+    // Corner at rotation 0 has cells right + bottom (centre, right, bottom). Under a Front Gun's cell column it joins; turned 180 it has cells left + top.
+    const mk = (r: number) => { const d = designOf([[], [], [null, null, 'front_gun'], [null, null, 'full', 'corner']]); d.rot = new Array(16).fill(0); d.rot[15] = r; return d; };
+    expect(validateDesign(mk(0))).toContain('Corner at row 4, column 4 is not connected to the generator');
+    expect(validateDesign(mk(2))).toEqual([]); // turned: its left edge cell touches the Full chunk
+  });
+
+  it('the compiled layout follows the rotation (ejector positions move)', () => {
+    const d = designOf([[], [], [null, null, 'front_gun'], [null, null, 'full']]);
+    const plain = compileDesign(d)!;
+    expect(plain[0]).toBe('.E.');
+    d.rot = new Array(16).fill(0); d.rot[10] = 2; // the gun turned upside down: its ejector is on its bottom row, inside the ship
+    const flipped = compileDesign(d)!;
+    expect(flipped).not.toEqual(plain);
+    expect(flipped.join('').split('E').length - 1).toBe(1);
+    expect(validateHullLayout('turned', flipped)).toEqual([]);
+  });
+
+  it('rotation is stored in the design, copied with it and read as 0 when absent', () => {
+    const d = SMALL();
+    expect([0, 1, 2, 3].map(i => rotAt(d, i))).toEqual([0, 0, 0, 0]); // no rot list: all 0
+    d.rot = new Array(16).fill(0); d.rot[10] = 3;
+    expect(rotAt(d, 10)).toBe(3);
+    expect(copyDesign(d).rot![10]).toBe(3);
+    expect(rotAt({ slots: d.slots, rot: [5, -1] }, 0)).toBe(1); // modulo 4
+    expect(rotAt({ slots: d.slots, rot: [5, -1] }, 1)).toBe(3);
+  });
+});
+
 describe('compiling a design into the ROWS layout of a hull', () => {
-  it('the small design is a 3-wide column (outer empty rows and columns trimmed, the generator on the bottom row)', () => {
+  it('the small design: a 3-wide hull with the generator on the bottom row at its fixed column', () => {
     expect(compileDesign(SMALL())).toEqual([
       '.E.', '._.', '._.',
-      '._.', '._.', '._.',
-      '___', '___', '.G.',
+      '___', '___', '___',
+      'G..',
     ]);
   });
 
-  it('the assembled 12 x 12 grid has the chunks where the slots say', () => {
+  it('the assembled grid has the chunks where the slots say', () => {
     const g = assemble(SMALL());
-    expect(g).toHaveLength(12);
     expect(g.every(r => r.length === 12)).toBe(true);
-    expect(g[11]).toBe('....G.......');
-    expect(g[3]).toBe('....E.......');
+    expect(g[12]).toBe('......G.....');
+    expect(g[6]).toBe('.......E....');
     expect(g[0]).toBe('............');
   });
 
@@ -169,8 +255,9 @@ describe('compiling a design into the ROWS layout of a hull', () => {
   });
 
   it('an invalid design does not compile', () => {
-    expect(compileDesign(stack('front_gun', 'generator'))).not.toBeNull(); // a gun right above the Generator chunk: valid
-    expect(compileDesign(stack('corridor', 'generator'))).toBeNull(); // no gun
+    expect(compileDesign(stack('front_gun', 'full'))).not.toBeNull();
+    expect(compileDesign(stack('full'))).toBeNull(); // no gun
+    expect(compileDesign(stack('front_gun', 'corridor'))).toBeNull(); // nothing above the generator
   });
 
   it('the registered hull builds a grid the circuit compiler reads with no special case', () => {
@@ -183,6 +270,13 @@ describe('compiling a design into the ROWS layout of a hull', () => {
     const out = compile(grid, {});
     expect(out.recipes).toHaveLength(1); // one ejector, reached by the generator's signal through the empty cells
     expect(out.recipes[0].packet.damage).toBeGreaterThan(0);
+  });
+
+  it('a Twin Gun turned upside down over the Full chunk is reached straight from the generator: one recipe (the other ejector is idle)', () => {
+    const out = compile(withHull('t', compileDesign(STRAIGHT())!), {});
+    expect(out.recipes).toHaveLength(1);
+    // The plain Front Gun design needs a turn block to reach its ejector (the signal leaves the generator at column 7 of 12, the gun is at column 8).
+    expect(compile(withHull('t', compileDesign(SMALL())!), {}).recipes).toHaveLength(0);
   });
 });
 
@@ -197,19 +291,19 @@ describe('stats', () => {
 
   it('the small design: cells counted from the compiled layout', () => {
     const s = designStats(SMALL())!;
-    // front gun 2 cells (the E is not a cell), corridor 3, generator 6 (the G is not a cell): 11
+    // front gun 2 cells (the E is not a cell), Full 9: 11 (the fixed generator's G is not a cell)
     expect(s.cells).toBe(11);
     expect(s.ejectors).toBe(1);
     expect(s.pulsesPerSec).toBeCloseTo(5 - 0.025 * 11, 9);
     expect(s.shotSpeed).toBe(1);
-    expect(s.size).toBe('medium'); // 3 chunks
-    expect(s.chunks).toBe(3);
+    expect(s.size).toBe('small'); // 2 chunks
+    expect(s.chunks).toBe(2);
   });
 
   it('traits come after the formula: Overdrive +0.5, Wide Open -0.2 and x0.7 damage, Long Barrel +20% speed, Core Magnet +10%, Extra Life', () => {
     const base = designStats(SMALL())!;
-    // A trait chunk goes where it connects: right of the Generator, or (Overdrive, which has no side cells) between the gun and the Corridor.
-    const withTrait = (id: string) => designStats(designOf([[], [null, 'front_gun'], [null, 'corridor'], [null, 'generator', id]])) ?? designStats(designOf([[], [null, 'front_gun'], [null, id], [null, 'generator']]))!;
+    // A trait chunk goes in the first free slot (and rotation) where the ship stays valid.
+    const withTrait = (id: string) => designStats(attach(id)!)!;
     const od = withTrait('overdrive');
     expect(od.pulsesPerSec).toBeCloseTo(basePulses(od.cells) + 0.5, 9);
     const wo = withTrait('wide_open');
@@ -224,8 +318,8 @@ describe('stats', () => {
 
   it('size class from the occupied chunks: 1-2 small, 3-5 medium, 6-9 big, 10+ huge', () => {
     expect([1, 2, 3, 5, 6, 9, 10, 16].map(sizeOfChunks)).toEqual(['small', 'small', 'medium', 'medium', 'big', 'big', 'huge', 'huge']);
-    // A single Generator chunk with a gun above it is two chunks: small (and the hit radius is the small one).
-    expect(designStats(stack('front_gun', 'generator'))!.size).toBe('small');
+    // A gun over a Full chunk is two chunks: small (and the hit radius is the small one).
+    expect(designStats(stack('front_gun', 'full'))!.size).toBe('small');
   });
 
   it('registered custom hulls feed the normal stat lookups (rate, speed, size, hit radius)', () => {
@@ -246,9 +340,9 @@ describe('stats', () => {
       ['front_gun', 'twin_gun', 'twin_gun', 'front_gun'],
       ['full', 'overdrive', 'overdrive', 'full'],
       ['full', 'full', 'full', 'full'],
-      ['full', 'generator', 'overdrive', 'full'],
+      ['full', 'full', 'full', 'overdrive'],
     ]);
-    const rows = [['small', stack('front_gun', 'generator')], ['medium', MEDIUM()], ['maxed', maxed]] as const;
+    const rows = [['small', stack('front_gun', 'full')], ['medium', MEDIUM()], ['maxed', maxed]] as const;
     for (const [name, d] of rows) {
       const s = designStats(d);
       expect(s, name).not.toBeNull();
@@ -290,10 +384,10 @@ describe('ownership and prices', () => {
   });
 
   it('a design uses one copy per placed chunk; missing copies are named', () => {
-    expect(chunkUsage(MEDIUM())).toEqual({ front_gun: 2, corridor: 2, cross: 3, overdrive: 1, generator: 1 });
-    expect(missingChunks(MEDIUM(), { front_gun: 2, corridor: 1, cross: 3, overdrive: 1, generator: 1 })).toEqual(['Needs 2 x Corridor, you own 1']);
-    expect(designProblems(MEDIUM(), {})).toContain('Needs 1 x Generator, you own 0');
-    expect(designProblems(MEDIUM(), { front_gun: 2, corridor: 2, cross: 3, overdrive: 1, generator: 1 })).toEqual([]);
+    expect(chunkUsage(MEDIUM())).toEqual({ front_gun: 2, corridor: 2, cross: 3, overdrive: 1, full: 1 });
+    expect(missingChunks(MEDIUM(), { front_gun: 2, corridor: 1, cross: 3, overdrive: 1, full: 1 })).toEqual(['Needs 2 x Corridor, you own 1']);
+    expect(designProblems(MEDIUM(), {})).toContain('Needs 1 x Full, you own 0');
+    expect(designProblems(MEDIUM(), { front_gun: 2, corridor: 2, cross: 3, overdrive: 1, full: 1 })).toEqual([]);
   });
 
   it('only 3 design slots; an empty design clears the slot', () => {
@@ -308,7 +402,7 @@ describe('ownership and prices', () => {
   });
 
   it('a half-finished design is saved but does not fly; a valid fully owned one does', () => {
-    const view = { chunks: { front_gun: 1, corridor: 1, generator: 1 } as Record<string, number>, designs: [SMALL(), stack('corridor'), null] };
+    const view = { chunks: { front_gun: 1, full: 1, corridor: 1 } as Record<string, number>, designs: [SMALL(), stack('corridor'), null] };
     expect(flightProblems(view, 0, 150)).toEqual([]);
     expect(flightProblems(view, 1, 150).length).toBeGreaterThan(0);
     expect(flightProblems(view, 2, 150)).toEqual(['This slot has no design']);
@@ -360,8 +454,8 @@ describe('unlock at ring 150 and the hull picker', () => {
     expect(s.data.cores).toBe(60);
     expect(s.shipyardOpen).toBe(false);
     reachRing(s, SHIPYARD_UNLOCK_RING);
-    expect(s.buyChunk('generator').ok).toBe(true);
-    expect(s.data.cores).toBe(0);
+    expect(s.buyChunk('full').ok).toBe(true);
+    expect(s.data.cores).toBe(60 - 25);
   });
 });
 
@@ -402,7 +496,7 @@ describe('earning Cores (Free Fly only)', () => {
   it('the Core Magnet multiplies the run\'s Cores (a custom hull with the trait)', () => {
     const store = storeAtRing(SHIPYARD_UNLOCK_RING);
     ownAllChunks(store, 2);
-    store.setDesign(0, stack('front_gun', 'core_magnet', 'generator'));
+    store.setDesign(0, stack('front_gun', 'core_magnet', 'full'));
     const plain = new World({ seed: 5 });
     const magnet = new World({ seed: 5, grid: HULL_BUILDERS.custom1() });
     for (const w of [plain, magnet]) for (let t = 0; t < WAVE_TIME * 9 + 2; t += DT) { w.update(DT, idle()); w.hull = w.maxHull; w.mitosis.enemies.length = 0; }
@@ -411,11 +505,11 @@ describe('earning Cores (Free Fly only)', () => {
   });
 });
 
-describe('save version 14', () => {
+describe('save version 14 to 15', () => {
   it('an older save migrates to 0 Cores, no chunks, no designs; everything else is kept', () => {
-    expect(PROGRESS_VERSION).toBe(14);
+    expect(PROGRESS_VERSION).toBe(15);
     const old = loadProgress(JSON.stringify({ version: 13, credits: 99, passedTiers: [1, 2], bestWave: 7, cores: 5000, chunks: { full: 3 }, designs: [SMALL(), null, null] }));
-    expect(old.version).toBe(14);
+    expect(old.version).toBe(15);
     expect(old.credits).toBe(99);
     expect(old.bestWave).toBe(7);
     // A v13 save cannot hold Shipyard data; whatever such fields it carries are not trusted.
@@ -428,9 +522,53 @@ describe('save version 14', () => {
 
   it('a v14 save round-trips', () => {
     const p = defaultProgress();
-    p.cores = 123; p.chunks = { full: 2, generator: 1 }; p.designs = [SMALL(), null, stack('corridor')];
+    const turned = SMALL(); turned.rot = new Array(16).fill(0); turned.rot[10] = 3;
+    p.cores = 123; p.chunks = { full: 2, front_gun: 1 }; p.designs = [turned, null, stack('corridor')];
     const back = loadProgress(serializeProgress(p));
-    expect([back.cores, back.chunks, back.designs]).toEqual([123, { full: 2, generator: 1 }, [SMALL(), null, stack('corridor')]]);
+    expect([back.cores, back.chunks, back.designs]).toEqual([123, { full: 2, front_gun: 1 }, [turned, null, stack('corridor')]]);
+    expect(back.designs[0]!.rot![10]).toBe(3); // the rotation survives a save and a load
+  });
+
+  it('31c migration: Generator chunks are refunded in Cores at the price they were bought at, removed from the inventory and from designs', () => {
+    // 3 copies bought at 60, 90 and 135 Cores (base 60 x 1.5^i, rounded) = 285.
+    expect(generatorRefund(0)).toBe(0);
+    expect(generatorRefund(1)).toBe(60);
+    expect(generatorRefund(3)).toBe(60 + 90 + 135);
+    const old = loadProgress(JSON.stringify({
+      version: 14, cores: 100, chunks: { generator: 3, full: 2 },
+      designs: [{ slots: ['front_gun', null, null, null, null, null, null, null, null, null, null, null, 'generator', null, null, null], name: 'Old' }, null, null],
+    }));
+    expect(old.version).toBe(15);
+    expect(old.cores).toBe(100 + 285);
+    expect(old.chunks).toEqual({ full: 2 }); // no generator key left
+    expect(old.designs[0]!.slots[12]).toBeNull(); // the Generator chunk left the design
+    expect(old.designs[0]!.slots[0]).toBe('front_gun');
+    expect(old.designs[0]!.name).toBe('Old');
+    expect(old.designs[0]!.rot).toBeUndefined(); // an old design has no rotations: all 0
+    // Loading the migrated save again pays nothing more.
+    const again = loadProgress(serializeProgress(old));
+    expect(again.cores).toBe(385);
+    expect(again.chunks).toEqual({ full: 2 });
+  });
+
+  it('31c migration: a save with no Generator chunk and a design with no rotation list loads unchanged', () => {
+    const p = loadProgress(JSON.stringify({ version: 14, cores: 7, chunks: { full: 1 }, designs: [SMALL(), null, null] }));
+    expect(p.cores).toBe(7);
+    expect(p.designs[0]).toEqual(SMALL());
+    expect(rotAt(p.designs[0]!, 10)).toBe(0);
+  });
+
+  it('rotations are cleaned: whole numbers taken modulo 4, anything else is 0, an all-zero list is not stored', () => {
+    const slots = SMALL().slots;
+    const s = sanitizeShipyard({ designs: [
+      { slots, rot: [0, 1, 5, -1, 'x', 2.5, null, ...new Array(9).fill(0)] },
+      { slots, rot: new Array(16).fill(0) },
+      { slots, rot: 'sideways' },
+    ] });
+    expect(s.designs[0]!.rot!.slice(0, 7)).toEqual([0, 1, 1, 3, 0, 0, 0]);
+    expect(s.designs[1]!.rot).toBeUndefined();
+    expect(s.designs[2]!.rot).toBeUndefined();
+    expect(cleanRot(7)).toBe(3);
   });
 
   it('garbage is dropped, not trusted', () => {
@@ -477,7 +615,7 @@ describe('trait effects in a run (folded into the modifiers by hull)', () => {
   });
 
   it('Wide Open x0.7 damage, Extra Life one forgiven crash with 1.5 s untouchable', () => {
-    store.setDesign(0, designOf([[null, 'front_gun'], [null, 'wide_open'], [null, 'corridor'], [null, 'generator', 'extra_life']]));
+    store.setDesign(0, attach('extra_life', designOf([[], [], [null, null, 'front_gun'], [null, null, 'full', 'wide_open']]))!);
     const m = applyHullTraits(neutralModifiers(), 'custom1');
     expect(m.damageMul).toBeCloseTo(0.7, 9);
     expect(m.secondChances).toBe(1);
@@ -485,7 +623,7 @@ describe('trait effects in a run (folded into the modifiers by hull)', () => {
   });
 
   it('Extra Life in Free Fly: a contact is forgiven once, the run continues, the second one costs hull', () => {
-    store.setDesign(0, designOf([[], [null, 'front_gun'], [null, 'corridor'], [null, 'generator', 'extra_life']]));
+    store.setDesign(0, attach('extra_life')!);
     const w = new World({ grid: HULL_BUILDERS.custom1(), autoSpawn: false });
     expect(w.secondChancesLeft).toBe(1);
     const touch = () => { w.spawnSpecies('mitotic_rock', w.shipX, w.shipY, { hp: 1e9 }); w.update(DT, idle()); };

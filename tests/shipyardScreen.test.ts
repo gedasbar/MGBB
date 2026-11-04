@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ShipyardEditor, EditorStore } from '../src/shipyard/editor';
 import { CellEditor, CELL_CYCLE } from '../src/shipyard/cellMode';
-import { cellAtPoint, cellMetrics, chunkSheet, problemSlots, slotAtPoint, slotRect, statsText, statusText, SY_GRID } from '../src/shipyard/viewLogic';
-import { designOf, Design } from '../src/shipyard/design';
+import {
+  cellAtPoint, cellMetrics, chunkSheet, generatorRect, gridView, problemSlots, slotAtPoint, slotRect, statsText, statusText, SY_COLS, SY_GRID_AREA, SY_GRID_AREA_OPEN, SY_PALETTE, SY_USE, SY_TOOLBAR,
+} from '../src/shipyard/viewLogic';
+import { designOf, Design, GENERATOR_CELL } from '../src/shipyard/design';
 import { buyChunk, defaultShipyard, sanitizeShipyard, setDesign, ShipyardSave } from '../src/shipyard/state';
 import { CELL_MODE_MAX, DESIGN_NAME_MAX, hasCustomArt, SHIPYARD_UNLOCK_RING } from '../src/shipyard/constants';
 import { validateHullLayout } from '../src/data/hullValidate';
@@ -17,7 +19,7 @@ import { Texture } from 'pixi.js';
 function makeStore(ring = SHIPYARD_UNLOCK_RING, cores = 5000): EditorStore & { save: ShipyardSave } {
   const save = defaultShipyard();
   save.cores = cores;
-  save.chunks = { front_gun: 1, corridor: 2, generator: 1, full: 1 };
+  save.chunks = { front_gun: 1, corridor: 2, full: 1 };
   return {
     save,
     data: save,
@@ -27,8 +29,8 @@ function makeStore(ring = SHIPYARD_UNLOCK_RING, cores = 5000): EditorStore & { s
   };
 }
 
-// The small valid ship of the 31a tests: Front Gun / Corridor / Generator stacked in the second column (slots 1, 5, 9, 13 are column 2).
-const COL = 1;
+// Slots are placed in the third column (slots 2, 6, 10, 14); the bottom one sits over the fixed generator.
+const COL = 2;
 const at = (row: number) => row * 4 + COL;
 
 describe('ShipyardEditor: placing, removing, replacing and the counts', () => {
@@ -141,22 +143,18 @@ describe('ShipyardEditor: undo, redo and the design slots', () => {
 });
 
 describe('"Use this ship" gating and the status strip', () => {
-  const small = () => designOf([[], [null, 'front_gun'], [null, 'corridor'], [null, 'generator']]);
+  const small = () => designOf([[], [], [null, null, 'front_gun'], [null, null, 'full']]);
 
   it('only a valid, fully owned design in an open Shipyard can be used', () => {
     const st = makeStore(); const ed = new ShipyardEditor(st);
     expect(ed.canUse()).toBe(false); // empty
-    ed.place(at(0), 'front_gun'); ed.place(at(1), 'corridor');
-    expect(ed.canUse()).toBe(false); // no generator yet
-    expect(ed.problems()[0]).toMatch(/Generator/);
-    ed.place(at(2), 'generator');
-    // not touching the bottom row (row 4): the generator rule
-    expect(ed.canUse()).toBe(false);
-    expect(ed.problems().join(' ')).toMatch(/bottom row/);
-    ed.place(at(3), 'generator'); // no copy left
-    ed.remove(at(2));
-    ed.place(at(3), 'generator');
-    ed.place(at(2), 'corridor');
+    expect(ed.problems()[0]).toBe('The cell above the generator must be part of the ship');
+    ed.place(at(2), 'front_gun');
+    expect(ed.canUse()).toBe(false); // nothing above the generator yet
+    expect(ed.problems()[0]).toMatch(/above the generator/);
+    ed.place(at(3), 'corridor'); // a Corridor has no cell at its bottom-left, so the generator still has nothing above it
+    expect(ed.problems()[0]).toMatch(/above the generator/);
+    ed.place(at(3), 'full'); // replaces the Corridor
     expect(ed.problems()).toEqual([]);
     expect(ed.canUse()).toBe(true);
   });
@@ -165,9 +163,9 @@ describe('"Use this ship" gating and the status strip', () => {
     const st = makeStore(); const ed = new ShipyardEditor(st);
     st.setDesign(0, small());
     expect(ed.canUse()).toBe(true);
-    st.save.chunks.corridor = 0;
+    st.save.chunks.full = 0;
     expect(ed.canUse()).toBe(false);
-    expect(ed.problems()[0]).toBe('Needs 1 x Corridor, you own 0');
+    expect(ed.problems()[0]).toBe('Needs 1 x Full, you own 0');
   });
 
   it('a closed Shipyard cannot be used and cannot save designs', () => {
@@ -180,17 +178,19 @@ describe('"Use this ship" gating and the status strip', () => {
   it('the status strip says VALID or the first plain-language error with row and column', () => {
     expect(statusText([], true, true)).toEqual({ text: 'VALID', valid: true });
     const st = makeStore(); const ed = new ShipyardEditor(st);
-    st.setDesign(0, designOf([[], [null, 'front_gun'], [], [null, 'generator']]));
+    st.setDesign(0, designOf([[], [null, null, 'front_gun'], [], [null, null, 'full']]));
     const s = statusText(ed.problems(), ed.canUse(), true);
     expect(s.valid).toBe(false);
-    expect(s.text).toBe('Front Gun at row 2, column 2 is not connected to the generator');
-    expect(problemSlots(ed.problems())).toEqual([4 + 1]);
+    expect(s.text).toBe('Front Gun at row 2, column 3 is not connected to the generator');
+    expect(problemSlots(ed.problems())).toEqual([4 + 2]);
+    // The missing cell above the generator is outlined on the slot it belongs to: bottom row, third column
+    expect(problemSlots(['The cell above the generator must be part of the ship'])).toEqual([14]);
   });
 
   it('the stats text lists cells, ejectors, pulses, shot speed and size', () => {
     const st = makeStore(); const ed = new ShipyardEditor(st);
     st.setDesign(0, small());
-    expect(statsText(ed.stats())).toMatch(/^\d+ cells · 1 ejector · \d(\.\d)?\/s · shots x1 · (small|medium)$/);
+    expect(statsText(ed.stats())).toMatch(/^\d+ cells · 1 ejector · \d(\.\d)?\/s · shots x1 · small$/);
     expect(statsText(null)).toMatch(/valid/);
   });
 
@@ -208,17 +208,38 @@ describe('"Use this ship" gating and the status strip', () => {
 });
 
 describe('screen geometry', () => {
-  it('every slot maps back to itself and taps outside the grid miss', () => {
-    for (let i = 0; i < 16; i++) { const r = slotRect(i); expect(slotAtPoint(r.x + r.w / 2, r.y + r.h / 2)).toBe(i); }
-    expect(slotAtPoint(SY_GRID.x - 1, SY_GRID.y + 5)).toBe(-1);
-    expect(slotAtPoint(SY_GRID.x + 5, SY_GRID.y + SY_GRID.h)).toBe(-1);
+  it('every slot maps back to itself and taps outside the build area miss, open or closed', () => {
+    for (const open of [false, true]) {
+      for (let i = 0; i < 16; i++) { const r = slotRect(i, open); expect(slotAtPoint(r.x + r.w / 2, r.y + r.h / 2, open)).toBe(i); }
+      const r0 = slotRect(0, open);
+      expect(slotAtPoint(r0.x - 1, r0.y + 5, open)).toBe(-1);
+      const g = generatorRect(open);
+      expect(slotAtPoint(g.x + g.w / 2, g.y + g.h / 2, open)).toBe(-1); // the generator row is not a slot
+    }
   });
-  it('cells fit the grid square at every size up to 12 x 12', () => {
+  it('the grid is the builder 12 x 12 cells plus the generator row, and the generator sits in column 7 under the bottom row', () => {
+    for (const open of [false, true]) {
+      const v = gridView(open), g = generatorRect(open), bottom = slotRect(15, open);
+      const area = open ? SY_GRID_AREA_OPEN : SY_GRID_AREA;
+      expect(g.w).toBeCloseTo(v.scale, 6);
+      expect(g.y).toBeCloseTo(bottom.y + bottom.h, 6);        // directly under the bottom row
+      expect(g.x).toBeCloseTo(v.ox + 6 * v.scale, 6);          // column 7 of 12
+      expect(g.y + g.h).toBeLessThanOrEqual(area.y + area.h + 0.001);
+    }
+    expect(SY_COLS).toBe(12);
+    expect(GENERATOR_CELL).toEqual({ x: 6, y: 12 });
+  });
+  it('the open grid ends above the palette sheet, so no slot is hidden by it', () => {
+    expect(SY_GRID_AREA_OPEN.y + SY_GRID_AREA_OPEN.h).toBeLessThanOrEqual(SY_PALETTE.y);
+    expect(SY_TOOLBAR.y).toBeGreaterThanOrEqual(SY_GRID_AREA.y + SY_GRID_AREA.h);
+    expect(SY_USE.y + SY_USE.h).toBeLessThanOrEqual(960);
+  });
+  it('cells fit the grid area at every size up to 12 x 12', () => {
     for (const [w, h] of [[1, 1], [5, 6], [12, 12], [12, 3]]) {
       const m = cellMetrics(w, h);
-      expect(m.ox).toBeGreaterThanOrEqual(SY_GRID.x - 0.001);
-      expect(m.ox + w * m.size).toBeLessThanOrEqual(SY_GRID.x + SY_GRID.w + 0.001);
-      expect(m.oy + h * m.size).toBeLessThanOrEqual(SY_GRID.y + SY_GRID.h + 0.001);
+      expect(m.ox).toBeGreaterThanOrEqual(SY_GRID_AREA.x - 0.001);
+      expect(m.ox + w * m.size).toBeLessThanOrEqual(SY_GRID_AREA.x + SY_GRID_AREA.w + 0.001);
+      expect(m.oy + h * m.size).toBeLessThanOrEqual(SY_GRID_AREA.y + SY_GRID_AREA.h + 0.001);
       expect(cellAtPoint(w, h, m.ox + m.size * (w - 0.5), m.oy + m.size * (h - 0.5))).toEqual({ x: w - 1, y: h - 1 });
     }
   });
@@ -281,13 +302,19 @@ describe('debug cell mode', () => {
     expect(rows.every(r => r.length === rows[0].length)).toBe(true);
   });
 
-  it('an ejector with a cell above it or a generator not on the bottom row is explained', () => {
+  it('31c: the generator may sit on any row and an ejector may have cells above it; a generator needs a cell above it', () => {
     const c = new CellEditor(1, 4);
     c.cycle(0, 0); c.cycle(0, 0); c.cycle(0, 0); // E on top
     c.cycle(0, 1);                                // buildable
     c.cycle(0, 2); c.cycle(0, 2);                 // G
-    // row 4 left empty: the bottom row is kept, so G is not on the bottom row
-    expect(c.problems().join(' ')).toMatch(/must be on the bottom row/);
+    expect(c.problems()).toEqual([]);             // row 4 left empty: the bottom row is kept, G is not on it: fine now
+    const d = new CellEditor(1, 3);
+    d.cycle(0, 0); d.cycle(0, 0); d.cycle(0, 0); // E
+    d.cycle(0, 2); d.cycle(0, 2);                 // G with nothing above it
+    expect(d.problems().join(' ')).toMatch(/cell above the generator/);
+    const e = new CellEditor(1, 2);
+    e.cycle(0, 1); e.cycle(0, 1);                 // only a G
+    expect(e.problems().join(' ')).toMatch(/at least 1 ejector/);
   });
 });
 
@@ -322,9 +349,57 @@ describe('custom ship art', () => {
 });
 
 describe('every chunk can be drawn and sold', () => {
-  it('the palette lists the 16 chunks, each with a pattern and a price', () => {
+  it('the palette lists the 15 chunks, each with a pattern and a price', () => {
     const st = makeStore(); const ed = new ShipyardEditor(st);
-    expect(CHUNKS.length).toBe(16);
+    expect(CHUNKS.length).toBe(15);
     for (const c of CHUNKS) { expect(ed.price(c.id)).toBeGreaterThan(0); expect(chunkSheet(ed, c.id).title).toBe(c.name); }
+  });
+});
+
+describe('ShipyardEditor: rotating chunks (31c)', () => {
+  it('a chunk is placed at rotation 0 and turns a quarter turn each way; four turns come back; one undo step each', () => {
+    const st = makeStore(); const ed = new ShipyardEditor(st);
+    ed.place(at(0), 'front_gun');
+    expect(ed.rotationOf(at(0))).toBe(0);
+    expect(ed.rotate(at(0), 1)).toEqual({ ok: true });
+    expect(ed.rotationOf(at(0))).toBe(1);
+    expect(st.save.designs[0]!.rot![at(0)]).toBe(1); // saved at once
+    ed.rotate(at(0), -1); ed.rotate(at(0), -1);
+    expect(ed.rotationOf(at(0))).toBe(3);
+    ed.rotate(at(0), 1);
+    expect(ed.rotationOf(at(0))).toBe(0);
+    expect(st.save.designs[0]!.rot).toBeUndefined(); // all zero: not stored
+    ed.undo();
+    expect(ed.rotationOf(at(0))).toBe(3);
+    ed.redo();
+    expect(ed.rotationOf(at(0))).toBe(0);
+  });
+
+  it('only a placed chunk can be turned; replacing or removing a chunk resets the turn', () => {
+    const st = makeStore(); const ed = new ShipyardEditor(st);
+    expect(ed.rotate(at(1), 1)).toEqual({ ok: false, error: 'Select a chunk to rotate' });
+    expect(ed.rotate(99, 1).ok).toBe(false);
+    ed.place(at(1), 'corridor'); ed.rotate(at(1), 1);
+    expect(ed.rotationOf(at(1))).toBe(1);
+    ed.place(at(1), 'full');
+    expect(ed.rotationOf(at(1))).toBe(0);
+    ed.rotate(at(1), 1); ed.remove(at(1));
+    ed.place(at(1), 'full');
+    expect(ed.rotationOf(at(1))).toBe(0);
+  });
+
+  it('the rotation changes the design: a turned Corridor connects sideways', () => {
+    const st = makeStore(); const ed = new ShipyardEditor(st);
+    ed.place(at(2), 'front_gun'); ed.place(at(3), 'full'); ed.place(0 * 4 + 3, 'corridor');
+    expect(ed.problems().join(' ')).toMatch(/Corridor at row 1, column 4 is not connected/);
+  });
+
+  it('the builder keys map to the rotate, clear and undo actions of this screen', async () => {
+    const { keyAction } = await import('../src/builder/keys');
+    expect(keyAction({ key: 'r' })).toBe('rotateRight');
+    expect(keyAction({ key: 'q' })).toBe('rotateLeft');
+    expect(keyAction({ key: 'R', shiftKey: true })).toBe('rotateLeft');
+    expect(keyAction({ key: 'd' })).toBe('delete');
+    expect(keyAction({ key: 'z', ctrlKey: true })).toBe('undo');
   });
 });

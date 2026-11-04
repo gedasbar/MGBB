@@ -235,9 +235,9 @@ describe('records', () => {
 
 describe('save version 13', () => {
   it('an older save loads with empty achievement fields and the version bumped', () => {
-    expect(PROGRESS_VERSION).toBe(14);
+    expect(PROGRESS_VERSION).toBe(15);
     const old = loadProgress(JSON.stringify({ version: 12, credits: 77, passedTiers: [1, 2, 3], bestWave: 4 }));
-    expect(old.version).toBe(14);
+    expect(old.version).toBe(15);
     expect(old).toMatchObject({ credits: 77, achievements: [], challengesDone: [], cosmetics: [] });
     expect(old.records).toEqual({ bestShot: 0, bestAvgDps: 0, maxCircuitBlocks: 0, hullFilled: 0 });
   });
@@ -267,7 +267,7 @@ describe('save version 13', () => {
     const r = checkImportString(str);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.progress).toMatchObject({ version: 14, achievements: ['pass_10', 'pass_25'], challengesDone: ['c_prong'], cosmetics: ['skin_zenith'] });
+    expect(r.progress).toMatchObject({ version: 15, achievements: ['pass_10', 'pass_25'], challengesDone: ['c_prong'], cosmetics: ['skin_zenith'] });
   });
 });
 

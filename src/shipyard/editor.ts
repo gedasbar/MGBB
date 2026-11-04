@@ -1,7 +1,7 @@
 import { CHUNK_BY_ID } from '../data/shipChunks';
 import { customHullId, customHullName, DESIGN_NAME_MAX, MAX_DESIGNS } from './constants';
 import {
-  chunkPrice, chunkUsage, Design, designProblems, designStats, DesignStats, emptyDesign, isEmptyDesign, SLOT_COUNT,
+  chunkPrice, chunkUsage, copyDesign, Design, designProblems, designStats, DesignStats, emptyDesign, isEmptyDesign, rotAt, SLOT_COUNT,
 } from './design';
 import { cleanName, ShipyardResult } from './state';
 
@@ -20,7 +20,7 @@ export interface EditorStore {
 export type EditResult = { ok: true } | { ok: false; error: string };
 
 const HISTORY_LIMIT = 100;
-const copyOf = (d: Design): Design => (d.name ? { slots: [...d.slots], name: d.name } : { slots: [...d.slots] });
+const copyOf = copyDesign;
 
 export class ShipyardEditor {
   slot = 0;
@@ -78,8 +78,27 @@ export class ShipyardEditor {
     if (d.slots[cell] === id) return { ok: true };
     if (this.free(id, d) <= 0) return { ok: false, error: `No ${c.name} left` };
     d.slots[cell] = id;
+    this.setRot(d, cell, 0); // a chunk is placed at rotation 0; turn it afterwards (31c)
     return this.apply(d);
   }
+
+  private setRot(d: Design, cell: number, r: number) {
+    const rot = d.slots.map((_, i) => rotAt(d, i));
+    rot[cell] = ((r % 4) + 4) % 4;
+    if (rot.some(x => x !== 0)) d.rot = rot; else delete d.rot;
+  }
+
+  /** Turns the chunk in a slot by a quarter turn (+1 clockwise, -1 counter-clockwise): its cells and ejectors move together. One undo step. */
+  rotate(cell: number, steps: 1 | -1): EditResult {
+    if (!Number.isInteger(cell) || cell < 0 || cell >= SLOT_COUNT) return { ok: false, error: 'No such slot' };
+    const d = this.design();
+    if (d.slots[cell] === null) return { ok: false, error: 'Select a chunk to rotate' };
+    this.setRot(d, cell, rotAt(d, cell) + steps);
+    return this.apply(d);
+  }
+
+  /** Turns of the chunk in a slot (0..3). */
+  rotationOf(cell: number): number { return rotAt(this.design(), cell); }
 
   /** Takes the chunk out of a slot (its copy is free again). */
   remove(cell: number): EditResult {
@@ -87,6 +106,7 @@ export class ShipyardEditor {
     const d = this.design();
     if (d.slots[cell] === null) return { ok: true };
     d.slots[cell] = null;
+    this.setRot(d, cell, 0);
     return this.apply(d);
   }
 

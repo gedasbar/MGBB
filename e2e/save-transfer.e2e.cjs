@@ -101,7 +101,7 @@ const openDialog = (page, which) => page.evaluate(async (w) => {
   await Promise.all([b.page.waitForEvent('load'), b.page.click('#import-check')]);
   await b.page.waitForFunction(() => !!window.__mgbmSm);
   const saved = await b.page.evaluate(() => JSON.parse(localStorage.getItem('mgbm.progress.v1')));
-  check(saved.credits === 4321 && saved.runs >= 9 && saved.version === 14, `after confirming and the restart the save is there (credits ${saved.credits}, runs ${saved.runs}, version ${saved.version})`);
+  check(saved.credits === 4321 && saved.runs >= 9 && saved.version === 15, `after confirming and the restart the save is there (credits ${saved.credits}, runs ${saved.runs}, version ${saved.version})`);
   await b.ctx.close();
 
   // A broken file changes nothing.

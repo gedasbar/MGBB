@@ -1,8 +1,8 @@
 import { CHUNK_BY_ID } from '../data/shipChunks';
-import { DESIGN_NAME_MAX, MAX_DESIGNS, SHIPYARD_UNLOCK_RING } from './constants';
-import { chunkPrice, Design, isEmptyDesign, shipyardOpen, SLOT_COUNT } from './design';
+import { DESIGN_NAME_MAX, LEGACY_GENERATOR_BASE_PRICE, LEGACY_GENERATOR_CHUNK, LEGACY_GENERATOR_GROWTH, MAX_DESIGNS, SHIPYARD_UNLOCK_RING } from './constants';
+import { chunkPrice, Design, isEmptyDesign, rotAt, shipyardOpen, SLOT_COUNT } from './design';
 
-/** The Shipyard part of the save (chunk 31a, save version 14): Cores, the chunk inventory and up to MAX_DESIGNS saved designs. */
+/** The Shipyard part of the save (chunk 31a, save version 14; 31c: version 15 adds the rotation of each placed chunk and removes the Generator chunk): Cores, the chunk inventory and up to MAX_DESIGNS saved designs. */
 export interface ShipyardSave {
   cores: number;
   /** Chunk id -> copies owned. */
@@ -26,13 +26,21 @@ export function sanitizeShipyard(raw: { cores?: unknown; chunks?: unknown; desig
     for (const [id, n] of Object.entries(raw.chunks as Record<string, unknown>)) {
       if (id in CHUNK_BY_ID && typeof n === 'number' && Number.isInteger(n) && n > 0) out.chunks[id] = Math.min(n, CHUNK_COPIES_CEILING);
     }
+    // Chunk 31c: the Generator chunk is gone (the generator is a fixed cell now). Copies a save owned are refunded at the price formula they were bought at.
+    const gen = (raw.chunks as Record<string, unknown>)[LEGACY_GENERATOR_CHUNK];
+    if (typeof gen === 'number' && Number.isInteger(gen) && gen > 0) out.cores = Math.min(CORES_CEILING, out.cores + generatorRefund(Math.min(gen, CHUNK_COPIES_CEILING)));
   }
   if (Array.isArray(raw.designs)) {
     for (let i = 0; i < MAX_DESIGNS; i++) {
-      const d = raw.designs[i] as { slots?: unknown; name?: unknown } | null | undefined;
+      const d = raw.designs[i] as { slots?: unknown; name?: unknown; rot?: unknown } | null | undefined;
       if (!d || typeof d !== 'object' || !Array.isArray(d.slots) || d.slots.length !== SLOT_COUNT) continue;
       // An id that is not a chunk (a save from a newer game, a hand edit) becomes an empty slot.
       const design: Design = { slots: d.slots.map((s: unknown) => (typeof s === 'string' && s in CHUNK_BY_ID ? s : null)) };
+      // Rotations: a whole number 0..3 for each slot; anything else (no list, an old design, a hand edit) is 0.
+      if (Array.isArray(d.rot)) {
+        const rot = design.slots.map((_, k) => cleanRot((d.rot as unknown[])[k]));
+        if (rot.some(r => r !== 0)) design.rot = rot;
+      }
       const name = cleanName(d.name);
       if (name) design.name = name;
       if (!isEmptyDesign(design)) out.designs[i] = design;
@@ -40,6 +48,16 @@ export function sanitizeShipyard(raw: { cores?: unknown; chunks?: unknown; desig
   }
   return out;
 }
+
+/** What a save gets back for `copies` Generator chunks (31a / 31b prices: base x growth^i for the i-th copy, whole Cores). */
+export function generatorRefund(copies: number): number {
+  let sum = 0;
+  for (let i = 0; i < copies; i++) sum += Math.max(1, Math.round(LEGACY_GENERATOR_BASE_PRICE * Math.pow(LEGACY_GENERATOR_GROWTH, i)));
+  return sum;
+}
+
+/** A rotation from untrusted data: a whole number turned into 0..3 quarter turns; anything else is 0. */
+export const cleanRot = (r: unknown): number => (typeof r === 'number' && Number.isInteger(r) ? ((r % 4) + 4) % 4 : 0);
 
 /** A design name from untrusted data: a string, trimmed, at most DESIGN_NAME_MAX characters; '' when there is none. */
 export const cleanName = (n: unknown): string => (typeof n === 'string' ? n.trim().slice(0, DESIGN_NAME_MAX) : '');
@@ -66,6 +84,7 @@ export function setDesign(p: ShipyardSave, slot: number, design: Design | null, 
   if (design !== null && design.slots.length !== SLOT_COUNT) return { ok: false, error: 'A design has 16 slots' };
   if (design && !isEmptyDesign(design)) {
     const out: Design = { slots: design.slots.map(s => (s && s in CHUNK_BY_ID ? s : null)) };
+    if (design.rot && design.slots.some((_, i) => rotAt(design, i) !== 0)) out.rot = design.slots.map((_, i) => rotAt(design, i));
     const name = cleanName(design.name);
     if (name) out.name = name;
     p.designs[slot] = out;
