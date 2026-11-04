@@ -3,7 +3,7 @@ import { Screen, ScreenManager } from './ScreenManager';
 import { FlyScreen } from './FlyScreen';
 import { BuildScreen } from './BuildScreen';
 import { makeText, Toast, UIButton } from '../builder/ui';
-import { VIEW_H, VIEW_W, inRect, Rect } from '../builder/layout';
+import { VIEW_H, VIEW_W, inRect, LAYOUT, Rect } from '../builder/layout';
 import { REMOVE_TILE } from '../builder/paletteLogic';
 import { PaletteSource, TilePalette } from '../builder/tilePalette';
 import { GestureTracker } from '../builder/gestures';
@@ -11,6 +11,7 @@ import { enterSandbox, getBuilderModel } from '../builder/session';
 import { GridRenderer } from '../builder/gridView';
 import { drawToolIcon, ToolIcon } from '../builder/draw';
 import { keyAction } from '../builder/keys';
+import { makeTabButtons } from '../builder/tabs';
 import { textButton, TextButton } from '../ui/hud';
 import { drawTileFace } from '../ui/widgets';
 import { THEME, UI } from '../ui/theme';
@@ -33,7 +34,7 @@ import { ShipyardEditor } from '../shipyard/editor';
 import { registerCellTest, rememberCells, takeRememberedCells } from '../shipyard/sandbox';
 import {
   cellAtPoint, cellMetrics, chunkSheet, designTabRects, generatorRect, gridView, nameBoxRect, problemSlots, removeChunkSheet, slotAtPoint, slotRect, statsText, statusText,
-  SY_ERROR, SY_HEADER_H, SY_PALETTE, SY_STATS, SY_TOOLBAR, SY_USE,
+  SY_ERROR, SY_EXTRA, SY_HEADER_H, SY_PALETTE, SY_SELECT, SY_STATS, SY_TOOLBAR,
 } from '../shipyard/viewLogic';
 import { goToTab } from '../map/tabs';
 import { NO_EJECTOR_TEXT } from '../map/nav';
@@ -112,10 +113,9 @@ export class ShipyardScreen implements Screen {
     ];
     const made = tools.map((d, i) => this.add(this.toolButton(d.id, { x: i * 108, y: SY_TOOLBAR.y + 2, w: 108, h: SY_TOOLBAR.h - 2 }, d.icon, d.label, d.act)));
     [this.clearB, this.rotLB, this.rotRB, this.undoB, this.redoB] = made;
-    const useW = DEBUG_ON ? SY_USE.w - 190 : SY_USE.w;
-    this.useB = this.add(textButton('use', { ...SY_USE, w: useW }, 'Use this ship', () => this.use(), 20));
+    this.useB = this.add(textButton('use', SY_SELECT, 'Select', () => this.use(), 18));
     if (DEBUG_ON) {
-      this.cellModeB = this.add(textButton('cellMode', { x: SY_USE.x + useW + 6, y: SY_USE.y, w: 184, h: SY_USE.h }, 'Cell mode', () => this.setCellMode(true), 18));
+      this.cellModeB = this.add(textButton('cellMode', { x: SY_EXTRA.x, y: SY_EXTRA.y, w: 200, h: SY_EXTRA.h }, 'Cell mode', () => this.setCellMode(true), 18));
       // Cell-mode toolbars (debug only): size and export above, the three flights below.
       const row1: [string, string, number, () => void][] = [
         ['cellWminus', 'W-', 80, () => this.resizeCells(-1, 0)], ['cellWplus', 'W+', 80, () => this.resizeCells(1, 0)],
@@ -132,10 +132,12 @@ export class ShipyardScreen implements Screen {
       ];
       x = 10;
       for (const [id, label, w, fn] of row2) {
-        this.cellButtons.push(this.add(textButton(id, { x, y: SY_USE.y, w, h: SY_USE.h }, label, fn, 18)));
+        this.cellButtons.push(this.add(textButton(id, { x, y: SY_EXTRA.y, w, h: SY_EXTRA.h }, label, fn, 18)));
         x += w + 6;
       }
     }
+    // The builder's bottom navigation, with Build as the active tab.
+    for (const b of makeTabButtons('tabBuild', (id) => this.tapTab(id))) this.add(b);
     this.palette = new TilePalette({ area: SY_PALETTE, buttons: ['buy'], tapAgain: 'place', panel: true, drawFace: drawChunkFace });
     this.palette.hide();
     for (const b of this.all) this.container.addChild(b.container);
@@ -171,6 +173,11 @@ export class ShipyardScreen implements Screen {
   }
 
   // ------------------------------------------------------------------ actions
+  private tapTab(id: string) {
+    this.syncBuilder();
+    goToTab(this.sm, id);
+  }
+
   private switchDesign(i: number) {
     if (this.cellMode) return;
     this.ed.switchSlot(i);
@@ -361,6 +368,7 @@ export class ShipyardScreen implements Screen {
     this.chromeG.clear()
       .rect(0, 0, VIEW_W, SY_HEADER_H).fill(UI.color.panel).rect(0, SY_HEADER_H - 1, VIEW_W, 1).fill(UI.color.border)
       .rect(r.x, r.y, r.w, r.h).fill(THEME.panel).rect(r.x, r.y, r.w, 1).fill(THEME.border)
+      .rect(LAYOUT.tabs.x, LAYOUT.tabs.y, LAYOUT.tabs.w, LAYOUT.tabs.h).fill(THEME.panel).rect(LAYOUT.tabs.x, LAYOUT.tabs.y, LAYOUT.tabs.w, 1).fill(THEME.border)
       .rect(SY_TOOLBAR.x, SY_TOOLBAR.y, SY_TOOLBAR.w, SY_TOOLBAR.h).fill(THEME.panel).rect(SY_TOOLBAR.x, SY_TOOLBAR.y, SY_TOOLBAR.w, 1).fill(THEME.border);
   }
 
@@ -383,7 +391,8 @@ export class ShipyardScreen implements Screen {
     const view = this.cellMode ? null : gridView(open);
     const cm = this.cellMode ? cellMetrics(this.cell.w, this.cell.h, open) : null;
     this.gridR.setView(view ?? { scale: cm!.size, ox: cm!.ox, oy: cm!.oy });
-    this.gridR.render(grid, compiled, { selected: null });
+    // No red path line in the Shipyard (31c follow-up): the grid is drawn without the signal segments.
+    this.gridR.render(grid, { ...compiled, segments: [] }, { selected: null });
     const g = this.overlayG;
     g.clear();
     if (this.cellMode) return;
@@ -475,7 +484,14 @@ export class ShipyardScreen implements Screen {
       return;
     }
     if (!this.store.shipyardOpen) { this.toast.show(`The Shipyard opens at Frontier ring ${SHIPYARD_UNLOCK_RING}`); return; }
-    if (slot === this.selectedSlot && open) { this.closePalette(); this.refresh(); return; }
+    if (slot !== this.selectedSlot) { // a first tap only selects (the sheet closes if it was open for another slot)
+      if (open) this.closePalette();
+      this.selectedSlot = slot;
+      sfx.play('uiTap');
+      this.refresh();
+      return;
+    }
+    if (open) { this.closePalette(); this.refresh(); return; }
     this.openPalette(slot);
   }
 

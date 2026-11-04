@@ -43,17 +43,17 @@ const click = (page, id) => page.evaluate((i) => document.getElementById(i).clic
   // A ship with rotated chunks: Twin Gun upside down over a Full chunk (over the generator), a Cross turned, a Corner turned, two Bars, a Side Gun.
   await sy(() => {
     const e = window.__mgbm.shipyard;
-    e.ed.place(10, 'twin_gun'); e.ed.rotate(10, 1); e.ed.rotate(10, 1);
-    e.ed.place(14, 'full');
-    e.ed.place(13, 'bar'); e.ed.place(9, 'cross'); e.ed.place(5, 'ring');
-    e.ed.place(15, 'tjunction'); e.ed.rotate(15, 1);
-    e.ed.place(11, 'side_gun'); e.ed.rotate(11, -1);
+    e.ed.place(8, 'front_gun'); e.ed.place(12, 'full');
+    e.ed.place(4, 'cross'); e.ed.place(0, 'twin_gun'); e.ed.rotate(0, 1);
+    e.ed.place(13, 'bar'); e.ed.place(10, 'side_gun'); e.ed.rotate(10, -1);
+    e.ed.place(14, 'tjunction'); e.ed.rotate(14, 1);
     e.selectedSlot = 10; e.refresh();
   });
   await snap(page, 'Rotated chunks, slot 11 selected, toolbar');
   await sy(() => { const e = window.__mgbm.shipyard; e.selectedSlot = -1; e.refresh(); });
   await snap(page, 'The ship, nothing selected, stats');
   // The palette on an empty slot with a tile selected (its sheet, Buy).
+  await tap(page, ...center(await page.evaluate(() => window.__mgbm.slotRect(0))), { pause: 250 });
   await tap(page, ...center(await page.evaluate(() => window.__mgbm.slotRect(0))), { pause: 250 });
   await page.evaluate(() => window.__mgbm.shipyard.palette.reveal('overdrive'));
   await tap(page, ...center(await page.evaluate(() => window.__mgbm.tileRect('overdrive'))), { pause: 250 });

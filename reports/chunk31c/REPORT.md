@@ -28,3 +28,6 @@ Dev server (port 5173) started for the e2e runs and stopped at the end. No workt
 - **Full e2e suite** not run; only the scripts named above.
 - **Ship picker inside the sandbox** is disabled with a toast; hulls bought or switched there were not tried.
 - **Old v14 saves with designs** were tested through unit tests and a fixture, not with a real saved game of the owner: designs built around the old Generator chunk lose it and will show the "cell above the generator" error until redone.
+
+## Follow-up after review (same branch)
+No red path line in the Shipyard grid; a first tap selects a slot, a tap on the selected slot opens / closes the palette; bottom tab bar shown; "Use this ship" is now a small "Select" button in the design row; generator moved to column 2 of 12 (middle of the first bottom chunk). DECISIONS 545. `tsc` and 1,225 unit tests pass; `e2e/shipyard.e2e.cjs` 51 checks pass (rewritten for slots 8 / 12 and the two-tap rule). Contact sheet redone and looked at: no red line in cells 1-6, Select button top right beside a shorter name box, tab bar at the bottom, generator under the second cell of the first column. Not verified: touch feel; the other e2e scripts were not re-run for this follow-up; old designs built for the old generator position may show the "cell above the generator" error.

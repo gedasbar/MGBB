@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ShipyardEditor, EditorStore } from '../src/shipyard/editor';
 import { CellEditor, CELL_CYCLE } from '../src/shipyard/cellMode';
 import {
-  cellAtPoint, cellMetrics, chunkSheet, generatorRect, gridView, problemSlots, slotAtPoint, slotRect, statsText, statusText, SY_COLS, SY_GRID_AREA, SY_GRID_AREA_OPEN, SY_PALETTE, SY_USE, SY_TOOLBAR,
+  cellAtPoint, cellMetrics, chunkSheet, generatorRect, gridView, problemSlots, slotAtPoint, slotRect, statsText, statusText, SY_COLS, SY_GRID_AREA, SY_GRID_AREA_OPEN, SY_PALETTE, SY_EXTRA, SY_TOOLBAR,
 } from '../src/shipyard/viewLogic';
 import { designOf, Design, GENERATOR_CELL } from '../src/shipyard/design';
 import { buyChunk, defaultShipyard, sanitizeShipyard, setDesign, ShipyardSave } from '../src/shipyard/state';
@@ -30,7 +30,7 @@ function makeStore(ring = SHIPYARD_UNLOCK_RING, cores = 5000): EditorStore & { s
 }
 
 // Slots are placed in the third column (slots 2, 6, 10, 14); the bottom one sits over the fixed generator.
-const COL = 2;
+const COL = 0;
 const at = (row: number) => row * 4 + COL;
 
 describe('ShipyardEditor: placing, removing, replacing and the counts', () => {
@@ -143,7 +143,7 @@ describe('ShipyardEditor: undo, redo and the design slots', () => {
 });
 
 describe('"Use this ship" gating and the status strip', () => {
-  const small = () => designOf([[], [], [null, null, 'front_gun'], [null, null, 'full']]);
+  const small = () => designOf([[], [], ['front_gun'], ['full']]);
 
   it('only a valid, fully owned design in an open Shipyard can be used', () => {
     const st = makeStore(); const ed = new ShipyardEditor(st);
@@ -152,9 +152,7 @@ describe('"Use this ship" gating and the status strip', () => {
     ed.place(at(2), 'front_gun');
     expect(ed.canUse()).toBe(false); // nothing above the generator yet
     expect(ed.problems()[0]).toMatch(/above the generator/);
-    ed.place(at(3), 'corridor'); // a Corridor has no cell at its bottom-left, so the generator still has nothing above it
-    expect(ed.problems()[0]).toMatch(/above the generator/);
-    ed.place(at(3), 'full'); // replaces the Corridor
+    ed.place(at(3), 'corridor'); // a Corridor has a cell at its bottom middle: right above the generator
     expect(ed.problems()).toEqual([]);
     expect(ed.canUse()).toBe(true);
   });
@@ -178,13 +176,13 @@ describe('"Use this ship" gating and the status strip', () => {
   it('the status strip says VALID or the first plain-language error with row and column', () => {
     expect(statusText([], true, true)).toEqual({ text: 'VALID', valid: true });
     const st = makeStore(); const ed = new ShipyardEditor(st);
-    st.setDesign(0, designOf([[], [null, null, 'front_gun'], [], [null, null, 'full']]));
+    st.setDesign(0, designOf([[], ['front_gun'], [], ['full']]));
     const s = statusText(ed.problems(), ed.canUse(), true);
     expect(s.valid).toBe(false);
-    expect(s.text).toBe('Front Gun at row 2, column 3 is not connected to the generator');
-    expect(problemSlots(ed.problems())).toEqual([4 + 2]);
+    expect(s.text).toBe('Front Gun at row 2, column 1 is not connected to the generator');
+    expect(problemSlots(ed.problems())).toEqual([4]);
     // The missing cell above the generator is outlined on the slot it belongs to: bottom row, third column
-    expect(problemSlots(['The cell above the generator must be part of the ship'])).toEqual([14]);
+    expect(problemSlots(['The cell above the generator must be part of the ship'])).toEqual([12]);
   });
 
   it('the stats text lists cells, ejectors, pulses, shot speed and size', () => {
@@ -217,22 +215,22 @@ describe('screen geometry', () => {
       expect(slotAtPoint(g.x + g.w / 2, g.y + g.h / 2, open)).toBe(-1); // the generator row is not a slot
     }
   });
-  it('the grid is the builder 12 x 12 cells plus the generator row, and the generator sits in column 7 under the bottom row', () => {
+  it('the grid is the builder 12 x 12 cells plus the generator row, and the generator sits in column 2 under the bottom row', () => {
     for (const open of [false, true]) {
       const v = gridView(open), g = generatorRect(open), bottom = slotRect(15, open);
       const area = open ? SY_GRID_AREA_OPEN : SY_GRID_AREA;
       expect(g.w).toBeCloseTo(v.scale, 6);
       expect(g.y).toBeCloseTo(bottom.y + bottom.h, 6);        // directly under the bottom row
-      expect(g.x).toBeCloseTo(v.ox + 6 * v.scale, 6);          // column 7 of 12
+      expect(g.x).toBeCloseTo(v.ox + 1 * v.scale, 6);          // column 2 of 12
       expect(g.y + g.h).toBeLessThanOrEqual(area.y + area.h + 0.001);
     }
     expect(SY_COLS).toBe(12);
-    expect(GENERATOR_CELL).toEqual({ x: 6, y: 12 });
+    expect(GENERATOR_CELL).toEqual({ x: 1, y: 12 });
   });
   it('the open grid ends above the palette sheet, so no slot is hidden by it', () => {
     expect(SY_GRID_AREA_OPEN.y + SY_GRID_AREA_OPEN.h).toBeLessThanOrEqual(SY_PALETTE.y);
     expect(SY_TOOLBAR.y).toBeGreaterThanOrEqual(SY_GRID_AREA.y + SY_GRID_AREA.h);
-    expect(SY_USE.y + SY_USE.h).toBeLessThanOrEqual(960);
+    expect(SY_EXTRA.y + SY_EXTRA.h).toBeLessThanOrEqual(960);
   });
   it('cells fit the grid area at every size up to 12 x 12', () => {
     for (const [w, h] of [[1, 1], [5, 6], [12, 12], [12, 3]]) {

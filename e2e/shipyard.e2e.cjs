@@ -24,8 +24,14 @@ const entryOf = (page) => page.evaluate(() => window.__mgbm.buildScreen.hullPick
 
 /** Puts a chunk in a grid slot by tapping: the slot, the tile (selects), the tile again (places). */
 async function place(page, slot, chunk) {
-  await tap(page, ...center(await page.evaluate((i) => window.__mgbm.slotRect(i), slot)), { pause: 150 });
-  check(await waitFor(async () => (await st(page)).paletteOpen && (await st(page)).selectedSlot === slot, { timeout: 2000 }), `tapping slot ${slot} opens the palette for it`);
+  const sr = () => page.evaluate((i) => window.__mgbm.slotRect(i), slot);
+  const fresh = (await st(page)).selectedSlot !== slot;
+  await tap(page, ...center(await sr()), { pause: 150 });
+  if (fresh) {
+    check(await waitFor(async () => (await st(page)).selectedSlot === slot && !(await st(page)).paletteOpen, { timeout: 2000 }), `a first tap on slot ${slot} only selects it (no palette)`);
+    await tap(page, ...center(await sr()), { pause: 150 });
+  }
+  check(await waitFor(async () => (await st(page)).paletteOpen && (await st(page)).selectedSlot === slot, { timeout: 2000 }), `tapping the selected slot ${slot} opens the palette`);
   await page.evaluate((c) => window.__mgbm.shipyard.palette.reveal(c), chunk);
   let placed = false;
   for (let i = 0; i < 4 && !placed; i++) {
@@ -53,64 +59,69 @@ async function place(page, slot, chunk) {
   await click(page, 'dbg-fr-reach-all');
   await click(page, 'dbg-cores-1000');
   await click(page, 'dbg-own-chunks');
+  await page.evaluate(() => { const d = document.getElementById('debug-panel'); if (d) d.style.display = 'none'; }); // the debug panel covers the right edge (the Select button)
   await openHubShips(page);
   entry = await entryOf(page);
   check(entry.open && entry.cores >= 1000, `after ring 150 the entry is open and shows the Cores (${entry.cores})`);
   await tap(page, ...center(entry.rect), { pause: 250 });
   check(await onScreen(page, 'shipyard'), 'tapping the entry opens the Shipyard screen');
 
-  // ---- build a small ship: a Twin Gun turned upside down (slot 10) over a Full chunk (slot 14), which sits right above the fixed generator
+  // ---- build a small ship: a Front Gun (slot 8) over a Full chunk (slot 12), which sits right above the fixed generator
   let s = await st(page);
   check(/above the generator/.test(s.status) && !s.canUse, `an empty design says what it needs: "${s.status}"`);
   const g0 = await page.evaluate(() => window.__mgbm.generatorRect());
-  const s14 = await page.evaluate(() => window.__mgbm.slotRect(14));
-  check(Math.abs(g0.y - (s14.y + s14.h)) < 1 && Math.abs(g0.x - (s14.x)) < 1, 'the fixed generator is drawn right under the bottom row, at the left cell of the third slot column (column 7 of 12)');
-  await place(page, 10, 'twin_gun');
-  await place(page, 14, 'corridor');
+  const s14 = await page.evaluate(() => window.__mgbm.slotRect(12));
+  check(Math.abs(g0.y - (s14.y + s14.h)) < 1 && Math.abs(g0.x - (s14.x + s14.w / 3)) < 1, 'the fixed generator is drawn right under the bottom row, at the middle of the first slot column (column 2 of 12)');
+  await place(page, 8, 'front_gun');
+  await place(page, 12, 'bar');
   s = await st(page);
-  check(/above the generator/.test(s.status) && !s.canUse, `a Corridor has no cell above the generator: "${s.status}", Use is not allowed`);
+  check(/above the generator/.test(s.status) && !s.canUse, `a Bar has no cell above the generator: "${s.status}", Use is not allowed`);
   await tapButton(page, 'use');
   check(await waitFor(async () => /above the generator/.test((await st(page)).toast || ''), { timeout: 2000 }) && (await page.evaluate(() => window.__mgbm.screen)) === 'shipyard', 'tapping the greyed Use button says why and stays');
-  await place(page, 14, 'full'); // replaces the Corridor
+  await place(page, 12, 'full'); // replaces the Bar
   s = await st(page);
   check(s.status === 'VALID' && s.canUse, `the finished design reads VALID (${s.status})`);
   check(/cells/.test(s.stats) && /ejector/.test(s.stats), `and shows its stats: "${s.stats}"`);
 
   // ---- rotation: the slot stays selected after placing; Rotate right (button) and R (key) turn it
-  await tap(page, ...center(await page.evaluate(() => window.__mgbm.slotRect(10))), { pause: 150 }); // select slot 10 again (the palette opens), then close it
-  await waitFor(async () => (await st(page)).selectedSlot === 10, { timeout: 2000 });
-  await tap(page, ...center(await page.evaluate(() => window.__mgbm.slotRect(10))), { pause: 150 });
-  check(await waitFor(async () => { const t = await st(page); return !t.paletteOpen && t.selectedSlot === 10; }, { timeout: 2000 }), 'tapping the selected slot again closes the palette and keeps the slot selected');
+  await tap(page, ...center(await page.evaluate(() => window.__mgbm.slotRect(8))), { pause: 150 });
+  check(await waitFor(async () => { const t = await st(page); return t.selectedSlot === 8 && !t.paletteOpen; }, { timeout: 2000 }), 'tapping another slot once only selects it');
+  await tap(page, ...center(await page.evaluate(() => window.__mgbm.slotRect(8))), { pause: 150 }); // the slot is still selected after placing: this tap opens the palette, the next one closes it
+  await waitFor(async () => (await st(page)).paletteOpen, { timeout: 2000 });
+  await tap(page, ...center(await page.evaluate(() => window.__mgbm.slotRect(8))), { pause: 150 });
+  check(await waitFor(async () => { const t = await st(page); return !t.paletteOpen && t.selectedSlot === 8; }, { timeout: 2000 }), 'tapping the selected slot again closes the palette and keeps the slot selected');
   await tapButton(page, 'rotCW');
-  check(await waitFor(async () => (await st(page)).rotations[10] === 1, { timeout: 2000 }), 'Rotate right turns the chunk a quarter turn');
+  check(await waitFor(async () => (await st(page)).rotations[8] === 1, { timeout: 2000 }), 'Rotate right turns the chunk a quarter turn');
   await page.keyboard.press('r');
-  check(await waitFor(async () => (await st(page)).rotations[10] === 2, { timeout: 2000 }), 'the R key turns it again (the Twin Gun now fires out of its bottom corners)');
+  check(await waitFor(async () => (await st(page)).rotations[8] === 2, { timeout: 2000 }), 'the R key turns it again (the Front Gun now fires into the ship)');
   s = await st(page);
   check(s.status === 'VALID', `still VALID turned upside down (${s.status})`);
   await tapButton(page, 'rotCCW');
-  await waitFor(async () => (await st(page)).rotations[10] === 1, { timeout: 2000 });
+  await waitFor(async () => (await st(page)).rotations[8] === 1, { timeout: 2000 });
   await page.keyboard.press('q');
-  check(await waitFor(async () => (await st(page)).rotations[10] === 0, { timeout: 2000 }), 'Rotate left and the Q key turn it back');
+  check(await waitFor(async () => (await st(page)).rotations[8] === 0, { timeout: 2000 }), 'Rotate left and the Q key turn it back');
   await tapButton(page, 'rotCW'); await tapButton(page, 'rotCW');
-  check(await waitFor(async () => (await st(page)).rotations[10] === 2, { timeout: 2000 }), 'turned upside down for the flight');
+  check(await waitFor(async () => (await st(page)).rotations[8] === 2, { timeout: 2000 }), 'turned upside down');
 
   // ---- undo / redo
   await tapButton(page, 'undo');
-  check(await waitFor(async () => (await st(page)).rotations[10] === 1, { timeout: 2000 }), 'Undo takes the last turn back');
+  check(await waitFor(async () => (await st(page)).rotations[8] === 1, { timeout: 2000 }), 'Undo takes the last turn back');
   await tapButton(page, 'redo');
-  check(await waitFor(async () => (await st(page)).rotations[10] === 2, { timeout: 2000 }), 'Redo turns it again');
+  check(await waitFor(async () => (await st(page)).rotations[8] === 2, { timeout: 2000 }), 'Redo turns it again');
 
   // ---- Clear (toolbar) removes the chunk of the selected slot, Undo brings it back
   await tapButton(page, 'clearCell');
-  check(await waitFor(async () => (await st(page)).design.slots[10] === null, { timeout: 2000 }), 'Clear takes the Twin Gun out of its slot');
+  check(await waitFor(async () => (await st(page)).design.slots[8] === null, { timeout: 2000 }), 'Clear takes the Front Gun out of its slot');
   await tapButton(page, 'undo');
-  check(await waitFor(async () => (await st(page)).design.slots[10] === 'twin_gun' && (await st(page)).canUse && (await st(page)).rotations[10] === 2, { timeout: 2000 }), 'Undo brings it back, turned, and the ship is VALID again');
+  check(await waitFor(async () => (await st(page)).design.slots[8] === 'front_gun' && (await st(page)).canUse && (await st(page)).rotations[8] === 2, { timeout: 2000 }), 'Undo brings it back, turned, and the ship is VALID again');
+  await tapButton(page, 'rotCW'); await tapButton(page, 'rotCW');
+  check(await waitFor(async () => (await st(page)).rotations[8] === 0, { timeout: 2000 }), 'turned back to 0 so the gun fires straight up the generator column');
 
   // ---- designs and the name
   await tapButton(page, 'design2');
   check(await waitFor(async () => (await st(page)).slot === 1 && (await st(page)).design.slots.every(x => x === null), { timeout: 2000 }), 'design 2 is a separate, empty design');
   await tapButton(page, 'design1');
-  check(await waitFor(async () => (await st(page)).slot === 0 && (await st(page)).design.slots[10] === 'twin_gun', { timeout: 2000 }), 'design 1 is still there');
+  check(await waitFor(async () => (await st(page)).slot === 0 && (await st(page)).design.slots[8] === 'front_gun', { timeout: 2000 }), 'design 1 is still there');
   await tap(page, ...center(await page.evaluate(() => window.__mgbm.nameBoxRect())), { pause: 200 });
   await page.waitForSelector('#shipyard-name', { timeout: 3000 });
   await page.fill('#shipyard-name', 'Spear');
@@ -135,6 +146,7 @@ async function place(page, slot, chunk) {
   // ---- debug cell mode (a fresh session)
   const { page: p2 } = await lib.openGame(browser, { rich: true });
   await click(p2, 'dbg-fr-reach-all');
+  await p2.evaluate(() => { const d = document.getElementById('debug-panel'); if (d) d.style.display = 'none'; });
   await openHubShips(p2);
   await tap(p2, ...center((await entryOf(p2)).rect), { pause: 250 });
   check(await onScreen(p2, 'shipyard'), 'a second session opens the Shipyard');

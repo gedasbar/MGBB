@@ -20,10 +20,13 @@ export const SY_GRID_AREA_OPEN: Rect = { x: 0, y: LAYOUT.gridArea.y, w: VIEW_W, 
 export const SY_COLS = DESIGN_SLOTS * CHUNK_CELLS;
 export const SY_ROWS = SY_COLS + 1;
 /** The bottom, from the top: the error line, the stats strip, the builder-style toolbar and the big Use button (all under the palette sheet when it is open). */
-export const SY_ERROR: Rect = { x: 10, y: 722, w: VIEW_W - 20, h: 36 };
-export const SY_STATS: Rect = { x: 0, y: 760, w: VIEW_W, h: 34 };
-export const SY_TOOLBAR: Rect = { x: 0, y: 798, w: VIEW_W, h: 50 };
-export const SY_USE: Rect = { x: 10, y: 858, w: VIEW_W - 20, h: 56 };
+export const SY_EXTRA: Rect = { x: 10, y: 724, w: VIEW_W - 20, h: 46 };
+export const SY_ERROR: Rect = { x: 10, y: 776, w: VIEW_W - 20, h: 40 };
+export const SY_STATS: Rect = { ...LAYOUT.stats };
+export const SY_TOOLBAR: Rect = { ...LAYOUT.toolbar };
+/** The Select button ("Use this ship") sits in the design row, right of the name box. */
+export const SY_SELECT_W = 96;
+export const SY_SELECT: Rect = { x: SY_DESIGN_ROW.x + SY_DESIGN_ROW.w - SY_SELECT_W, y: SY_DESIGN_ROW.y, w: SY_SELECT_W, h: SY_DESIGN_ROW.h };
 /** The chunk palette and its info sheet: the bottom of the screen, over the strip and the toolbar. */
 export const SY_PALETTE: Rect = { x: 0, y: 520, w: VIEW_W, h: 960 - 520 };
 
@@ -63,7 +66,7 @@ export function designTabRects(n: number): Rect[] {
 }
 export function nameBoxRect(n: number): Rect {
   const r = SY_DESIGN_ROW, left = n * 52 + 8;
-  return { x: r.x + left, y: r.y, w: r.w - left, h: r.h };
+  return { x: r.x + left, y: r.y, w: r.w - left - SY_SELECT_W - 6, h: r.h };
 }
 
 // ---------------------------------------------------------------- texts

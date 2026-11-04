@@ -27,9 +27,9 @@ export const CHUNK_CELLS = 3;
 export const DESIGN_SLOTS = 4;
 /**
  * Chunk 31c: the Generator is a FIXED cell just below the build area (the build area is DESIGN_SLOTS x CHUNK_CELLS = 12 cells wide), under the bottom row, in this column
- * (counted from 0: column 7 of 12, right of centre). It fires up into the cell above it, which every custom ship must have.
+ * (counted from 0: column 2 of 12, the middle of the first bottom chunk). It fires up into the cell above it, which every custom ship must have.
  */
-export const GENERATOR_COLUMN = 6;
+export const GENERATOR_COLUMN = 1;
 /** The Generator chunk that existed in 31a / 31b (removed in 31c): its frozen price, to refund the copies a save owned (basePrice x growth^i for the i-th copy). */
 export const LEGACY_GENERATOR_CHUNK = 'generator';
 export const LEGACY_GENERATOR_BASE_PRICE = 60;
