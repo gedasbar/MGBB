@@ -3,7 +3,7 @@ import { UI } from '../src/ui/theme';
 import { segmentRects } from '../src/ui/widgets';
 import { hasKeyboard } from '../src/ui/touchMode';
 import { HUB_TABS, hubTabRects, HUB_PANEL, HUB_TAB_H, hubBodyRect } from '../src/builder/hub';
-import { hullListRect } from '../src/builder/hullPickerLogic';
+import { hullListRect, HULL_ENTRY_H, shipyardEntryRect } from '../src/builder/hullPickerLogic';
 
 const lum = (c: number) => ((c >> 16) & 255) * 0.299 + ((c >> 8) & 255) * 0.587 + (c & 255) * 0.114;
 
@@ -41,7 +41,9 @@ describe('chunk 29a UI tokens', () => {
     expect(body.y).toBe(HUB_PANEL.y + HUB_TAB_H + UI.hubGap);
     expect(UI.hubGap).toBeGreaterThan(0);
     expect(body.y + body.h).toBe(HUB_PANEL.y + HUB_PANEL.h);
-    // the ships list is the same area (with its info sheet closed), so all three tabs clip at the same line
-    expect(hullListRect(false)).toEqual(body);
+    // the ships list is the same area (with its info sheet closed) below the pinned Shipyard entry (chunk 31b), so all three tabs end at the same line
+    // and the Ships tab's own content starts right under its pinned entry
+    expect(hullListRect(false)).toEqual({ ...body, y: body.y + HULL_ENTRY_H, h: body.h - HULL_ENTRY_H });
+    expect(shipyardEntryRect().y).toBe(body.y);
   });
 });
