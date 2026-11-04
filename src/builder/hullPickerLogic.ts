@@ -94,13 +94,22 @@ export function hullSheetRect(): Rect {
   return { x: p.x, y: p.y + p.h - HULL_SHEET_H, w: p.w, h: HULL_SHEET_H };
 }
 
-/** Row rectangles in content coordinates (y from the top of the list). */
-export function hullRowRects(count: number): Rect[] {
+/** Chunk 31b: the SHIPYARD entry is one row at the top of the list; the hull rows start below it. */
+export const HULL_ENTRY_TOP = HULL_ROW_H + HULL_ROW_GAP;
+
+/** Row rectangles in content coordinates (y from the top of the list); `top` pushes them down (the Shipyard entry's room). */
+export function hullRowRects(count: number, top = 0): Rect[] {
   const w = HULL_PANEL.w - 24;
-  return Array.from({ length: count }, (_, i) => ({ x: 12, y: HULL_ROW_GAP + i * (HULL_ROW_H + HULL_ROW_GAP), w, h: HULL_ROW_H }));
+  return Array.from({ length: count }, (_, i) => ({ x: 12, y: top + HULL_ROW_GAP + i * (HULL_ROW_H + HULL_ROW_GAP), w, h: HULL_ROW_H }));
 }
 
-export const hullContentH = (count: number) => HULL_ROW_GAP + count * (HULL_ROW_H + HULL_ROW_GAP);
+/** The Shipyard entry's rectangle in content coordinates. */
+export const shipyardEntryRect = (): Rect => ({ x: 12, y: HULL_ROW_GAP, w: HULL_PANEL.w - 24, h: HULL_ROW_H });
+
+export const hullContentH = (count: number, top = 0) => top + HULL_ROW_GAP + count * (HULL_ROW_H + HULL_ROW_GAP);
+
+/** The entry's second line: what the Shipyard is, or what opens it. */
+export const shipyardEntryText = (open: boolean, ring: number): string => (open ? 'Design a custom ship from chunks' : `Locked: Frontier ring ${ring}`);
 
 /** The Buy button of the info sheet. */
 export function hullBuyRect(): Rect {

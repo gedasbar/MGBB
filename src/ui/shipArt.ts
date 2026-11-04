@@ -1,7 +1,8 @@
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CONFIG } from '../config';
 import { SIZE_CLASSES, sizeClassOf } from '../data/hulls';
-import { FLAME_MAX_LENGTH, SHIP_ART, ShipArtDef, Tone } from './shipShapes';
+import { hasCustomArt } from '../shipyard/constants';
+import { CUSTOM_SHIP_ART, FLAME_MAX_LENGTH, SHIP_ART, ShipArtDef, Tone } from './shipShapes';
 
 export { SHIP_ART };
 
@@ -54,29 +55,32 @@ export interface TextureMaker { generateTexture(options: { target: Graphics; res
 const cache = new Map<string, Texture>();
 const flameCache = new Map<string, [Texture, Texture]>();
 
-const artOf = (id: string): ShipArtDef => SHIP_ART[id] ?? SHIP_ART.dart;
+/** Chunk 31b: every custom ship (and the debug test hull) shares the one fixed custom drawing. */
+const artOf = (id: string): ShipArtDef => (hasCustomArt(id) ? CUSTOM_SHIP_ART : SHIP_ART[id] ?? SHIP_ART.dart);
+/** Cache key: a custom hull's size class changes when its design does, and the texture is drawn at the size class's box. */
+const keyOf = (id: string): string => { const a = artSizeOf(id); return `${id}@${a.w}x${a.h}`; };
 
 /** One hull texture per ship id, drawn once and reused. */
 export function getShipTexture(renderer: TextureMaker, id: string, def?: ShipArtDef): Texture {
-  let t = def ? undefined : cache.get(id);
+  let t = def ? undefined : cache.get(keyOf(id));
   if (!t) {
     const a = artSizeOf(id);
     const g = drawHull(new Graphics(), def ?? artOf(id), a.w, a.h);
     t = renderer.generateTexture({ target: g, resolution: TEX_RES });
     g.destroy();
-    if (!def) cache.set(id, t);
+    if (!def) cache.set(keyOf(id), t);
   }
   return t;
 }
 
 /** The long and the short flame texture of a ship (same box as its hull, taller by FLAME_MAX_LENGTH). */
 export function getFlameTextures(renderer: TextureMaker, id: string, art?: ShipArtDef): [Texture, Texture] {
-  let t = art ? undefined : flameCache.get(id);
+  let t = art ? undefined : flameCache.get(keyOf(id));
   if (!t) {
     const a = artSizeOf(id), def = art ?? artOf(id);
     const make = (mul: number) => { const g = drawFlames(new Graphics(), def, a.w, a.h, mul); const tex = renderer.generateTexture({ target: g, resolution: TEX_RES }); g.destroy(); return tex; };
     t = [make(1), make(FLAME_SHORT)];
-    if (!art) flameCache.set(id, t);
+    if (!art) flameCache.set(keyOf(id), t);
   }
   return t;
 }
