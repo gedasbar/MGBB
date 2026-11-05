@@ -1,5 +1,5 @@
-import { CHUNK_BY_ID } from '../data/shipChunks';
-import { DESIGN_NAME_MAX, LEGACY_GENERATOR_BASE_PRICE, LEGACY_GENERATOR_CHUNK, LEGACY_GENERATOR_GROWTH, MAX_DESIGNS, SHIPYARD_UNLOCK_RING } from './constants';
+import { CHUNK_BY_ID, REMOVED_CHUNKS } from '../data/shipChunks';
+import { DESIGN_NAME_MAX, LEGACY_GENERATOR_BASE_PRICE, LEGACY_GENERATOR_CHUNK, LEGACY_GENERATOR_GROWTH, LEGACY_REMOVED_CHUNK_PRICES, MAX_DESIGNS, SHIPYARD_UNLOCK_RING } from './constants';
 import { chunkPrice, Design, isEmptyDesign, rotAt, shipyardOpen, SLOT_COUNT } from './design';
 
 /** The Shipyard part of the save (chunk 31a, save version 14; 31c: version 15 adds the rotation of each placed chunk and removes the Generator chunk): Cores, the chunk inventory and up to MAX_DESIGNS saved designs. */
@@ -29,6 +29,8 @@ export function sanitizeShipyard(raw: { cores?: unknown; chunks?: unknown; desig
     // Chunk 31c: the Generator chunk is gone (the generator is a fixed cell now). Copies a save owned are refunded at the price formula they were bought at.
     const gen = (raw.chunks as Record<string, unknown>)[LEGACY_GENERATOR_CHUNK];
     if (typeof gen === 'number' && Number.isInteger(gen) && gen > 0) out.cores = Math.min(CORES_CEILING, out.cores + generatorRefund(Math.min(gen, CHUNK_COPIES_CEILING)));
+    // Chunk 31d: Full and Bar are gone. Copies are refunded at what they cost; saved designs lose them below (an id that is not a chunk is an empty slot).
+    out.cores = Math.min(CORES_CEILING, out.cores + removedChunksRefund(raw.chunks as Record<string, unknown>).cores);
   }
   if (Array.isArray(raw.designs)) {
     for (let i = 0; i < MAX_DESIGNS; i++) {
@@ -54,6 +56,27 @@ export function generatorRefund(copies: number): number {
   let sum = 0;
   for (let i = 0; i < copies; i++) sum += Math.max(1, Math.round(LEGACY_GENERATOR_BASE_PRICE * Math.pow(LEGACY_GENERATOR_GROWTH, i)));
   return sum;
+}
+
+/** Chunk 31d: Cores refunded for copies owned of the chunks in REMOVED_CHUNKS (each copy at base x growth^k, whole Cores), and which chunks had copies. Pure; nothing is written. */
+export function removedChunksRefund(chunks: Record<string, unknown> | null | undefined): { cores: number; names: string[] } {
+  let cores = 0;
+  const names: string[] = [];
+  for (const id of REMOVED_CHUNKS) {
+    const n = chunks?.[id];
+    const price = LEGACY_REMOVED_CHUNK_PRICES[id];
+    if (!price || typeof n !== 'number' || !Number.isInteger(n) || n <= 0) continue;
+    for (let k = 0; k < Math.min(n, CHUNK_COPIES_CEILING); k++) cores += Math.max(1, Math.round(price.base * Math.pow(price.growth, k)));
+    names.push(id);
+  }
+  return { cores, names };
+}
+
+/** The one-time message for the removed chunks, or '' when the save owned none. */
+export function removedChunksNotice(chunks: Record<string, unknown> | null | undefined): string {
+  const { cores, names } = removedChunksRefund(chunks);
+  if (!names.length) return '';
+  return `The ${names.map(n => (n === 'full' ? 'Full' : 'Bar')).join(' and ')} chunk${names.length > 1 ? 's were' : ' was'} removed (same shape as another chunk). You got ${cores} Cores back and any slot that held one is empty now.`;
 }
 
 /** A rotation from untrusted data: a whole number turned into 0..3 quarter turns; anything else is 0. */

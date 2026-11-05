@@ -19,7 +19,7 @@ import { Texture } from 'pixi.js';
 function makeStore(ring = SHIPYARD_UNLOCK_RING, cores = 5000): EditorStore & { save: ShipyardSave } {
   const save = defaultShipyard();
   save.cores = cores;
-  save.chunks = { front_gun: 1, corridor: 2, full: 1 };
+  save.chunks = { front_gun: 1, corridor: 2, wide_open: 1 };
   return {
     save,
     data: save,
@@ -69,19 +69,19 @@ describe('ShipyardEditor: placing, removing, replacing and the counts', () => {
 
   it('replacing swaps the chunk and the copy of the old one is free again', () => {
     ed.place(at(1), 'corridor');
-    expect(ed.place(at(1), 'full').ok).toBe(true);
-    expect(ed.design().slots[at(1)]).toBe('full');
+    expect(ed.place(at(1), 'wide_open').ok).toBe(true);
+    expect(ed.design().slots[at(1)]).toBe('wide_open');
     expect(ed.free('corridor')).toBe(2);
-    expect(ed.free('full')).toBe(0);
+    expect(ed.free('wide_open')).toBe(0);
     // Placing the same chunk where it already is changes nothing and is not an undo step.
     const undoBefore = ed.canUndo;
-    expect(ed.place(at(1), 'full').ok).toBe(true);
+    expect(ed.place(at(1), 'wide_open').ok).toBe(true);
     expect(ed.canUndo).toBe(undoBefore);
   });
 
   it('buying costs Cores at the growing price and adds a copy; too few Cores is refused', () => {
     const p0 = ed.price('corridor');
-    expect(p0).toBe(Math.round(15 * 1.5 ** 2)); // two owned
+    expect(p0).toBe(Math.round(60 * 1.35 ** 2)); // two owned
     const cores0 = ed.cores();
     expect(ed.buy('corridor').ok).toBe(true);
     expect(ed.owned('corridor')).toBe(3);
@@ -143,7 +143,7 @@ describe('ShipyardEditor: undo, redo and the design slots', () => {
 });
 
 describe('"Use this ship" gating and the status strip', () => {
-  const small = () => designOf([[], [], ['front_gun'], ['full']]);
+  const small = () => designOf([[], [], ['front_gun'], ['wide_open']]);
 
   it('only a valid, fully owned design in an open Shipyard can be used', () => {
     const st = makeStore(); const ed = new ShipyardEditor(st);
@@ -161,9 +161,9 @@ describe('"Use this ship" gating and the status strip', () => {
     const st = makeStore(); const ed = new ShipyardEditor(st);
     st.setDesign(0, small());
     expect(ed.canUse()).toBe(true);
-    st.save.chunks.full = 0;
+    st.save.chunks.wide_open = 0;
     expect(ed.canUse()).toBe(false);
-    expect(ed.problems()[0]).toBe('Needs 1 x Full, you own 0');
+    expect(ed.problems()[0]).toBe('Needs 1 x Wide Open, you own 0');
   });
 
   it('a closed Shipyard cannot be used and cannot save designs', () => {
@@ -176,7 +176,7 @@ describe('"Use this ship" gating and the status strip', () => {
   it('the status strip says VALID or the first plain-language error with row and column', () => {
     expect(statusText([], true, true)).toEqual({ text: 'VALID', valid: true });
     const st = makeStore(); const ed = new ShipyardEditor(st);
-    st.setDesign(0, designOf([[], ['front_gun'], [], ['full']]));
+    st.setDesign(0, designOf([[], ['front_gun'], [], ['wide_open']]));
     const s = statusText(ed.problems(), ed.canUse(), true);
     expect(s.valid).toBe(false);
     expect(s.text).toBe('Front Gun at row 2, column 1 is not connected to the generator');
@@ -347,9 +347,9 @@ describe('custom ship art', () => {
 });
 
 describe('every chunk can be drawn and sold', () => {
-  it('the palette lists the 15 chunks, each with a pattern and a price', () => {
+  it('the palette lists the 13 chunks, each with a pattern and a price', () => {
     const st = makeStore(); const ed = new ShipyardEditor(st);
-    expect(CHUNKS.length).toBe(15);
+    expect(CHUNKS.length).toBe(13);
     for (const c of CHUNKS) { expect(ed.price(c.id)).toBeGreaterThan(0); expect(chunkSheet(ed, c.id).title).toBe(c.name); }
   });
 });
@@ -379,16 +379,16 @@ describe('ShipyardEditor: rotating chunks (31c)', () => {
     expect(ed.rotate(99, 1).ok).toBe(false);
     ed.place(at(1), 'corridor'); ed.rotate(at(1), 1);
     expect(ed.rotationOf(at(1))).toBe(1);
-    ed.place(at(1), 'full');
+    ed.place(at(1), 'wide_open');
     expect(ed.rotationOf(at(1))).toBe(0);
     ed.rotate(at(1), 1); ed.remove(at(1));
-    ed.place(at(1), 'full');
+    ed.place(at(1), 'wide_open');
     expect(ed.rotationOf(at(1))).toBe(0);
   });
 
   it('the rotation changes the design: a turned Corridor connects sideways', () => {
     const st = makeStore(); const ed = new ShipyardEditor(st);
-    ed.place(at(2), 'front_gun'); ed.place(at(3), 'full'); ed.place(0 * 4 + 3, 'corridor');
+    ed.place(at(2), 'front_gun'); ed.place(at(3), 'wide_open'); ed.place(0 * 4 + 3, 'corridor');
     expect(ed.problems().join(' ')).toMatch(/Corridor at row 1, column 4 is not connected/);
   });
 

@@ -13,13 +13,15 @@ Part 1 (chunk 31a) builds the rules and the data of the Shipyard: a new currency
 
 ## 2. Chunks
 
-A chunk is a 3x3 pattern (`_` buildable, `.` outside, `G` generator, `E` ejector, same legend as `data/hullLayouts.ts`), a Cores base price, a growth per copy owned (1.5) and optional effects. Data: `src/data/shipChunks.ts`, plain and commented. Price of the n-th copy = `base x growth^(owned)`.
+A chunk is a 3x3 pattern (`_` buildable, `.` outside, `G` generator, `E` ejector, same legend as `data/hullLayouts.ts`), a Cores base price, a growth per copy owned (by kind since 31d: plain 1.35, guns 1.6, traits 2.0) and optional effects. Data: `src/data/shipChunks.ts`, plain and commented. Price of the n-th copy = `base x growth^(owned)`.
 
 | kind | chunks |
 |---|---|
-| Plain | Full, Corridor, Bar, Corner, T-junction, Cross, Ring |
+| Plain | Corridor, Corner, T-junction, Cross, Ring (priced by cell count, about 20 Cores a cell) |
 | Guns | Front Gun (1 ejector, top), Twin Gun (2 ejectors, top corners), Side Gun (ejectors left and right, they fire sideways since 25a) |
-| Traits | Wide Open (9 cells, -0.2 pulses/s, -30% damage), Overdrive (3 cells, +0.5 pulses/s), Extra Life (4 cells, one crash forgiven), Core Magnet (5 cells, +10% Cores), Long Barrel (4 cells, +20% shot speed) |
+| Traits | Wide Open (the only full 3 x 3 block: 9 cells, -0.2 pulses/s, -30% damage), Overdrive (2 cells, +0.5 pulses/s), Extra Life (1 cell, one crash forgiven), Core Magnet (2 cells, +10% Cores), Long Barrel (4 cells, +20% shot speed). Traits with an upside have small awkward shapes: you pay in room as well as Cores. |
+
+**31d, the set was cleaned up.** Every shape exists once counting rotations (`duplicateShapes()`; a Bar is a Corridor turned, so Bar is gone, and the full block exists only as Wide Open). `Full` and `Bar` were removed in save version 16: owned copies are refunded in Cores at base x 1.5^k (Full 25, Bar 15), leave saved designs (the slot is empty) and a one-time message says so (`removedChunksRefund`, `src/shipyard/state.ts`).
 
 Trait effects add per copy placed (two Overdrives = +1.0 pulses/s; damage and shot speed multiply). Extra Life reuses the captains' Second Chance (the crash is forgiven and the ship is untouchable for 1.5 s; `RunModifiers.chanceInvuln`).
 

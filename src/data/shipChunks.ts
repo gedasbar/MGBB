@@ -9,8 +9,13 @@ import { CHUNK_CELLS } from '../shipyard/constants';
  * Two chunks connect where buildable cells touch across their shared edge. Every cell of a chunk should be reachable from its
  * other cells (tests/shipyard.test.ts checks it, in plain words). A placed chunk can be turned 0 / 90 / 180 / 270 degrees (ejectors turn with it).
  *
- * Prices are in Cores: the n-th copy you own costs  basePrice x growth^(copies already owned). Plain chunks are cheap, guns
- * cost medium, traits are expensive (fit and income model: scripts/shipyard-model.ts, docs/shipyard.md).
+ * DESIGN RULES (owner, chunk 31d):
+ *  - Every shape exists ONCE, counting rotations (a Bar would just be a Corridor turned 90 degrees, so there is none).
+ *  - Plain chunks are priced by their cell count (about 20 Cores a cell) and grow slowly: a ship needs many of them.
+ *  - The full 3x3 block exists only as Wide Open: all that room costs a downside.
+ *  - Trait chunks with an upside have small, awkward shapes (1-4 cells, dead ends): you pay in building room as well as Cores.
+ *
+ * Prices are in Cores: the n-th copy you own costs  basePrice x growth^(copies already owned).
  * An `effect` works once per copy placed in a design (pulses add, damage / shot speed / Cores multiply, lives add).
  */
 export type ChunkKind = 'plain' | 'gun' | 'trait';
@@ -42,46 +47,49 @@ export interface ChunkDef {
   text: string;
 }
 
-/** Default price growth per copy owned. */
-export const CHUNK_GROWTH = 1.5;
+/** Price growth per copy owned, by kind. */
+export const GROWTH_PLAIN = 1.35;
+export const GROWTH_GUN = 1.6;
+export const GROWTH_TRAIT = 2.0;
+/** Kept for older code that reads one default. */
+export const CHUNK_GROWTH = GROWTH_PLAIN;
 
 export const CHUNKS: readonly ChunkDef[] = [
-  // ---- plain: cells only
-  { id: 'full', name: 'Full', kind: 'plain', basePrice: 25, growth: CHUNK_GROWTH, text: 'A solid 3 x 3 block of cells.',
-    rows: ['___', '___', '___'] },
-  { id: 'corridor', name: 'Corridor', kind: 'plain', basePrice: 15, growth: CHUNK_GROWTH, text: 'A vertical line of three.',
+  // ---- plain: cells only, about 20 Cores a cell
+  { id: 'corridor', name: 'Corridor', kind: 'plain', basePrice: 60, growth: GROWTH_PLAIN, text: 'A straight line of three.',
     rows: ['._.', '._.', '._.'] },
-  { id: 'bar', name: 'Bar', kind: 'plain', basePrice: 15, growth: CHUNK_GROWTH, text: 'A horizontal line of three.',
-    rows: ['...', '___', '...'] },
-  { id: 'corner', name: 'Corner', kind: 'plain', basePrice: 15, growth: CHUNK_GROWTH, text: 'A turn: connects the right and the bottom edge.',
+  { id: 'corner', name: 'Corner', kind: 'plain', basePrice: 60, growth: GROWTH_PLAIN, text: 'A turn of three cells.',
     rows: ['...', '.__', '._.'] },
-  { id: 'tjunction', name: 'T-junction', kind: 'plain', basePrice: 20, growth: CHUNK_GROWTH, text: 'Left, right and bottom edges joined.',
+  { id: 'tjunction', name: 'T-junction', kind: 'plain', basePrice: 80, growth: GROWTH_PLAIN, text: 'Three edges joined.',
     rows: ['...', '___', '._.'] },
-  { id: 'cross', name: 'Cross', kind: 'plain', basePrice: 25, growth: CHUNK_GROWTH, text: 'All four edges joined.',
+  { id: 'cross', name: 'Cross', kind: 'plain', basePrice: 100, growth: GROWTH_PLAIN, text: 'All four edges joined.',
     rows: ['._.', '___', '._.'] },
-  { id: 'ring', name: 'Ring', kind: 'plain', basePrice: 30, growth: CHUNK_GROWTH, text: 'Eight cells round a hole: two routes through.',
+  { id: 'ring', name: 'Ring', kind: 'plain', basePrice: 160, growth: GROWTH_PLAIN, text: 'Eight cells round a hole: two routes through.',
     rows: ['___', '_._', '___'] },
 
   // ---- guns: ejectors
-  { id: 'front_gun', name: 'Front Gun', kind: 'gun', basePrice: 250, growth: CHUNK_GROWTH, text: 'One ejector at the top.',
+  { id: 'front_gun', name: 'Front Gun', kind: 'gun', basePrice: 300, growth: GROWTH_GUN, text: 'One ejector at the end of a line.',
     rows: ['.E.', '._.', '._.'] },
-  { id: 'twin_gun', name: 'Twin Gun', kind: 'gun', basePrice: 700, growth: CHUNK_GROWTH, text: 'Two ejectors at the top corners.',
-    rows: ['E.E', '___', '._.'] },
-  { id: 'side_gun', name: 'Side Gun', kind: 'gun', basePrice: 500, growth: CHUNK_GROWTH, text: 'Ejectors on the left and right: shots leave sideways.',
+  { id: 'side_gun', name: 'Side Gun', kind: 'gun', basePrice: 450, growth: GROWTH_GUN, text: 'Two ejectors facing opposite sides.',
     rows: ['...', 'E_E', '._.'] },
+  { id: 'twin_gun', name: 'Twin Gun', kind: 'gun', basePrice: 600, growth: GROWTH_GUN, text: 'Two ejectors side by side.',
+    rows: ['E.E', '___', '._.'] },
 
-  // ---- traits: cells plus an effect
-  { id: 'wide_open', name: 'Wide Open', kind: 'trait', basePrice: 900, growth: CHUNK_GROWTH, text: '9 cells, but -0.2 pulses/s and -30% damage.',
+  // ---- traits: an effect, paid for in Cores AND in building room
+  { id: 'wide_open', name: 'Wide Open', kind: 'trait', basePrice: 800, growth: GROWTH_TRAIT, text: '9 cells of room, but -0.2 pulses/s and -30% damage.',
     rows: ['___', '___', '___'], effect: { pulses: -0.2, damage: -0.3 } },
-  { id: 'overdrive', name: 'Overdrive', kind: 'trait', basePrice: 2000, growth: CHUNK_GROWTH, text: '+0.5 pulses/s.',
-    rows: ['._.', '._.', '._.'], effect: { pulses: 0.5 } },
-  { id: 'extra_life', name: 'Extra Life', kind: 'trait', basePrice: 2500, growth: CHUNK_GROWTH, text: 'One crash forgiven per run.',
-    rows: ['._.', '___', '...'], effect: { lives: 1 } },
-  { id: 'core_magnet', name: 'Core Magnet', kind: 'trait', basePrice: 1500, growth: CHUNK_GROWTH, text: '+10% Cores earned.',
-    rows: ['._.', '___', '._.'], effect: { cores: 0.1 } },
-  { id: 'long_barrel', name: 'Long Barrel', kind: 'trait', basePrice: 1600, growth: CHUNK_GROWTH, text: '+20% shot speed.',
+  { id: 'long_barrel', name: 'Long Barrel', kind: 'trait', basePrice: 1200, growth: GROWTH_TRAIT, text: '+20% shot speed.',
     rows: ['__.', '__.', '...'], effect: { shotSpeed: 0.2 } },
+  { id: 'core_magnet', name: 'Core Magnet', kind: 'trait', basePrice: 1500, growth: GROWTH_TRAIT, text: '+10% Cores earned.',
+    rows: ['__.', '...', '...'], effect: { cores: 0.1 } },
+  { id: 'overdrive', name: 'Overdrive', kind: 'trait', basePrice: 2500, growth: GROWTH_TRAIT, text: '+0.5 pulses/s.',
+    rows: ['._.', '._.', '...'], effect: { pulses: 0.5 } },
+  { id: 'extra_life', name: 'Extra Life', kind: 'trait', basePrice: 3000, growth: GROWTH_TRAIT, text: 'One crash forgiven per run.',
+    rows: ['._.', '...', '...'], effect: { lives: 1 } },
 ];
+
+/** Chunk ids removed in chunk 31d (duplicates). Owned copies are refunded in Cores and leave saved designs (econ/migrate.ts). */
+export const REMOVED_CHUNKS: readonly string[] = ['full', 'bar'];
 
 export const CHUNK_BY_ID: Readonly<Record<string, ChunkDef>> = Object.fromEntries(CHUNKS.map(c => [c.id, c]));
 
@@ -116,6 +124,22 @@ export function validateChunk(c: ChunkDef): string[] {
       }
     }
     if (seen.size !== cells.length) bad('its cells are not all joined to each other');
+    // A chunk must reach at least one edge of its 3x3, or nothing can ever connect to it.
+    if (!cells.some(([x, y]) => x === 0 || y === 0 || x === CHUNK_CELLS - 1 || y === CHUNK_CELLS - 1)) bad('no cell touches an edge, so it can never connect to the rest of the ship');
+  }
+  return out;
+}
+
+/** Shapes that are the same pattern up to rotation (plain words; empty = every shape is unique). Used by the tests. */
+export function duplicateShapes(chunks: readonly ChunkDef[] = CHUNKS): string[] {
+  const out: string[] = [];
+  const key = (rows: readonly string[]) => [0, 1, 2, 3].map(q => rotateRows(rows, q).join('/')).sort()[0];
+  const seen = new Map<string, string>();
+  for (const c of chunks) {
+    const k = key(c.rows);
+    const prev = seen.get(k);
+    if (prev) out.push(`${c.name} has the same shape as ${prev} (counting rotations)`);
+    else seen.set(k, c.name);
   }
   return out;
 }

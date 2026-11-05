@@ -34,6 +34,11 @@ export const GENERATOR_COLUMN = 1;
 export const LEGACY_GENERATOR_CHUNK = 'generator';
 export const LEGACY_GENERATOR_BASE_PRICE = 60;
 export const LEGACY_GENERATOR_GROWTH = 1.5;
+/** Chunk 31d: the Full and Bar chunks were removed (duplicate shapes). Their frozen prices, to refund the copies a save owned (basePrice x growth^i for the i-th copy). */
+export const LEGACY_REMOVED_CHUNK_PRICES: Readonly<Record<string, { base: number; growth: number }>> = {
+  full: { base: 25, growth: 1.5 },
+  bar: { base: 15, growth: 1.5 },
+};
 /** Saved designs, and the ids they fly under ("custom1" ...). */
 export const MAX_DESIGNS = 3;
 export const CUSTOM_HULL_PREFIX = 'custom';

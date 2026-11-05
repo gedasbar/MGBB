@@ -73,12 +73,12 @@ async function place(page, slot, chunk) {
   const s14 = await page.evaluate(() => window.__mgbm.slotRect(12));
   check(Math.abs(g0.y - (s14.y + s14.h)) < 1 && Math.abs(g0.x - (s14.x + s14.w / 3)) < 1, 'the fixed generator is drawn right under the bottom row, at the middle of the first slot column (column 2 of 12)');
   await place(page, 8, 'front_gun');
-  await place(page, 12, 'bar');
+  await place(page, 12, 'long_barrel');
   s = await st(page);
-  check(/above the generator/.test(s.status) && !s.canUse, `a Bar has no cell above the generator: "${s.status}", Use is not allowed`);
+  check(/above the generator/.test(s.status) && !s.canUse, `a Long Barrel has no cell above the generator: "${s.status}", Use is not allowed`);
   await tapButton(page, 'use');
   check(await waitFor(async () => /above the generator/.test((await st(page)).toast || ''), { timeout: 2000 }) && (await page.evaluate(() => window.__mgbm.screen)) === 'shipyard', 'tapping the greyed Use button says why and stays');
-  await place(page, 12, 'full'); // replaces the Bar
+  await place(page, 12, 'wide_open'); // replaces the Long Barrel
   s = await st(page);
   check(s.status === 'VALID' && s.canUse, `the finished design reads VALID (${s.status})`);
   check(/cells/.test(s.stats) && /ejector/.test(s.stats), `and shows its stats: "${s.stats}"`);

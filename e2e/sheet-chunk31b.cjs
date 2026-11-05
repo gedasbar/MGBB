@@ -48,7 +48,7 @@ const enter = async (page) => {
   const open = async (page) => {
     // Ring 300 everywhere (the Shipyard opens at 150), plenty of Cores, three of every chunk.
     await click(page, 'dbg-fr-reach-all');
-    await page.evaluate(() => { const s = window.__mgbm.model.store; s.data.cores = 4200; for (const c of ['full', 'corridor', 'bar', 'corner', 'tjunction', 'cross', 'ring', 'generator', 'front_gun', 'twin_gun', 'side_gun', 'overdrive']) s.data.chunks[c] = 2; s.commit(); });
+    await page.evaluate(() => { const s = window.__mgbm.model.store; s.data.cores = 4200; for (const c of ['corridor', 'corner', 'tjunction', 'cross', 'ring', 'generator', 'front_gun', 'twin_gun', 'side_gun', 'overdrive']) s.data.chunks[c] = 2; s.commit(); });
     // The achievements the cheats grant show a toast for a few seconds; let it go before the pictures (a plain wait: this is a picture generator, not a test).
     await page.waitForTimeout(5000);
   };
@@ -68,7 +68,7 @@ const enter = async (page) => {
     await snap(page, 'Shipyard: palette open on an empty slot');
     await page.evaluate(() => { const e = window.__mgbm.shipyard; e.closePalette(); e.refresh(); });
     await snap(page, 'Invalid: Front Gun not connected, its slot outlined');
-    await page.evaluate(() => { const e = window.__mgbm.shipyard; e.ed.place(5, 'corridor'); e.ed.place(12, 'bar'); e.ed.rename('Spear'); e.refresh(); });
+    await page.evaluate(() => { const e = window.__mgbm.shipyard; e.ed.place(5, 'corridor'); e.ed.place(12, 'long_barrel'); e.ed.rename('Spear'); e.refresh(); });
     await snap(page, 'Valid: stats strip, Use enabled');
     await tap(page, ...center(await page.evaluate(() => window.__mgbm.buttonRect('use'))), { pause: 300 });
     check(await waitFor(() => page.evaluate(() => window.__mgbm.screen === 'build'), { timeout: 6000 }), 'Use this ship opens the builder');
