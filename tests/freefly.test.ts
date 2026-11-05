@@ -194,9 +194,8 @@ describe('Free Fly wave director', () => {
   it('every 5th wave is special: a Swarm of Darters and pebbles on 5, 15; Mothers only on 10, 20; bonus 10 x wave / 5', () => {
     expect([5, 10, 15, 20, 4].map(specialKind)).toEqual(['swarm', 'mothers', 'swarm', 'mothers', null]);
     for (const p of planWave(3, 5)) expect(p.defId === 'darter' || (p.defId === 'mitotic_rock' && p.generation === 3)).toBe(true);
-    const m = planWave(3, 10);
-    expect(m.length).toBeGreaterThanOrEqual(2);
-    expect(m.every(p => p.defId === 'mother')).toBe(true);
+    // Chunk 32b: waves 10, 20 ... are boss waves, so the Mother events never happen; their plan is empty (the boss is the wave).
+    expect(planWave(3, 10)).toEqual([]);
     expect([4, 5, 10, 15].map(waveBonus)).toEqual([0, 10, 20, 30]);
   });
 
@@ -236,8 +235,8 @@ describe('Free Fly records (save v5, now migrated to v6)', () => {
   it('a v4 save loads with everything kept and bestWave 0; v5 round-trips bestWave', () => {
     const v4 = { version: 4, credits: 321, owned: { turn_l: 3, flat_plus: 2 }, levels: { flat_plus: 2 }, ownedHulls: ['dart', 'twin'], bestTier: 6, bestTime: 88.5, totalKills: 40, runs: 7, clearedTiers: [1, 2], passedTiers: [1, 2, 3], medals: 2 };
     const p = loadProgress(JSON.stringify(v4));
-    expect(PROGRESS_VERSION).toBe(16);
-    expect(p.version).toBe(16);
+    expect(PROGRESS_VERSION).toBe(17);
+    expect(p.version).toBe(17);
     expect(p.bestWave).toBe(0);
     expect([p.credits, p.owned.flat_plus, p.levels.flat_plus, p.bestTier, p.bestTime, p.totalKills, p.runs, p.medals]).toEqual([321, 2, 2, 6, 88.5, 40, 7, 2]);
     expect(p.ownedHulls).toEqual(['dart', 'twin']);

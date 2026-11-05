@@ -48,6 +48,12 @@ function setMetric(p: Progress, metric: AchievementDef['metric'], v: number) {
     case 'hullsOwned': p.ownedHulls = HULL_ORDER.slice(0, v) as unknown as string[]; break;
     case 'ordinaryOwned': ordinary().slice(0, v).forEach(id => { p.owned[id] = 1; }); break;
     case 'flyWave': p.bestWave = v; break;
+    case 'bossKilled': p.records.bosses = ['hive', 'bastion', 'queen', 'colossus'].slice(0, v); break;
+    case 'bossNoHit': p.records.bossNoHit = v; break;
+    case 'bossHive': p.records.bosses = v >= 1 ? ['hive'] : []; break;
+    case 'bossBastion': p.records.bosses = v >= 1 ? ['bastion'] : []; break;
+    case 'bossQueen': p.records.bosses = v >= 1 ? ['queen'] : []; break;
+    case 'bossColossus': p.records.bosses = v >= 1 ? ['colossus'] : []; break;
   }
 }
 
@@ -71,8 +77,8 @@ describe('achievement data', () => {
     expect(ordinary().length).toBe(54);
   });
 
-  it('pays 158 Medals in all (the number the design note and the report quote)', () => {
-    expect(totalAchievementMedals()).toBe(158);
+  it('pays 176 Medals in all (the number the design note and the report quote)', () => {
+    expect(totalAchievementMedals()).toBe(176);
   });
 });
 
@@ -213,7 +219,7 @@ describe('records', () => {
   it('circuit size: 50 blocks in one circuit; a hull counts as filled only with FILL_MIN_CELLS or more cells', () => {
     const p = defaultProgress();
     noteCircuitRecords(p.records, 50, 80);
-    expect(p.records).toMatchObject({ maxCircuitBlocks: 50, hullFilled: 0 });
+    expect(p.records).toMatchObject({ maxCircuitBlocks: 50, hullFilled: 0, bosses: [], bossNoHit: 0 });
     noteCircuitRecords(p.records, 1, 1); // the Dart filled: too small to count
     noteCircuitRecords(p.records, FILL_MIN_CELLS - 1, FILL_MIN_CELLS - 1);
     expect(p.records.hullFilled).toBe(0);
@@ -235,11 +241,11 @@ describe('records', () => {
 
 describe('save version 13', () => {
   it('an older save loads with empty achievement fields and the version bumped', () => {
-    expect(PROGRESS_VERSION).toBe(16);
+    expect(PROGRESS_VERSION).toBe(17);
     const old = loadProgress(JSON.stringify({ version: 12, credits: 77, passedTiers: [1, 2, 3], bestWave: 4 }));
-    expect(old.version).toBe(16);
+    expect(old.version).toBe(17);
     expect(old).toMatchObject({ credits: 77, achievements: [], challengesDone: [], cosmetics: [] });
-    expect(old.records).toEqual({ bestShot: 0, bestAvgDps: 0, maxCircuitBlocks: 0, hullFilled: 0 });
+    expect(old.records).toEqual({ bestShot: 0, bestAvgDps: 0, maxCircuitBlocks: 0, hullFilled: 0, bosses: [], bossNoHit: 0 });
   });
 
   it('round-trips, drops unknown ids and repairs garbage', () => {
@@ -255,7 +261,7 @@ describe('save version 13', () => {
     expect(bad.achievements).toEqual(['pass_10']);
     expect(bad.challengesDone).toEqual(['c_twin']);
     expect(bad.cosmetics).toEqual([]);
-    expect(bad.records).toEqual({ bestShot: 0, bestAvgDps: 0, maxCircuitBlocks: 0, hullFilled: 0 });
+    expect(bad.records).toEqual({ bestShot: 0, bestAvgDps: 0, maxCircuitBlocks: 0, hullFilled: 0, bosses: [], bossNoHit: 0 });
   });
 
   it('Export / Import keeps it all', () => {
@@ -267,7 +273,7 @@ describe('save version 13', () => {
     const r = checkImportString(str);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.progress).toMatchObject({ version: 16, achievements: ['pass_10', 'pass_25'], challengesDone: ['c_prong'], cosmetics: ['skin_zenith'] });
+    expect(r.progress).toMatchObject({ version: 17, achievements: ['pass_10', 'pass_25'], challengesDone: ['c_prong'], cosmetics: ['skin_zenith'] });
   });
 });
 

@@ -29,6 +29,9 @@ import { EnemyBullets } from '../engine/enemyBullets';
 import { ENEMY_BULLET_DAMAGE, ENEMY_BULLET_INVULN, ENEMY_BULLET_SPEED } from '../data/enemyBullets';
 import { burstVelocities, gunStep, GunState, newGunState, nearestWithin } from './support';
 import { themeAt, themeCores, ThemeId } from '../data/waveThemes';
+import { BossFight, BossHost } from './boss';
+import { BOSS_CORES_MUL, BOSS_CREDIT_MUL, bossAt, bossMaxHp, BossId } from '../data/bosses';
+import { coresForWave } from '../shipyard/cores';
 
 export const TOUCH_OFFSET_Y = TOUCH_DIRECT_OFFSET_Y; // finger sits below the ship on touch (direct mode)
 export { PX_PER_CELL };
@@ -43,6 +46,8 @@ export const ABOVE_SCREEN_MAX = 6;
 export interface HitEvent { enemyId: number; damage: number; x: number; y: number; kind: number; armor: number; shield: number; maxShield: number }
 /** An enemy body died: `reward` is the credits it paid (fractional; the run keeps the exact total). */
 export interface KillEvent { x: number; y: number; reward: number; generation: number; }
+/** A boss moment the screen announces (chunk 32b): it enrages, or it dies and pays `credits` and `cores`. */
+export interface BossEvent { kind: 'enrage' | 'defeat'; id: BossId; name: string; credits: number; cores: number; noHit: boolean }
 /** A support enemy's visible link (chunk 32a): from a Shielder or Leech at (ax, ay) to the body `id` at (bx, by), radius `r`. */
 export interface SupportLink { kind: 'shield' | 'leech'; id: number; ax: number; ay: number; bx: number; by: number; r: number }
 export interface SplitEvent { parentId: number; x: number; y: number; radius: number; childIds: number[]; defId: string; }
@@ -56,6 +61,13 @@ export class World {
   readonly mitosis = new MitosisSystem();
   /** Enemy bullets (chunk 32a): their own pool; they outlive their shooter and cannot be shot. */
   readonly enemyBullets = new EnemyBullets();
+  /** The boss of the current wave while it lives (chunk 32b, docs/freefly-bosses.md), else null. */
+  boss: BossFight | null = null;
+  /** Bosses killed this run, each with whether the hull was untouched during its fight; moments for the screen to announce (it clears them). */
+  readonly bossesDefeated: { id: BossId; wave: number; noHit: boolean }[] = [];
+  bossEvents: BossEvent[] = [];
+  /** The hull (or a Second Chance charge) was hit during the current boss fight. */
+  private bossHurt = false;
   /** Links of the Shielders and Leeches alive this frame (the screen draws them). */
   readonly links: SupportLink[] = [];
   /** Enemy bullets that hurt the ship this run (stats and tests). */
@@ -132,7 +144,7 @@ export class World {
     return Math.floor(exact + 1e-9);
   }
   /** Waves that started during the last update() calls (the screen shows a banner); consumers clear it. */
-  waveEvents: { wave: number; bonus: number; theme: ThemeId | null; cores: number }[] = [];
+  waveEvents: { wave: number; bonus: number; theme: ThemeId | null; cores: number; boss: BossId | null }[] = [];
   private kicks = new Map<number, { vx: number; vy: number }>();
   /** Per body: constant sideways speed (a Drifter's slide, a Darter's aim), signed; flipped with the sway at a side. */
   private baseVx = new Map<number, number>();
@@ -264,8 +276,65 @@ export class World {
 
   /** Dev cheat: removes every enemy at once (no credits, no split). */
   clearEnemies() {
+    this.dropBoss();
     this.mitosis.enemies.length = 0;
     this.kicks.clear(); this.aboveT.clear(); this.swayDir.clear(); this.baseVx.clear(); this.budState.clear(); this.gunState.clear();
+  }
+
+  /** Takes the boss (if any) off the field without paying anything, and lets the director go on (cheats, jumps). */
+  private dropBoss() {
+    if (!this.boss) return;
+    this.boss.dispose();
+    this.boss = null;
+    if (this.director instanceof WaveDirector) this.director.releaseBoss(this.time);
+  }
+
+  /** Dev (debug panel): jumps to the start of wave `n` in the middle of a run: the field is cleared, the clock and tier follow the wave. */
+  jumpToWave(n: number) {
+    if (this.encounter) return;
+    this.dropBoss();
+    this.mitosis.enemies.length = 0;
+    this.kicks.clear(); this.aboveT.clear(); this.swayDir.clear(); this.baseVx.clear(); this.budState.clear(); this.gunState.clear();
+    this.enemyBullets.clear();
+    this.due.length = 0;
+    this.director = this.makeDirector();
+    this.startWave = Math.max(1, Math.floor(n));
+    this.applyStartWave();
+  }
+
+  /** The boss of wave `wave` arrives (chunk 32b). */
+  private startBoss(wave: number) {
+    const b = bossAt(wave);
+    if (!b) return;
+    const self = this;
+    const host: BossHost = {
+      mitosis: this.mitosis, bullets: this.enemyBullets, tier: this.tier,
+      get shipX() { return self.shipX; }, get shipY() { return self.shipY; },
+      unitHp: wholeRockHp(rockHp(this.tier) * waveHpMul(wave)),
+      spawnRock: (x, y, hp) => { this.spawnSpecies('mitotic_rock', x, y, { hp, radius: ROCK_RADIUS }); },
+    };
+    this.boss = new BossFight(b.def, b.round, wave, bossMaxHp(b.def.id, wave, this.tier), host, this.seed);
+    this.bossHurt = false;
+  }
+
+  /** The boss died: pay it once, take its bodies off, announce it, and let the next wave start after a short breather. */
+  private defeatBoss() {
+    const b = this.boss;
+    if (!b || b.rewarded) return;
+    b.rewarded = true;
+    const credits = rockReward(freeFlyRewardTier(this.tier), 1) * BOSS_CREDIT_MUL * FREEFLY_REWARD_MUL * this.mods.creditMul * (1 + this.mods.skills.freeFlyCredits);
+    const cores = coresForWave(b.wave) * BOSS_CORES_MUL * this.mods.coresMul;
+    this.creditsExact += credits;
+    this.coresExact += cores;
+    this.kills++;
+    this.killEvents.push({ x: b.anchorX, y: b.anchorY, reward: credits, generation: 1 });
+    this.splits.push({ parentId: -1, x: b.anchorX, y: b.anchorY, radius: 60, childIds: [], defId: 'mother' });
+    const noHit = !this.bossHurt;
+    this.bossesDefeated.push({ id: b.def.id, wave: b.wave, noHit });
+    this.bossEvents.push({ kind: 'defeat', id: b.def.id, name: b.def.name, credits, cores, noHit });
+    b.dispose();
+    this.boss = null;
+    if (this.director instanceof WaveDirector) this.director.releaseBoss(this.time);
   }
 
   /** Current wave (0 until the director has started the first one). */
@@ -310,6 +379,10 @@ export class World {
     this.budState.clear();
     this.gunState.clear();
     this.enemyBullets.clear();
+    this.boss = null;
+    this.bossesDefeated.length = 0;
+    this.bossEvents.length = 0;
+    this.bossHurt = false;
     this.links.length = 0;
     this.bulletHits = 0;
     this.hits.length = 0;
@@ -391,11 +464,11 @@ export class World {
   private updateSupport(dt: number) {
     const enemies = this.mitosis.enemies;
     this.links.length = 0;
-    for (const e of enemies) if (e.dmgTakenMul !== undefined) e.dmgTakenMul = undefined;
+    for (const e of enemies) if (e.dmgTakenMul !== undefined && !e.bossRole) e.dmgTakenMul = undefined;
     for (const s of this.shielders) {
       if (!(s.hp > 0)) continue; // dying this very step: its shield is already gone
       const d = speciesOf(s.defId).shield!;
-      for (const t of nearestWithin(s.x, s.y, enemies, d.range, d.maxLinks, e => e !== s && !speciesOf(e.defId).shield)) {
+      for (const t of nearestWithin(s.x, s.y, enemies, d.range, d.maxLinks, e => e !== s && !e.bossRole && !speciesOf(e.defId).shield)) {
         t.dmgTakenMul = t.dmgTakenMul === undefined ? d.damageMul : Math.min(t.dmgTakenMul, d.damageMul);
         this.links.push({ kind: 'shield', id: t.id, ax: s.x, ay: s.y, bx: t.x, by: t.y, r: t.radius });
       }
@@ -405,12 +478,47 @@ export class World {
       if (!(l.hp > 0)) continue;
       const d = speciesOf(l.defId).heal!;
       // A body is healed by one Leech at a time (a crowd of Leeches does not stack their healing).
-      for (const t of nearestWithin(l.x, l.y, enemies, d.range, d.maxLinks, e => e !== l && !speciesOf(e.defId).heal && !this.healed.has(e.id))) {
+      for (const t of nearestWithin(l.x, l.y, enemies, d.range, d.maxLinks, e => e !== l && !e.bossRole && !speciesOf(e.defId).heal && !this.healed.has(e.id))) {
         this.healed.add(t.id);
         if (t.hp < t.maxHp) t.hp = Math.min(t.maxHp, t.hp + t.maxHp * d.perSec * dt);
         this.links.push({ kind: 'leech', id: t.id, ax: l.x, ay: l.y, bx: t.x, by: t.y, r: t.radius });
       }
     }
+  }
+
+  /**
+   * Contact with a rock (or a boss body): damage and knockback (none while invulnerable: the first second of control and 0.5 s after a hit).
+   * Swept (chunk 24a): the closest the ship's path from (fromX, fromY) this step came to the body, so a fast ship cannot pass through one.
+   */
+  private touch(e: MitosisEnemy, fromX: number, fromY: number) {
+    const reach = e.radius + this.hitR;
+    const near2 = segDistSq(fromX, fromY, this.shipX, this.shipY, e.x, e.y);
+    let sx = this.shipX - e.x;
+    let sy = this.shipY - e.y;
+    if (near2 < reach * reach && sx * sx + sy * sy >= reach * reach) {
+      // Touched on the way and already past: push away from where it was touched (the segment's closest point).
+      const vx = this.shipX - fromX, vy = this.shipY - fromY;
+      const len2 = vx * vx + vy * vy;
+      const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((e.x - fromX) * vx + (e.y - fromY) * vy) / len2));
+      sx = fromX + vx * t - e.x;
+      sy = fromY + vy * t - e.y;
+    }
+    const d = Math.sqrt(sx * sx + sy * sy) || 1;
+    if (near2 < reach * reach && this.invuln <= 0 && !this.god) {
+      if (this.secondChancesLeft > 0) {
+        // Second Chance: this contact deals no damage; the ship is untouchable for a second.
+        this.secondChancesLeft--;
+        this.fx.secondChance++;
+        this.invuln = this.mods.chanceInvuln;
+      } else {
+        this.hull -= CONTACT_DAMAGE;
+        this.invuln = 0.5;
+      }
+      this.knockX += (sx / d) * 50;
+      this.knockY += (sy / d) * 50;
+      if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
+    }
+
   }
 
   /** After a pause: the ship eases to the pointer again (the spawn-safety ease) instead of jumping to where it is now. */
@@ -445,6 +553,7 @@ export class World {
     if (this.tier > this.maxTier) this.maxTier = this.tier;
     if (this.invuln > 0) this.invuln -= dt;
     const VW = CONFIG.VIEW.W;
+    const hullBefore = this.hull, chancesBefore = this.secondChancesLeft;
 
     // --- Ship: pointer only. Mouse = exact, touch = small upward offset while pressed. Nothing moves it before the first move.
     let baseX = this.shipX - this.knockX;
@@ -503,7 +612,9 @@ export class World {
         this.creditsExact += bonus;
         const theme = this.encounter ? null : themeAt(started);
         const themed = theme ? themeCores(started) * this.mods.coresMul : 0; // a theme wave pays a Cores bonus (chunk 32a)
-        this.waveEvents.push({ wave: started, bonus, theme: theme ? theme.id : null, cores: themed });
+        const boss = this.encounter ? null : bossAt(started);
+        this.waveEvents.push({ wave: started, bonus, theme: theme ? theme.id : null, cores: themed, boss: boss ? boss.def.id : null });
+        if (boss) this.startBoss(started);
         if (!this.encounter) this.coresExact += waveStartCores(started) * this.mods.coresMul + themed;
       }
       const hpMul = waveHpMul(this.director.wave) * (this.encounter ? this.encounter.hpMul : 1);
@@ -546,6 +657,7 @@ export class World {
     this.shielders.length = 0;
     this.leeches.length = 0;
     for (const e of enemies) {
+      if (e.bossRole) { this.touch(e, fromX, fromY); continue; } // a boss's bodies are placed by BossFight; they only hurt on contact
       // Frostbite slows the whole drift (1 when not frozen, so unfrozen rocks move exactly as before).
       const slow = (e.freezeT ?? 0) > 0 ? 1 - (e.freezeSlow ?? 0) : 1;
       // Species motion (the basic rock: ENEMY_SPEED down, a 30 px/s sine sway, no constant slide).
@@ -614,35 +726,7 @@ export class World {
         if (t > ABOVE_SCREEN_MAX) { e.y = 0; this.aboveT.delete(e.id); } else this.aboveT.set(e.id, t);
       } else if (this.aboveT.size) this.aboveT.delete(e.id);
 
-      // Contact damage + knockback (none while invulnerable: the first second of control and 0.5 s after a hit)
-      // Swept (chunk 24a): the closest the ship's path this step came to the rock, so a fast ship cannot pass through one.
-      const reach = e.radius + this.hitR;
-      const near2 = segDistSq(fromX, fromY, this.shipX, this.shipY, e.x, e.y);
-      let sx = this.shipX - e.x;
-      let sy = this.shipY - e.y;
-      if (near2 < reach * reach && sx * sx + sy * sy >= reach * reach) {
-        // Touched on the way and already past: push away from where it was touched (the segment's closest point).
-        const vx = this.shipX - fromX, vy = this.shipY - fromY;
-        const len2 = vx * vx + vy * vy;
-        const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((e.x - fromX) * vx + (e.y - fromY) * vy) / len2));
-        sx = fromX + vx * t - e.x;
-        sy = fromY + vy * t - e.y;
-      }
-      const d = Math.sqrt(sx * sx + sy * sy) || 1;
-      if (near2 < reach * reach && this.invuln <= 0 && !this.god) {
-        if (this.secondChancesLeft > 0) {
-          // Second Chance: this contact deals no damage; the ship is untouchable for a second.
-          this.secondChancesLeft--;
-          this.fx.secondChance++;
-          this.invuln = this.mods.chanceInvuln;
-        } else {
-          this.hull -= CONTACT_DAMAGE;
-          this.invuln = 0.5;
-        }
-        this.knockX += (sx / d) * 50;
-        this.knockY += (sy / d) * 50;
-        if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
-      }
+      this.touch(e, fromX, fromY);
     }
 
     // --- Enemy bullets (chunk 32a): fly, leave the screen, hit the ship (hull damage and the short invulnerability; none while invulnerable)
@@ -657,6 +741,16 @@ export class World {
 
     // --- Shielders and Leeches: links to the bodies near them (the screen draws them)
     this.updateSupport(dt);
+
+    // --- The boss (chunk 32b): places its bodies, fires, sets its damage multipliers before the player's shots are resolved
+    if (this.boss) {
+      this.boss.update(dt);
+      if (this.boss.justEnraged) {
+        this.boss.justEnraged = false;
+        this.bossEvents.push({ kind: 'enrage', id: this.boss.def.id, name: this.boss.def.name, credits: 0, cores: 0, noHit: !this.bossHurt });
+      }
+      if (this.boss.reachedBottom && !this.god) { this.hull = 0; this.gameOver = true; }
+    }
 
     // --- Budding: a Budder sheds a small rock below itself (it inherits the family tier)
     for (const p of budsDue) {
@@ -679,10 +773,13 @@ export class World {
     this.projSys.processField(this.field, 1);
     this.projSys.updateClouds(dt, this.field, 1); // Residue Seed ticks and the age of Gravity Wells
     this.applyFission();
+    if (this.boss && (this.hull < hullBefore || this.secondChancesLeft < chancesBefore)) this.bossHurt = true; // contact and bullets so far this frame
+    if (this.boss && this.boss.afterHits()) this.defeatBoss();
 
     // --- Death → mitosis
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
+      if (e.bossRole) continue; // never a kill or a leak: the boss's bodies are handled by BossFight
       if (e.hp <= 0) {
         let reward = rockReward(freeFlyRewardTier(e.tier), e.generation) * speciesOf(e.defId).rewardMul * FREEFLY_REWARD_MUL * this.mods.creditMul * (1 + this.mods.skills.freeFlyCredits);
         // Cauterize: a kill inside the window leaves no children (the mitosis system's rule) and pays extra, if it would have split.
@@ -733,5 +830,6 @@ export class World {
         }
       }
     }
+    if (this.boss && (this.hull < hullBefore || this.secondChancesLeft < chancesBefore)) this.bossHurt = true; // a leak
   }
 }

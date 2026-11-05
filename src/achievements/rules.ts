@@ -3,6 +3,7 @@
 
 import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, AchievementDef, AchievementMetric, Cosmetic, FILL_MIN_CELLS } from '../data/achievements';
 import { BLOCKS } from '../data/blocks';
+import { BOSS_BY_ID } from '../data/bosses';
 import { HULL_ORDER } from '../data/hulls';
 import { lateSlot, LATE_FIRST, LATE_LAST, CLASSIC_TIERS } from '../data/lateTiers';
 import { highestPassed } from '../data/tierLocks';
@@ -18,9 +19,13 @@ export interface Records {
   /** Most blocks placed in one circuit, and whether a circuit ever filled a whole hull (1 = yes). */
   maxCircuitBlocks: number;
   hullFilled: number;
+  /** Chunk 32b: Free Fly bosses beaten at least once (ids), and how many boss fights were won without the hull being hit. */
+  bosses: string[];
+  bossNoHit: number;
 }
 
-export const defaultRecords = (): Records => ({ bestShot: 0, bestAvgDps: 0, maxCircuitBlocks: 0, hullFilled: 0 });
+const BOSS_METRIC_ID = { bossHive: 'hive', bossBastion: 'bastion', bossQueen: 'queen', bossColossus: 'colossus' } as const;
+export const defaultRecords = (): Records => ({ bestShot: 0, bestAvgDps: 0, maxCircuitBlocks: 0, hullFilled: 0, bosses: [], bossNoHit: 0 });
 
 const finiteMax = (v: unknown): number => (typeof v === 'number' && v > 0 ? Math.min(Number.MAX_VALUE, Math.floor(v)) : 0);
 
@@ -32,6 +37,8 @@ export function sanitizeRecords(raw: unknown): Records {
     bestAvgDps: finiteMax(r.bestAvgDps),
     maxCircuitBlocks: Math.min(1000, finiteMax(r.maxCircuitBlocks)),
     hullFilled: r.hullFilled === 1 ? 1 : 0,
+    bosses: Array.isArray(r.bosses) ? Array.from(new Set(r.bosses.filter((b): b is string => typeof b === 'string' && b in BOSS_BY_ID))) : [],
+    bossNoHit: Math.min(1e6, finiteMax(r.bossNoHit)),
   };
 }
 
@@ -40,6 +47,16 @@ export function noteRunRecords(rec: Records, shots: { bestShot: number; totalDam
   if (!shots) return;
   rec.bestShot = Math.max(rec.bestShot, finiteMax(shots.bestShot));
   rec.bestAvgDps = Math.max(rec.bestAvgDps, finiteMax(avgDps(shots.totalDamage, time)));
+}
+
+/** A Free Fly run's boss kills (chunk 32b): each boss id is kept once; a fight won without a hit counts. */
+export function noteBossRecords(rec: Records, bosses: readonly { id: string; noHit: boolean }[] | undefined) {
+  if (!bosses) return;
+  for (const b of bosses) {
+    if (!(b.id in BOSS_BY_ID)) continue;
+    if (!rec.bosses.includes(b.id)) rec.bosses.push(b.id);
+    if (b.noHit) rec.bossNoHit++;
+  }
 }
 
 /** A circuit as it stands: `blocks` placed, of `buildable` empty cells in the hull. */
@@ -78,6 +95,9 @@ export function metricValue(p: Progress, metric: AchievementMetric): number {
     case 'hullsOwned': return p.ownedHulls.filter(h => (HULL_ORDER as readonly string[]).includes(h)).length;
     case 'ordinaryOwned': return ordinaryIds().filter(id => (p.owned[id] ?? 0) > 0).length;
     case 'flyWave': return p.bestWave;
+    case 'bossKilled': return p.records.bosses.length;
+    case 'bossNoHit': return p.records.bossNoHit;
+    case 'bossHive': case 'bossBastion': case 'bossQueen': case 'bossColossus': return p.records.bosses.includes(BOSS_METRIC_ID[metric]) ? 1 : 0;
   }
 }
 

@@ -6,6 +6,7 @@ import {
   ALIVE_HOLD, MOTHER_EVENT_MIN, MOTHER_EVENT_SECOND_GROUP, PEBBLE_COST, PEBBLE_GENERATION, PEBBLE_RADIUS, SPAWN_EDGE, SPAWN_JITTER,
   SPAWN_WINDOW, SPECIAL_BUDGET_MUL, specialKind, SWARM_WINDOW, WAVE_TIME, waveBudget,
 } from '../data/waves';
+import { BOSS_BREATHER, isBossWave } from '../data/bosses';
 import { ARMORED_ARMOR, ARMORED_SHARE, GUNNER_THEME_SHARE, LEECH_THEME_SHARE, SHIELD_WALL_ESCORTS, SHIELD_WALL_SPREAD, SWARM_DARTER_SHARE, themeAt } from '../data/waveThemes';
 
 /** One body the director will send: `at` seconds into its wave, entering from just above the top edge at `x`. */
@@ -51,6 +52,7 @@ const spawnX = (radius: number, rnd: Mulberry32) => {
  * and spread them over SPAWN_WINDOW; a leftover below the cheapest pick becomes pebbles. Every 5th wave is special: a Swarm (Darters and pebbles) or a Mother event.
  */
 export function planWave(seed: number, wave: number): PlannedSpawn[] {
+  if (isBossWave(wave)) return []; // chunk 32b: a boss wave has no normal spawns; the boss is the wave
   const rnd = waveRng(seed, wave);
   const kind = specialKind(wave);
   const theme = kind ? null : themeAt(wave);
@@ -142,6 +144,8 @@ export class WaveDirector {
   private next = 0;
   /** Updates on which a due spawn was held back because too many bodies were alive (debug and tests). */
   held = 0;
+  /** Chunk 32b: true during a boss wave: the clock does not start the next wave until `releaseBoss` (the boss died). */
+  holding = false;
 
   constructor(readonly seed: number) {}
 
@@ -152,10 +156,17 @@ export class WaveDirector {
     this.start = (wave - 2) * WAVE_TIME;
     this.queue = [];
     this.next = 0;
+    this.holding = false;
   }
 
-  /** Seconds left until the next wave starts. */
-  timeToNext(time: number): number { return Math.max(0, this.start + WAVE_TIME - time); }
+  /** Seconds left until the next wave starts (a boss wave has no timer: it ends when the boss dies). */
+  timeToNext(time: number): number { return this.holding ? 0 : Math.max(0, this.start + WAVE_TIME - time); }
+
+  /** The boss of the current wave died at `time`: the next wave starts BOSS_BREATHER seconds later. */
+  releaseBoss(time: number) {
+    this.holding = false;
+    this.start = time + BOSS_BREATHER - WAVE_TIME;
+  }
 
   /**
    * Advances to `time` (seconds since the run began). Returns the wave that started on this call (0 if none) and
@@ -163,14 +174,15 @@ export class WaveDirector {
    */
   update(time: number, alive: number, out: PlannedSpawn[]): number {
     let started = 0;
-    while (time >= (this.wave === 0 ? 0 : this.start + WAVE_TIME)) {
-      // Spawns of the old wave not yet out (held back) are carried into the new one at its start.
+    while (!this.holding && time >= (this.wave === 0 ? 0 : this.start + WAVE_TIME)) {
+      // Spawns of the old wave not yet out (held back) are carried into the new one at its start (not into a boss wave).
       const rest = this.queue.slice(this.next).map(s => ({ ...s, at: 0 }));
       this.start = this.wave === 0 ? 0 : this.start + WAVE_TIME;
       this.wave++;
       started = this.wave;
-      this.queue = [...rest, ...planWave(this.seed, this.wave)];
+      this.queue = isBossWave(this.wave) ? [] : [...rest, ...planWave(this.seed, this.wave)];
       this.next = 0;
+      if (isBossWave(this.wave)) this.holding = true;
     }
     while (this.next < this.queue.length && this.start + this.queue[this.next].at <= time) {
       if (alive >= ALIVE_HOLD) { this.held++; break; }
