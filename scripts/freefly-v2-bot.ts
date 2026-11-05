@@ -11,7 +11,7 @@ if (process.env.NO_DODGE && BOT_OPTS) BOT_OPTS.dodgeBullets = false;
 const SEEDS = [1, 2, 3];
 const LIMIT = Number(process.env.LIMIT ?? 1500);
 const HULLS = (process.env.HULLS ?? 'twin,shuttle').split(',');
-console.log(`Free Fly bot, ${SEEDS.length} seeds, cap ${LIMIT} s, bot ${BOT_OPTS?.dodgeBullets === false ? 'ignores' : 'dodges'} enemy bullets`);
+console.log(`Free Fly bot, ${SEEDS.length} seeds, cap ${LIMIT} s, bot ${!BOT_OPTS ? 'predates enemy bullets' : BOT_OPTS.dodgeBullets ? 'dodges enemy bullets' : 'ignores enemy bullets'}`);
 console.log('hull    | seed | wave | survived s | credits | kills | bullet hits | cause');
 for (const id of HULLS) {
   const waves: number[] = [], times: number[] = [];
