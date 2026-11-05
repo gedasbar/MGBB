@@ -13,6 +13,15 @@ export const CORES_MILESTONE_PER_WAVE = 2;
 /** Frontier Free Fly squares pay one wave's Cores for every full WAVE_TIME seconds survived, at the square's wave equivalent capped here (no milestone bonus). */
 export const ENCOUNTER_CORES_WAVE_CAP = 30;
 
+// ---------------------------------------------------------------- Free Fly trait chunks (chunk 32c)
+
+/** Waves never come faster than this share of WAVE_TIME, however many Faster Waves chunks (a wave of 10 s at 40 s). */
+export const WAVE_TIME_MIN_MUL = 0.25;
+/** The chance a normal wave is skipped never goes above this, however many Wave Skipper chunks. */
+export const WAVE_SKIP_MAX = 0.6;
+/** Repair Bay heals only after this many seconds without a hit (a hit is a lost hull point or a spent Second Chance). */
+export const REPAIR_IDLE_SECONDS = 2;
+
 // ---------------------------------------------------------------- unlock
 
 /** The Shipyard opens at this furthest Frontier ring in any direction (the ring Frontier Echo and the skill points read). Cores accumulate before it. */

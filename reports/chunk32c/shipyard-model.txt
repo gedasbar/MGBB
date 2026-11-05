@@ -1,0 +1,41 @@
+INCOME (a run reaching wave W lasts about (W-1) x 40 s; +60 s between runs)
+wave | run length | Cores a run | Cores an hour
+   8 |      6 min |          28 |           296
+  10 |      7 min |          55 |           471
+  15 |     10 min |         108 |           627
+  20 |     14 min |         182 |           799
+  25 |     17 min |         233 |           822
+  30 |     20 min |         368 |          1086
+  40 |     27 min |         717 |          1593
+  50 |     34 min |        1399 |          2493
+
+PRICES (Cores) and hours of Free Fly
+starter (a Front Gun and 6 plain chunks): 762 Cores = 1.7 h at a casual hour (454/h), 0.9 h at a good hour (822/h)
+full 16-slot ship (2 Front, 2 Twin, 12 plain, no traits): 3712 Cores = 8.2 h at a casual hour (454/h), 4.5 h at a good hour (822/h)
+full 16-slot ship with traits (2 Twin, 1 Front, 9 plain, 4 traits): 14909 Cores = 32.8 h at a casual hour (454/h), 18.1 h at a good hour (822/h)
+full 16-slot ship with the Free Fly traits (5 traits, 32c): 13809 Cores = 30.4 h at a casual hour (454/h), 16.8 h at a good hour (822/h)
+every chunk x3 (the whole shop): 136985 Cores = 301.7 h at a casual hour (454/h), 166.6 h at a good hour (822/h)
+
+RUNS of Free Fly (price / Cores a run pays, rounded up)
+starter (a Front Gun and 6 plain chunks): 13 runs to wave 12 (63 each), 4 runs to wave 25 (233 each)
+full 16-slot ship (2 Front, 2 Twin, 12 plain, no traits): 59 runs to wave 12 (63 each), 16 runs to wave 25 (233 each)
+full 16-slot ship with traits (2 Twin, 1 Front, 9 plain, 4 traits): 237 runs to wave 12 (63 each), 64 runs to wave 25 (233 each)
+full 16-slot ship with the Free Fly traits (5 traits, 32c): 220 runs to wave 12 (63 each), 60 runs to wave 25 (233 each)
+every chunk x3 (the whole shop): 2175 runs to wave 12 (63 each), 588 runs to wave 25 (233 each)
+
+FREE FLY TRAIT CHUNKS (one copy each; Cores an hour for a run to wave 25, "plain" = no trait)
+plain: 1246 Cores an hour
+Faster Waves (waves x0.8 time, enemies +10% HP)        1535 an hour (+23.2%) - harder: needs about 10% more damage
+Longer Waves (waves x1.3 time, -10% Cores a wave)       907 an hour (-27.2%) - more credits per wave, fewer Cores an hour
+Wave Skipper (10% of normal waves skipped)             1301 an hour (+4.5%) - a deeper wave faster; skipped waves pay nothing
+Repair Bay (heals 2%/s, -15% damage)                   1246 an hour (+0.0%) - no direct Cores change: survival for damage
+Boss Bounty (bosses +50% Cores, +25% HP)               1458 an hour (+17.0%) - bosses take 25% longer to kill (not in this model)
+
+PRICES of the five (first / second / third copy) and hours of a good Free Fly hour to afford one copy
+faster_waves   2000 / 4000 / 8000 Cores; first copy = 2.43 h
+longer_waves   900 / 1800 / 3600 Cores; first copy = 1.09 h
+wave_skipper   2200 / 4400 / 8800 Cores; first copy = 2.68 h
+repair_bay     2800 / 5600 / 11200 Cores; first copy = 3.40 h
+boss_bounty    1400 / 2800 / 5600 Cores; first copy = 1.70 h
+
+WHOLE SHOP x3 (18 chunks): 136985 Cores = 166.6 h at a good hour (822/h)

@@ -426,8 +426,8 @@ export class FlyScreen implements Screen {
       sfx.play('wave');
       const kind = specialKind(ev.wave);
       this.bannerTitle.text = `WAVE ${ev.wave}`;
-      this.bannerSub.text = [ev.boss ? 'BOSS' : kind === 'swarm' ? 'SWARM' : kind === 'mothers' ? 'MOTHERS' : '', ev.bonus > 0 ? `+${fmtBig(ev.bonus)} credits` : ''].filter(Boolean).join('  ');
-      this.bannerSub.style.fill = ev.bonus > 0 ? THEME.currency : THEME.textDim;
+      this.bannerSub.text = ev.skipped ? 'SKIPPED' : [ev.boss ? 'BOSS' : kind === 'swarm' ? 'SWARM' : kind === 'mothers' ? 'MOTHERS' : '', ev.bonus > 0 ? `+${fmtBig(ev.bonus)} credits` : ''].filter(Boolean).join('  ');
+      this.bannerSub.style.fill = ev.bonus > 0 && !ev.skipped ? THEME.currency : THEME.textDim;
       this.bannerT = BANNER_TIME;
       if (ev.boss) this.showThemeBanner(BOSS_BY_ID[ev.boss].name, BOSS_BY_ID[ev.boss].line, THEME_BANNER_COLOR);
       if (ev.theme) {

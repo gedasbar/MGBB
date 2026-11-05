@@ -1,9 +1,10 @@
-import { CHUNK_BY_ID, ChunkDef, rotateRows } from '../data/shipChunks';
+import { CHUNK_BY_ID, ChunkDef, ChunkEffect, rotateRows } from '../data/shipChunks';
 import { validateHullLayout } from '../data/hullValidate';
 import type { SizeClass } from '../data/hulls';
 import {
   CHUNK_CELLS, DESIGN_SLOTS, GENERATOR_COLUMN, PULSE_BASE, PULSE_MIN, PULSE_PER_CELL, SHIPYARD_UNLOCK_RING, SHOT_SPEED_BASE, SIZE_BY_SLOTS, TRAIT_PULSE_FLOOR,
 } from './constants';
+import { FlyTraits, flyTraitsOf } from './flyTraits';
 
 /**
  * Custom hull rules (chunk 31a, docs/shipyard.md): pure functions, no Pixi, no store.
@@ -140,6 +141,8 @@ export interface DesignStats {
   damageMul: number;
   lives: number;
   coresMul: number;
+  /** Chunk 32c: the Free Fly trait chunks added up (neutral when none is placed). */
+  fly: FlyTraits;
 }
 
 export function sizeOfChunks(n: number): SizeClass {
@@ -159,12 +162,14 @@ export function designStats(d: Design): DesignStats | null {
   const flat = rows.join('');
   const cells = flat.split('_').length - 1;
   const ejectors = flat.split('E').length - 1;
+  const effects: (ChunkEffect | undefined)[] = [];
   let pulses = basePulses(cells), speed = SHOT_SPEED_BASE, damage = 1, lives = 0, cores = 1, count = 0;
   for (const id of d.slots) {
     const c = id ? CHUNK_BY_ID[id] : undefined;
     if (!c) continue;
     count++;
     const e = c.effect;
+    effects.push(e);
     if (!e) continue;
     pulses += e.pulses ?? 0;
     speed *= 1 + (e.shotSpeed ?? 0);
@@ -172,7 +177,7 @@ export function designStats(d: Design): DesignStats | null {
     lives += e.lives ?? 0;
     cores += e.cores ?? 0;
   }
-  return { cells, ejectors, chunks: count, pulsesPerSec: round3(Math.max(TRAIT_PULSE_FLOOR, pulses)), shotSpeed: round3(speed), size: sizeOfChunks(count), damageMul: round3(damage), lives, coresMul: round3(cores) };
+  return { cells, ejectors, chunks: count, pulsesPerSec: round3(Math.max(TRAIT_PULSE_FLOOR, pulses)), shotSpeed: round3(speed), size: sizeOfChunks(count), damageMul: round3(damage), lives, coresMul: round3(cores), fly: flyTraitsOf(effects) };
 }
 
 // ---------------------------------------------------------------- ownership and prices

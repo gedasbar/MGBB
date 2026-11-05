@@ -347,9 +347,9 @@ describe('custom ship art', () => {
 });
 
 describe('every chunk can be drawn and sold', () => {
-  it('the palette lists the 13 chunks, each with a pattern and a price', () => {
+  it('the palette lists the 18 chunks, each with a pattern and a price', () => {
     const st = makeStore(); const ed = new ShipyardEditor(st);
-    expect(CHUNKS.length).toBe(13);
+    expect(CHUNKS.length).toBe(18);
     for (const c of CHUNKS) { expect(ed.price(c.id)).toBeGreaterThan(0); expect(chunkSheet(ed, c.id).title).toBe(c.name); }
   });
 });

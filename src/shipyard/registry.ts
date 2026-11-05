@@ -2,6 +2,7 @@ import { customHullInfo, CustomHullInfo, setCustomHull } from '../data/hulls';
 import { HULL_BUILDERS, withHull } from '../game/gridUtils';
 import type { RunModifiers } from '../captains/modifiers';
 import { EXTRA_LIFE_INVULN, customHullId, customHullName, customSlotOf, MAX_DESIGNS } from './constants';
+import { NEUTRAL_FLY } from './flyTraits';
 import { compileDesign, designProblems, designStats, Design, shipyardOpen } from './design';
 
 /**
@@ -36,7 +37,7 @@ export function customHullOf(slot: number, d: Design): CustomHullInfo | null {
   const st = designStats(d);
   if (!rows || !st) return null;
   return {
-    name: customHullName(slot), rows, damageMul: st.damageMul, lives: st.lives, coresMul: st.coresMul,
+    name: customHullName(slot), rows, damageMul: st.damageMul, lives: st.lives, coresMul: st.coresMul, fly: st.fly,
     stats: { name: customHullName(slot), price: 0, pulsesPerSec: st.pulsesPerSec, shotSpeed: st.shotSpeed, size: st.size },
   };
 }
@@ -73,5 +74,6 @@ export function applyHullTraits(mods: RunModifiers, hullId: string | undefined):
     secondChances: mods.secondChances + c.lives,
     chanceInvuln: c.lives > 0 ? Math.max(mods.chanceInvuln, EXTRA_LIFE_INVULN) : mods.chanceInvuln,
     coresMul: mods.coresMul * c.coresMul,
+    fly: c.fly ?? NEUTRAL_FLY,
   };
 }
