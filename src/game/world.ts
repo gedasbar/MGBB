@@ -143,6 +143,8 @@ export class World {
   /** Reused each frame: the Shielders and Leeches found in the enemy loop. */
   private shielders: MitosisEnemy[] = [];
   private leeches: MitosisEnemy[] = [];
+  /** Bodies a Leech healed this frame (one Leech per body). */
+  private healed = new Set<number>();
 
   /** Events produced during the last update() calls; consumers clear them. */
   hits: HitEvent[] = [];
@@ -391,15 +393,20 @@ export class World {
     this.links.length = 0;
     for (const e of enemies) if (e.dmgTakenMul !== undefined) e.dmgTakenMul = undefined;
     for (const s of this.shielders) {
+      if (!(s.hp > 0)) continue; // dying this very step: its shield is already gone
       const d = speciesOf(s.defId).shield!;
       for (const t of nearestWithin(s.x, s.y, enemies, d.range, d.maxLinks, e => e !== s && !speciesOf(e.defId).shield)) {
         t.dmgTakenMul = t.dmgTakenMul === undefined ? d.damageMul : Math.min(t.dmgTakenMul, d.damageMul);
         this.links.push({ kind: 'shield', id: t.id, ax: s.x, ay: s.y, bx: t.x, by: t.y, r: t.radius });
       }
     }
+    this.healed.clear();
     for (const l of this.leeches) {
+      if (!(l.hp > 0)) continue;
       const d = speciesOf(l.defId).heal!;
-      for (const t of nearestWithin(l.x, l.y, enemies, d.range, d.maxLinks, e => e !== l && !speciesOf(e.defId).heal)) {
+      // A body is healed by one Leech at a time (a crowd of Leeches does not stack their healing).
+      for (const t of nearestWithin(l.x, l.y, enemies, d.range, d.maxLinks, e => e !== l && !speciesOf(e.defId).heal && !this.healed.has(e.id))) {
+        this.healed.add(t.id);
         if (t.hp < t.maxHp) t.hp = Math.min(t.maxHp, t.hp + t.maxHp * d.perSec * dt);
         this.links.push({ kind: 'leech', id: t.id, ax: l.x, ay: l.y, bx: t.x, by: t.y, r: t.radius });
       }
