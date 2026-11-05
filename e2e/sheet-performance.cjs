@@ -24,7 +24,7 @@ const bucketName = (k) => (k === BUCKETS.length - 1 ? `${BUCKETS[k]}+` : `${BUCK
 
 /** Starts a scenario inside the page (modules are shared with the app through the dev server) and returns samples taken every 500 ms. */
 async function fly(page, kind, target) {
-  await page.evaluate(async ({ kind, target }) => {
+  await page.evaluate(async ({ kind, target, stress }) => {
     const sm = window.__mgbmSm;
     const { perfGrid, OWNER_BUILD, topUp } = await import('/scripts/lib/perfBuild.ts');
     const { debugHooks } = await import('/src/debug/hooks.ts');
@@ -39,13 +39,19 @@ async function fly(page, kind, target) {
       sm.switchTo(new WallScreen(sm, { ...generateLevel(100), approachSpeed: 0 }, grid));
       sm.currentScreen.world.setWallOffset(430);
     }
+    // Chunk 34a: FX_STRESS keeps the particle pool full (600 alive) every frame, the worst case of the feel pass.
+    if (stress && sm.currentScreen.feel) {
+      const sc = sm.currentScreen;
+      const upd = sc.update.bind(sc);
+      sc.update = (dt, ft, now) => { const f = sc.feel; let guard = 0; while (f.particles.count < f.particles.cap - 4 && guard++ < 60) f.particles.burst(100 + Math.random() * 340, 150 + Math.random() * 500, 10, [0x6fbf73, 0xffd23c, 0xd4d4d8], Math.random, [20, 60], [7, 15], 0.5); upd(dt, ft, now); };
+    }
     // The pool is held at (at least) `target` shots, so the table compares the same load before and after a change.
     if (target > 0) {
       const w = sm.currentScreen.world;
       const update = w.update.bind(w);
       w.update = (dt, p) => { topUp(w, target); update(dt, p); };
     }
-  }, { kind, target });
+  }, { kind, target, stress: !!process.env.FX_STRESS });
   // The first pointer move starts the run.
   await page.mouse.move(270, 700);
   await page.mouse.move(272, 720);
@@ -61,19 +67,19 @@ async function sample(page, seconds) {
       const n = window.__mgbmStats.numbers;
       const sc = window.__mgbmSm.currentScreen;
       const w = sc.world;
-      out.push({ fps: n.fps, frameMs: n.frameMs, worstMs: n.worstMs, simMs: n.simMs, renderMs: n.renderMs, alive: w.pool.count, max: w.pool.max, targets: w.mitosis ? w.mitosis.enemies.length : w.alive });
+      out.push({ fps: n.fps, frameMs: n.frameMs, worstMs: n.worstMs, simMs: n.simMs, renderMs: n.renderMs, alive: w.pool.count, max: w.pool.max, targets: w.mitosis ? w.mitosis.enemies.length : w.alive, parts: sc.feel ? sc.feel.particles.count : 0 });
     }
     return out;
   }, seconds);
 }
 
 function table(title, samples) {
-  const lines = [`### ${title}`, '', '| shots alive | samples | fps | frame ms | sim ms (update + sprite sync) | render ms (draw call CPU) | worst frame ms |', '|---|---|---|---|---|---|---|'];
+  const lines = [`### ${title}`, '', '| shots alive | samples | fps | frame ms | sim ms (update + sprite sync) | render ms (draw call CPU) | worst frame ms | particles alive |', '|---|---|---|---|---|---|---|---|'];
   const mean = (a, f) => a.reduce((s, v) => s + f(v), 0) / a.length;
   for (let k = 0; k < BUCKETS.length; k++) {
     const s = samples.filter((x) => bucketOf(x.alive) === k && x.fps > 0);
     if (!s.length) continue;
-    lines.push(`| ${bucketName(k)} | ${s.length} | ${mean(s, (x) => x.fps).toFixed(0)} | ${mean(s, (x) => x.frameMs).toFixed(1)} | ${mean(s, (x) => x.simMs).toFixed(2)} | ${mean(s, (x) => x.renderMs).toFixed(2)} | ${Math.max(...s.map((x) => x.worstMs)).toFixed(1)} |`);
+    lines.push(`| ${bucketName(k)} | ${s.length} | ${mean(s, (x) => x.fps).toFixed(0)} | ${mean(s, (x) => x.frameMs).toFixed(1)} | ${mean(s, (x) => x.simMs).toFixed(2)} | ${mean(s, (x) => x.renderMs).toFixed(2)} | ${Math.max(...s.map((x) => x.worstMs)).toFixed(1)} | ${mean(s, (x) => x.parts || 0).toFixed(0)} |`);
   }
   lines.push('');
   return lines;
