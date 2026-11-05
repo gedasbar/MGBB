@@ -57,8 +57,10 @@ async function montage(page, shots, captions, file) {
   const s1 = await state(page);
   check(s1.bullets.drawn === s1.bullets.count && s1.bullets.count >= 3, `every live bullet has a sprite (${s1.bullets.drawn} drawn of ${s1.bullets.count})`);
   check(s1.bullets.list.every(b => b.y > 150 && b.y < 960), 'the bullets left the Gunner and fly down the screen');
+  // For the sheet: wait until the burst has spread out half way down the screen.
+  await waitFor(async () => (await state(page)).bullets.list.some(b => b.y > 420), { timeout: 8000 });
   shots.push(await canvasShot(page));
-  caps.push(`Gunner: stopped, burst of 3 (${s1.bullets.count} bullets)`);
+  caps.push(`Gunner: burst of 3 half way down (${(await state(page)).bullets.count} bullets)`);
   // The Gunner dies; its bullets stay. They fly down the ship's own firing lane (the ship is under it at x 270) and are not shot down.
   await page.evaluate(() => { for (const e of window.__mgbm.world.mitosis.enemies) if (e.defId === 'gunner') e.hp = 0; });
   await waitFor(async () => !(await state(page)).species.includes('gunner'));
