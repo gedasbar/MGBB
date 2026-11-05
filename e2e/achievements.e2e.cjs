@@ -90,13 +90,13 @@ async function tapStart(page) {
   // ---- 3. The panel: the ship button's hub, ACHIEVEMENTS tab. "Show completed" is off by default.
   await openAch(page);
   let s = await astate(page);
-  check(s.view === 'achievements' && s.showCompleted === false && s.rows.length === 39 && s.rows.every(r => !r.earned), `Show completed is off: only the 39 unfinished achievements are listed (5 are earned): ${s.rows.length}`);
+  check(s.view === 'achievements' && s.showCompleted === false && s.rows.length === 44 && s.rows.every(r => !r.earned), `Show completed is off: only the 44 unfinished achievements are listed (5 are earned): ${s.rows.length}`);
   shots.push(await canvasShot(page)); caps.push('3a Achievements, Show completed OFF');
   await tapButton(page, 'showCompleted');
   await waitFor(async () => (await astate(page)).showCompleted === true, { timeout: 2000 });
   s = await astate(page);
   const row = (id) => s.rows.find(r => r.id === id);
-  check(s.rows.length === 44, `the panel lists all 44 achievements with Show completed on: ${s.rows.length}`);
+  check(s.rows.length === 49, `the panel lists all 49 achievements with Show completed on: ${s.rows.length}`);
   check(await page.evaluate(() => JSON.parse(localStorage.getItem('mgbm_settings')).showCompleted === true), 'the switch is remembered in the settings');
   check(s.rows.filter(r => r.earned).length === 5, 'five are earned');
   const at = (id) => s.rows.findIndex(r => r.id === id);

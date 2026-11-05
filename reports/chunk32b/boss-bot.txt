@@ -1,0 +1,10 @@
+Boss bot: seeds 1, limit 240 s. Cell = seconds to kill (E = after the enrage at 90 s) or how it ended with the boss's HP left.
+hull     | 10 hive       | 20 bastion    | 30 queen      | 40 colossus   | 50 hive+1     | 60 bastion+1  | 70 queen+1    | 80 colossus+1
+twin     | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+hornet   | lost 89%      | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+mantis   | 69s           | lost 97%      | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+halberd  | 29s           | lost 91%      | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+corvette | 70s           | lost 97%      | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+shuttle  | 24s           | lost 90%      | lost 98%      | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+fan      | 12s           | lost 79%      | lost 97%      | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+zenith   | 12s           | lost 67%      | lost 96%      | lost 98%      | lost 100%     | lost 100%     | lost 100%     | lost 100%    

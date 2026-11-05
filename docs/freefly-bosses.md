@@ -81,4 +81,31 @@ the kill, the rewards and the next wave; sheet `reports/chunk32b/sheet_bosses.pn
 `scripts/boss-bot.ts` starts a world at each boss wave with the hull full and the balance bot's standard build of each hull (`src/debug/hullBuilds.ts`) flying it (the bot now shoots rocks only when they are low, aims at the boss's weak point,
 and keeps out of a plate's line); `scripts/boss-rate.ts` holds the hull up and estimates the kill time from 60 s of damage. Results are in `reports/chunk32b/boss-bot.txt` and `boss-rate.txt` and are copied below.
 
-BOT_TABLES_PLACEHOLDER
+**Fought** (`boss-bot.ts`, hull full at the boss wave, the build's own fight; one seed):
+
+```
+Boss bot: seeds 1, limit 240 s. Cell = seconds to kill (E = after the enrage at 90 s) or how it ended with the boss's HP left.
+hull     | 10 hive       | 20 bastion    | 30 queen      | 40 colossus   | 50 hive+1     | 60 bastion+1  | 70 queen+1    | 80 colossus+1
+twin     | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+hornet   | lost 89%      | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+mantis   | 69s           | lost 97%      | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+halberd  | 29s           | lost 91%      | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+corvette | 70s           | lost 97%      | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+shuttle  | 24s           | lost 90%      | lost 98%      | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+fan      | 12s           | lost 79%      | lost 97%      | lost 99%      | lost 100%     | lost 100%     | lost 100%     | lost 100%    
+zenith   | 12s           | lost 67%      | lost 96%      | lost 98%      | lost 100%     | lost 100%     | lost 100%     | lost 100%
+```
+
+**Estimated kill time** (`boss-rate.ts`, hull held up, from 60 s of damage; "(dead)" = it killed the boss inside the 60 s):
+
+```
+Estimated seconds to kill (bot, hull held up, 60 s sample after the boss arrived)
+hull     | 10 hive       | 20 bastion    | 30 queen      | 40 colossus  
+mantis   | 63s           | 4164s         | 27718s        | 75535s       
+halberd  | 26s (dead)    | 1809s         | 11357s        | 27066s       
+shuttle  | 20s (dead)    | 1352s         | 7861s         | 20185s       
+fan      | 9s (dead)     | 721s          | 4189s         | 11728s       
+zenith   | 8s (dead)     | 427s          | 2639s         | 7298s
+```
+
+Reading: only the Hive Mother is beaten by the standard builds (Mantis and Corvette about 70 s, Halberd 29 s, Shuttle 24 s, Fan and Zenith 12 s; Twin and Hornet lose). Bosses 2-4 are out of reach of every standard build, which already die around wave 17-18 in normal Free Fly, so they never get that far; it says nothing about the owner's builds. A rough check against `difficultyModel.flyNeeds` (`scripts/boss-keepup.ts`): a build that only just keeps up with the plain waves would take the first three bosses about 11-15 s and the Colossus about 52 s before shots lost to closed cores, plates and escorts, so the HP is not out of proportion with the waves. Not tuned beyond that.
