@@ -1,3 +1,4 @@
+// area: wall, frontier, builder
 // Chunk 16a end-to-end test: instant results (wall CLEARED / PASSED / CRASHED, Frontier wall and Free Fly squares: wall-clock time
 // from the moment of the result to the result screen), Frontier holes cannot be selected, the builder keeps orientations when a
 // path-changing block is placed and has no warning triangles / warnings cell / orientation text.

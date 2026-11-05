@@ -1,3 +1,4 @@
+// area: builder, blocks, wall, freefly
 // Chunk 21a end-to-end: builder keys, +1 Projectile (two shots side by side), stacking curves (1 vs 4 copies), Upturn over Ship Magnet,
 // the run summary's new stats, shot looks at three damage bands and the Brake icon. Contact sheet: reports/chunk21a/sheet_chunk21a.png.
 // Needs the Vite dev server. Run: node e2e/chunk21a.e2e.cjs

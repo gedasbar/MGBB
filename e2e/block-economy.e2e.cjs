@@ -1,3 +1,4 @@
+// area: economy, shop, blocks, captains
 // Chunk 16c-2 end-to-end: the Shop at a copy cap ("Max"), a block without upgrades (no level line, no Upgrade button), a heavy stacked build in
 // flight with its frame rate against a plain build, and the hero level screen above level 10. Writes reports/chunk16c2/sheet_economy.png.
 // Needs the Vite dev server. Run: node e2e/block-economy.e2e.cjs   (adds ?debug=1 itself)

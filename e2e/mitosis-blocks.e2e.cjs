@@ -1,3 +1,4 @@
+// area: blocks, freefly, shop
 // Chunk 11a end-to-end test: buy the new blocks in the Shop with real taps, place them with real taps, fly at a Mother wave
 // (the cheat panel starts Free Fly at wave 10, god mode keeps the run going) and confirm through the debug counters that every
 // effect fired. Then the screenshots: the Mitosis picker section, two inspectors, a staged Free Fly frame (Residue Seed ring and a

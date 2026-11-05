@@ -1,5 +1,5 @@
 // Contact sheet of all 19 hulls (chunk 17a): in-game size (1x) and 2x on the dark background, with the size class under each name.
-// Run: GAME_URL=http://localhost:PORT node e2e/sheets-ships.e2e.cjs (dev server up). Writes reports/chunk17a/sheet_hulls.png
+// Run: GAME_URL=http://localhost:PORT node e2e/sheet-ships.cjs (dev server up). Writes reports/chunk17a/sheet_hulls.png
 const path = require('path');
 const lib = require('./lib.cjs');
 const { renderSheet } = require('./sheet.cjs');

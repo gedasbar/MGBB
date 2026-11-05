@@ -1,3 +1,4 @@
+// area: blocks, shop, builder, freefly
 // Chunk 20b end-to-end: the motion blocks in the real game. Angle Left + Right fan, Scatter, Upturn after Angle, Ship Magnet swarm,
 // Brake + Heavy Round (the damage number in the Build screen) and the Shop with a campaign-tier lock.
 // Contact sheet: reports/chunk20b/sheet_motion.png. Needs the Vite dev server. Run: node e2e/motion-blocks.e2e.cjs

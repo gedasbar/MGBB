@@ -1,3 +1,4 @@
+// area: economy, campaign, frontier, blocks
 // Chunk 19a end-to-end test: best credits earned per tier / Frontier square (campaign panel, Frontier panel, run summary) and
 // the new Piercing / AoE shapes on a real wall world. Contact sheet: reports/chunk19a/sheet_19a.png.
 // Needs the Vite dev server. Run: node e2e/best-earnings.e2e.cjs   (adds ?debug=1 itself)

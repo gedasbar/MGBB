@@ -1,3 +1,4 @@
+// area: campaign, wall
 // Campaign end-to-end test (carve-a-path rules): Build -> CAMPAIGN -> Map -> tier 1 passed with a lane carved by real shots
 // and real pointer moves -> crash -> cleared with a Medal -> tier 2 passed -> Map showing both pip types.
 // Needs the Vite dev server. Run: GAME_URL="http://localhost:5173/?debug=1" node e2e/campaign.e2e.cjs

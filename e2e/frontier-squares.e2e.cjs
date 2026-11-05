@@ -1,3 +1,4 @@
+// area: frontier, blocks, freefly
 // Chunk 15b end-to-end test: the Frontier's lavender look, wall and Free Fly squares, threshold rings, directional
 // unlocks (toast, Unlocks panel, a gated block in the shop) and one Free Fly square played to a result and back.
 // Contact sheet: reports/chunk15b/sheet_frontier15b.png. Needs the Vite dev server. Run: node e2e/frontier-squares.e2e.cjs

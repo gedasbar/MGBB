@@ -1,3 +1,4 @@
+// area: frontier, map
 // Chunk 15a end-to-end test: the Frontier grid map. Opens it from the campaign Map (greyed until tier 25 is passed),
 // shows all four square states, a medal square and holes, pans / zooms with the mouse, measures the frame rate while
 // panning at three zooms, plays one square to a result and comes back. Contact sheet: reports/chunk15a/sheet_frontier.png.

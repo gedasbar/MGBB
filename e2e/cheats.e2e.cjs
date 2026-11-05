@@ -1,3 +1,4 @@
+// area: debug, map, freefly, smoke
 // Chunk 10b: the ?debug=1 cheat panel, end to end. Add credits -> buy a hull with real taps -> unlock tiers (Map) ->
 // Free Fly at wave 10 (a Mother spawns) -> spawn a species, god mode, kill all -> reset campaign.
 // Needs the Vite dev server. Run: node e2e/cheats.e2e.cjs

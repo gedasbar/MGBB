@@ -1,3 +1,4 @@
+// area: builder, basics, smoke
 // Chunk 1 end-to-end test: re-tap to open the picker, re-tap to place, badges/marks gone, "blocked" cell gone.
 // Real pointer events on the real canvas; positions are computed here from the documented layout
 // (540x960, fit view: cell 48 px, grid origin (6,204)). Requires the Vite dev server: `npm run dev`.

@@ -1,3 +1,5 @@
+// area: production, save
+// slow
 // Chunk 23a: the PRODUCTION build on a phone-sized screen. Runs `npm run build`, serves dist with `vite preview`
 // (its own port, PREVIEW_PORT or 5191; it does not use the dev server) and checks: the page loads at 360 x 740, a run
 // starts, nothing debug shows without ?debug=1, the manifest and icons are served, the version label is in Settings,

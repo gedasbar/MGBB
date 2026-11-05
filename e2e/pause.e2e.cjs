@@ -1,3 +1,4 @@
+// area: pause, settings, freefly, audio, smoke
 // Chunk 12a: pause (button, Escape, P), frozen simulation, settings panel and its persistence, sound playback calls.
 // Needs the Vite dev server. Run: node e2e/pause.e2e.cjs   (adds ?debug=1 itself)
 const path = require('path');

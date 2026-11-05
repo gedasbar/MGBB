@@ -1,3 +1,4 @@
+// area: skills, builder
 // Chunk 22a end-to-end test: the Skills tab. Opens it from the tab bar, checks points and the progress bar, buys along a path,
 // the adjacency rule, the node panel, the respec dialog (cost, confirm, cancel), that a Turn skill changes the builder estimate,
 // and that dragging and the wheel move the map. Contact sheet: reports/chunk22a/sheet_skills.png.

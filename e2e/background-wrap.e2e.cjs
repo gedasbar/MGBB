@@ -1,3 +1,4 @@
+// area: wall, background
 // Chunk 24c: on a cylinder wall the background keeps scrolling sideways across the seam (it used to jump back to its start when the camera wrapped).
 // Holds the pointer at the right edge until the camera has wrapped past the seam, sampling the camera x and the background's offset input every 40 ms.
 // Needs the Vite dev server. Run: node e2e/background-wrap.e2e.cjs
@@ -15,7 +16,7 @@ const { check, gameToClient } = lib;
     if (!sessionStorage.getItem('__cleared')) { localStorage.clear(); sessionStorage.setItem('__cleared', '1'); }
   });
   await page.goto(lib.URL);
-  await page.waitForFunction(() => !!window.__mgbmSm && !!document.getElementById('dbg-start-tier'), null, { timeout: 10000 });
+  await page.waitForFunction(() => !!window.__mgbmSm && !!document.getElementById('dbg-start-tier'), null, { timeout: 30000 }); // the debug panel loads lazily; slow under parallel load
   await page.evaluate(() => { document.getElementById('debug-panel').style.display = 'none'; document.getElementById('dbg-tier-n').value = '1'; document.getElementById('dbg-start-tier').click(); });
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.screen === 'wall', null, { timeout: 8000 });
   const start = await gameToClient(page, 270, 880);
