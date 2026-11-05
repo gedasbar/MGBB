@@ -14,6 +14,8 @@ import { defaultRecords, noteBossRecords, sanitizeRecords } from '../src/achieve
 import { flyRunResult } from '../src/game/runEnd';
 import { ProgressStore, defaultProgress } from '../src/econ/progress';
 import { ACHIEVEMENT_BY_ID } from '../src/data/achievements';
+import { EnemyField, newHomePick } from '../src/engine/targets';
+import { SpatialHash } from '../src/engine/spatialHash';
 
 
 const DT = 1 / 60;
@@ -417,5 +419,21 @@ describe('boss bodies are not rocks', () => {
     run(w, 0.2);
     expect(w.wave).toBe(1);
     expect(w.boss).toBeNull();
+  });
+});
+
+describe('homing and plates', () => {
+  it('a homing shot never picks an invulnerable plate, even when it is the nearest body', () => {
+    const body = (id: number, x: number, y: number, role?: 'conduit' | 'plate') => ({ id, x, y, radius: 17, hp: 100, maxHp: 100, armor: 0, shield: 0, maxShield: 0, bossRole: role });
+    const plate = body(1, 270, 400, 'plate'), core = body(2, 270, 250, 'conduit');
+    const hash = new SpatialHash(540, 960, 64);
+    hash.insert(plate.id, plate.x, plate.y); hash.insert(core.id, core.x, core.y);
+    const field = new EnemyField([plate, core], hash);
+    const out = newHomePick();
+    expect(field.nearestInCone(270, 700, 500, 0, -1, Math.cos((60 * Math.PI) / 180), out)).toBe(true);
+    expect(out.target?.id).toBe(2);
+    const list: unknown[] = [];
+    field.collectNear(270, 400, 300, list as never);
+    expect(list.length).toBe(1);
   });
 });

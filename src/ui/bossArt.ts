@@ -131,4 +131,4 @@ export class BossView {
 }
 
 /** The boss health bar: geometry only (the screen draws it), so tests can read the numbers. */
-export const BOSS_BAR = { x: 20, y: 150, w: 500, h: 14 } as const;
+export const BOSS_BAR = { x: 20, y: 168, w: 500, h: 14 } as const;

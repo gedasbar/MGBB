@@ -18,6 +18,9 @@ const BOT = {
   STEP: 6,
 };
 
+/** Chunk 32b: during a boss fight the bot only shoots at a plain rock once it is below this height (px from the top). */
+const BOSS_ROCK_Y = 480;
+
 /** Chunk 32a: whether the bot also steps around enemy bullets (the balance script switches it off to show what the bullets cost). */
 export const BOT_OPTS = { dodgeBullets: true };
 
@@ -32,14 +35,21 @@ class FreeFlyBot {
   step(w: World, dt: number) {
     const W = CONFIG.VIEW.W, m = shipHalfW(CONFIG.VIEW.W), hitR = w.hitR;
     const enemies = w.mitosis.enemies;
-    // Target: the lowest body still above the ship, led by the shot's flight time.
+    // Target: the lowest body still above the ship, led by the shot's flight time. A boss's own bodies (core, plates, escorts) are not
+    // part of this: the bot clears the plain rocks first (the Hive Mother's), and only when none is left aims at the boss (below).
     let aim = W / 2, lowest = -Infinity;
     for (const e of enemies) {
+      if (e.bossRole) continue;
+      if (w.boss && e.y < BOSS_ROCK_Y) continue; // with a boss up, a rock is let come until it is low (the boss is the target)
       if (e.y < BOT.Y - 60 && e.y > lowest && e.y > -e.radius) {
         lowest = e.y;
         aim = e.x + e.vx * Math.max(0, (BOT.Y - e.y) / PROJECTILE_SPEED);
       }
     }
+    // Chunk 32b: against a boss with no plain rock left, aim at the body that takes the damage (the core, the Queen, the middle of the Colossus), and keep out of the
+    // line of an invulnerable plate (a shot that hits a plate is lost).
+    const boss = w.boss;
+    if (boss && boss.conduits.length && lowest === -Infinity) aim = boss.conduits[Math.floor(boss.conduits.length / 2)].x;
     let bestX = w.shipX, bestCost = Infinity;
     for (let x = m; x <= W - m; x += BOT.STEP) {
       let cost = Math.abs(x - aim) * 0.01 + Math.abs(x - w.shipX) * 0.002;
@@ -53,6 +63,7 @@ class FreeFlyBot {
           if (d < reach) cost += (100 * (reach - d)) / reach / (1 + k);
         }
       }
+      if (boss) for (const p of boss.plates) if (p.hp > 0 && Math.abs(x - p.x) < p.radius + 4) { cost += 3; break; }
       // Enemy bullets fly straight (chunk 32a): the same look-ahead as for a body, with the bullet's own radius.
       const eb = w.enemyBullets;
       if (BOT_OPTS.dodgeBullets && eb && eb.count > 0) {

@@ -29,10 +29,10 @@ export interface BossDef {
 
 /** Rotation order: the n-th boss wave (10 = first) uses entry (n - 1) mod 4. */
 export const BOSSES: readonly BossDef[] = [
-  { id: 'hive', name: 'HIVE MOTHER', line: 'Her core opens now and then', hpWaves: 1.4, homeY: 250, extent: 50, descent: 7, shades: { edge: 0x5a3c1a, mid: 0x8c6232, inner: 0xc08c4a } },
-  { id: 'bastion', name: 'BASTION', line: 'Shoot through the gaps', hpWaves: 1.4, homeY: 290, extent: 112, descent: 7, shades: { edge: 0x2c3440, mid: 0x4a5a70, inner: 0x7288a6 } },
+  { id: 'hive', name: 'HIVE MOTHER', line: 'Her core opens now and then', hpWaves: 2, homeY: 250, extent: 50, descent: 7, shades: { edge: 0x5a3c1a, mid: 0x8c6232, inner: 0xc08c4a } },
+  { id: 'bastion', name: 'BASTION', line: 'Shoot through the gaps', hpWaves: 1.4, homeY: 305, extent: 112, descent: 7, shades: { edge: 0x2c3440, mid: 0x4a5a70, inner: 0x7288a6 } },
   { id: 'queen', name: 'SWARM QUEEN', line: 'Kill the escorts, they come back', hpWaves: 1.4, homeY: 250, extent: 70, descent: 7, shades: { edge: 0x4a1a46, mid: 0x7a2d6b, inner: 0xb05898 } },
-  { id: 'colossus', name: 'COLOSSUS', line: 'A wall of HP. Pure damage', hpWaves: 5, homeY: 250, extent: 52, descent: 22, shades: { edge: 0x4a3a2c, mid: 0x6e5a46, inner: 0x95806a } },
+  { id: 'colossus', name: 'COLOSSUS', line: 'A wall of HP. Pure damage', hpWaves: 7, homeY: 250, extent: 52, descent: 22, shades: { edge: 0x4a3a2c, mid: 0x6e5a46, inner: 0x95806a } },
 ];
 export const BOSS_BY_ID: Record<BossId, BossDef> = Object.fromEntries(BOSSES.map(b => [b.id, b])) as Record<BossId, BossDef>;
 
@@ -63,7 +63,7 @@ export const HIVE = {
   closedFor: 6, openFor: 3.5, closedTaken: 0.1,
   swayPx: 140, swaySpeed: 0.55,
   /** A splitting rock every ROCK_EVERY s while fewer than MAX_ROCKS of her rocks are alive; its HP is ROCK_HP of a plain rock's. */
-  rockEvery: 3.2, maxRocks: 6, rockHp: 0.6,
+  rockEvery: 4.5, maxRocks: 4, rockHp: 0.35,
   /** A slow spread: SPREAD bullets, SPREAD_DEG apart, aimed at the ship, at SPEED x the usual bullet speed. */
   fireEvery: 2.4, spread: 5, spreadDeg: 14, speedMul: 0.75,
 } as const;

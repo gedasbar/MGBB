@@ -23,6 +23,8 @@ import { wrapDx } from './wrap';
 
 export interface EnemyEntity extends EnemyStats {
   id: number;
+  /** Chunk 32b: a Free Fly boss's body ('plate' = invulnerable: homing and Chain Lightning leave it alone). Absent on rocks and wall blocks. */
+  bossRole?: 'conduit' | 'plate' | 'escort';
   x: number;
   y: number;
   radius: number;
