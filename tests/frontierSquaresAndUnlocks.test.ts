@@ -163,16 +163,16 @@ describe('Normal Free Fly is unchanged (waves 1-20; 18b slows it after 20)', () 
 });
 
 describe('Free Fly HP growth (18b)', () => {
-  it('waves 1-20 keep 1.25 per wave, then the total growth per wave (tier step included) is 1.19 / 1.08 / 1.06', () => {
+  it('waves 1-20 keep 1.25 per wave, then the total growth per wave (tier step included) is 1.45 / 1.22 / 1.20 (chunk 32d)', () => {
     for (let w = 1; w <= 20; w++) expect(waveHpMul(w)).toBeCloseTo(Math.pow(1.25, w - 1), 9);
     const total = (w: number) => (waveHpMul(w) / waveHpMul(w - 1)) * tierStepPerWave();
-    for (const [w, g] of [[21, 1.19], [30, 1.19], [31, 1.08], [40, 1.08], [41, 1.06], [50, 1.06], [80, 1.06]] as const) expect(total(w)).toBeCloseTo(g, 9);
+    for (const [w, g] of [[21, 1.45], [30, 1.45], [31, 1.22], [40, 1.22], [41, 1.2], [50, 1.2], [80, 1.2]] as const) expect(total(w)).toBeCloseTo(g, 9);
   });
-  it('rock HP at the start of wave 50 is far below the old curve', () => {
+  it('rock HP at the start of wave 50 follows the steeper chunk 32d curve (the old one was 5e4 to 2e5)', () => {
     const hp = (w: number) => rockHp(tierOfTime((w - 1) * WAVE_TIME)) * waveHpMul(w);
     expect(hp(20)).toBeGreaterThan(5000);
-    expect(hp(50)).toBeLessThan(2e5);
-    expect(hp(50)).toBeGreaterThan(5e4);
+    expect(hp(50)).toBeLessThan(2e7);
+    expect(hp(50)).toBeGreaterThan(5e6);
   });
 });
 

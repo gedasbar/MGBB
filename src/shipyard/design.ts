@@ -153,6 +153,14 @@ export function sizeOfChunks(n: number): SizeClass {
 /** pulses/s before the traits: PULSE_BASE - PULSE_PER_CELL x cells, never below PULSE_MIN. */
 export const basePulses = (cells: number) => Math.max(PULSE_MIN, PULSE_BASE - PULSE_PER_CELL * cells);
 
+/** Buildable cells of one chunk (what the fire-rate cost counts; an ejector is not a buildable cell). */
+export const chunkCells = (c: { rows: readonly string[] }) => c.rows.join('').split('_').length - 1;
+/** The line every chunk shows (chunk 32d): its cells and what they cost in fire rate, e.g. "8 cells · -0.32 pulses/s" (the Corridor: 3 cells, -0.12). */
+export const chunkCostLine = (c: { rows: readonly string[] }) => {
+  const n = chunkCells(c);
+  return `${n} cell${n === 1 ? '' : 's'} · -${(n * PULSE_PER_CELL).toFixed(2)} pulses/s`;
+};
+
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 /** Stats of a valid design (null when it is not valid): the cells, pulse rate, shot speed, size class and the trait effects. */
@@ -160,7 +168,7 @@ export function designStats(d: Design): DesignStats | null {
   const rows = compileDesign(d);
   if (!rows) return null;
   const flat = rows.join('');
-  const cells = flat.split('_').length - 1;
+  const cells = flat.split("_").length - 1;
   const ejectors = flat.split('E').length - 1;
   const effects: (ChunkEffect | undefined)[] = [];
   let pulses = basePulses(cells), speed = SHOT_SPEED_BASE, damage = 1, lives = 0, cores = 1, count = 0;

@@ -5,11 +5,15 @@ export const CURRENCY_CORES_NAME = 'Cores';
 
 // ---------------------------------------------------------------- earning Cores (Free Fly only)
 
-/** Cores for the wave that has just started (wave 2 on): round(CORES_WAVE_BASE x CORES_WAVE_GROWTH^(wave - 2)). Wave 1 pays nothing (nothing is survived yet). */
-export const CORES_WAVE_BASE = 2;
-export const CORES_WAVE_GROWTH = 1.08;
+/**
+ * Cores for the wave that has just started (wave 2 on): round(CORES_WAVE_BASE + CORES_WAVE_PER_WAVE x (wave - 2)). Wave 1 pays nothing (nothing is survived yet).
+ * Chunk 32d: LINEAR (it was 2 x 1.08^(wave - 2), which paid 8,000 an hour at wave 60). The target is about 500 Cores an hour of Free Fly for a player at the depth their
+ * build handles, a little more the deeper they go (`scripts/cores-income.ts` prints the table).
+ */
+export const CORES_WAVE_BASE = 3.2;
+export const CORES_WAVE_PER_WAVE = 0.05;
 /** Reaching a Medal-wave milestone (captains/data.ts FLY_MEDAL_MILESTONES) pays this many Cores per wave number on top, every run (the Medal itself stays once per save). */
-export const CORES_MILESTONE_PER_WAVE = 2;
+export const CORES_MILESTONE_PER_WAVE = 1;
 /** Frontier Free Fly squares pay one wave's Cores for every full WAVE_TIME seconds survived, at the square's wave equivalent capped here (no milestone bonus). */
 export const ENCOUNTER_CORES_WAVE_CAP = 30;
 
@@ -64,7 +68,7 @@ export function customSlotOf(id: string): number {
 
 /** pulses/s = max(PULSE_MIN, PULSE_BASE - PULSE_PER_CELL x buildable cells), then the traits. */
 export const PULSE_BASE = 5.0;
-export const PULSE_PER_CELL = 0.025;
+export const PULSE_PER_CELL = 0.04;
 export const PULSE_MIN = 1.5;
 /** The traits cannot push the rate below this (a pile of Wide Open chunks must not stop the gun). */
 export const TRAIT_PULSE_FLOOR = 0.5;

@@ -31,8 +31,8 @@ export interface BossDef {
 export const BOSSES: readonly BossDef[] = [
   { id: 'hive', name: 'HIVE MOTHER', line: 'Her core opens now and then', hpWaves: 2, homeY: 250, extent: 50, descent: 7, shades: { edge: 0x5a3c1a, mid: 0x8c6232, inner: 0xc08c4a } },
   { id: 'bastion', name: 'BASTION', line: 'Shoot through the gaps', hpWaves: 1.4, homeY: 305, extent: 112, descent: 7, shades: { edge: 0x2c3440, mid: 0x4a5a70, inner: 0x7288a6 } },
-  { id: 'queen', name: 'SWARM QUEEN', line: 'Kill the escorts, they come back', hpWaves: 1.4, homeY: 250, extent: 70, descent: 7, shades: { edge: 0x4a1a46, mid: 0x7a2d6b, inner: 0xb05898 } },
-  { id: 'colossus', name: 'COLOSSUS', line: 'A wall of HP. Pure damage', hpWaves: 7, homeY: 250, extent: 52, descent: 22, shades: { edge: 0x4a3a2c, mid: 0x6e5a46, inner: 0x95806a } },
+  { id: 'queen', name: 'SWARM QUEEN', line: 'Kill the escorts, they come back', hpWaves: 1.4, homeY: 250, extent: 70, descent: 7, shades: { edge: 0xd99a6c, mid: 0xa8664a, inner: 0x6b3d2a } }, // the darter swarm's own colours (rockArt.ts), chunk 32d
+  { id: 'colossus', name: 'COLOSSUS', line: 'A wall of HP. Pure damage', hpWaves: 7, homeY: 250, extent: 52, descent: 22, shades: { edge: 0x6c7480, mid: 0x4a515c, inner: 0x343a44 } }, // steel greys (chunk 32d)
 ];
 export const BOSS_BY_ID: Record<BossId, BossDef> = Object.fromEntries(BOSSES.map(b => [b.id, b])) as Record<BossId, BossDef>;
 
@@ -54,7 +54,7 @@ export const BOSS_ENTRY_SPEED = 90;
 export const BOSS_BREATHER = 4;
 /** Reward of a kill: credits = rockReward(reward tier, 1) x BOSS_CREDIT_MUL; Cores = coresForWave(wave) x BOSS_CORES_MUL (both then x the usual multipliers). */
 export const BOSS_CREDIT_MUL = 60;
-export const BOSS_CORES_MUL = 10;
+export const BOSS_CORES_MUL = 4;
 
 // ---------------------------------------------------------------- the four bosses' numbers
 export const HIVE = {

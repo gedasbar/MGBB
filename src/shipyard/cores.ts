@@ -1,13 +1,13 @@
 import { FLY_MEDAL_MILESTONES } from '../captains/data';
 import { WAVE_TIME } from '../data/waves';
-import { CORES_MILESTONE_PER_WAVE, CORES_WAVE_BASE, CORES_WAVE_GROWTH, ENCOUNTER_CORES_WAVE_CAP } from './constants';
+import { CORES_MILESTONE_PER_WAVE, CORES_WAVE_BASE, CORES_WAVE_PER_WAVE, ENCOUNTER_CORES_WAVE_CAP } from './constants';
 
 /** Earning Cores (chunk 31a, docs/shipyard.md section 1): pure functions. Cores are earned in Free Fly and Frontier Free Fly squares only. */
 
 /** Cores for the wave that has just started, `wave` >= 2 (wave `wave - 1` was survived); wave 1 pays nothing. */
 export function coresForWave(wave: number): number {
   if (!(wave >= 2)) return 0;
-  return Math.round(CORES_WAVE_BASE * Math.pow(CORES_WAVE_GROWTH, wave - 2));
+  return Math.round(CORES_WAVE_BASE + CORES_WAVE_PER_WAVE * (wave - 2));
 }
 
 /** The bonus for reaching a Medal-wave milestone (5, 10, 15, 20, 30, 40, 50), 0 for any other wave. Paid in every run. */

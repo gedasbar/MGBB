@@ -11,7 +11,7 @@ import { CHUNK_CELLS } from '../shipyard/constants';
  *
  * DESIGN RULES (owner, chunk 31d):
  *  - Every shape exists ONCE, counting rotations (a Bar would just be a Corridor turned 90 degrees, so there is none).
- *  - Plain chunks are priced by their cell count (about 20 Cores a cell) and grow slowly: a ship needs many of them.
+ *  - Plain chunks are priced by the room they give, superlinear in cells (chunk 32d: 250 for three cells up to 1,200 for the eight-cell Ring) and grow 1.5 a copy: a ship needs many of them.
  *  - The full 3x3 block exists only as Wide Open: all that room costs a downside.
  *  - Trait chunks with an upside have small, awkward shapes (1-4 cells, dead ends): you pay in building room as well as Cores.
  *
@@ -67,55 +67,55 @@ export interface ChunkDef {
 }
 
 /** Price growth per copy owned, by kind. */
-export const GROWTH_PLAIN = 1.35;
+export const GROWTH_PLAIN = 1.5;
 export const GROWTH_GUN = 1.6;
 export const GROWTH_TRAIT = 2.0;
 /** Kept for older code that reads one default. */
 export const CHUNK_GROWTH = GROWTH_PLAIN;
 
 export const CHUNKS: readonly ChunkDef[] = [
-  // ---- plain: cells only, about 20 Cores a cell
-  { id: 'corridor', name: 'Corridor', kind: 'plain', basePrice: 60, growth: GROWTH_PLAIN, text: 'A straight line of three.',
+  // ---- plain: cells only, priced by room (superlinear in cells)
+  { id: 'corridor', name: 'Corridor', kind: 'plain', basePrice: 250, growth: GROWTH_PLAIN, text: 'A straight line of three.',
     rows: ['._.', '._.', '._.'] },
-  { id: 'corner', name: 'Corner', kind: 'plain', basePrice: 60, growth: GROWTH_PLAIN, text: 'A turn of three cells.',
+  { id: 'corner', name: 'Corner', kind: 'plain', basePrice: 250, growth: GROWTH_PLAIN, text: 'A turn of three cells.',
     rows: ['...', '.__', '._.'] },
-  { id: 'tjunction', name: 'T-junction', kind: 'plain', basePrice: 80, growth: GROWTH_PLAIN, text: 'Three edges joined.',
+  { id: 'tjunction', name: 'T-junction', kind: 'plain', basePrice: 400, growth: GROWTH_PLAIN, text: 'Three edges joined.',
     rows: ['...', '___', '._.'] },
-  { id: 'cross', name: 'Cross', kind: 'plain', basePrice: 100, growth: GROWTH_PLAIN, text: 'All four edges joined.',
+  { id: 'cross', name: 'Cross', kind: 'plain', basePrice: 600, growth: GROWTH_PLAIN, text: 'All four edges joined.',
     rows: ['._.', '___', '._.'] },
-  { id: 'ring', name: 'Ring', kind: 'plain', basePrice: 160, growth: GROWTH_PLAIN, text: 'Eight cells round a hole: two routes through.',
+  { id: 'ring', name: 'Ring', kind: 'plain', basePrice: 1200, growth: GROWTH_PLAIN, text: 'Eight cells round a hole: two routes through.',
     rows: ['___', '_._', '___'] },
 
   // ---- guns: ejectors
-  { id: 'front_gun', name: 'Front Gun', kind: 'gun', basePrice: 300, growth: GROWTH_GUN, text: 'One ejector at the end of a line.',
+  { id: 'front_gun', name: 'Front Gun', kind: 'gun', basePrice: 700, growth: GROWTH_GUN, text: 'One ejector at the end of a line.',
     rows: ['.E.', '._.', '._.'] },
-  { id: 'side_gun', name: 'Side Gun', kind: 'gun', basePrice: 450, growth: GROWTH_GUN, text: 'Two ejectors facing opposite sides.',
+  { id: 'side_gun', name: 'Side Gun', kind: 'gun', basePrice: 1200, growth: GROWTH_GUN, text: 'Two ejectors facing opposite sides.',
     rows: ['...', 'E_E', '._.'] },
-  { id: 'twin_gun', name: 'Twin Gun', kind: 'gun', basePrice: 600, growth: GROWTH_GUN, text: 'Two ejectors side by side.',
+  { id: 'twin_gun', name: 'Twin Gun', kind: 'gun', basePrice: 1600, growth: GROWTH_GUN, text: 'Two ejectors side by side.',
     rows: ['E.E', '___', '._.'] },
 
   // ---- traits: an effect, paid for in Cores AND in building room
-  { id: 'wide_open', name: 'Wide Open', kind: 'trait', basePrice: 800, growth: GROWTH_TRAIT, text: '9 cells of room, but -0.2 pulses/s and -30% damage.',
+  { id: 'wide_open', name: 'Wide Open', kind: 'trait', basePrice: 2000, growth: GROWTH_TRAIT, text: '9 cells of room, but -0.2 pulses/s and -30% damage.',
     rows: ['___', '___', '___'], effect: { pulses: -0.2, damage: -0.3 } },
-  { id: 'long_barrel', name: 'Long Barrel', kind: 'trait', basePrice: 1200, growth: GROWTH_TRAIT, text: '+20% shot speed.',
+  { id: 'long_barrel', name: 'Long Barrel', kind: 'trait', basePrice: 2500, growth: GROWTH_TRAIT, text: '+20% shot speed.',
     rows: ['__.', '__.', '...'], effect: { shotSpeed: 0.2 } },
-  { id: 'core_magnet', name: 'Core Magnet', kind: 'trait', basePrice: 1500, growth: GROWTH_TRAIT, text: '+10% Cores earned.',
+  { id: 'core_magnet', name: 'Core Magnet', kind: 'trait', basePrice: 2500, growth: GROWTH_TRAIT, text: '+10% Cores earned.',
     rows: ['__.', '...', '...'], effect: { cores: 0.1 } },
-  { id: 'overdrive', name: 'Overdrive', kind: 'trait', basePrice: 2500, growth: GROWTH_TRAIT, text: '+0.5 pulses/s.',
+  { id: 'overdrive', name: 'Overdrive', kind: 'trait', basePrice: 4000, growth: GROWTH_TRAIT, text: '+0.5 pulses/s.',
     rows: ['._.', '._.', '...'], effect: { pulses: 0.5 } },
-  { id: 'extra_life', name: 'Extra Life', kind: 'trait', basePrice: 3000, growth: GROWTH_TRAIT, text: 'One crash forgiven per run.',
+  { id: 'extra_life', name: 'Extra Life', kind: 'trait', basePrice: 5000, growth: GROWTH_TRAIT, text: 'One crash forgiven per run.',
     rows: ['._.', '...', '...'], effect: { lives: 1 } },
 
   // ---- Free Fly traits (chunk 32c): an upside AND a downside, Free Fly only (walls and the Frontier ignore them)
-  { id: 'longer_waves', name: 'Longer Waves', kind: 'trait', basePrice: 900, growth: GROWTH_TRAIT, text: 'Free Fly only: waves last 30% longer, but pay -10% Cores.',
+  { id: 'longer_waves', name: 'Longer Waves', kind: 'trait', basePrice: 2000, growth: GROWTH_TRAIT, text: 'Free Fly only: waves last 30% longer, but pay -10% Cores.',
     rows: ['__.', '_..', '...'], effect: { waveLength: 0.3, wavePay: -0.1 } },
-  { id: 'boss_bounty', name: 'Boss Bounty', kind: 'trait', basePrice: 1400, growth: GROWTH_TRAIT, text: 'Free Fly only: bosses pay +50% Cores, but have +25% HP.',
+  { id: 'boss_bounty', name: 'Boss Bounty', kind: 'trait', basePrice: 3000, growth: GROWTH_TRAIT, text: 'Free Fly only: bosses pay +50% Cores, but have +25% HP.',
     rows: ['___', '.._', '...'], effect: { bossCores: 0.5, bossHp: 0.25 } },
-  { id: 'faster_waves', name: 'Faster Waves', kind: 'trait', basePrice: 2000, growth: GROWTH_TRAIT, text: 'Free Fly only: waves come 20% sooner, but enemies have +10% HP.',
+  { id: 'faster_waves', name: 'Faster Waves', kind: 'trait', basePrice: 4000, growth: GROWTH_TRAIT, text: 'Free Fly only: waves come 20% sooner, but enemies have +10% HP.',
     rows: ['_..', '...', '...'], effect: { waveSpeed: 0.2, enemyHp: 0.1 } },
-  { id: 'wave_skipper', name: 'Wave Skipper', kind: 'trait', basePrice: 2200, growth: GROWTH_TRAIT, text: 'Free Fly only: 10% of normal waves are skipped, and a skipped wave pays nothing.',
+  { id: 'wave_skipper', name: 'Wave Skipper', kind: 'trait', basePrice: 4500, growth: GROWTH_TRAIT, text: 'Free Fly only: 10% of normal waves are skipped, and a skipped wave pays nothing.',
     rows: ['_..', '_..', '...'], effect: { waveSkip: 0.1 } },
-  { id: 'repair_bay', name: 'Repair Bay', kind: 'trait', basePrice: 2800, growth: GROWTH_TRAIT, text: 'Free Fly only: heals 2% hull a second when not hit for 2 s, but -15% damage.',
+  { id: 'repair_bay', name: 'Repair Bay', kind: 'trait', basePrice: 5500, growth: GROWTH_TRAIT, text: 'Free Fly only: heals 2% hull a second when not hit for 2 s, but -15% damage.',
     rows: ['__.', '.__', '...'], effect: { repair: 0.02, flyDamage: -0.15 } },
 ];
 

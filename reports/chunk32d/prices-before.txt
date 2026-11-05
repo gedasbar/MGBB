@@ -1,0 +1,8 @@
+PRICES (Cores) and hours of Free Fly
+starter (a Front Gun and 6 plain chunks): 762 Cores = 1.7 h at a casual hour (454/h), 0.9 h at a good hour (822/h)
+full 16-slot ship (2 Front, 2 Twin, 12 plain, no traits): 3712 Cores = 8.2 h at a casual hour (454/h), 4.5 h at a good hour (822/h)
+full 16-slot ship with traits (2 Twin, 1 Front, 9 plain, 4 traits): 14909 Cores = 32.8 h at a casual hour (454/h), 18.1 h at a good hour (822/h)
+full 16-slot ship with the Free Fly traits (5 traits, 32c): 13809 Cores = 30.4 h at a casual hour (454/h), 16.8 h at a good hour (822/h)
+every chunk x3 (the whole shop): 136985 Cores = 301.7 h at a casual hour (454/h), 166.6 h at a good hour (822/h)
+
+RUNS of Free Fly (price / Cores a run pays, rounded up)

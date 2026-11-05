@@ -13,6 +13,7 @@ import { shotLines } from '../ui/runStats';
 import { textButton } from '../ui/hud';
 import { THEME, UI } from '../ui/theme';
 import { CURRENCY_CORES_NAME } from '../shipyard/constants';
+import { coresIcon } from '../ui/icons';
 import { DEBUG_ON } from '../debug/enabled';
 
 export function fmtTime(seconds: number): string {
@@ -148,10 +149,12 @@ export class RunSummaryScreen implements Screen {
 
     // Chunk 31a: the Cores a Free Fly run earned, at the left of the Medal line.
     if ((result.cores ?? 0) > 0) {
-      const k = makeText(`+${fmtBig(result.cores!)} ${CURRENCY_CORES_NAME}`, 22, UI.color.accent, { fontWeight: 'bold' });
+      const ic = coresIcon(18);
+      ic.position.set(40, MEDAL_Y - 9);
+      const k = makeText(`+${fmtBig(result.cores!)} ${CURRENCY_CORES_NAME}`, 22, UI.color.cores, { fontWeight: 'bold' });
       k.anchor.set(0, 0.5);
-      k.position.set(40, MEDAL_Y);
-      this.container.addChild(k);
+      k.position.set(64, MEDAL_Y);
+      this.container.addChild(ic, k);
     }
     const medals = captain?.medals ?? (wall?.medal ? 1 : 0);
     if (medals > 0) {

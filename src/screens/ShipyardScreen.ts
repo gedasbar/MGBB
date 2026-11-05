@@ -67,7 +67,7 @@ export class ShipyardScreen implements Screen {
   private overlayG = new Graphics();
   private chromeG = new Graphics();
   private titleT = makeText('SHIPYARD', UI.text.title, UI.color.text, { fontWeight: 'bold' });
-  private coresT = makeText('', UI.text.header, UI.color.accent, { fontWeight: 'bold' });
+  private coresT = makeText('', UI.text.header, UI.color.cores, { fontWeight: 'bold' });
   private nameT = makeText('', UI.text.header, UI.color.text, { fontWeight: 'bold' });
   private errorT = makeText('', 15, UI.color.text, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: SY_ERROR.w, lineHeight: 18 });
   private statsT = makeText('', 14, UI.color.text, { fontWeight: 'bold' });

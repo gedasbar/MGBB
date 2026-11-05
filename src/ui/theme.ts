@@ -66,6 +66,8 @@ export const UI = {
     textDim: THEME.textDim,
     disabled: THEME.disabled,
     accent: THEME.currency,
+    /** Chunk 32d: Cores, the Shipyard's currency, are teal everywhere (never the yellow of credits, never a shot colour). */
+    cores: 0x3fc9b8,
     good: THEME.good,
   },
   /** Text sizes in game px (the game is 540 wide): title / section header / body / small. */

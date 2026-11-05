@@ -10,6 +10,7 @@ import { Pausable, Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
 import { CATEGORY_COLOR, THEME, UI } from '../ui/theme';
 import { CURRENCY_CORES_NAME } from '../shipyard/constants';
+import { coresIcon, creditIcon, wrenchIcon } from '../ui/icons';
 import { HIT_CLOUD } from '../engine/projectiles';
 import { fmtBig, fmtDamage } from '../ui/format';
 import { makeText } from '../builder/ui';
@@ -67,6 +68,12 @@ const THEME_BANNER_H = 56;
 const THEME_BANNER_COLOR = 0xe87a5a;
 const BOSS_ENRAGE_COLOR = 0xe84a3a;
 const BOSS_BAR_COLOR = 0xe8a03a;
+/** The ship's hull bar (chunk 32d): light grey fill, dark grey for what is lost. */
+const HULL_BAR_FULL = 0xd4d4d8;
+const HULL_BAR_EMPTY = 0x3a3a3e;
+/** The HUD box rows (chunk 32d): the boss bar owns the top row beside the pause button, so the box starts below it. */
+const HUD_ROW = { hull: 40, money: 60, wave: 82, kills: 102, bottom: 124 } as const;
+const HUD_ICON = 14;
 
 interface DmgNum { t: Text; life: number; }
 
@@ -87,8 +94,9 @@ export class FlyScreen implements Screen {
   private bulletSprites!: EnemyBulletSprites;
   
   ship: ShipView;
-  hullBarBg = new Graphics().rect(0, 0, 100, 10).fill(0xff0000);
-  hullBarFg = new Graphics().rect(0, 0, 100, 10).fill(0x00ff00);
+  /** Chunk 32d: the hull bar is light grey when full, the empty part dark grey, with a small wrench at its left. */
+  hullBarBg = new Graphics().rect(0, 0, 100, 10).fill(HULL_BAR_EMPTY);
+  hullBarFg = new Graphics().rect(0, 0, 100, 10).fill(HULL_BAR_FULL);
   
   private shots!: ShotSprites;
   /** The shot sprites, one per pool slot (the e2e scripts read them). */
@@ -101,12 +109,16 @@ export class FlyScreen implements Screen {
   flash = new Map<number, number>();
   dmgNums: DmgNum[] = [];
   
-  creditsText = makeText('Credits +0', 16, THEME.currency, { fontWeight: 'bold' });
+  creditsText = makeText('0', 16, THEME.currency, { fontWeight: 'bold' });
+  /** Not drawn since chunk 32d (the HUD box no longer shows the tier); kept for the stats overlay's source and the dev hook. */
   tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
   waveText = makeText('Wave 1', 16, THEME.text, { fontWeight: 'bold' });
   killsText = makeText('Kills 0', 16, THEME.textDim, { fontWeight: 'bold' });
   /** Chunk 31a: the Cores this run has earned (Free Fly and Frontier Free Fly squares pay them). */
-  coresText = makeText(`${CURRENCY_CORES_NAME} +0`, 16, UI.color.accent, { fontWeight: 'bold' });
+  coresText = makeText('0', 16, UI.color.cores, { fontWeight: 'bold' });
+  private creditIc = creditIcon(HUD_ICON);
+  private coresIc = coresIcon(HUD_ICON);
+  private wrenchIc = wrenchIcon(HUD_ICON);
   /** Chunk 24a: a dim plate behind the HUD rows (like the wall's), and the SPIKE badge of a Frontier spike square inside it. */
   private hudPlate = new Graphics();
   private hudPlateW = 0;
@@ -124,8 +136,8 @@ export class FlyScreen implements Screen {
   /** Free Fly bosses (chunk 32b): the drawing, the health bar with its name line, and the colour the theme banner wears for a boss moment. */
   private bossView = new BossView();
   private bossBarG = new Graphics();
-  private bossName = makeText('', 14, THEME.text, { fontWeight: 'bold' });
-  private bossInfo = makeText('', 12, THEME.textDim, { fontWeight: 'bold' });
+  private bossName = makeText('', 12, THEME.text, { fontWeight: 'bold', stroke: { color: 0x000000, width: 3 } });
+  private bossInfo = makeText('', 11, THEME.text, { fontWeight: 'bold', stroke: { color: 0x000000, width: 3 } });
   /** Medal milestone banner ("+2 Medals") and the Second Chance hint (a short blink). */
   private medalBanner = new Container();
   private medalTitle = makeText('', 20, THEME.currency, { fontWeight: 'bold' });
@@ -201,9 +213,10 @@ export class FlyScreen implements Screen {
       this.container.addChildAt(this.bg.container, 0);
     }
 
-    this.hullBarBg.position.set(20, 20);
-    this.hullBarFg.position.set(20, 20);
-    this.uiLayer.addChild(this.hudPlate, this.hullBarBg, this.hullBarFg);
+    this.wrenchIc.position.set(20, HUD_ROW.hull - 2);
+    this.hullBarBg.position.set(40, HUD_ROW.hull);
+    this.hullBarFg.position.set(40, HUD_ROW.hull);
+    this.uiLayer.addChild(this.hudPlate, this.wrenchIc, this.hullBarBg, this.hullBarFg);
     if (fr) {
       // Countdown: the bar empties as time runs out; the tick marks the half-way point (survive past it = PASSED).
       const W = CONFIG.VIEW.W - 40;
@@ -224,13 +237,13 @@ export class FlyScreen implements Screen {
       this.dmgNums.push({ t, life: 0 });
     }
 
-    this.creditsText.position.set(20, 36);
-    this.tierText.position.set(20, 56);
-    this.waveText.position.set(20, 76);
-    this.killsText.position.set(20, 96);
-    this.coresText.position.set(20, 116);
+    // Credits and Cores share one line, each with its own icon; Wave and Kills follow (no Tier line since chunk 32d).
+    this.creditIc.position.set(20, HUD_ROW.money + 2);
+    this.creditsText.position.set(20 + HUD_ICON + 5, HUD_ROW.money);
+    this.waveText.position.set(20, HUD_ROW.wave);
+    this.killsText.position.set(20, HUD_ROW.kills);
     this.spikeBadge.visible = !!opts.frontier?.spike;
-    this.uiLayer.addChild(this.creditsText, this.tierText, this.spikeBadge, this.waveText, this.killsText, this.coresText);
+    this.uiLayer.addChild(this.creditIc, this.creditsText, this.coresIc, this.coresText, this.spikeBadge, this.waveText, this.killsText);
     const panel = new Graphics().rect(-BANNER_W / 2, -BANNER_H / 2, BANNER_W, BANNER_H).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
     this.bannerTitle.anchor.set(0.5);
     this.bannerTitle.position.set(0, -8);
@@ -249,9 +262,11 @@ export class FlyScreen implements Screen {
     this.themeBanner.position.set(CONFIG.VIEW.W / 2, THEME_BANNER_Y);
     this.themeBanner.visible = false;
     this.uiLayer.addChild(this.themeBanner);
-    this.bossName.position.set(BOSS_BAR.x, BOSS_BAR.y - 18);
-    this.bossInfo.anchor.set(1, 0);
-    this.bossInfo.position.set(BOSS_BAR.x + BOSS_BAR.w, BOSS_BAR.y - 18);
+    // The boss bar sits in the pause button's row; its name and the enrage timer are inside it, small.
+    this.bossName.anchor.set(0, 0.5);
+    this.bossName.position.set(BOSS_BAR.x + 8, BOSS_BAR.y + BOSS_BAR.h / 2);
+    this.bossInfo.anchor.set(1, 0.5);
+    this.bossInfo.position.set(BOSS_BAR.x + BOSS_BAR.w - 8, BOSS_BAR.y + BOSS_BAR.h / 2);
     this.bossBarG.visible = this.bossName.visible = this.bossInfo.visible = false;
     this.uiLayer.addChild(this.bossBarG, this.bossName, this.bossInfo);
     const mPanel = new Graphics().rect(-BANNER_W / 2, -22, BANNER_W, 44).fill(THEME.panel).stroke({ color: THEME.currency, width: 1.5 });
@@ -408,7 +423,7 @@ export class FlyScreen implements Screen {
       }
     }
     this.world.killEvents.length = 0;
-    this.creditsText.text = `Credits +${fmtBig(this.world.credits)}`;
+    this.creditsText.text = fmtBig(this.world.credits);
     const sqr = this.opts.frontier;
     this.tierText.text = sqr ? `Tier ${sqr.squareTier} (wave ${sqr.params.wave} enemies)` : `Tier ${this.world.tier}`;
     const enc = this.world.encounter;
@@ -418,10 +433,14 @@ export class FlyScreen implements Screen {
       this.timeBarFg.clear().rect(0, 0, (CONFIG.VIEW.W - 40) * (left / enc.duration), 6).fill(this.world.time >= enc.duration * FREEFLY_PASS_SHARE ? PROGRESS_COLOR : THEME.currency);
     } else this.waveText.text = this.world.boss ? `Wave ${this.world.wave}  BOSS` : `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
     this.killsText.text = `Kills ${this.world.kills}`;
-    this.coresText.text = `${CURRENCY_CORES_NAME} +${fmtBig(this.world.cores)}`;
-    this.spikeBadge.position.set(20 + this.tierText.width + 12, 56 + (this.tierText.height - SPIKE_BADGE.h) / 2);
-    const plateW = Math.round(Math.max(190, this.spikeBadge.visible ? this.spikeBadge.x + SPIKE_BADGE.w + 14 : 0, ...[this.creditsText, this.tierText, this.waveText, this.killsText, this.coresText].map(t => 20 + t.width + 14)));
-    if (plateW !== this.hudPlateW) { this.hudPlateW = plateW; this.hudPlate.clear().rect(10, 14, plateW - 10, 128).fill({ color: THEME.bg, alpha: 0.72 }); }
+    this.coresText.text = fmtBig(this.world.cores);
+    // Cores sit next to the credits on the same line.
+    const coresX = this.creditsText.x + this.creditsText.width + 14;
+    this.coresIc.position.set(coresX, HUD_ROW.money + 2);
+    this.coresText.position.set(coresX + HUD_ICON + 5, HUD_ROW.money);
+    this.spikeBadge.position.set(20 + this.killsText.width + 12, HUD_ROW.kills + (this.killsText.height - SPIKE_BADGE.h) / 2);
+    const plateW = Math.round(Math.max(190, this.spikeBadge.visible ? this.spikeBadge.x + SPIKE_BADGE.w + 14 : 0, ...[this.coresText, this.waveText, this.killsText].map(t => t.x + t.width + 14)));
+    if (plateW !== this.hudPlateW) { this.hudPlateW = plateW; this.hudPlate.clear().rect(10, HUD_ROW.hull - 6, plateW - 10, HUD_ROW.bottom - HUD_ROW.hull + 6).fill({ color: THEME.bg, alpha: 0.72 }); }
     for (const ev of this.world.waveEvents) {
       sfx.play('wave');
       const kind = specialKind(ev.wave);
