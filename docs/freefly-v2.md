@@ -48,8 +48,8 @@ The n-th eligible wave takes theme n of the table, which repeats: **ARMORED** (9
 | Theme | What the wave is |
 |---|---|
 | ARMORED | the normal draw, but each body (pebbles too) is armored (armor 10, the Ironclad's) with 70 % chance. Children of a split are not |
-| SWARM | budget x1.1 spent on Darters (40 %) and pebbles (60 %), within 20 s: many tiny fast rocks that split once more |
-| GUNNERS | 60 % of the budget on Gunners, the rest the normal draw |
+| SWARM | budget x1.1 spent on Darters (about 40 % of the bodies) and pebbles (the rest), within 20 s: many tiny fast rocks that split once more |
+| GUNNERS | 60 % of the budget on Gunners, the rest the normal draw (a newcomer of that wave still comes first) |
 | SHIELD WALL | groups of one Shielder with three cheap escorts (Rock, Drifter, Warden or Darter) born together within 60 px of it |
 | LEECHES | 40 % of the budget on Leeches, the rest the normal draw (the Leeches find their patients on the field) |
 
@@ -68,3 +68,29 @@ and pass-through, spawn safety, Gunner burst aim, Shielder reduction and link, L
 theme plans. E2e `freefly-enemies.e2e.cjs` plays a Gunner wave in the real game and checks a hit, a Shielder and a Leech
 alive with their links, and a theme banner; sheet `e2e/sheet-chunk32a.cjs` (`reports/chunk32a/`). Cost at the bullet cap:
 `scripts/perf-enemy-bullets.ts`. Free Fly bot before / after: `scripts/freefly-v2-bot.ts` (the bot now also steps around bullets).
+
+## 6. Measured
+
+**Cost at the bullet cap (240).** Node (`npx vite-node scripts/perf-enemy-bullets.ts`): moving the pool 0.0012 ms and the hit test 0.0042 ms a frame; a whole
+world frame at wave 12 with a Halberd / Zenith build differs by less than the noise (about 0.01 ms of 0.03-0.04 ms). Browser, headless software rendering
+(`e2e/freefly-enemies.e2e.cjs`, INFO lines): one Fly-screen update (simulation + sprite sync, no drawing) 0.07 ms with no bullets against 0.06 ms with 240
+(noise); the frame rate stayed at the 60 fps cap (60.2 with none, 60.3 with the pool full), so the draw cost is below what that cap can show. A phone is not measured.
+
+**Bot, before (origin/main) and after (this branch, the bot dodging bullets).** `scripts/freefly-v2-bot.ts`, 3 seeds, mean wave reached / seconds survived,
+standard builds of the hull (`src/debug/hullBuilds.ts`). Waves 1-7 are identical (verified with a hash of the plans and of a real world 10 s into each wave,
+on main and here), so a build that dies before wave 8 does not change:
+
+| Build | Before | After | After, bot ignoring bullets |
+|---|---|---|---|
+| Twin | 5.7 / 208 s | 5.7 / 208 s | 5.7 |
+| Hornet | 9.0 / 355 s | 9.7 / 374 s | 9.7 / 363 s |
+| Mantis | 12.7 / 480 s | 12.0 / 464 s | 12.0 / 464 s |
+| Halberd | 14.7 / 567 s | 15.0 / 574 s | 15.0 / 573 s |
+| Corvette | 13.0 / 493 s | 12.0 / 468 s | 12.0 / 468 s |
+| Shuttle | 15.0 / 573 s | 15.0 / 584 s | 15.0 / 584 s |
+| Fan | 17.0 / 666 s | 17.0 / 664 s | 17.0 / 660 s |
+| Zenith | 18.0 / 694 s | 17.7 / 687 s | - |
+
+So the new content moves the bot by about one wave either way (no build is clearly helped or hurt, and the differences are within what other seeds would give): the bullets
+rarely reach the bot (0-2 hits a run with a dodging bot, up to 5 without; why was not investigated, the bot sits low and dodges with a 0.7 s look-ahead). That says the
+Gunner is not a threat to this bot; it does not say how it feels to a person dodging on a phone (not measured, see the report). No tuning was done beyond keeping waves 1-7 unchanged.
