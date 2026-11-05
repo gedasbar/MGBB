@@ -1,3 +1,4 @@
+// area: builder, blocks, wall, freefly
 // Chunk 21a end-to-end: builder keys, +1 Projectile (two shots side by side), stacking curves (1 vs 4 copies), Upturn over Ship Magnet,
 // the run summary's new stats, shot looks at three damage bands and the Brake icon. Contact sheet: reports/chunk21a/sheet_chunk21a.png.
 // Needs the Vite dev server. Run: node e2e/chunk21a.e2e.cjs
@@ -208,7 +209,9 @@ const world = (page) => page.evaluate(() => {
   await page.waitForTimeout(1800);
   await page.evaluate(() => window.__mgbm.setTimeScale(0));
   w = await world(page);
-  const swarm = w.shots.length;
+  // Since chunk 30a a shot lives on past the screen edge (despawn margin), so "in the air" means still inside the 540 x 960 view.
+  const onScreen = (ww) => ww.shots.filter(s => s.y > 0 && s.y < 960 && s.x > 0 && s.x < 540).length;
+  const swarm = onScreen(w);
   shots.push(await snap(page)); caps.push('Ship Magnet x3 alone: ' + swarm + ' shots\nstay in the lane round the ship');
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
   await fillAndFly(page, [['flat_plus', 4, 8], ['magnetized', 4, 7], ['magnetized', 4, 6], ['magnetized', 4, 5], ['upturn', 4, 4]]);
@@ -216,8 +219,8 @@ const world = (page) => page.evaluate(() => {
   await page.evaluate(() => window.__mgbm.setTimeScale(0));
   w = await world(page);
   const upFx = await page.evaluate(() => window.__mgbm.world.projSys.fx.upturnTurns);
-  check(swarm >= 6 && w.shots.length <= swarm * 0.6 && upFx > 20, `Upturn overrides the magnets: ${w.shots.length} shots in the air against the swarm of ${swarm}; ${upFx} turn steps`);
-  shots.push(await snap(page)); caps.push('Ship Magnet x3 + Upturn: after 0.4 s\nUpturn takes over, shots turn up\nand leave (' + w.shots.length + ' left, was ' + swarm + ')');
+  check(swarm >= 6 && onScreen(w) <= swarm * 0.6 && upFx > 20, `Upturn overrides the magnets: ${onScreen(w)} shots in the air against the swarm of ${swarm}; ${upFx} turn steps`);
+  shots.push(await snap(page)); caps.push('Ship Magnet x3 + Upturn: after 0.4 s\nUpturn takes over, shots turn up\nand leave (' + onScreen(w) + ' left, was ' + swarm + ')');
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
 
   // ---- 5. Shot looks at three damage bands (one lane each).
@@ -231,13 +234,17 @@ const world = (page) => page.evaluate(() => {
     }, 8);
   });
   await page.waitForTimeout(900);
-  await page.evaluate(() => window.__mgbm.setTimeScale(0));
-  await page.waitForTimeout(150);
-  const looks = await page.evaluate(() => {
+  // Wait for the condition, never a fixed time (24d). The time stays running while we wait: the sprites are synced in the screen's update, so a frozen
+  // world never draws the damage the timer rewrites (the flake of this check); it is frozen after the look is read.
+  const readLooks = () => page.evaluate(() => {
     const sm = window.__mgbmSm, scr = sm.currentScreen, p = scr.world.pool, out = {};
-    for (let i = 0; i < p.max; i++) if (p.active[i]) { const s = scr.projSprites[i]; out[p.modIndex[i]] = { w: s.width, h: s.height, bolt: s.texture !== scr.projSprites[0].texture && false }; }
+    for (let i = 0; i < p.max; i++) if (p.active[i] && scr.projSprites[i].visible) { const s = scr.projSprites[i]; out[p.modIndex[i]] = { w: s.width, h: s.height }; } // visible = on screen: a shot outside the view keeps its old look
     return out;
   });
+  const heights = (l) => Object.values(l).map(x => Math.round(x.h)).sort((x, y) => x - y).join(',');
+  let looks = await readLooks();
+  try { await lib.waitFor(async () => { looks = await readLooks(); return heights(looks) === '14,22,26'; }, { timeout: 5000 }); } catch { /* the check below says what was drawn */ }
+  await page.evaluate(() => window.__mgbm.setTimeScale(0));
   const sizes = Object.values(looks).map(l => `${Math.round(l.w)}x${Math.round(l.h)}`).sort().join(' ');
   check(Object.keys(looks).length === 3 && sizes === '10x26 12x32 6x14'.split(' ').sort().join(' ') || true, `three lanes drawn at ${sizes}`);
   const bandSizes = Object.values(looks).map(l => Math.round(l.h)).sort((a, b) => a - b);

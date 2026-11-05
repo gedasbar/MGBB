@@ -1,3 +1,4 @@
+// area: wall, freefly
 // Chunk 8a end-to-end test: ring walls (the camera goes round, the ship never jumps at the seam) and Free Fly (still one
 // fixed screen). Needs the Vite dev server. Run: node e2e/ring.e2e.cjs   (adds ?debug=1 itself)
 const path = require('path');

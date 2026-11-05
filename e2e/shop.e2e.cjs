@@ -1,3 +1,4 @@
+// area: shop, blocks, builder, smoke
 // Chunk 16b-fix: the Shop's tile palette (5 per row, one list by category, info sheet) and a builder crop; writes the contact sheet.
 // Requires the Vite dev server. Run: node e2e/shop.e2e.cjs   (GAME_URL=http://localhost:PORT to pick the server)
 const lib = require('./lib.cjs');

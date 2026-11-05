@@ -1,3 +1,4 @@
+// area: captains, economy, freefly, wall
 // Chunk 13a: captains, end to end. With cheats: Medals -> unlock Bulwark -> level it -> kills open tier 2 -> buy and switch
 // options -> a Free Fly run (effects applied, a Medal milestone, kills banked) -> a wall tier (Second Chance) -> reload and
 // check persistence. Screenshots: list, detail, run summary (reports/chunk13a).

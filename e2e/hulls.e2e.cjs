@@ -1,3 +1,4 @@
+// area: hulls, shop, builder, smoke
 // Chunk 17a end-to-end: the hull picker (19 hulls, unowned ones dimmed with a price, info sheet, Buy), the Shop without a Hulls tab
 // and with affordability dots, and a flight with a big and a huge hull. Writes the contact sheet to reports/chunk17a/.
 // Requires the Vite dev server. Run: node e2e/hulls.e2e.cjs   (GAME_URL=http://localhost:PORT to pick the server)

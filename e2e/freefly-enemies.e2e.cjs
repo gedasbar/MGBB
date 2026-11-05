@@ -1,3 +1,4 @@
+// area: freefly, enemies
 // Chunk 32a end-to-end test: enemy bullets, Gunner / Shielder / Leech and wave themes in the real Free Fly screen.
 // Writes reports/chunk32a/sheet_ingame.png (four frames). Needs the Vite dev server. Run: node e2e/freefly-enemies.e2e.cjs
 // (adds ?debug=1 itself: the world and the time scale are dev hooks).

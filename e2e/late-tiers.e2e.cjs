@@ -1,3 +1,4 @@
+// area: late-tiers, wall, map
 // Chunk 27a end-to-end test: the locked "What happens after 100?" entry with its progress count, tiers 101-200 appearing in the
 // list once every tier 1-100 is cleared (type name on the tile, name + line in the panel), and one tier of each layout type
 // (Monolith, Maze, Fortress, Drift) in flight on the real wall screen. Contact sheet: reports/chunk27a/sheet_27a.png.
@@ -126,6 +127,7 @@ const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
     if (i > 0) { await page.reload(); await page.waitForFunction(() => !!window.__mgbm); await page.waitForTimeout(300); }
     await openMap();
     // God mode (the debug panel's box): the wall is moved over the ship below, and a crash would end the run before the shot.
+    await waitFor(() => page.evaluate(() => !!document.getElementById('dbg-god')), { timeout: 8000 }); // the debug panel loads lazily (slow under parallel load)
     await page.evaluate(() => { const g = document.getElementById('dbg-god'); g.checked = true; g.dispatchEvent(new Event('change')); });
     await seed(page, range(1, 100), range(1, f.tier - 1)); // strict order: everything before the tier is passed
     await reopenMap();

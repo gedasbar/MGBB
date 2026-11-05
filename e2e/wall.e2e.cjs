@@ -1,3 +1,4 @@
+// area: wall, debug
 // Wall engine end-to-end test (debug test walls, carve-a-path rules): camera, boost, damage art, crash.
 // Needs the Vite dev server. Run: GAME_URL="http://localhost:5173/?debug=1" node e2e/wall.e2e.cjs
 const path = require('path');

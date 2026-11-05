@@ -1,3 +1,4 @@
+// area: freefly, waves
 // Chunk 10a end-to-end test: Free Fly waves in the real game (time-scaled), the HUD, the WAVE banner, the run summary and
 // the saved best wave; plus two contact sheets in reports/chunk10a (species, and mid-game frames with the HUD and banner).
 // Needs the Vite dev server. Run: node e2e/freefly-waves.e2e.cjs   (adds ?debug=1 itself for the time scale)

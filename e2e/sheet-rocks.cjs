@@ -1,4 +1,4 @@
-// Contact sheet of the rock enemies: damage stages, a split burst, three shapes. Run: node e2e/sheets-rocks.e2e.cjs (dev server up)
+// Contact sheet of the rock enemies: damage stages, a split burst, three shapes. Run: node e2e/sheet-rocks.cjs (dev server up)
 const path = require('path');
 const lib = require('./lib.cjs');
 const { renderSheet } = require('./sheet.cjs');

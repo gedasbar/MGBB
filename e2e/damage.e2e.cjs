@@ -1,3 +1,4 @@
+// area: freefly, wall, blocks
 // Chunk 14a end-to-end test: the small numbers on screen. A Free Fly wave with damage popups and a wall tier, in one contact
 // sheet (reports/chunk14a/sheet_small_numbers.png); checks that every damage popup is a small number with at most one
 // decimal and that wall blocks carry whole-number HP.

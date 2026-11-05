@@ -1,3 +1,4 @@
+// area: achievements, challenges, hub, builder
 // Chunk 28a end-to-end test (28b: the panel lives in the Build screen's ship hub, ACHIEVEMENTS tab): achievements and challenges. An old save (before achievements) loads with ONE summary panel; the panel
 // lists achievements with progress and a hidden one; a new achievement is a toast; the challenge list; a started challenge shows its rule in
 // the builder and blocks FLY when the circuit breaks it; a challenge run is judged and paid once. Contact sheet:

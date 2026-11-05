@@ -1,3 +1,4 @@
+// area: blocks, freefly
 // Chunk 17b end-to-end: block interactions in the real Free Fly engine and the info sheet. Rocks and shots are placed by the script
 // (real engine code, staged frames), time is frozen right after the event under test, and the frames go on one contact sheet:
 //   1 Piercing x3 + AoE, mid-line (shot has pierced two rocks, a blast at each hit)   2 the same shot after its end (a blast on every hit: four)  [chunk 19a: pierce is a count and AoE fires on every hit]

@@ -1,4 +1,4 @@
-// Contact sheet: the six backgrounds in a 3 x 2 grid with a ship, blocks and rocks on top. Run: node e2e/sheets-bg.e2e.cjs
+// Contact sheet: the six backgrounds in a 3 x 2 grid with a ship, blocks and rocks on top. Run: node e2e/sheet-backgrounds.cjs
 const path = require('path');
 const lib = require('./lib.cjs');
 const { renderSheet } = require('./sheet.cjs');

@@ -1,3 +1,4 @@
+// area: basics, smoke
 // Browser end-to-end checks. Requires the Vite dev server: `npm run dev`.
 // Run: node e2e/browser.e2e.cjs   (exits non-zero on any failure)
 const lib = require('./lib.cjs');

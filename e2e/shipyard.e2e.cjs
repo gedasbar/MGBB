@@ -1,3 +1,4 @@
+// area: shipyard, hulls, hub, debug
 // Chunk 31b end-to-end test (the Shipyard screen): the locked entry in the hub's Ships tab, the debug cheats that open it, building a small ship from chunks by tapping
 // (slot -> palette -> tile -> tile again), the live status (an error, then VALID), undo / redo, designs, renaming, "Use this ship", flying the custom ship in Free Fly, and
 // the debug Cell mode (cycling cells, the export text, the fly test). Needs the Vite dev server. Run: node e2e/shipyard.e2e.cjs   (adds ?debug=1 itself)

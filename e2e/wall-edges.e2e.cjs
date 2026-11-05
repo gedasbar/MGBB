@@ -1,3 +1,4 @@
+// area: wall, controls
 // Chunk 11b: the ship stays fully on screen and the edge push reaches its maximum at the clamp edge.
 // Pointer goes far outside the canvas (blank side areas) during a wall. Needs the Vite dev server. Run: node e2e/wall-edges.e2e.cjs
 const path = require('path');

@@ -1,3 +1,4 @@
+// area: hud, settings
 // Chunk 10b: the stats panel sits beside the game on a wide window and inside the canvas on a narrow one.
 // Needs the Vite dev server. Run: node e2e/stats-side.e2e.cjs
 process.env.GAME_URL = (process.env.GAME_URL || 'http://localhost:5173/') + '?stats=1';

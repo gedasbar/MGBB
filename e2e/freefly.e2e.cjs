@@ -1,3 +1,4 @@
+// area: freefly, hud
 // Chunk 7b end-to-end test: Free Fly is one screen wide, enemies stay inside it, spawn safety, stats overlay.
 // Needs the Vite dev server. Run: node e2e/freefly.e2e.cjs   (adds ?debug=1&stats=1 itself)
 const path = require('path');

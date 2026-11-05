@@ -1,6 +1,6 @@
 // Chunk 28b: what shot trails cost at a FULL pool, in the browser. Free Fly with the pool filled to its 4,000 shots (all on screen, moving up); times ShotSprites.sync()
 // (the sprite pass plus the trail pass) with trails Off / Short / Long, and checks the trail segment cap and the automatic fallback. This is JS time in headless Chromium
-// (software rendering): it says what the code costs, not what a phone's GPU does with the extra sprites. Needs the dev server. Run: node e2e/trail-cost.e2e.cjs
+// (software rendering): it says what the code costs, not what a phone's GPU does with the extra sprites. Needs the dev server. Run: node e2e/sheet-trail-cost.cjs
 let url = process.env.GAME_URL || 'http://localhost:5173/';
 if (!/[?&]debug=/.test(url)) url += (url.includes('?') ? '&' : '?') + 'debug=1';
 process.env.GAME_URL = url;

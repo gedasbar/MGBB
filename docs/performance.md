@@ -1,7 +1,7 @@
 # Performance (chunk 21b)
 
 How a frame is spent when the shot count is high, what was done about it, and the numbers before and after. Measured with
-`npm run perf-profile` (Node, simulation only) and `node e2e/performance.e2e.cjs` (headless Chromium: simulation, sprite sync and the
+`npm run perf-profile` (Node, simulation only) and `node e2e/sheet-performance.cjs` (headless Chromium: simulation, sprite sync and the
 draw call). Headless Chromium draws with a software renderer and Node runs on one fast desktop core, so **these numbers show which part
 grows and by how much; they do not say how a phone feels** (a phone is several times slower than this machine).
 
@@ -162,5 +162,5 @@ before the sprite sync and the draw call which also grow with the count. So the 
 ```bash
 npm run perf-profile                                   # Node: Free Fly and tier 100, 0 / 2.5K / 4K shots
 POOL=8000 FF_TARGETS=0,8000 WALL_TARGETS=0,8000 npm run perf-profile
-node e2e/performance.e2e.cjs                           # browser (needs npm run dev); GAME_URL=http://localhost:PORT, SECS=n
+node e2e/sheet-performance.cjs                           # browser (needs npm run dev); GAME_URL=http://localhost:PORT, SECS=n
 ```

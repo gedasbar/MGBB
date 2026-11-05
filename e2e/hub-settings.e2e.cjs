@@ -1,3 +1,4 @@
+// area: hub, settings, cosmetics, captains
 // Chunk 28b end-to-end test: the ship hub (three tabs), the Customization tab (a locked skin, choosing an unlocked one, saved), the Settings sections (frame rate limit,
 // trails, backgrounds, damage numbers, touch sensitivity slider, double-confirm reset) and that the Captain tab no longer has the Achievements button.
 // Needs the Vite dev server. Run: node e2e/hub-settings.e2e.cjs
