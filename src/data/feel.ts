@@ -36,7 +36,7 @@ export const FEEL = {
     /** Wall block: shards. */
     BLOCK_SHARDS: [4, 8] as [number, number],
     BLOCK_SPEED: [90, 240] as [number, number],
-    SHARD_SIZE: [5, 11] as [number, number],
+    SHARD_SIZE: [7, 15] as [number, number],
     /** Rock: base shards plus per 10 px of radius; a split bursts SPLIT_SHARDS. */
     ROCK_SHARDS_BASE: 4,
     ROCK_SHARDS_PER_10PX: 2,

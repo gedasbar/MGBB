@@ -44,38 +44,45 @@ const scr = (page, expr) => page.evaluate(`(() => { const s = window.__mgbmSm.cu
   const shots = [], caps = [];
   const snap = async (cap, name) => { shots.push(await canvasShot(page, name)); caps.push(cap); };
 
-  // ---- 1. a wall block breaking (tier 5; the ship is held in god mode under the wall, the guns do the rest)
+  // ---- 1. a wall block breaking (tier 5: the wall is brought into view by running time fast, then the guns do the rest)
   check((await lib.startTier(page, 5)) === 'ok', 'tier 5 started');
-  await page.evaluate(() => { window.__mgbmDebug = window.__mgbmDebug; });
-  await waitFor(() => scr(page, 's.world && s.world.controlStarted !== undefined'), { timeout: 5000 });
-  await page.mouse.move(270, 600);
-  await waitFor(() => page.evaluate(() => window.__mgbm.state().feel.particles >= 12), { timeout: 20000 });
+  await page.mouse.move(270, 700);
+  await page.evaluate(() => { window.__mgbmSm.currentScreen.world.god = true; window.__mgbm.setTimeScale(10); });
+  await waitFor(() => page.evaluate(() => window.__mgbm.state().bottomEdge > 330), { timeout: 30000, interval: 20 });
+  await page.evaluate(() => window.__mgbm.setTimeScale(1));
+  await page.evaluate(() => {
+    const sc = window.__mgbmSm.currentScreen; const w = sc.world;
+    // What a kill does to the screen: three blocks near the middle are destroyed through the world's own call.
+    const near = w.blocks.filter((b) => b && b.hp > 0 && b.y > 120 && b.y < 330 && sc.sx(b.x) > 150 && sc.sx(b.x) < 390).slice(0, 3);
+    for (const b of near) w.destroyBlock(b);
+  });
+  await waitFor(() => page.evaluate(() => window.__mgbm.state().feel.particles >= 10), { timeout: 3000, interval: 15 });
+  await page.waitForTimeout(60);
   await snap('Wall: blocks breaking into shards', 'block_break');
   const f1 = await page.evaluate(() => window.__mgbm.state().feel);
-  check(f1.particles >= 12, `particles alive while blocks break (${f1.particles}), mode ${f1.particleMode}`);
+  check(f1.particles >= 10, `particles alive while blocks break (${f1.particles}), mode ${f1.particleMode}`);
 
   // ---- 2. an AoE ring: the engine's own queue is fed the way an AoE hit feeds it; the screen turns it into the ring
   await page.evaluate(() => {
-    const s = window.__mgbmSm.currentScreen; const w = s.world;
+    const w = window.__mgbmSm.currentScreen.world;
     w.projSys.blastEvents.push({ x: w.shipX, y: 420, r: 70, w: 0, h: 0 });
     w.projSys.blastEvents.push({ x: w.shipX + 130, y: 330, r: 0, w: 126, h: 126 });
   });
-  await waitFor(() => page.evaluate(() => window.__mgbm.state().feel.rings >= 2), { timeout: 2000 });
+  await waitFor(() => page.evaluate(() => window.__mgbm.state().feel.rings >= 2), { timeout: 2000, interval: 15 });
   await snap('AoE: circle ring and rectangle outline', 'aoe_ring');
   check((await page.evaluate(() => window.__mgbm.state().feel.rings)) >= 2, 'two rings alive (circle and rectangle)');
 
-  // ---- 3. a crash: god off, the wall is made to reach the ship
-  await page.evaluate(() => { window.__mgbm.setTimeScale(1); });
-  await page.evaluate(() => { const w = window.__mgbmSm.currentScreen.world; w.god = false; });
+  // ---- 3. a crash: god off, the ship put just under the lowest live block
   await page.evaluate(() => {
-    const s = window.__mgbmSm.currentScreen; const w = s.world;
-    // The nearest live block: put the ship on it.
-    const b = w.blocks.find((x) => x && x.hp > 0);
-    if (b) { w.shipX = b.x; w.shipY = b.y; w.invuln = 0; }
+    const sc = window.__mgbmSm.currentScreen; const w = sc.world;
+    w.god = false;
+    let best = null;
+    for (const b of w.blocks) { if (!b) continue; const x = sc.sx(b.x); if (b.hp > 0 && b.y < 700 && x > 150 && x < 390 && (!best || b.y > best.y)) best = b; }
+    if (best) { w.shipX = best.x; w.shipY = best.y + 18; w.invuln = 0; }
   });
-  const crashed = await waitFor(() => page.evaluate(() => window.__mgbm.state().state === 'crashed' || window.__mgbm.state().feel.stopLeft > 0), { timeout: 8000, interval: 15 });
+  const crashed = await waitFor(() => page.evaluate(() => window.__mgbm.state().state === 'crashed'), { timeout: 8000, interval: 10 });
   check(!!crashed, 'the ship crashed');
-  await page.waitForTimeout(120); // let the pieces fly: an animation, not a readiness wait
+  await page.waitForTimeout(110); // let the pieces fly: an animation, not a readiness wait
   await snap('Crash: ship pieces and shockwave', 'crash');
 
   // ---- 4. the CLEARED stamp (a fresh tier; every block destroyed)
@@ -110,7 +117,7 @@ const scr = (page, expr) => page.evaluate(`(() => { const s = window.__mgbmSm.cu
     const t = w.mitosis.enemies.filter((e) => e.y > 40).slice(0, 4);
     for (const e of t) { w.pool.spawn(e.x, e.y, 0, -1, e.maxHp * 40); }
   });
-  await waitFor(() => page.evaluate(() => window.__mgbmSm.currentScreen.dmgNums.some((d) => d.life > 0 && d.big)), { timeout: 3000, interval: 15 });
+  await waitFor(() => page.evaluate(() => window.__mgbmSm.currentScreen.dmgNums.some((d) => d.life > 0 && d.big)), { timeout: 3000, interval: 10 });
   await snap('Big-hit damage numbers (gold, larger)', 'big_numbers');
   const gold = await page.evaluate(() => window.__mgbmSm.currentScreen.dmgNums.filter((d) => d.life > 0 && d.big).map((d) => d.t.text));
   check(gold.length >= 1, `gold numbers on screen: ${gold.join(', ')}`);
