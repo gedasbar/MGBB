@@ -73,7 +73,7 @@ export const HULL_PRICES: Record<HullId, number> = Object.fromEntries(HULL_ORDER
  * lookups below and the hull picker see "custom1".."custom3" like any other hull. `rows` is the compiled layout; the three trait
  * numbers act inside a run (damage multiplier, crashes forgiven, Cores multiplier).
  */
-export interface CustomHullInfo { name: string; stats: HullStats; rows: string[]; damageMul: number; lives: number; coresMul: number; /** Chunk 32c: Free Fly trait chunks (absent = none). */ fly?: FlyTraits }
+export interface CustomHullInfo { name: string; stats: HullStats; rows: string[]; damageMul: number; lives: number; coresMul: number; /** Chunk 32e: x the Core crystal pickup radius. */ pickupMul?: number; /** Chunk 32c: Free Fly trait chunks (absent = none). */ fly?: FlyTraits }
 const customHulls = new Map<string, CustomHullInfo>();
 export function setCustomHull(id: string, info: CustomHullInfo | null) { if (info) customHulls.set(id, info); else customHulls.delete(id); }
 export const customHullInfo = (id?: string): CustomHullInfo | undefined => (id ? customHulls.get(id) : undefined);

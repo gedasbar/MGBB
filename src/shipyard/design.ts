@@ -141,6 +141,8 @@ export interface DesignStats {
   damageMul: number;
   lives: number;
   coresMul: number;
+  /** Chunk 32e: x the Core crystal pickup radius (1 + 0.6 per Core Magnet copy). */
+  pickupMul: number;
   /** Chunk 32c: the Free Fly trait chunks added up (neutral when none is placed). */
   fly: FlyTraits;
 }
@@ -171,7 +173,7 @@ export function designStats(d: Design): DesignStats | null {
   const cells = flat.split("_").length - 1;
   const ejectors = flat.split('E').length - 1;
   const effects: (ChunkEffect | undefined)[] = [];
-  let pulses = basePulses(cells), speed = SHOT_SPEED_BASE, damage = 1, lives = 0, cores = 1, count = 0;
+  let pulses = basePulses(cells), speed = SHOT_SPEED_BASE, damage = 1, lives = 0, cores = 1, pickup = 1, count = 0;
   for (const id of d.slots) {
     const c = id ? CHUNK_BY_ID[id] : undefined;
     if (!c) continue;
@@ -184,8 +186,9 @@ export function designStats(d: Design): DesignStats | null {
     damage *= 1 + (e.damage ?? 0);
     lives += e.lives ?? 0;
     cores += e.cores ?? 0;
+    pickup += e.pickup ?? 0;
   }
-  return { cells, ejectors, chunks: count, pulsesPerSec: round3(Math.max(TRAIT_PULSE_FLOOR, pulses)), shotSpeed: round3(speed), size: sizeOfChunks(count), damageMul: round3(damage), lives, coresMul: round3(cores), fly: flyTraitsOf(effects) };
+  return { cells, ejectors, chunks: count, pulsesPerSec: round3(Math.max(TRAIT_PULSE_FLOOR, pulses)), shotSpeed: round3(speed), size: sizeOfChunks(count), damageMul: round3(damage), lives, coresMul: round3(cores), pickupMul: round3(pickup), fly: flyTraitsOf(effects) };
 }
 
 // ---------------------------------------------------------------- ownership and prices

@@ -424,7 +424,7 @@ export function buyHull(p: Progress, id: string): BuyResult {
   return { ok: true, price };
 }
 
-export interface RunResult { credits: number; /** Chunk 31a: Cores earned (Free Fly and Frontier Free Fly squares only). */ cores?: number; kills: number; time: number; tier: number; /** Free Fly wave reached. */ wave?: number; /** Chunk 21a: the run's largest hit and total damage (shown on the summary, never saved). */ shots?: { bestShot: number; totalDamage: number }; /** Chunk 32b: Free Fly bosses killed this run (the records keep each id and the no-hit count). */ bosses?: { id: string; noHit: boolean }[] }
+export interface RunResult { credits: number; /** Chunk 31a: Cores earned (Free Fly and Frontier Free Fly squares only). */ cores?: number; kills: number; time: number; tier: number; /** Free Fly wave reached. */ wave?: number; /** Chunk 21a: the run's largest hit and total damage (shown on the summary, never saved). */ shots?: { bestShot: number; totalDamage: number }; /** Chunk 32e: Core crystals collected and dropped this run (Cores, shown on the summary, never saved). */ crystals?: { collected: number; dropped: number }; /** Chunk 32b: Free Fly bosses killed this run (the records keep each id and the no-hit count). */ bosses?: { id: string; noHit: boolean }[] }
 
 /** The progress object plus its storage. Every change goes through `commit()`, which saves and notifies. */
 export class ProgressStore {

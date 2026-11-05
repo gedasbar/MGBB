@@ -78,6 +78,12 @@ export const FREEFLY_PASS_SHARE = 0.5;
 export const FF_WAVE_AT_BASE = 6;
 export const FF_WAVES_PER_TIER = 0.25;
 export const FF_WAVE_CAP = 30;
+/**
+ * Chunk 32e: the wave table is steeper after wave 20 since 32d (x1.45 a wave to 30), which made Free Fly squares harder than the wall squares at the same ring
+ * (`scripts/frontier-vs-wall.ts`, DECISIONS 612). Above FF_LATE_FROM the wave equivalent climbs only FF_LATE_SLOPE of a wave per wave of the plain formula.
+ */
+export const FF_LATE_FROM = 20;
+export const FF_LATE_SLOPE = 0.4;
 /** Starting group: this share of the wave's point budget, spawned over the first FF_START_SPREAD seconds. */
 export const FF_START_SHARE = 0.4;
 export const FF_START_SPREAD = 3;

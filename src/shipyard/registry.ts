@@ -37,7 +37,7 @@ export function customHullOf(slot: number, d: Design): CustomHullInfo | null {
   const st = designStats(d);
   if (!rows || !st) return null;
   return {
-    name: customHullName(slot), rows, damageMul: st.damageMul, lives: st.lives, coresMul: st.coresMul, fly: st.fly,
+    name: customHullName(slot), rows, damageMul: st.damageMul, lives: st.lives, coresMul: st.coresMul, pickupMul: st.pickupMul, fly: st.fly,
     stats: { name: customHullName(slot), price: 0, pulsesPerSec: st.pulsesPerSec, shotSpeed: st.shotSpeed, size: st.size },
   };
 }
@@ -63,7 +63,7 @@ export function registerCustomHulls(view: ShipyardView, furthestRing: number): s
 
 /**
  * The trait effects of the hull a run flies, folded into the run's modifiers (a normal hull changes nothing): damage x, Extra Life
- * as Second Chance charges (with its 1.5 s of untouchable time), Core Magnet as a Cores multiplier.
+ * as Second Chance charges (with its 1.5 s of untouchable time), Core Magnet as a Core crystal pickup radius multiplier (32e).
  */
 export function applyHullTraits(mods: RunModifiers, hullId: string | undefined): RunModifiers {
   const c = customSlotOf(hullId ?? '') >= 0 ? customHullInfo(hullId) : undefined;
@@ -74,6 +74,7 @@ export function applyHullTraits(mods: RunModifiers, hullId: string | undefined):
     secondChances: mods.secondChances + c.lives,
     chanceInvuln: c.lives > 0 ? Math.max(mods.chanceInvuln, EXTRA_LIFE_INVULN) : mods.chanceInvuln,
     coresMul: mods.coresMul * c.coresMul,
+    pickupMul: mods.pickupMul * (c.pickupMul ?? 1),
     fly: c.fly ?? NEUTRAL_FLY,
   };
 }

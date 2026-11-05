@@ -40,6 +40,7 @@ import { RESULT_DELAY_CLEARED, RESULT_DELAY_FAILED } from '../wall/constants';
 import { ARC_MAX } from '../engine/projectiles';
 import { DEBUG_ON } from '../debug/enabled';
 import { EnemyBulletSprites, enemyBulletTexture } from '../ui/enemyBulletSprites';
+import { CrystalSprites, crystalTexture } from '../ui/crystalSprites';
 import { drawSupportLinks } from '../ui/supportLinks';
 import { THEME_BY_ID } from '../data/waveThemes';
 import { BossView, BOSS_BAR } from '../ui/bossArt';
@@ -92,6 +93,7 @@ export class FlyScreen implements Screen {
   /** Shielder / Leech links (chunk 32a) and the enemy bullets, drawn above the rocks. */
   private linkG = new Graphics();
   private bulletSprites!: EnemyBulletSprites;
+  private crystalSprites!: CrystalSprites;
   
   ship: ShipView;
   /** Chunk 32d: the hull bar is light grey when full, the empty part dark grey, with a small wrench at its left. */
@@ -208,6 +210,8 @@ export class FlyScreen implements Screen {
     this.fxLayer.addChild(this.fieldG, this.arcG, this.linkG);
     this.bulletSprites = new EnemyBulletSprites(this.world.enemyBullets.max, enemyBulletTexture(this.screenManager.app));
     this.fxLayer.addChild(this.bulletSprites.container);
+    this.crystalSprites = new CrystalSprites(this.world.crystals.cap, crystalTexture(this.screenManager.app));
+    this.fxLayer.addChild(this.crystalSprites.container);
     if (this.bgForced !== 'off') {
       this.bg = new BackgroundView(this.screenManager.app.renderer, this.bgForced ?? (fr?.spike ? 'ember' : freeFlyThemeAt(0)));
       this.container.addChildAt(this.bg.container, 0);
@@ -292,6 +296,7 @@ export class FlyScreen implements Screen {
           hull: this.world.hull, credits: this.world.credits, tier: this.world.tier, kills: this.world.kills, time: this.world.time,
           hud: { credits: this.creditsText.text, tier: this.tierText.text, wave: this.waveText.text, kills: this.killsText.text, cores: this.coresText.text, spike: this.spikeBadge.visible, plateW: this.hudPlateW },
           wave: this.world.wave, waveTimeLeft: this.world.waveTimeLeft, seed: this.world.seed,
+          crystals: { count: this.world.crystals.list.length, drawn: this.crystalSprites.visibleCount, collected: this.world.crystals.collected, dropped: this.world.crystals.dropped, list: this.world.crystals.list.map(c => ({ x: c.x, y: c.y, v: c.value, age: c.age })) },
           bullets: { count: this.world.enemyBullets.count, drawn: this.bulletSprites.visibleCount, hits: this.world.bulletHits, list: Array.from({ length: this.world.enemyBullets.max }, (_, i) => i).filter(i => this.world.enemyBullets.active[i]).map(i => ({ x: this.world.enemyBullets.x[i], y: this.world.enemyBullets.y[i] })) },
           links: this.world.links.map(l => ({ kind: l.kind, id: l.id })),
           boss: this.world.boss ? { id: this.world.boss.def.id, hp: this.world.boss.hp, maxHp: this.world.boss.maxHp, enraged: this.world.boss.enraged, entering: this.world.boss.entering, coreOpen: this.world.boss.coreOpen, x: this.world.boss.anchorX, y: this.world.boss.anchorY, round: this.world.boss.round, parts: this.world.boss.parts.length, escorts: this.world.boss.escorts.filter(Boolean).length, bar: this.bossBarG.visible, name: this.bossName.text } : null,
@@ -545,6 +550,8 @@ export class FlyScreen implements Screen {
     }
 
     this.bulletSprites.sync(this.world.enemyBullets);
+    this.crystalSprites.sync(this.world.crystals);
+    if (this.world.crystals.pickedUp > 0) sfx.play('crystal', { pitch: 1 + Math.min(this.world.crystals.pickedUp - 1, 3) * 0.06 });
     drawSupportLinks(this.linkG, this.world.links, this.world.time);
     const proj = this.world.projSys;
     drawFieldFx(this.fieldG, proj);
@@ -612,7 +619,7 @@ export class FlyScreen implements Screen {
       name: CAPTAIN_BY_ID[id]?.name ?? id, killsAdded: this.banker.added, killsTotal: store.data.captains.heroes[id]?.kills ?? 0,
       medals: paid.medals, doubled: paid.doubled,
     };
-    const result: RunResult = { credits: w.credits, cores: w.cores, kills: w.kills, time: w.time, tier: w.tier, shots: { ...w.projSys.runStats } };
+    const result: RunResult = { credits: w.credits, cores: w.cores, kills: w.kills, time: w.time, tier: w.tier, shots: { ...w.projSys.runStats }, crystals: { collected: w.crystals.collected, dropped: w.crystals.dropped } };
     sm.switchTo(new RunSummaryScreen(sm, result, { newBestTier: false, newBestTime: false, newBestEarnings: paid.newBestEarnings }, {
       result: this.outcome!, destroyed: 0, total: 0, medal: paid.medals > 0,
       encounter: { duration: opts.frontier!.params.duration, kills: w.kills },
