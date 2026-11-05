@@ -25,6 +25,10 @@ import type { MitosisEnemy } from '../engine/mitosis';
 import { neutralModifiers, RunModifiers } from '../captains/modifiers';
 import { applyHullTraits } from '../shipyard/registry';
 import { encounterCores, waveStartCores } from '../shipyard/cores';
+import { EnemyBullets } from '../engine/enemyBullets';
+import { ENEMY_BULLET_DAMAGE, ENEMY_BULLET_INVULN, ENEMY_BULLET_SPEED } from '../data/enemyBullets';
+import { burstVelocities, gunStep, GunState, newGunState, nearestWithin } from './support';
+import { themeAt, themeCores, ThemeId } from '../data/waveThemes';
 
 export const TOUCH_OFFSET_Y = TOUCH_DIRECT_OFFSET_Y; // finger sits below the ship on touch (direct mode)
 export { PX_PER_CELL };
@@ -39,6 +43,8 @@ export const ABOVE_SCREEN_MAX = 6;
 export interface HitEvent { enemyId: number; damage: number; x: number; y: number; kind: number; armor: number; shield: number; maxShield: number }
 /** An enemy body died: `reward` is the credits it paid (fractional; the run keeps the exact total). */
 export interface KillEvent { x: number; y: number; reward: number; generation: number; }
+/** A support enemy's visible link (chunk 32a): from a Shielder or Leech at (ax, ay) to the body `id` at (bx, by), radius `r`. */
+export interface SupportLink { kind: 'shield' | 'leech'; id: number; ax: number; ay: number; bx: number; by: number; r: number }
 export interface SplitEvent { parentId: number; x: number; y: number; radius: number; childIds: number[]; defId: string; }
 
 /**
@@ -48,6 +54,12 @@ export class World {
   readonly pool = new ProjectilePool();
   readonly projSys = new ProjectileSystem(this.pool);
   readonly mitosis = new MitosisSystem();
+  /** Enemy bullets (chunk 32a): their own pool; they outlive their shooter and cannot be shot. */
+  readonly enemyBullets = new EnemyBullets();
+  /** Links of the Shielders and Leeches alive this frame (the screen draws them). */
+  readonly links: SupportLink[] = [];
+  /** Enemy bullets that hurt the ship this run (stats and tests). */
+  bulletHits = 0;
   readonly recipes: EjectorRecipe[];
   readonly gun: Gun;
   readonly warnings: string[];
@@ -120,12 +132,17 @@ export class World {
     return Math.floor(exact + 1e-9);
   }
   /** Waves that started during the last update() calls (the screen shows a banner); consumers clear it. */
-  waveEvents: { wave: number; bonus: number }[] = [];
+  waveEvents: { wave: number; bonus: number; theme: ThemeId | null; cores: number }[] = [];
   private kicks = new Map<number, { vx: number; vy: number }>();
   /** Per body: constant sideways speed (a Drifter's slide, a Darter's aim), signed; flipped with the sway at a side. */
   private baseVx = new Map<number, number>();
   /** Budders: seconds towards the next bud and buds made so far. */
   private budState = new Map<number, { t: number; n: number }>();
+  /** Gunners: the walk / stop / fire clock of each. */
+  private gunState = new Map<number, GunState>();
+  /** Reused each frame: the Shielders and Leeches found in the enemy loop. */
+  private shielders: MitosisEnemy[] = [];
+  private leeches: MitosisEnemy[] = [];
 
   /** Events produced during the last update() calls; consumers clear them. */
   hits: HitEvent[] = [];
@@ -246,7 +263,7 @@ export class World {
   /** Dev cheat: removes every enemy at once (no credits, no split). */
   clearEnemies() {
     this.mitosis.enemies.length = 0;
-    this.kicks.clear(); this.aboveT.clear(); this.swayDir.clear(); this.baseVx.clear(); this.budState.clear();
+    this.kicks.clear(); this.aboveT.clear(); this.swayDir.clear(); this.baseVx.clear(); this.budState.clear(); this.gunState.clear();
   }
 
   /** Current wave (0 until the director has started the first one). */
@@ -289,6 +306,10 @@ export class World {
     this.swayDir.clear();
     this.baseVx.clear();
     this.budState.clear();
+    this.gunState.clear();
+    this.enemyBullets.clear();
+    this.links.length = 0;
+    this.bulletHits = 0;
     this.hits.length = 0;
     this.splits.length = 0;
   }
@@ -302,12 +323,16 @@ export class World {
    * Spawns one body of a species (data/species.ts): HP from the tier unless given, x clamped inside the screen width.
    * `generation` > 1 starts it part-way down its split chain (a Swarm's pebbles are generation-3 rocks).
    */
-  spawnSpecies(defId: string, x: number, y: number, o: { hp?: number; radius?: number; generation?: number } = {}) {
+  spawnSpecies(defId: string, x: number, y: number, o: { hp?: number; radius?: number; generation?: number; armor?: number } = {}) {
     const sp = speciesOf(defId);
     const r = o.radius ?? sp.radius;
     const W = CONFIG.VIEW.W;
     const e = this.mitosis.spawn(defId, o.generation ?? 1, o.hp ?? wholeRockHp(rockHp(this.tier) * sp.hpMul), Math.max(r, Math.min(W - r, x)), y, r);
-    if (e) { e.tier = this.tier; this.initMotion(e); }
+    if (e) {
+      e.tier = this.tier;
+      if (o.armor && o.armor > e.armor) e.armor = o.armor; // the ARMORED theme (chunk 32a)
+      this.initMotion(e);
+    }
     return e;
   }
 
@@ -320,6 +345,7 @@ export class World {
       this.baseVx.set(e.id, Math.max(-sp.aim, Math.min(sp.aim, ((this.shipX - e.x) * sp.speed) / dy)));
     }
     if (sp.bud) this.budState.set(e.id, { t: 0, n: 0 });
+    if (sp.gun) this.gunState.set(e.id, newGunState(sp.gun));
   }
 
   private forget(id: number) {
@@ -328,6 +354,56 @@ export class World {
     this.swayDir.delete(id);
     this.baseVx.delete(id);
     this.budState.delete(id);
+    this.gunState.delete(id);
+  }
+
+  /**
+   * The ship takes a hit that is not a rock contact (an enemy bullet): a Second Chance charge absorbs it, otherwise `amount`
+   * comes off the hull. Either way the ship is untouchable for a while. Ends the run at 0 hull.
+   */
+  private hurtShip(amount: number, invuln: number) {
+    if (this.secondChancesLeft > 0) {
+      this.secondChancesLeft--;
+      this.fx.secondChance++;
+      this.invuln = this.mods.chanceInvuln;
+      return;
+    }
+    this.hull -= amount;
+    this.invuln = invuln;
+    this.bulletHits++;
+    if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
+  }
+
+  /** A Gunner fires `count` bullets in a fan at the ship's position now. */
+  private fireBurst(e: MitosisEnemy, count: number, spreadDeg: number) {
+    const gy = e.y + e.radius * 0.5;
+    for (const v of burstVelocities(e.x, gy, this.shipX, this.shipY, ENEMY_BULLET_SPEED, count, spreadDeg)) {
+      this.enemyBullets.spawn(e.x, gy, v.vx, v.vy);
+    }
+  }
+
+  /**
+   * Shielders: the nearest few non-Shielder bodies in range take `damageMul` of every hit this frame (`dmgTakenMul`, cleared first).
+   * Leeches: the nearest few non-Leech bodies in range heal a share of their max HP a second. Each link is listed for the screen.
+   */
+  private updateSupport(dt: number) {
+    const enemies = this.mitosis.enemies;
+    this.links.length = 0;
+    for (const e of enemies) if (e.dmgTakenMul !== undefined) e.dmgTakenMul = undefined;
+    for (const s of this.shielders) {
+      const d = speciesOf(s.defId).shield!;
+      for (const t of nearestWithin(s.x, s.y, enemies, d.range, d.maxLinks, e => e !== s && !speciesOf(e.defId).shield)) {
+        t.dmgTakenMul = t.dmgTakenMul === undefined ? d.damageMul : Math.min(t.dmgTakenMul, d.damageMul);
+        this.links.push({ kind: 'shield', id: t.id, ax: s.x, ay: s.y, bx: t.x, by: t.y, r: t.radius });
+      }
+    }
+    for (const l of this.leeches) {
+      const d = speciesOf(l.defId).heal!;
+      for (const t of nearestWithin(l.x, l.y, enemies, d.range, d.maxLinks, e => e !== l && !speciesOf(e.defId).heal)) {
+        if (t.hp < t.maxHp) t.hp = Math.min(t.maxHp, t.hp + t.maxHp * d.perSec * dt);
+        this.links.push({ kind: 'leech', id: t.id, ax: l.x, ay: l.y, bx: t.x, by: t.y, r: t.radius });
+      }
+    }
   }
 
   /** After a pause: the ship eases to the pointer again (the spawn-safety ease) instead of jumping to where it is now. */
@@ -418,12 +494,14 @@ export class World {
         const bonus = waveBonus(started) * this.mods.waveBonusMul;
         this.bonusCredits += bonus;
         this.creditsExact += bonus;
-        this.waveEvents.push({ wave: started, bonus });
-        if (!this.encounter) this.coresExact += waveStartCores(started) * this.mods.coresMul;
+        const theme = this.encounter ? null : themeAt(started);
+        const themed = theme ? themeCores(started) * this.mods.coresMul : 0; // a theme wave pays a Cores bonus (chunk 32a)
+        this.waveEvents.push({ wave: started, bonus, theme: theme ? theme.id : null, cores: themed });
+        if (!this.encounter) this.coresExact += waveStartCores(started) * this.mods.coresMul + themed;
       }
       const hpMul = waveHpMul(this.director.wave) * (this.encounter ? this.encounter.hpMul : 1);
       for (const s of this.due) {
-        this.spawnSpecies(s.defId, s.x, -s.radius, { hp: wholeRockHp(rockHp(this.tier) * s.hpMul * hpMul), radius: s.radius, generation: s.generation });
+        this.spawnSpecies(s.defId, s.x, -s.radius, { hp: wholeRockHp(rockHp(this.tier) * s.hpMul * hpMul), radius: s.radius, generation: s.generation, armor: s.armor });
       }
       this.due.length = 0;
     }
@@ -458,6 +536,8 @@ export class World {
     this.field.refresh();
 
     const budsDue: MitosisEnemy[] = [];
+    this.shielders.length = 0;
+    this.leeches.length = 0;
     for (const e of enemies) {
       // Frostbite slows the whole drift (1 when not frozen, so unfrozen rocks move exactly as before).
       const slow = (e.freezeT ?? 0) > 0 ? 1 - (e.freezeSlow ?? 0) : 1;
@@ -465,6 +545,16 @@ export class World {
       const sp = speciesOf(e.defId);
       e.vy = sp.speed * slow;
       e.vx = (Math.sin(this.time + e.id) * sp.sway + (this.baseVx.get(e.id) ?? 0)) * (this.swayDir.get(e.id) ?? 1) * slow;
+      if (sp.gun) {
+        // Gunner (chunk 32a): it stops now and then and aims a burst at where the ship is when it fires.
+        const gs = this.gunState.get(e.id);
+        if (gs) {
+          const g = gunStep(gs, sp.gun, dt * slow, e.y > 0 && e.y < this.shipY - 40);
+          if (!g.moving) { e.vx = 0; e.vy = 0; }
+          if (g.fire) this.fireBurst(e, sp.gun.burst, sp.gun.spreadDeg);
+        }
+      } else if (sp.shield) this.shielders.push(e);
+      else if (sp.heal) this.leeches.push(e);
       if (sp.bud && e.y > 0) {
         const b = this.budState.get(e.id);
         if (b && b.n < sp.bud.max && (b.t += dt) >= sp.bud.every) { b.t = 0; b.n++; budsDue.push(e); }
@@ -547,6 +637,19 @@ export class World {
         if (this.hull <= 0) { this.hull = 0; this.gameOver = true; }
       }
     }
+
+    // --- Enemy bullets (chunk 32a): fly, leave the screen, hit the ship (hull damage and the short invulnerability; none while invulnerable)
+    this.enemyBullets.update(dt);
+    if (this.enemyBullets.count > 0 && this.invuln <= 0 && !this.god) {
+      const hit = this.enemyBullets.firstHit(fromX, fromY, this.shipX, this.shipY, this.hitR);
+      if (hit >= 0) {
+        this.enemyBullets.remove(hit);
+        this.hurtShip(ENEMY_BULLET_DAMAGE, ENEMY_BULLET_INVULN);
+      }
+    }
+
+    // --- Shielders and Leeches: links to the bodies near them (the screen draws them)
+    this.updateSupport(dt);
 
     // --- Budding: a Budder sheds a small rock below itself (it inherits the family tier)
     for (const p of budsDue) {

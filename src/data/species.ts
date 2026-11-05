@@ -29,6 +29,14 @@ export interface SpeciesDef {
   firstWave: number;
   /** Budding: a new small rock every `every` s while alive and on screen, up to `max`, at `hpShare` of its max HP. */
   bud?: { every: number; max: number; hpShare: number; generation: number; radius: number };
+  /** Gunner (chunk 32a): walks `walk` s, stops `stop` s and `aimAt` s into the stop fires `burst` bullets in a fan of `spreadDeg` between neighbours. `firstWalk` is the walk before the first stop (on screen). */
+  gun?: { walk: number; stop: number; aimAt: number; firstWalk: number; burst: number; spreadDeg: number };
+  /** Shielder: enemies (not Shielders) within `range` px, the nearest `maxLinks`, take `damageMul` of the damage while it lives. */
+  shield?: { range: number; maxLinks: number; damageMul: number };
+  /** Leech: heals the nearest `maxLinks` enemies (not Leeches) within `range` px by `perSec` of their max HP a second. */
+  heal?: { range: number; maxLinks: number; perSec: number };
+  /** Only the normal Free Fly director sends it; Frontier squares do not (their balance has not been measured with it). */
+  freeFlyOnly?: boolean;
 }
 
 const base = { sway: 0, zig: 0, aim: 0, leakMul: 1, rewardMul: 1, cost: 0, weight: 0, firstWave: Infinity };
@@ -45,6 +53,19 @@ export const SPECIES: Record<string, SpeciesDef> = {
   budder: {
     ...base, id: 'budder', name: 'Budder', radius: 26, hpMul: 1.5, speed: 18, sway: 20, rewardMul: 0.8, cost: 4, weight: 3, firstWave: 8,
     bud: { every: 3.5, max: 3, hpShare: 0.25, generation: 3, radius: 15 },
+  },
+  // Chunk 32a (docs/freefly-v2.md section 2).
+  gunner: {
+    ...base, id: 'gunner', name: 'Gunner', radius: 30, hpMul: 2.2, speed: 22, sway: 10, leakMul: 1.2, rewardMul: 2.8, cost: 7, weight: 3, firstWave: 8, freeFlyOnly: true,
+    gun: { walk: 2.6, stop: 1.0, aimAt: 0.6, firstWalk: 1.5, burst: 3, spreadDeg: 10 },
+  },
+  shielder: {
+    ...base, id: 'shielder', name: 'Shielder', radius: 22, hpMul: 1.3, speed: 30, sway: 24, rewardMul: 1.8, cost: 5, weight: 3, firstWave: 12, freeFlyOnly: true,
+    shield: { range: 150, maxLinks: 5, damageMul: 0.25 },
+  },
+  leech: {
+    ...base, id: 'leech', name: 'Leech', radius: 14, hpMul: 0.45, speed: 34, sway: 40, rewardMul: 0.8, cost: 3, weight: 3, firstWave: 15, freeFlyOnly: true,
+    heal: { range: 130, maxLinks: 4, perSec: 0.05 },
   },
 };
 

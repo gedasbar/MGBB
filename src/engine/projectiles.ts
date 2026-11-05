@@ -1293,7 +1293,8 @@ export class ProjectileSystem {
 
   private burn(t: EnemyEntity, dmg: number) {
     if (!(dmg > 0)) return; // NaN or nothing: no tick
-    const d = (t.freezeT ?? 0) > 0 ? dmg * (1 + (t.freezeBonus ?? 0)) : dmg;
+    let d = (t.freezeT ?? 0) > 0 ? dmg * (1 + (t.freezeBonus ?? 0)) : dmg;
+    if (t.dmgTakenMul !== undefined) d *= t.dmgTakenMul; // a Shielder's link (chunk 32a)
     const taken = Math.min(Math.max(0, t.hp), d);
     t.hp -= d;
     this.fx.burnTicks++;

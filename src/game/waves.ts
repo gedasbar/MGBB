@@ -6,6 +6,7 @@ import {
   ALIVE_HOLD, MOTHER_EVENT_MIN, MOTHER_EVENT_SECOND_GROUP, PEBBLE_COST, PEBBLE_GENERATION, PEBBLE_RADIUS, SPAWN_EDGE, SPAWN_JITTER,
   SPAWN_WINDOW, SPECIAL_BUDGET_MUL, specialKind, SWARM_WINDOW, WAVE_TIME, waveBudget,
 } from '../data/waves';
+import { ARMORED_ARMOR, ARMORED_SHARE, GUNNER_THEME_SHARE, LEECH_THEME_SHARE, SHIELD_WALL_ESCORTS, SHIELD_WALL_SPREAD, SWARM_DARTER_SHARE, themeAt } from '../data/waveThemes';
 
 /** One body the director will send: `at` seconds into its wave, entering from just above the top edge at `x`. */
 export interface PlannedSpawn {
@@ -16,6 +17,8 @@ export interface PlannedSpawn {
   radius: number;
   /** HP as a multiple of the tier's basic rock HP (before the wave's HP growth). */
   hpMul: number;
+  /** Armor the body is born with (the ARMORED theme); absent = the species' own. */
+  armor?: number;
 }
 
 /** HP share of a basic rock at a generation (its split rule's share per split). */
@@ -50,9 +53,11 @@ const spawnX = (radius: number, rnd: Mulberry32) => {
 export function planWave(seed: number, wave: number): PlannedSpawn[] {
   const rnd = waveRng(seed, wave);
   const kind = specialKind(wave);
-  let budget = waveBudget(wave) * (kind ? SPECIAL_BUDGET_MUL : 1);
-  const picks: { defId: string; generation: number; radius: number; hpMul: number }[] = [];
-  const add = (s: SpeciesDef) => { picks.push({ defId: s.id, generation: 1, radius: s.radius, hpMul: s.hpMul }); budget -= s.cost; };
+  const theme = kind ? null : themeAt(wave);
+  let budget = waveBudget(wave) * (kind ? SPECIAL_BUDGET_MUL : theme ? theme.budgetMul : 1);
+  const total = budget;
+  const picks: { defId: string; generation: number; radius: number; hpMul: number; armor?: number; group?: number; leader?: boolean }[] = [];
+  const add = (s: SpeciesDef, extra: { group?: number; leader?: boolean } = {}) => { picks.push({ defId: s.id, generation: 1, radius: s.radius, hpMul: s.hpMul, ...extra }); budget -= s.cost; };
   const addPebble = () => {
     picks.push({ defId: 'mitotic_rock', generation: PEBBLE_GENERATION, radius: PEBBLE_RADIUS, hpMul: genShare(PEBBLE_GENERATION) });
     budget -= PEBBLE_COST;
@@ -77,6 +82,24 @@ export function planWave(seed: number, wave: number): PlannedSpawn[] {
   } else {
     const open = unlockedAt(wave);
     for (const s of open) if (s.firstWave === wave) add(s); // the newcomer comes first
+    if (theme?.id === 'swarm') {
+      window = SWARM_WINDOW;
+      while (budget >= PEBBLE_COST) { if (rnd.next() < SWARM_DARTER_SHARE) add(SPECIES.darter); else addPebble(); }
+    } else if (theme?.id === 'gunners' || theme?.id === 'leeches') {
+      const s = theme.id === 'gunners' ? SPECIES.gunner : SPECIES.leech;
+      const share = theme.id === 'gunners' ? GUNNER_THEME_SHARE : LEECH_THEME_SHARE;
+      while (budget >= s.cost && total - budget < total * share) add(s);
+    } else if (theme?.id === 'shield_wall') {
+      const escorts = open.filter(s => s.weight > 0 && s.cost <= 4 && !s.shield && !s.heal && !s.gun);
+      for (let g = 0; budget >= SPECIES.shielder.cost + SHIELD_WALL_ESCORTS; g++) {
+        add(SPECIES.shielder, { group: g, leader: true });
+        for (let k = 0; k < SHIELD_WALL_ESCORTS && budget >= 1; k++) {
+          const e = escorts.filter(s => s.cost <= budget);
+          if (!e.length) break;
+          add(e[Math.floor(rnd.next() * e.length)], { group: g });
+        }
+      }
+    }
     for (;;) {
       const afford = open.filter(s => s.cost <= budget && s.weight > 0);
       if (!afford.length) break;
@@ -86,11 +109,27 @@ export function planWave(seed: number, wave: number): PlannedSpawn[] {
   // What no species fits into is spent on pebbles, so a wave always uses its whole budget (wave 1: a Rock and 2 pebbles).
   if (kind !== 'swarm') while (budget >= PEBBLE_COST) addPebble();
 
+  // ARMORED theme: most bodies are born armored (drawn after the picks, so the picks themselves are the plain wave's).
+  if (theme?.id === 'armored') for (const p of picks) if (rnd.next() < ARMORED_SHARE) p.armor = ARMORED_ARMOR;
+
   const n = picks.length;
-  const out = picks.map((p, k) => {
+  const out: PlannedSpawn[] = picks.map((p, k) => {
     const at = Math.max(0, Math.min(window, ((k + 0.5) / n) * window + (rnd.next() * 2 - 1) * SPAWN_JITTER));
-    return { at, x: spawnX(p.radius, rnd), ...p };
+    const { group, leader, ...rest } = p;
+    return { at, x: spawnX(p.radius, rnd), ...rest };
   });
+  // SHIELD WALL: an escort is born with its Shielder, within SHIELD_WALL_SPREAD px of it.
+  if (theme?.id === 'shield_wall') {
+    const lead = new Map<number, PlannedSpawn>();
+    picks.forEach((p, k) => { if (p.leader) lead.set(p.group!, out[k]); });
+    picks.forEach((p, k) => {
+      const l = p.group !== undefined && !p.leader ? lead.get(p.group) : undefined;
+      if (!l) return;
+      const lo = p.radius + SPAWN_EDGE, hi = CONFIG.VIEW.W - p.radius - SPAWN_EDGE;
+      out[k].at = l.at + 0.15;
+      out[k].x = Math.max(lo, Math.min(hi, l.x + (rnd.next() * 2 - 1) * SHIELD_WALL_SPREAD));
+    });
+  }
   return out.sort((a, b) => a.at - b.at);
 }
 

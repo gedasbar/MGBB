@@ -15,6 +15,8 @@ export interface EnemyStats {
   armor: number;
   shield: number;
   maxShield: number;
+  /** Chunk 32a: a Shielder's link: every hit (and burn tick) is multiplied by this while it is set (absent = 1). */
+  dmgTakenMul?: number;
 }
 
 export interface DamageResult {
@@ -36,6 +38,7 @@ export function applyDamage(
 ): DamageResult {
   // Chunk 16c-2: a NaN or empty hit does nothing (HP can never become NaN); Infinity kills the target.
   if (!(damage > 0)) return { hpDamage: 0, shieldDamage: 0, armorDamage: 0, killed: enemy.hp <= 0 };
+  if (enemy.dmgTakenMul !== undefined) damage *= enemy.dmgTakenMul;
   const isShieldBreaker = !!shieldBreaker;
   const sbMul = shieldBreaker === true ? 1.5 : typeof shieldBreaker === 'number' ? shieldBreaker : 1;
   // `pureFrac > 0` first: Infinity x 0 would be NaN.
@@ -88,6 +91,11 @@ export function applyDamage(
 export function damageToKill(
   enemy: EnemyStats, pureFrac: number, tier: number, armorPierce: number | boolean = false, shieldBreaker: boolean | number = false,
 ): number {
+  if (enemy.dmgTakenMul !== undefined && enemy.dmgTakenMul > 0 && enemy.dmgTakenMul !== 1) {
+    // A Shielder's link: the hit is multiplied by dmgTakenMul before it counts, so the smallest killing hit is that much bigger.
+    const { dmgTakenMul, ...plain } = enemy;
+    return damageToKill(plain, pureFrac, tier, armorPierce, shieldBreaker) / dmgTakenMul;
+  }
   const hp = enemy.hp;
   if (!(hp > 0)) return 0;
   const p = Math.min(1, Math.max(0, pureFrac));

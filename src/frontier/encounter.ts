@@ -54,7 +54,7 @@ function pick(list: SpeciesDef[], w: (s: SpeciesDef) => number, rnd: Mulberry32)
  */
 export function planEncounter(p: EncounterParams): PlannedSpawn[] {
   const rnd = new Mulberry32(p.seed | 0);
-  const open = unlockedAt(p.wave).filter(s => s.weight > 0);
+  const open = unlockedAt(p.wave).filter(s => s.weight > 0 && !s.freeFlyOnly); // chunk 32a: the shooters and supporters are normal Free Fly only
   const weight = (s: SpeciesDef) => s.weight * (p.weights[s.id] ?? 1);
   const x = (r: number) => r + SPAWN_EDGE + rnd.next() * (CONFIG.VIEW.W - 2 * (r + SPAWN_EDGE));
   const out: PlannedSpawn[] = [];
