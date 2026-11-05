@@ -140,12 +140,12 @@ describe('Normal Free Fly is unchanged (waves 1-20; 18b slows it after 20)', () 
   // Hashes taken on main before chunk 15b touched World (scratch script, same code as below).
   it('director plans', () => {
     const plans: unknown[] = [];
-    for (let w = 1; w <= 30; w++) plans.push(planWave(12345, w));
-    expect(fnv(JSON.stringify(plans))).toBe('2105211837648497');
+    for (let w = 1; w <= 7; w++) plans.push(planWave(12345, w)); // chunk 32a: waves 8+ have the new enemies and themes
+    expect(fnv(JSON.stringify(plans))).toBe('9cea72ed69c40c94');
   });
   it('enemy stats of a real World 10 s into each wave', () => {
     const stats: unknown[] = [];
-    for (let w = 1; w <= 20; w++) {
+    for (let w = 1; w <= 7; w++) {
       rng.reset(1);
       const world = new World({ seed: 777, startWave: w });
       world.god = true;
@@ -153,10 +153,12 @@ describe('Normal Free Fly is unchanged (waves 1-20; 18b slows it after 20)', () 
       for (let i = 0; i < 600; i++) world.update(1 / 60, p);
       stats.push({ w, wave: world.wave, tier: world.tier, kills: world.kills, credits: world.creditsExact, e: world.mitosis.enemies.map(e => [e.defId, e.generation, e.hp, e.maxHp, e.armor, e.shield, e.maxShield, e.radius, Math.round(e.x * 100), Math.round(e.y * 100)]) });
     }
-    expect(fnv(JSON.stringify(stats))).toBe('c86832bcf44bd6e1');
+    expect(fnv(JSON.stringify(stats))).toBe('9be14d3bf07ae08e');
   });
   it('species and enemy data', () => {
-    expect(fnv(JSON.stringify([SPECIES, ENEMIES]))).toBe('f74a8445869d7bb8');
+    // Chunk 32a added gunner, shielder and leech; every older entry is exactly as before.
+    const old = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([k]) => !['gunner', 'shielder', 'leech'].includes(k)));
+    expect(fnv(JSON.stringify([old(SPECIES), old(ENEMIES)]))).toBe('f74a8445869d7bb8');
   });
 });
 
