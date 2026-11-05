@@ -47,11 +47,11 @@ export const ABOVE_SCREEN_MAX = 6;
 
 /** `kind`: 0 projectile hit, 1 burn tick, 2 chain jump (HIT_* in engine/projectiles). */
 /** One hit on a rock. `armor`, `shield` and `maxShield` are what the rock has left AFTER the hit (the sound layer reads them). */
-export interface HitEvent { enemyId: number; damage: number; x: number; y: number; kind: number; armor: number; shield: number; maxShield: number }
+export interface HitEvent { big: boolean; enemyId: number; damage: number; x: number; y: number; kind: number; armor: number; shield: number; maxShield: number }
 /** An enemy body died: `reward` is the credits it paid (fractional; the run keeps the exact total). */
-export interface KillEvent { x: number; y: number; reward: number; generation: number; }
+export interface KillEvent { x: number; y: number; reward: number; generation: number; defId: string; radius: number; }
 /** A boss moment the screen announces (chunk 32b): it enrages, or it dies and pays `credits` and `cores`. */
-export interface BossEvent { kind: 'enrage' | 'defeat'; id: BossId; name: string; credits: number; cores: number; noHit: boolean }
+export interface BossEvent { kind: 'enrage' | 'defeat'; id: BossId; name: string; credits: number; cores: number; noHit: boolean; x: number; y: number }
 /** A support enemy's visible link (chunk 32a): from a Shielder or Leech at (ax, ay) to the body `id` at (bx, by), radius `r`. */
 export interface SupportLink { kind: 'shield' | 'leech'; id: number; ax: number; ay: number; bx: number; by: number; r: number }
 export interface SplitEvent { parentId: number; x: number; y: number; radius: number; childIds: number[]; defId: string; }
@@ -122,6 +122,8 @@ export class World {
   private safeStart: boolean;
   /** Pulse-rate multiplier of the hull being flown (the Dart is slow). */
   private fireRateMul: number;
+  /** Generator pulses a second (the hull's and the captain's rate); the muzzle flash is skipped above a high rate. */
+  get pulseRate(): number { return CONFIG.PULSE.BASE_RATE * this.fireRateMul; }
   /** Seconds each rock's centre has spent above the top edge. */
   private aboveT = new Map<number, number>();
   /** Horizontal direction sign of each rock's sway, flipped when it touches a side. */
@@ -215,7 +217,7 @@ export class World {
     this.safeStart = !!opts.safeStart;
     this.invuln = this.safeStart ? SPAWN_INVULN_SECONDS + this.mods.spawnInvuln : 0;
     this.projSys.onHit = (e, dmg, x, y, kind = 0) => {
-      this.hits.push({ enemyId: e.id, damage: dmg, x, y, kind, armor: e.armor, shield: e.shield, maxShield: e.maxShield });
+      this.hits.push({ big: this.projSys.hitBig, enemyId: e.id, damage: dmg, x, y, kind, armor: e.armor, shield: e.shield, maxShield: e.maxShield });
       // A shield regenerates SHIELD_REGEN_DELAY after the last hit; a burn tick does not hold it back (as on the wall).
       if (kind !== HIT_BURN && kind !== HIT_CLOUD) (e as MitosisEnemy).lastHit = this.time;
     };
@@ -356,11 +358,11 @@ export class World {
     this.creditsExact += credits;
     this.coresExact += cores;
     this.kills++;
-    this.killEvents.push({ x: b.anchorX, y: b.anchorY, reward: credits, generation: 1 });
+    this.killEvents.push({ x: b.anchorX, y: b.anchorY, reward: credits, generation: 1, defId: 'mother', radius: 60 });
     this.splits.push({ parentId: -1, x: b.anchorX, y: b.anchorY, radius: 60, childIds: [], defId: 'mother' });
     const noHit = !this.bossHurt;
     this.bossesDefeated.push({ id: b.def.id, wave: b.wave, noHit });
-    this.bossEvents.push({ kind: 'defeat', id: b.def.id, name: b.def.name, credits, cores, noHit });
+    this.bossEvents.push({ kind: 'defeat', id: b.def.id, name: b.def.name, credits, cores, noHit, x: b.anchorX, y: b.anchorY });
     b.dispose();
     this.boss = null;
     if (this.director instanceof WaveDirector) this.director.releaseBoss(this.time);
@@ -789,7 +791,7 @@ export class World {
       this.boss.update(dt);
       if (this.boss.justEnraged) {
         this.boss.justEnraged = false;
-        this.bossEvents.push({ kind: 'enrage', id: this.boss.def.id, name: this.boss.def.name, credits: 0, cores: 0, noHit: !this.bossHurt });
+        this.bossEvents.push({ kind: 'enrage', id: this.boss.def.id, name: this.boss.def.name, credits: 0, cores: 0, noHit: !this.bossHurt, x: this.boss.anchorX, y: this.boss.anchorY });
       }
       if (this.boss.reachedBottom && !this.god) { this.hull = 0; this.gameOver = true; }
     }
@@ -834,7 +836,7 @@ export class World {
           this.fx.killHealed += healed;
         }
         this.creditsExact += reward;
-        this.killEvents.push({ x: e.x, y: e.y, reward, generation: e.generation });
+        this.killEvents.push({ x: e.x, y: e.y, reward, generation: e.generation, defId: e.defId, radius: e.radius });
         this.dropCrystal(e);
         const firstChildId = this.mitosis.nextId;
         this.mitosis.handleDeath(e, -e.hp);

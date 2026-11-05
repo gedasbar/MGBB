@@ -39,6 +39,10 @@ import { DEBUG_ON } from '../debug/enabled';
 import { ChallengeDef } from '../data/challenges';
 import { challengeRewardText, challengeVerdict } from '../challenges/rules';
 import { endChallengeSession } from '../challenges/session';
+import { FeelHub } from '../fx/hub';
+import { FxView } from '../fx/fxView';
+import { FEEL } from '../data/feel';
+import { popScale } from '../fx/feel';
 
 /** The HUD box (top-left): plate position, first text column, row height and the narrowest the plate goes. */
 const HUD_PLATE_X = 10;
@@ -71,7 +75,7 @@ const MIN_INNER = 5;
 const SHIELD_H = 3;
 
 interface BlockView { frame: Sprite; well: Sprite; inner: Sprite; shield: Sprite; status: Sprite }
-interface Popup { t: Text; life: number }
+interface Popup { t: Text; life: number; key: number; value: number; big: boolean; age: number }
 
 function whiteSprite(color: number): Sprite {
   const s = new Sprite(Texture.WHITE);
@@ -116,6 +120,14 @@ export class WallScreen implements Screen {
   private hudBox = new Container();
   private views: BlockView[] = [];
   private shots!: ShotSprites;
+  /** Chunk 34a: the feel pass, its drawing, the stamp and flash of a finished wall. */
+  readonly feel = new FeelHub();
+  private fxView!: FxView;
+  private prevShots = 0;
+  private stamp = new Container();
+  private stampText = makeText('', FEEL.STAMP.SIZE, THEME.text, { fontWeight: 'bold' });
+  private flashG = new Graphics();
+  private shipBroken = false;
   /** The shot sprites, one per pool slot (the e2e scripts read them). */
   get projSprites(): Sprite[] { return this.shots.sprites; }
   private popups: Popup[] = [];
@@ -196,6 +208,15 @@ export class WallScreen implements Screen {
       this.views.push(v);
     }
 
+    this.fxView = new FxView(this.feel, this.sm.app);
+    this.fxLayer.addChild(this.fxView.container);
+    this.stampText.anchor.set(0.5);
+    this.stamp.addChild(this.stampText);
+    this.stamp.position.set(VIEW_W / 2, VIEW_H * 0.38);
+    this.stamp.visible = false;
+    this.flashG.rect(0, 0, VIEW_W, VIEW_H).fill(0xffffff);
+    this.flashG.visible = false;
+    this.uiLayer.addChild(this.flashG, this.stamp);
     this.shots = new ShotSprites(this.projLayer, this.world.pool.max, shotTextures(this.sm.app), VIEW_W, VIEW_H);
     this.applyCosmetics();
 
@@ -204,7 +225,7 @@ export class WallScreen implements Screen {
       t.anchor.set(0.5);
       t.visible = false;
       this.fxLayer.addChild(t);
-      this.popups.push({ t, life: 0 });
+      this.popups.push({ t, life: 0, key: -1, value: 0, big: false, age: 0 });
     }
 
     this.spikeBadge.visible = !!levelDef.spike;
@@ -232,10 +253,16 @@ export class WallScreen implements Screen {
     }
   }
 
+  /** Dev hook: the feel pass's numbers (chunk 34a). */
+  private feelState() {
+    const f = this.feel;
+    return { trauma: f.shake.trauma, particles: f.particles.count, particleMode: f.particles.mode, rings: f.rings.list.length, stopLeft: f.stop.left, drawn: this.fxView.visibleCount, autoDropped: f.autoDropped, pendingBlasts: f.pendingBlasts };
+  }
+
   private debugState() {
     const w = this.world;
     return {
-      state: w.state, time: w.time, finishY: w.finishY, progress: w.progress, alive: w.alive, total: w.total, destroyed: w.destroyed,
+      feel: this.feelState(), state: w.state, time: w.time, finishY: w.finishY, progress: w.progress, alive: w.alive, total: w.total, destroyed: w.destroyed,
       credits: w.credits, wallOffsetY: w.wallOffsetY, bottomEdge: w.bottomEdge(), scrollSpeed: w.scroll, cameraX: this.camera.x, cameraSpeed: this.camera.speed, bgCamX: this.bg ? this.bg.camX : null,
       controlStarted: w.controlStarted, invuln: w.invuln, shipWorldX: w.shipX, shipScreenX: this.sx(w.shipX), camTravel: this.camera.travel, worldW: w.worldW, ring: w.ring, shipY: w.shipY, projectiles: w.pool.count,
       hud: { credits: this.creditsText.text, tier: this.tierText.text, name: this.levelDef.name ?? '', nameLabel: this.nameText.text, square: this.squareText.text, spike: this.spikeBadge.visible, spikeBox: this.spikeBadge.visible ? { x: this.spikeBadge.x, w: SPIKE_BADGE.w } : null, plate: this.hudSize, blocks: this.blocksText.text },
@@ -256,6 +283,7 @@ export class WallScreen implements Screen {
     o.enemies = w.alive;
     o.fx = fx;
     o.kills = w.total - w.alive;
+    o.fx += this.feel.particles.count;
     o.extra = `blocks ${w.alive}/${w.total}  scroll ${Math.round(w.scroll)}  camX ${Math.round(this.camera.x)}`;
   }
 
@@ -314,6 +342,14 @@ export class WallScreen implements Screen {
   update(dt: number, frameTime: number, now: number) {
     const w = this.world;
     const p = this.sm.input.pointer;
+    // Chunk 34a: the feel pass first. A hit stop freezes the simulation for a few frames; the shake, particles and stamp carry on.
+    this.feel.applySettings({ shake: sfx.settings.shake, particles: sfx.settings.particles, hitStop: sfx.settings.hitStop });
+    const frozen = this.feel.update(frameTime);
+    const o = this.feel.shake.offset();
+    this.container.position.set(o.x, o.y);
+    this.uiLayer.position.set(-o.x, -o.y);
+    this.updateStamp(frameTime);
+    if (frozen) { this.fxView.sync(x => this.sx(x)); return; }
 
     // Spawn safety: nothing follows the pointer (ship and camera alike) until the first move or press after the run started.
     if (!w.controlStarted && this.gate.observe(p, p.seen)) w.beginControl();
@@ -334,7 +370,12 @@ export class WallScreen implements Screen {
     w.update(dt, target);
     const fx = w.projSys.fx;
     this.sfxFeed.frame({ shots: w.gun.shots, chainJumps: fx.chainJumps, wellsMade: fx.wellsMade, bounces: fx.bounces + fx.edgeBounces });
-    for (const h of w.hits) this.sfxFeed.hit({ id: h.blockId, damage: h.damage, kind: h.kind, armor: h.armor, shield: h.shield, maxShield: h.maxShield }, false);
+    for (const h of w.hits) {
+      this.sfxFeed.hit({ id: h.blockId, damage: h.damage, kind: h.kind, armor: h.armor, shield: h.shield, maxShield: h.maxShield }, false);
+      if (h.kind === 0) this.feel.spark(h.x, h.y, 0xbfe9f5);
+      if (h.big) { this.feel.bigHit(); this.showBigHit(h.blockId, this.sx(h.x), h.y, h.damage); }
+    }
+    this.feelEvents();
     if (w.state !== 'playing' && !this.endSounded) { this.endSounded = true; sfx.play(w.state === 'crashed' ? 'crash' : 'cleared'); }
     // The background scrolls with the real wall speed (top-edge boost included); on a ring also sideways with the camera.
     if (this.bg) this.bg.update(frameTime, w.state === 'playing' ? w.scroll : 0, w.ring ? this.camera.unwrappedX : 0);
@@ -342,6 +383,7 @@ export class WallScreen implements Screen {
     // Credit popups: a small yellow +N each time the running total crosses a whole credit.
     for (const k of w.killEvents) {
       this.sfxFeed.kill();
+      this.feel.blockDestroyed(k.x, k.y, wallFillColor(k.maxHp), k.hard);
       this.popupTotal += k.reward;
       const whole = Math.floor(this.popupTotal + 1e-9);
       if (whole > this.shownCredits) {
@@ -360,6 +402,7 @@ export class WallScreen implements Screen {
       this.hint.visible = this.hintT > 0 && Math.floor(this.hintT / 0.15) % 2 === 0;
     }
 
+    this.fxView.sync(x => this.sx(x));
     this.drawBlocks();
     this.drawFogRim();
     this.drawProjectiles();
@@ -371,20 +414,83 @@ export class WallScreen implements Screen {
     for (const pu of this.popups) {
       if (pu.life <= 0) continue;
       pu.life -= frameTime;
-      pu.t.y -= 40 * frameTime;
-      pu.t.alpha = Math.max(0, pu.life / POPUP_LIFE);
+      pu.age += frameTime;
+      pu.t.y -= (pu.big ? FEEL.NUMBERS.BIG_RISE : 40) * frameTime;
+      pu.t.scale.set(pu.big ? popScale(pu.age, true) : 1);
+      pu.t.alpha = Math.max(0, pu.life / (pu.big ? FEEL.NUMBERS.BIG_LIFE : POPUP_LIFE));
       if (pu.life <= 0) pu.t.visible = false;
     }
 
     if (w.state !== 'playing' && !this.finished) {
       this.endTimer += frameTime;
-      const delay = w.state === 'crashed' ? RESULT_DELAY_CRASHED : w.state === 'cleared' ? RESULT_DELAY_CLEARED : RESULT_DELAY_PASSED;
+      const delay = w.state === 'crashed' ? RESULT_DELAY_CRASHED : w.state === 'cleared' ? RESULT_DELAY_CLEARED + FEEL.STAMP.CLEARED_EXTRA : RESULT_DELAY_PASSED + FEEL.STAMP.PASSED_EXTRA;
       if (this.endTimer >= delay) this.finish();
     }
   }
 
+  /** Per frame, after the world ran: the end of the wall (crash pieces, CLEARED / PASSED stamp), the muzzle flash and the AoE blasts. */
+  private feelEvents() {
+    const w = this.world;
+    if (w.state !== 'playing' && !this.shipBroken) {
+      this.shipBroken = true;
+      if (w.state === 'crashed') {
+        this.ship.container.visible = false;
+        this.feel.crash(w.shipX, w.shipY, [0xd4d4d8, 0x9a9aa2, 0x6b6b72, 0x3a3a40]);
+      } else this.startStamp(w.state === 'cleared');
+    }
+    if (w.gun.shots > this.prevShots && w.state === 'playing') this.feel.muzzle(w.shipX, w.shipY - 16, w.pulseRate, 0xe8f6ff);
+    this.prevShots = w.gun.shots;
+    const be = w.projSys.blastEvents;
+    for (const b of be) this.feel.aoe(b.x, b.y, b.r > 0 ? b.r : Math.max(b.w, b.h) / 2, 0xffb070, b.w, b.h);
+    be.length = 0;
+  }
+
+  /** A flash and the stamp word: CLEARED big and bright, PASSED quieter. */
+  private startStamp(cleared: boolean) {
+    this.stampText.text = cleared ? 'CLEARED' : 'PASSED';
+    this.stampText.style.fill = cleared ? THEME.good : THEME.textDim;
+    this.stampText.style.fontSize = cleared ? FEEL.STAMP.SIZE : FEEL.STAMP.SIZE * 0.7;
+    this.stampAge = 0;
+    this.stampFlash = cleared;
+    this.stamp.visible = true;
+  }
+
+  private stampAge = -1;
+  private stampFlash = false;
+
+  private updateStamp(frameTime: number) {
+    if (this.stampAge < 0) return;
+    this.stampAge += frameTime;
+    const t = Math.min(1, this.stampAge / FEEL.BANNER.SLIDE_TIME);
+    this.stamp.scale.set(1 + (FEEL.BANNER.PUNCH_SCALE * 1.6 - 1) * (1 - t) * (1 - t));
+    this.stamp.alpha = Math.min(1, this.stampAge / 0.08);
+    this.flashG.visible = this.stampFlash && this.stampAge < FEEL.STAMP.FLASH_TIME;
+    this.flashG.alpha = FEEL.STAMP.FLASH_ALPHA * Math.max(0, 1 - this.stampAge / FEEL.STAMP.FLASH_TIME);
+  }
+
+  /** A big hit's number: gold and large, merged per block. */
+  private showBigHit(key: number, x: number, y: number, dmg: number) {
+    const slot = this.popups.find(d => d.life > 0 && d.key === key) ?? this.popups.find(d => d.life <= 0) ?? this.popups[0];
+    const merged = slot.life > 0 && slot.key === key;
+    slot.key = key;
+    slot.value = merged ? slot.value + dmg : dmg;
+    slot.t.text = fmtBig(slot.value);
+    slot.t.style.fill = FEEL.NUMBERS.BIG_COLOR;
+    slot.t.style.fontSize = FEEL.NUMBERS.BIG_SIZE;
+    if (!merged) slot.t.position.set(x, y);
+    slot.t.alpha = 1;
+    slot.t.visible = true;
+    slot.life = FEEL.NUMBERS.BIG_LIFE;
+    slot.big = true;
+    slot.age = 0;
+  }
+
   private showPopup(x: number, y: number, text: string) {
     const slot = this.popups.find(d => d.life <= 0) ?? this.popups[0];
+    slot.key = -1;
+    slot.big = false;
+    slot.t.style.fill = THEME.currency;
+    slot.t.style.fontSize = 14;
     slot.t.text = text;
     slot.t.position.set(x, y);
     slot.t.alpha = 1;

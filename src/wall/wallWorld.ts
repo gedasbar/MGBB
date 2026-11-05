@@ -44,8 +44,9 @@ export interface Block extends EnemyEntity {
 }
 
 /** One hit on a block. `armor`, `shield` and `maxShield` are what the block has left AFTER the hit (the sound layer reads them). */
-export interface WallHitEvent { blockId: number; damage: number; x: number; y: number; kind: number; armor: number; shield: number; maxShield: number }
-export interface WallKillEvent { x: number; y: number; reward: number }
+export interface WallHitEvent { big: boolean; blockId: number; damage: number; x: number; y: number; kind: number; armor: number; shield: number; maxShield: number }
+/** `maxHp` and `hard` (armored, shielded or a spike wall) are for the screen's shards and shake only. */
+export interface WallKillEvent { x: number; y: number; reward: number; maxHp: number; hard: boolean }
 /** How a level ends: every block destroyed, the ship flew past the end of the wall, or the ship touched a live block. */
 export type WallState = 'playing' | 'cleared' | 'passed' | 'crashed';
 
@@ -298,6 +299,8 @@ export class WallWorld {
   autoFire = true;
   /** Pulse-rate multiplier of the hull being flown (the Dart is slow). */
   private fireRateMul = 1;
+  /** Generator pulses a second; the muzzle flash is skipped above a high rate (chunk 34a). */
+  get pulseRate(): number { return CONFIG.PULSE.BASE_RATE * this.fireRateMul; }
   /** Radius of the invisible hit circle: set by the hull's size class (SHIP_HIT_R for a small hull). */
   hitR = SHIP_HIT_R;
   private pulseTimer = 0;
@@ -376,7 +379,7 @@ export class WallWorld {
       if (kind !== HIT_BURN && kind !== HIT_CLOUD) { b.lastHit = this.time; b.flash = FLASH_TIME; }
       b.lastDamaged = this.time; // chunk 27b: any damage holds back Regrowth, a burn tick too
       b.revealed = true; // chunk 27b: a block that has been hit stays drawn in the Fog
-      this.hits.push({ blockId: b.id, damage: dmg, x, y, kind, armor: b.armor, shield: b.shield, maxShield: b.maxShield });
+      this.hits.push({ big: this.projSys.hitBig, blockId: b.id, damage: dmg, x, y, kind, armor: b.armor, shield: b.shield, maxShield: b.maxShield });
       if (b.hp <= 0) this.destroyBlock(b);
     };
   }
@@ -511,7 +514,7 @@ export class WallWorld {
     if (b.row === this.lowRow && this.rowAlive[b.row] === 0) this.lowRow = this.findLowRow(b.row);
     const reward = (this.level.campaign ? campaignRewardPerBlock(this.level.tier) : rewardPerBlock(this.level.tier)) * (this.level.rewardMul ?? 1) * b.share * this.mods.creditMul * this.mods.wallCreditMul;
     this.creditsExact += reward;
-    this.killEvents.push({ x: b.x, y: b.y, reward });
+    this.killEvents.push({ x: b.x, y: b.y, reward, maxHp: b.maxHp, hard: b.armor > 0 || (b.armor0 ?? 0) > 0 || b.maxShield > 0 || !!this.level.spike });
   }
 
   /**

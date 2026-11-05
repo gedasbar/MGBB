@@ -3,6 +3,10 @@ import { CONFIG, shipHalfW } from '../config';
 import { ShipSteer } from '../engine/steer';
 import { backgroundsOn, damageNumbersOn, touchGain, touchMode } from '../ui/touchMode';
 import { World } from '../game/world';
+import { FeelHub } from '../fx/hub';
+import { FxView } from '../fx/fxView';
+import { bannerPunch, mergeNumber, popScale, NumSlot } from '../fx/feel';
+import { FEEL } from '../data/feel';
 import { specialKind } from '../data/waves';
 import type { StatsInfo } from '../ui/stats';
 import { clientToGame, PointerState } from '../input';
@@ -76,7 +80,13 @@ const HULL_BAR_EMPTY = 0x3a3a3e;
 const HUD_ROW = { hull: 40, money: 60, wave: 82, kills: 102, bottom: 124 } as const;
 const HUD_ICON = 14;
 
-interface DmgNum { t: Text; life: number; }
+interface DmgNum extends NumSlot { t: Text }
+/** Chunk 34a: the shards of a crashing ship (its four greys) and the muzzle flash colour. */
+const SHIP_SHARD_COLORS = [0xd4d4d8, 0x9a9aa2, 0x6b6b72, 0x3a3a40];
+const MUZZLE_COLOR = 0xe8f6ff;
+const SPARK_COLOR = 0xbfe9f5;
+/** Boss death shards: bone, ember and the teal of the Core crystals. */
+const BOSS_DEATH_COLORS = [0xd4d4d8, 0xff9a3c, 0xffd23c, 0x3fd0c0];
 
 export class FlyScreen implements Screen {
   container = new Container();
@@ -110,6 +120,12 @@ export class FlyScreen implements Screen {
   private fragLayer = new Container();
   flash = new Map<number, number>();
   dmgNums: DmgNum[] = [];
+  /** Chunk 34a: the feel pass (shake, hit stop, particles, rings) and its drawing. */
+  readonly feel = new FeelHub();
+  private fxView!: FxView;
+  private prevHull = 0;
+  private prevShots = 0;
+  private shipBroken = false;
   
   creditsText = makeText('0', 16, THEME.currency, { fontWeight: 'bold' });
   /** Not drawn since chunk 32d (the HUD box no longer shows the tier); kept for the stats overlay's source and the dev hook. */
@@ -212,6 +228,9 @@ export class FlyScreen implements Screen {
     this.fxLayer.addChild(this.bulletSprites.container);
     this.crystalSprites = new CrystalSprites(this.world.crystals.cap, crystalTexture(this.screenManager.app));
     this.fxLayer.addChild(this.crystalSprites.container);
+    this.fxView = new FxView(this.feel, this.screenManager.app);
+    this.fxLayer.addChild(this.fxView.container);
+    this.prevHull = this.world.hull;
     if (this.bgForced !== 'off') {
       this.bg = new BackgroundView(this.screenManager.app.renderer, this.bgForced ?? (fr?.spike ? 'ember' : freeFlyThemeAt(0)));
       this.container.addChildAt(this.bg.container, 0);
@@ -238,7 +257,7 @@ export class FlyScreen implements Screen {
       t.anchor.set(0.5);
       t.visible = false;
       this.fxLayer.addChild(t);
-      this.dmgNums.push({ t, life: 0 });
+      this.dmgNums.push({ t, life: 0, key: -1, value: 0, age: 0, big: false, used: false });
     }
 
     // Credits and Cores share one line, each with its own icon; Wave and Kills follow (no Tier line since chunk 32d).
@@ -287,6 +306,7 @@ export class FlyScreen implements Screen {
     if (DEBUG_ON) {
       (window as any).__mgbm = {
         state: () => ({
+          feel: this.feelState(),
           shipX: this.world.shipX, shipY: this.world.shipY, viewW: CONFIG.VIEW.W,
           controlStarted: this.world.controlStarted, invuln: this.world.invuln,
           knockX: this.world.knockX, knockY: this.world.knockY,
@@ -318,6 +338,38 @@ export class FlyScreen implements Screen {
     }
   }
 
+  /** Dev hook: the feel pass's numbers (chunk 34a). */
+  private feelState() {
+    const f = this.feel;
+    return { trauma: f.shake.trauma, particles: f.particles.count, particleMode: f.particles.mode, rings: f.rings.list.length, stopLeft: f.stop.left, drawn: this.fxView.visibleCount, autoDropped: f.autoDropped, pendingBlasts: f.pendingBlasts };
+  }
+
+  /** The shake: the whole picture moves by the offset, the HUD moves back so it stays still. */
+  private applyShake() {
+    const o = this.feel.shake.offset();
+    this.container.position.set(o.x, o.y);
+    // The HUD sits below the stats overlay while it is on.
+    this.uiLayer.position.set(-o.x, this.screenManager.stats.hudOffset - o.y);
+  }
+
+  /** Per frame, after the world ran: things the world only shows as state (a hurt ship, a crash, a boss, a pulse, an AoE blast). */
+  private feelEvents(frameTime: number) {
+    const w = this.world;
+    if (w.hull < this.prevHull) this.feel.playerHit();
+    this.prevHull = w.hull;
+    if (w.gameOver && !w.survived && !this.shipBroken) {
+      this.shipBroken = true;
+      this.ship.container.visible = false;
+      this.feel.crash(w.shipX, w.shipY, SHIP_SHARD_COLORS);
+    }
+    if (w.boss) this.feel.bossHp(w.boss.hp, w.boss.maxHp, frameTime); else this.feel.bossGone();
+    if (w.gun.shots > this.prevShots && !w.gameOver) this.feel.muzzle(w.shipX, w.shipY - 16, w.pulseRate, MUZZLE_COLOR);
+    this.prevShots = w.gun.shots;
+    const be = w.projSys.blastEvents;
+    for (const b of be) this.feel.aoe(b.x, b.y, b.r > 0 ? b.r : Math.max(b.w, b.h) / 2, 0xffb070, b.w, b.h);
+    be.length = 0;
+  }
+
   /** Shows the themed banner with a title, a line and a colour (themes, boss moments). */
   private showThemeBanner(title: string, sub: string, color: number) {
     this.themeTitle.text = title;
@@ -345,6 +397,7 @@ export class FlyScreen implements Screen {
     let fx = 0;
     for (const p of this.fragPools.values()) fx += p.live;
     for (const d of this.dmgNums) if (d.life > 0) fx++;
+    fx += this.feel.particles.count;
     o.name = 'FREE FLY';
     o.proj = w.pool.count;
     o.projCap = w.pool.max;
@@ -362,24 +415,53 @@ export class FlyScreen implements Screen {
     return p;
   }
 
-  showDamage(x: number, y: number, dmg: number) {
+  /** A hit's number: merges into the number already showing for the same target (`key`), and a big hit is larger and gold. */
+  showDamage(x: number, y: number, dmg: number, key = -1, big = false) {
     if (!damageNumbersOn()) return; // chunk 28b: Settings > Graphics > Damage numbers
-    this.showNumber(x, y, fmtDamage(dmg), 0xffffff, 18);
+    if (key >= 0) {
+      const m = mergeNumber(this.dmgNums, key, dmg, big);
+      if (m) { this.styleNumber(m as DmgNum); return; }
+    }
+    const slot = this.showNumber(x, y, fmtDamage(dmg), 0xffffff, FEEL.NUMBERS.SIZE);
+    slot.key = key;
+    slot.value = dmg;
+    slot.big = big;
+    slot.life = big ? FEEL.NUMBERS.BIG_LIFE : FEEL.NUMBERS.LIFE;
+    this.styleNumber(slot);
   }
 
-  /** Floating number from the shared pool: white damage numbers and small yellow "+N" credit popups. */
-  showNumber(x: number, y: number, text: string, color: number, size: number) {
+  private styleNumber(d: DmgNum) {
+    d.t.text = fmtDamage(d.value);
+    d.t.style.fill = d.big ? FEEL.NUMBERS.BIG_COLOR : 0xffffff;
+    d.t.style.fontSize = d.big ? FEEL.NUMBERS.BIG_SIZE : FEEL.NUMBERS.SIZE;
+    d.t.alpha = 1;
+    d.t.visible = true;
+  }
+
+  /** Floating number from the shared pool: white damage numbers and small yellow "+N" credit popups. Returns the slot used. */
+  showNumber(x: number, y: number, text: string, color: number, size: number): DmgNum {
     const slot = this.dmgNums.find(d => d.life <= 0) ?? this.dmgNums[0];
     slot.t.text = text;
     slot.t.style.fill = color;
     slot.t.style.fontSize = size;
     slot.t.position.set(x + (Math.random() - 0.5) * 12, y - 10);
     slot.t.alpha = 1;
+    slot.t.scale.set(1);
     slot.t.visible = true;
     slot.life = DMG_NUMBER_LIFE;
+    slot.used = true;
+    slot.key = -1;
+    slot.age = 0;
+    slot.big = false;
+    return slot;
   }
 
   update(dt: number, frameTime: number, now: number) {
+    // Chunk 34a: the feel pass first. A hit stop freezes the simulation for a few frames; the shake and the particles carry on.
+    this.feel.applySettings({ shake: sfx.settings.shake, particles: sfx.settings.particles, hitStop: sfx.settings.hitStop });
+    const frozen = this.feel.update(frameTime);
+    this.applyShake();
+    if (frozen) { this.fxView.sync(); return; }
     const pointer = this.screenManager.input.pointer;
     // Spawn safety: the ship waits where it starts until the player's first pointer move or press.
     if (!this.world.controlStarted && this.gate.observe(pointer, pointer.seen)) this.world.beginControl();
@@ -414,12 +496,17 @@ export class FlyScreen implements Screen {
         continue;
       }
       this.flash.set(h.enemyId, FLASH_TIME);
-      this.showDamage(h.x, h.y, h.damage);
+      this.feel.spark(h.x, h.y, SPARK_COLOR);
+      if (h.big) this.feel.bigHit();
+      this.showDamage(h.x, h.y, h.damage, h.enemyId, h.big);
     }
     this.world.hits.length = 0;
+    this.feelEvents(frameTime);
 
     for (const k of this.world.killEvents) {
       this.sfxFeed.kill(k.generation);
+      const art = enemyArt(k.defId).shades;
+      this.feel.rockKilled(k.x, k.y, k.radius, [art.edge, art.mid, art.inner], false);
       this.popupTotal += k.reward;
       const whole = Math.floor(this.popupTotal + 1e-9);
       if (whole > this.shownCredits) {
@@ -453,6 +540,7 @@ export class FlyScreen implements Screen {
       this.bannerSub.text = ev.skipped ? 'SKIPPED' : [ev.boss ? 'BOSS' : kind === 'swarm' ? 'SWARM' : kind === 'mothers' ? 'MOTHERS' : '', ev.bonus > 0 ? `+${fmtBig(ev.bonus)} credits` : ''].filter(Boolean).join('  ');
       this.bannerSub.style.fill = ev.bonus > 0 && !ev.skipped ? THEME.currency : THEME.textDim;
       this.bannerT = BANNER_TIME;
+      if (ev.boss) this.feel.bossArrival();
       if (ev.boss) this.showThemeBanner(BOSS_BY_ID[ev.boss].name, BOSS_BY_ID[ev.boss].line, THEME_BANNER_COLOR);
       if (ev.theme) {
         const th = THEME_BY_ID[ev.theme];
@@ -474,8 +562,9 @@ export class FlyScreen implements Screen {
     }
     this.world.waveEvents.length = 0;
     for (const ev of this.world.bossEvents) {
-      if (ev.kind === 'enrage') { sfx.play('wave'); this.showThemeBanner('ENRAGED', `${ev.name} attacks faster and sinks`, BOSS_ENRAGE_COLOR); }
+      if (ev.kind === 'enrage') { this.feel.bossEnrage(); sfx.play('wave'); this.showThemeBanner('ENRAGED', `${ev.name} attacks faster and sinks`, BOSS_ENRAGE_COLOR); }
       else {
+        this.feel.bossDeath(ev.x, ev.y, 140, 90, BOSS_DEATH_COLORS);
         sfx.play('medal');
         this.showThemeBanner(`${ev.name} DEFEATED`, `+${fmtBig(Math.round(ev.cores))} ${CURRENCY_CORES_NAME}  +${fmtBig(Math.round(ev.credits))} credits${ev.noHit ? '  NO HIT' : ''}`, THEME.good);
       }
@@ -498,25 +587,32 @@ export class FlyScreen implements Screen {
       this.themeT -= frameTime;
       this.themeBanner.visible = this.themeT > 0;
       this.themeBanner.alpha = Math.min(1, Math.max(0, this.themeT) / BANNER_FADE);
+      const pt = bannerPunch(BANNER_TIME - this.themeT);
+      this.themeBanner.position.y = THEME_BANNER_Y + pt.dy;
+      this.themeBanner.scale.set(pt.scale);
     }
     if (this.bannerT > 0) {
       this.bannerT -= frameTime;
       this.banner.visible = this.bannerT > 0;
       this.banner.alpha = Math.min(1, Math.max(0, this.bannerT) / BANNER_FADE);
+      const pb = bannerPunch(BANNER_TIME - this.bannerT);
+      this.banner.position.y = BANNER_Y + pb.dy;
+      this.banner.scale.set(pb.scale);
     }
 
     // A rock splitting throws 2 to 4 fragments (the children already exist as normal rocks).
     if (this.world.splits.length > 0) this.sfxFeed.split(); // one crack a frame however many rocks split
-    for (const s of this.world.splits) this.fragPool(s.defId).emit(s.x, s.y, s.radius, s.parentId, enemyArt(s.defId));
+    for (const s of this.world.splits) {
+      this.fragPool(s.defId).emit(s.x, s.y, s.radius, s.parentId, enemyArt(s.defId));
+      if (s.parentId >= 0) { const art = enemyArt(s.defId).shades; this.feel.rockKilled(s.x, s.y, s.radius, [art.edge, art.mid], true); }
+    }
     this.world.splits.length = 0;
     for (const p of this.fragPools.values()) p.update(frameTime);
 
+    this.fxView.sync();
     this.ship.setPosition(this.world.shipX, this.world.shipY);
     this.ship.setAlpha(this.world.invuln > 0 ? (Math.floor(now / 100) % 2 === 0 ? 0.4 : 1) : 1);
     this.hullBarFg.width = Math.max(0, (this.world.hull / this.world.maxHull) * 100);
-    // The HUD sits below the stats overlay while it is on.
-    const hudDy = this.screenManager.stats.hudOffset;
-    if (this.uiLayer.y !== hudDy) this.uiLayer.y = hudDy;
 
     this.shots.trailMode = sfx.settings.trails; // chunk 28b: Settings > Graphics > Trails, read every frame
     this.shots.sync(this.world.pool);
@@ -567,9 +663,11 @@ export class FlyScreen implements Screen {
     for (const d of this.dmgNums) {
       if (d.life <= 0) continue;
       d.life -= frameTime;
-      d.t.y -= 40 * frameTime;
-      d.t.alpha = Math.max(0, d.life / DMG_NUMBER_LIFE);
-      if (d.life <= 0) d.t.visible = false;
+      d.age += frameTime;
+      d.t.y -= (d.big ? FEEL.NUMBERS.BIG_RISE : FEEL.NUMBERS.RISE) * frameTime;
+      d.t.scale.set(d.key >= 0 ? popScale(d.age, d.big) : 1);
+      d.t.alpha = Math.max(0, d.life / (d.big ? FEEL.NUMBERS.BIG_LIFE : d.key >= 0 ? FEEL.NUMBERS.LIFE : DMG_NUMBER_LIFE));
+      if (d.life <= 0) { d.t.visible = false; d.used = false; }
     }
     if (this.world.gameOver && !this.finished) {
       this.endTimer += frameTime;

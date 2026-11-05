@@ -1,3 +1,4 @@
+import { ParticleMode, PARTICLE_MODES, ShakeMode, SHAKE_MODES } from '../data/feel';
 export type WeaponSound = 'off' | 'soft' | 'normal';
 export const WEAPON_SOUNDS: readonly WeaponSound[] = ['off', 'soft', 'normal'];
 export const MAX_SOUND_MULT = 3;
@@ -44,6 +45,10 @@ export interface Settings {
   trails: TrailMode;
   backgrounds: boolean;
   damageNumbers: boolean;
+  /** Chunk 34a: Graphics. Screen shake Off / Low / Normal, particles Low / High, hit stop On / Off. */
+  shake: ShakeMode;
+  particles: ParticleMode;
+  hitStop: boolean;
   /** Chunk 28b: Controls. Relative touch control moves the ship by the finger's movement x touchGain. */
   touchGain: number;
   /** Chunk 28b: Customization: the projectile skin ('auto' = the look follows damage, a damage-band look id, or an achievement skin id) and the trail style. */
@@ -71,6 +76,9 @@ export const DEFAULT_SETTINGS: Settings = {
   trails: 'short',
   backgrounds: true,
   damageNumbers: true,
+  shake: 'normal',
+  particles: 'high',
+  hitStop: true,
   touchGain: 1,
   shotSkin: SKIN_AUTO,
   trailStyle: TRAIL_STYLE_DEFAULT,
@@ -106,6 +114,9 @@ export function migrateSettings(raw: unknown): Settings {
   s.trails = TRAIL_MODES.includes(r.trails as TrailMode) ? (r.trails as TrailMode) : d.trails;
   s.backgrounds = typeof r.backgrounds === 'boolean' ? r.backgrounds : d.backgrounds;
   s.damageNumbers = typeof r.damageNumbers === 'boolean' ? r.damageNumbers : d.damageNumbers;
+  s.shake = SHAKE_MODES.includes(r.shake as ShakeMode) ? (r.shake as ShakeMode) : d.shake;
+  s.particles = PARTICLE_MODES.includes(r.particles as ParticleMode) ? (r.particles as ParticleMode) : d.particles;
+  s.hitStop = typeof r.hitStop === 'boolean' ? r.hitStop : d.hitStop;
   s.showCompleted = r.showCompleted === true;
   s.touchGain = typeof r.touchGain === 'number' && isFinite(r.touchGain) ? Math.max(TOUCH_GAIN_MIN, Math.min(TOUCH_GAIN_MAX, snap(r.touchGain, TOUCH_GAIN_STEP))) : d.touchGain;
   s.shotSkin = typeof r.shotSkin === 'string' && r.shotSkin.length > 0 && r.shotSkin.length <= 40 ? r.shotSkin : d.shotSkin;

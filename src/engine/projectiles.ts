@@ -17,6 +17,7 @@ import {
 } from './effects';
 import { RING } from './pools';
 import { CONFIG } from '../config';
+import { FEEL } from '../data/feel';
 import { TRIGGERS, triggerCarried, triggerDue } from './triggers';
 import { CELL } from '../wall/constants';
 import { wrapDx } from './wrap';
@@ -318,6 +319,11 @@ export class ProjectileSystem {
 
   /** Optional hook fired once per enemy damaged (used for hit flash / damage numbers). */
   onHit: HitCallback | null = null;
+  /** Chunk 34a (visual only): true while onHit runs for a hit that killed its target with at least BIG_HIT_MUL x the target's max HP in one shot. */
+  hitBig = false;
+  /** Chunk 34a (visual only): AoE blasts since the screen last emptied this list (a circle of r, or a w x h rectangle centred on x, y). At most BLAST_QUEUE are kept. */
+  readonly blastEvents: { x: number; y: number; r: number; w: number; h: number }[] = [];
+
 
   /** Chunk 22a: what the owned skill nodes change (set by the world; read here and by the Gun). */
   skills: SkillEffects = NO_SKILLS;
@@ -820,11 +826,13 @@ export class ProjectileSystem {
         if (aoeMod) {
           const radius = (aoeMod.radius || aoeCircleRadius(aoeMod.level ?? 1)) * stackGrowth(this.stk.aoeCircle);
           field.collectCircle(px, py, radius, blast);
+          this.noteBlast(px, py, radius, 0, 0);
           this.blastOthers(blast, target, blastDamage * aoeFactor, pure, tier, armorPierce, isShieldBreaker, mi);
         } else {
           // A block of wall cells centred on the hit block, reaching behind it (aoeRectCells).
           const { cols, rows } = aoeRectCells(this.stk.aoeRect);
           field.collectArea(target, cols, rows, blast);
+          this.noteBlast(target.x, target.y - ((rows - 1) * CELL) / 2, 0, cols * CELL, rows * CELL);
           this.blastOthers(blast, target, blastDamage * aoeFactor, pure, tier, armorPierce, isShieldBreaker, mi);
         }
       }
@@ -1039,6 +1047,10 @@ export class ProjectileSystem {
    * One target takes one hit: Executioner and frozen bonuses, armor/shield maths (applyDamage), the hit callback, then the
    * statuses of the projectile (Ignite, Frostbite, Corrosion). Every damage source of the pipeline goes through here.
    */
+  private noteBlast(x: number, y: number, r: number, w: number, h: number) {
+    if (this.blastEvents.length < FEEL.BLAST_QUEUE) this.blastEvents.push({ x, y, r, w, h });
+  }
+
   private strike(
     t: EnemyEntity, dmg: number, pure: number, tier: number, armorPierce: number, shieldBreaker: number | boolean,
     mi: EffectLevels,
@@ -1068,7 +1080,9 @@ export class ProjectileSystem {
     }
     const res = applyDamage(t, d, pure, tier, armorPierce, shieldBreaker);
     this.noteDamage(d);
+    this.hitBig = res.killed && kind === HIT_NORMAL && t.maxHp > 0 && d >= FEEL.BIG_HIT_MUL * t.maxHp;
     if (this.onHit) this.onHit(t, res.hpDamage, x, y, kind);
+    this.hitBig = false;
     this.afterHit(t, res.killed, d, mi, kind);
     if (t.hp > 0) {
       if (mi.ignite) this.ignite(t, d * igniteFrac(mi.ignite));
