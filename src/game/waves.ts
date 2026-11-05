@@ -146,26 +146,38 @@ export class WaveDirector {
   held = 0;
   /** Chunk 32b: true during a boss wave: the clock does not start the next wave until `releaseBoss` (the boss died). */
   holding = false;
+  /** Chunk 32c: waves skipped by the last `update` call (a Wave Skipper chunk; cleared at the start of each call). */
+  skipped: number[] = [];
 
-  constructor(readonly seed: number) {}
+  /**
+   * @param waveTime seconds a wave lasts (WAVE_TIME; the Faster / Longer Waves chunks change it)
+   * @param skipChance chance a normal wave is skipped (Wave Skipper): its wave number comes and the next wave starts at once, nothing is sent
+   */
+  constructor(readonly seed: number, readonly waveTime: number = WAVE_TIME, readonly skipChance: number = 0) {}
 
   /** Dev: start the run at wave `wave` (its spawns begin on the next update; earlier waves are skipped, not caught up). */
   jumpTo(wave: number) {
     if (wave <= 1) return;
     this.wave = wave - 1;
-    this.start = (wave - 2) * WAVE_TIME;
+    this.start = (wave - 2) * this.waveTime;
     this.queue = [];
     this.next = 0;
     this.holding = false;
   }
 
+  /** True when `wave` is skipped: never wave 1, never a boss wave; otherwise a fixed pseudo-random draw per (seed, wave) below `skipChance`. */
+  skipsWave(wave: number): boolean {
+    if (!(this.skipChance > 0) || wave <= 1 || isBossWave(wave)) return false;
+    return waveRng(this.seed ^ 0x5b1b, wave).next() < this.skipChance;
+  }
+
   /** Seconds left until the next wave starts (a boss wave has no timer: it ends when the boss dies). */
-  timeToNext(time: number): number { return this.holding ? 0 : Math.max(0, this.start + WAVE_TIME - time); }
+  timeToNext(time: number): number { return this.holding ? 0 : Math.max(0, this.start + this.waveTime - time); }
 
   /** The boss of the current wave died at `time`: the next wave starts BOSS_BREATHER seconds later. */
   releaseBoss(time: number) {
     this.holding = false;
-    this.start = time + BOSS_BREATHER - WAVE_TIME;
+    this.start = time + BOSS_BREATHER - this.waveTime;
   }
 
   /**
@@ -174,11 +186,20 @@ export class WaveDirector {
    */
   update(time: number, alive: number, out: PlannedSpawn[]): number {
     let started = 0;
-    while (!this.holding && time >= (this.wave === 0 ? 0 : this.start + WAVE_TIME)) {
+    this.skipped.length = 0;
+    while (!this.holding && time >= (this.wave === 0 ? 0 : this.start + this.waveTime)) {
       // Spawns of the old wave not yet out (held back) are carried into the new one at its start (not into a boss wave).
       const rest = this.queue.slice(this.next).map(s => ({ ...s, at: 0 }));
-      this.start = this.wave === 0 ? 0 : this.start + WAVE_TIME;
+      this.start = this.wave === 0 ? 0 : this.start + this.waveTime;
       this.wave++;
+      if (this.skipsWave(this.wave)) {
+        // Skipped (chunk 32c): no spawns, no pay; the clock moves on, so the next wave starts on the next loop turn.
+        this.skipped.push(this.wave);
+        this.start -= this.waveTime; // the wave took no time: the next one starts where this one would have
+        this.queue = [...rest];
+        this.next = 0;
+        continue;
+      }
       started = this.wave;
       this.queue = isBossWave(this.wave) ? [] : [...rest, ...planWave(this.seed, this.wave)];
       this.next = 0;

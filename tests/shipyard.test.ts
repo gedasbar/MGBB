@@ -75,9 +75,9 @@ describe('chunk data', () => {
     for (const c of CHUNKS) expect(validateChunk(c), c.id).toEqual([]);
   });
 
-  it('the starting set is all there: 5 plain, 3 guns, 5 traits, and no Generator chunk (31c)', () => {
+  it('the starting set is all there: 5 plain, 3 guns, 10 traits (5 of them Free Fly traits, 32c), and no Generator chunk (31c)', () => {
     const kinds = (k: string) => CHUNKS.filter(c => c.kind === k).length;
-    expect([kinds('plain'), kinds('gun'), kinds('trait')]).toEqual([5, 3, 5]);
+    expect([kinds('plain'), kinds('gun'), kinds('trait')]).toEqual([5, 3, 10]);
     expect(CHUNK_BY_ID.generator).toBeUndefined();
     expect(CHUNKS.some(c => c.rows.join('').includes('G'))).toBe(false);
     expect(CHUNK_BY_ID.ring.rows.join('').split('_').length - 1).toBe(8);

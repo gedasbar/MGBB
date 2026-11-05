@@ -31,6 +31,25 @@ export interface ChunkEffect {
   cores?: number;
   /** Shot speed change as a fraction (0.2 = +20%). */
   shotSpeed?: number;
+  // ---- Free Fly trait effects (chunk 32c). They act in normal Free Fly only: walls and Frontier squares ignore them (see shipyard/flyTraits.ts).
+  /** Waves come this much sooner (0.2 = each wave lasts x0.8). */
+  waveSpeed?: number;
+  /** Enemy HP change as a fraction (0.1 = +10%); bosses are not touched (they have `bossHp`). */
+  enemyHp?: number;
+  /** Waves last this much longer (0.3 = x1.3). */
+  waveLength?: number;
+  /** Cores paid when a wave starts, as a fraction (-0.1 = x0.9). */
+  wavePay?: number;
+  /** Chance a normal wave is skipped (0.1 = 10%); a skipped wave pays nothing, a boss wave is never skipped. */
+  waveSkip?: number;
+  /** Hull healed per second as a fraction of the max HP, while not hit for REPAIR_IDLE_SECONDS. */
+  repair?: number;
+  /** Damage change in Free Fly only (-0.15 = x0.85). */
+  flyDamage?: number;
+  /** Cores a boss pays, as a fraction (0.5 = +50%). */
+  bossCores?: number;
+  /** Boss HP change as a fraction (0.25 = +25%). */
+  bossHp?: number;
 }
 
 export interface ChunkDef {
@@ -86,6 +105,18 @@ export const CHUNKS: readonly ChunkDef[] = [
     rows: ['._.', '._.', '...'], effect: { pulses: 0.5 } },
   { id: 'extra_life', name: 'Extra Life', kind: 'trait', basePrice: 3000, growth: GROWTH_TRAIT, text: 'One crash forgiven per run.',
     rows: ['._.', '...', '...'], effect: { lives: 1 } },
+
+  // ---- Free Fly traits (chunk 32c): an upside AND a downside, Free Fly only (walls and the Frontier ignore them)
+  { id: 'longer_waves', name: 'Longer Waves', kind: 'trait', basePrice: 900, growth: GROWTH_TRAIT, text: 'Free Fly only: waves last 30% longer, but pay -10% Cores.',
+    rows: ['__.', '_..', '...'], effect: { waveLength: 0.3, wavePay: -0.1 } },
+  { id: 'boss_bounty', name: 'Boss Bounty', kind: 'trait', basePrice: 1400, growth: GROWTH_TRAIT, text: 'Free Fly only: bosses pay +50% Cores, but have +25% HP.',
+    rows: ['___', '.._', '...'], effect: { bossCores: 0.5, bossHp: 0.25 } },
+  { id: 'faster_waves', name: 'Faster Waves', kind: 'trait', basePrice: 2000, growth: GROWTH_TRAIT, text: 'Free Fly only: waves come 20% sooner, but enemies have +10% HP.',
+    rows: ['_..', '...', '...'], effect: { waveSpeed: 0.2, enemyHp: 0.1 } },
+  { id: 'wave_skipper', name: 'Wave Skipper', kind: 'trait', basePrice: 2200, growth: GROWTH_TRAIT, text: 'Free Fly only: 10% of normal waves are skipped, and a skipped wave pays nothing.',
+    rows: ['_..', '_..', '...'], effect: { waveSkip: 0.1 } },
+  { id: 'repair_bay', name: 'Repair Bay', kind: 'trait', basePrice: 2800, growth: GROWTH_TRAIT, text: 'Free Fly only: heals 2% hull a second when not hit for 2 s, but -15% damage.',
+    rows: ['__.', '.__', '...'], effect: { repair: 0.02, flyDamage: -0.15 } },
 ];
 
 /** Chunk ids removed in chunk 31d (duplicates). Owned copies are refunded in Cores and leave saved designs (econ/migrate.ts). */

@@ -82,3 +82,19 @@ Pure parts: `editor.ts`, `cellMode.ts`, `viewLogic.ts`. Tests: `tests/shipyardSc
 Tests: `tests/shipyard.test.ts` (rules, rotation, migration), `tests/shipyardScreen.test.ts` (editor, geometry), `tests/sandbox.test.ts` (isolation), `tests/hulls.test.ts` (official hulls under the looser validator), `e2e/shipyard.e2e.cjs`; sheet `e2e/sheet-chunk31c.cjs` (`reports/chunk31c/`).
 
 Follow-up (31c, after review): no red path line in the Shipyard grid (cell mode too); a first tap on a slot only selects it, a tap on the selected slot opens / closes the palette; the builder's bottom tab bar is shown; "Use this ship" became a smaller "Select" button in the design row beside the name box; the generator moved to column 2 of 12 (middle of the first bottom chunk), so a Front Gun or Corridor straight over it fires with no block.
+
+## 9. Chunk 32c: Free Fly trait chunks
+
+Five trait chunks (`src/data/shipChunks.ts`, 18 chunks in all), each with an upside and a downside. **They act in normal Free Fly only**: walls and Frontier squares ignore them (a Frontier encounter reads neutral values; the wall world never reads them), and every chunk text starts "Free Fly only:".
+
+| Chunk (cells, price) | Upside | Downside |
+|---|---|---|
+| Faster Waves (1, 2,000) | waves come 20% sooner (a wave lasts x0.8) | enemies +10% HP |
+| Longer Waves (3, 900) | waves last 30% longer (x1.3) | -10% Cores from each wave start |
+| Wave Skipper (2, 2,200) | 10% of normal waves are skipped | a skipped wave pays nothing (no Cores, no credits bonus) |
+| Repair Bay (4, 2,800) | heals 2% of the max hull a second while not hit for 2 s | -15% damage (Free Fly only) |
+| Boss Bounty (4, 1,400) | bosses pay +50% Cores | bosses have +25% HP |
+
+**Stacking, per copy:** the wave time multiplies (0.8 per Faster, 1.3 per Longer, floor `WAVE_TIME_MIN_MUL` 0.25); enemy HP, boss HP, wave pay and Free Fly damage multiply; the skip chance adds (cap `WAVE_SKIP_MAX` 0.6), the heal rate adds, the boss Cores bonus adds. **Code:** `src/shipyard/flyTraits.ts` (`flyTraitsOf`, `NEUTRAL_FLY`, pure) -> `DesignStats.fly` -> `CustomHullInfo.fly` -> `RunModifiers.fly` (`applyHullTraits`) -> `World.flyT` (neutral when the run is a Frontier encounter). The wave director takes the wave time and the skip chance (`WaveDirector(seed, waveTime, skipChance)`); a skipped wave takes no time (the next starts where it would have), is never wave 1 or a boss wave, and is a fixed draw per (seed, wave); the world reports it as a wave event with `skipped: true` (banner "SKIPPED"). Repair Bay counts a lost hull point or a spent Second Chance as a hit.
+
+Prices (traits, growth 2.0, `scripts/shipyard-model.ts`, output in `reports/chunk32c/shipyard-model.txt`): the first copies cost 1.1 to 3.4 hours of a good Free Fly hour; a full 16-slot ship with the five Free Fly traits costs 13,809 Cores, 16.8 hours at a good hour (the earlier reference ship with four older traits: 18.1 h). The whole shop x3 grows from 71,885 to 136,985 Cores (five more chunks x3). Tests: `tests/flyTraits.test.ts`.

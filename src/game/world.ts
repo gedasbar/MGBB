@@ -25,6 +25,8 @@ import type { MitosisEnemy } from '../engine/mitosis';
 import { neutralModifiers, RunModifiers } from '../captains/modifiers';
 import { applyHullTraits } from '../shipyard/registry';
 import { encounterCores, waveStartCores } from '../shipyard/cores';
+import { REPAIR_IDLE_SECONDS } from '../shipyard/constants';
+import { FlyTraits, NEUTRAL_FLY } from '../shipyard/flyTraits';
 import { EnemyBullets } from '../engine/enemyBullets';
 import { ENEMY_BULLET_DAMAGE, ENEMY_BULLET_INVULN, ENEMY_BULLET_SPEED } from '../data/enemyBullets';
 import { burstVelocities, gunStep, GunState, newGunState, nearestWithin } from './support';
@@ -95,6 +97,10 @@ export class World {
   readonly maxHull: number;
   /** The active captain's effects for this run (neutral when none was given). */
   readonly mods: RunModifiers;
+  /** Chunk 32c: the Free Fly trait chunks in force (neutral in a Frontier encounter: they act in normal Free Fly only). */
+  readonly flyT: FlyTraits;
+  /** Time of the last hull loss or spent Second Chance (Repair Bay waits REPAIR_IDLE_SECONDS after it). */
+  private lastHurtT = -Infinity;
   /** Second Chance charges left: the next enemy contact deals no damage. */
   secondChancesLeft = 0;
   invuln = 0;
@@ -144,7 +150,7 @@ export class World {
     return Math.floor(exact + 1e-9);
   }
   /** Waves that started during the last update() calls (the screen shows a banner); consumers clear it. */
-  waveEvents: { wave: number; bonus: number; theme: ThemeId | null; cores: number; boss: BossId | null }[] = [];
+  waveEvents: { wave: number; bonus: number; theme: ThemeId | null; cores: number; boss: BossId | null; skipped?: boolean }[] = [];
   private kicks = new Map<number, { vx: number; vy: number }>();
   /** Per body: constant sideways speed (a Drifter's slide, a Darter's aim), signed; flipped with the sway at a side. */
   private baseVx = new Map<number, number>();
@@ -173,6 +179,7 @@ export class World {
   constructor(opts: { grid?: Grid; autoSpawn?: boolean; safeStart?: boolean; seed?: number; startWave?: number; modifiers?: RunModifiers; encounter?: World['encounter'] } = {}) {
     this.mods = applyHullTraits(opts.modifiers ?? neutralModifiers(), opts.grid?.hullId);
     this.encounter = opts.encounter ?? null;
+    this.flyT = this.encounter ? NEUTRAL_FLY : this.mods.fly;
     this.maxHull = BASE_HULL * this.mods.hullMul;
     this.hull = this.maxHull;
     this.secondChancesLeft = this.mods.secondChances;
@@ -192,7 +199,7 @@ export class World {
     this.gun.speedMul = this.mods.projSpeedMul * shotSpeedMul(hull.hullId);
     this.hitR = hitRadiusOf(hull.hullId);
     const b = this.projSys.bonus;
-    b.damageMul = this.mods.damageMul;
+    b.damageMul = this.mods.damageMul * this.flyT.damageMul;
     b.vsArmor = this.mods.vsArmor;
     b.vsShield = this.mods.vsShield;
     b.vsFragment = this.mods.vsFragment;
@@ -212,11 +219,11 @@ export class World {
   get tier(): number { return this.encounter ? this.encounter.tier : tierOfTime(this.time); }
 
   private makeDirector(): WaveDirector | EncounterDirector {
-    return this.encounter ? new EncounterDirector(this.encounter.wave, this.encounter.plan, ALIVE_HOLD) : new WaveDirector(this.seed);
+    return this.encounter ? new EncounterDirector(this.encounter.wave, this.encounter.plan, ALIVE_HOLD) : new WaveDirector(this.seed, WAVE_TIME * this.flyT.waveTimeMul, this.flyT.waveSkip);
   }
 
   private applyStartWave() {
-    this.time = (this.startWave - 1) * WAVE_TIME;
+    this.time = (this.startWave - 1) * (this.director instanceof WaveDirector ? this.director.waveTime : WAVE_TIME);
     this.director.jumpTo(this.startWave);
   }
 
@@ -313,7 +320,7 @@ export class World {
       unitHp: wholeRockHp(rockHp(this.tier) * waveHpMul(wave)),
       spawnRock: (x, y, hp) => { this.spawnSpecies('mitotic_rock', x, y, { hp, radius: ROCK_RADIUS }); },
     };
-    this.boss = new BossFight(b.def, b.round, wave, bossMaxHp(b.def.id, wave, this.tier), host, this.seed);
+    this.boss = new BossFight(b.def, b.round, wave, wholeRockHp(bossMaxHp(b.def.id, wave, this.tier) * this.flyT.bossHpMul), host, this.seed);
     this.bossHurt = false;
   }
 
@@ -323,7 +330,7 @@ export class World {
     if (!b || b.rewarded) return;
     b.rewarded = true;
     const credits = rockReward(freeFlyRewardTier(this.tier), 1) * BOSS_CREDIT_MUL * FREEFLY_REWARD_MUL * this.mods.creditMul * (1 + this.mods.skills.freeFlyCredits);
-    const cores = coresForWave(b.wave) * BOSS_CORES_MUL * this.mods.coresMul;
+    const cores = coresForWave(b.wave) * BOSS_CORES_MUL * this.mods.coresMul * this.flyT.bossCoresMul;
     this.creditsExact += credits;
     this.coresExact += cores;
     this.kills++;
@@ -358,6 +365,7 @@ export class World {
     this.coresExact = 0;
     this.waveEvents.length = 0;
     this.hull = this.maxHull;
+    this.lastHurtT = -Infinity;
     this.secondChancesLeft = this.mods.secondChances;
     this.invuln = this.safeStart ? SPAWN_INVULN_SECONDS + this.mods.spawnInvuln : 0;
     this.knockX = 0;
@@ -606,18 +614,20 @@ export class World {
     // --- Waves: the director starts a wave every WAVE_TIME s and hands out its spawns, just above the top edge
     if (this.autoSpawn) {
       const started = this.director.update(this.time, this.mitosis.enemies.length, this.due);
+      // Skipped waves (Wave Skipper, chunk 32c) pay nothing: the screen only shows a banner (and counts the wave as reached).
+      if (this.director instanceof WaveDirector) for (const w of this.director.skipped) this.waveEvents.push({ wave: w, bonus: 0, theme: null, cores: 0, boss: null, skipped: true });
       if (started) {
         const bonus = waveBonus(started) * this.mods.waveBonusMul;
         this.bonusCredits += bonus;
         this.creditsExact += bonus;
         const theme = this.encounter ? null : themeAt(started);
-        const themed = theme ? themeCores(started) * this.mods.coresMul : 0; // a theme wave pays a Cores bonus (chunk 32a)
+        const themed = theme ? themeCores(started) * this.mods.coresMul * this.flyT.wavePayMul : 0; // a theme wave pays a Cores bonus (chunk 32a)
         const boss = this.encounter ? null : bossAt(started);
         this.waveEvents.push({ wave: started, bonus, theme: theme ? theme.id : null, cores: themed, boss: boss ? boss.def.id : null });
         if (boss) this.startBoss(started);
-        if (!this.encounter) this.coresExact += waveStartCores(started) * this.mods.coresMul + themed;
+        if (!this.encounter) this.coresExact += waveStartCores(started) * this.mods.coresMul * this.flyT.wavePayMul + themed;
       }
-      const hpMul = waveHpMul(this.director.wave) * (this.encounter ? this.encounter.hpMul : 1);
+      const hpMul = waveHpMul(this.director.wave) * (this.encounter ? this.encounter.hpMul : this.flyT.enemyHpMul);
       for (const s of this.due) {
         this.spawnSpecies(s.defId, s.x, -s.radius, { hp: wholeRockHp(rockHp(this.tier) * s.hpMul * hpMul), radius: s.radius, generation: s.generation, armor: s.armor });
       }
@@ -831,5 +841,10 @@ export class World {
       }
     }
     if (this.boss && (this.hull < hullBefore || this.secondChancesLeft < chancesBefore)) this.bossHurt = true; // a leak
+    // Repair Bay (chunk 32c): heals a share of the max hull a second once REPAIR_IDLE_SECONDS have passed without a hit.
+    if (this.hull < hullBefore || this.secondChancesLeft < chancesBefore) this.lastHurtT = this.time;
+    else if (this.flyT.repairRate > 0 && this.hull > 0 && this.hull < this.maxHull && this.time - this.lastHurtT >= REPAIR_IDLE_SECONDS) {
+      this.hull = Math.min(this.maxHull, this.hull + this.maxHull * this.flyT.repairRate * dt);
+    }
   }
 }
