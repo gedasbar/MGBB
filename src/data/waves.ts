@@ -51,10 +51,11 @@ export const waveBudget = (wave: number) => BUDGET_BASE + BUDGET_STEP * (Math.ma
 /**
  * Chunk 18b (docs/difficulty-audit.md, section E): from wave WAVE_SLOW_FROM on the TOTAL HP growth per wave (this multiplier
  * times the tier step that 40 s bring) is WAVE_SLOW_GROWTH: x1.19 up to wave 30, x1.08 up to 40, x1.06 after (today's total is about
- * x1.44). The last entry repeats. The Frontier's Free Fly squares use the same multiplier through their wave equivalent.
+ * x1.44). CHUNK 32d steepened it (an AFK run reached wave 60 in 40 minutes with a 14M DPS ship): x1.45 up to wave 30, x1.22 up to 40, x1.20 after, so a build of about 4M DPS
+ * starts to struggle around wave 33 and dies around wave 40-45 (`scripts/freefly-dps-bot.ts`; bosses follow the same curve). The last entry repeats. The Frontier's Free Fly squares use the same multiplier through their wave equivalent.
  */
 export const WAVE_SLOW_FROM = 20;
-export const WAVE_SLOW_GROWTH: readonly (readonly [number, number])[] = [[30, 1.19], [40, 1.08], [50, 1.06]];
+export const WAVE_SLOW_GROWTH: readonly (readonly [number, number])[] = [[30, 1.45], [40, 1.22], [50, 1.2]];
 /** HP factor the tier gains in one wave's time. */
 export const tierStepPerWave = () => Math.pow(CONFIG.ECON.TIER_HP_GROWTH, WAVE_TIME / TIER_SECONDS);
 /** Total growth of wave `wave` over wave `wave - 1` from WAVE_SLOW_FROM on (tier step included). */

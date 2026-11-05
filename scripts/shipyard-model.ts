@@ -1,7 +1,8 @@
 // Chunk 31a: the Cores income model and the prices of three reference ships. Pure arithmetic, runs in a second.
 // Run: npx vite-node scripts/shipyard-model.ts
 import { CHUNKS } from '../src/data/shipChunks';
-import { coresOfRun } from '../src/shipyard/cores';
+import { coresForWave, coresOfRun, waveStartCores } from '../src/shipyard/cores';
+import { BOSS_CORES_MUL, BOSS_EVERY } from '../src/data/bosses';
 import { chunkPrice } from '../src/shipyard/design';
 import { WAVE_TIME } from '../src/data/waves';
 
@@ -29,7 +30,10 @@ const ships: Record<string, Record<string, number>> = {
   'full 16-slot ship with the Free Fly traits (5 traits, 32c)': { front_gun: 1, twin_gun: 2, corridor: 3, tjunction: 2, cross: 2, ring: 2, overdrive: 1, faster_waves: 1, wave_skipper: 1, repair_bay: 1, boss_bounty: 1 },
   'every chunk x3 (the whole shop)': Object.fromEntries(CHUNKS.map(c => [c.id, 3])),
 };
-const perHour = [['a casual hour (runs to wave 12)', Math.round((coresOfRun(12) / ((11 * WAVE_TIME + OVERHEAD_S))) * 3600)], ['a good hour (runs to wave 25)', Math.round((coresOfRun(25) / ((24 * WAVE_TIME + OVERHEAD_S))) * 3600)]] as const;
+// Chunk 32d: the hour includes the boss kills (boss waves take BOSS_SECONDS) like scripts/cores-income.ts.
+const BOSS_SECONDS = 60;
+const bossRun = (wave: number) => { let n = 0, s = OVERHEAD_S; for (let w = 2; w <= wave; w++) { n += waveStartCores(w) + (w % BOSS_EVERY === 0 ? coresForWave(w) * BOSS_CORES_MUL : 0); s += w % BOSS_EVERY === 0 ? BOSS_SECONDS : WAVE_TIME; } return (n / s) * 3600; };
+const perHour = [['a casual hour (runs to wave 12)', Math.round(bossRun(12))], ['a good hour (runs to wave 25)', Math.round(bossRun(25))]] as const;
 console.log('\nPRICES (Cores) and hours of Free Fly');
 for (const [name, list] of Object.entries(ships)) {
   const c = cost(list);
@@ -46,8 +50,6 @@ for (const [name, list] of Object.entries(ships)) {
 // ---------------------------------------------------------------- chunk 32c: the five Free Fly trait chunks
 // Each trait changes the Cores a Free Fly hour pays (before the player's own skill: waves reached is the same input as above).
 // Model: a run reaching wave W costs (W-1) x waveTime + OVERHEAD_S; boss waves (10, 20 ...) pay coresForWave x BOSS_CORES_MUL on top of the wave start.
-import { BOSS_CORES_MUL, BOSS_EVERY } from '../src/data/bosses';
-import { coresForWave, waveStartCores } from '../src/shipyard/cores';
 
 function runCores(wave: number, o: { pay?: number; skip?: number; bossPay?: number } = {}): number {
   const pay = o.pay ?? 1, skip = o.skip ?? 0, bossPay = o.bossPay ?? 1;
@@ -82,7 +84,7 @@ for (const [name, pay, time, note] of traits) {
   console.log(`${name.padEnd(52)} ${String(Math.round(h)).padStart(6)} an hour (${h >= plainH ? '+' : ''}${(((h / plainH) - 1) * 100).toFixed(1)}%) - ${note}`);
 }
 console.log('\nPRICES of the five (first / second / third copy) and hours of a good Free Fly hour to afford one copy');
-const goodH = (coresOfRun(25) / ((24 * WAVE_TIME + OVERHEAD_S))) * 3600;
+const goodH = bossRun(25);
 for (const id of ['faster_waves', 'longer_waves', 'wave_skipper', 'repair_bay', 'boss_bounty']) {
   console.log(`${id.padEnd(14)} ${[0, 1, 2].map(k => chunkPrice(id, k)).join(' / ')} Cores; first copy = ${(chunkPrice(id, 0) / goodH).toFixed(2)} h`);
 }

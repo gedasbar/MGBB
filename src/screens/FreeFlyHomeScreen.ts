@@ -58,7 +58,7 @@ export class FreeFlyHomeScreen implements Screen {
       y += ROW_H + ROW_GAP;
     }
     // Chunk 31a: Cores, the Shipyard's currency, earned only in Free Fly.
-    this.container.addChild(this.row(y, CURRENCY_CORES_NAME, fmtBig(p.cores), UI.color.accent));
+    this.container.addChild(this.row(y, CURRENCY_CORES_NAME, fmtBig(p.cores), UI.color.cores));
     y += ROW_H + ROW_GAP;
     const coresHint = makeText(CORES_HINT, UI.text.small, UI.color.textDim);
     coresHint.position.set(PAD, y - 2);

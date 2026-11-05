@@ -1,0 +1,30 @@
+zenith standard build: est DPS 1.9K; each row scales its damage to the target. Cap 3600 s.
+target DPS | seed | wave reached | seconds | died
+  wave 20 at 725 s: hull 100/100, leaks 0, alive 11
+  wave 21 at 736 s: hull 100/100, leaks 0, alive 0
+  wave 22 at 776 s: hull 100/100, leaks 0, alive 0
+  wave 23 at 816 s: hull 100/100, leaks 0, alive 0
+  wave 24 at 856 s: hull 100/100, leaks 0, alive 0
+  wave 25 at 896 s: hull 100/100, leaks 0, alive 1
+  wave 26 at 936 s: hull 100/100, leaks 0, alive 1
+  wave 27 at 976 s: hull 100/100, leaks 0, alive 0
+  wave 28 at 1016 s: hull 100/100, leaks 0, alive 0
+  wave 29 at 1056 s: hull 100/100, leaks 0, alive 0
+  wave 30 at 1096 s: hull 100/100, leaks 0, alive 0
+  wave 31 at 1100 s: hull 100/100, leaks 0, alive 0
+  wave 32 at 1140 s: hull 100/100, leaks 0, alive 0
+  wave 33 at 1180 s: hull 100/100, leaks 0, alive 1
+  wave 34 at 1220 s: hull 100/100, leaks 0, alive 0
+  wave 35 at 1260 s: hull 100/100, leaks 0, alive 1
+  wave 36 at 1300 s: hull 100/100, leaks 0, alive 0
+  wave 37 at 1340 s: hull 100/100, leaks 0, alive 0
+  wave 38 at 1380 s: hull 100/100, leaks 0, alive 0
+  wave 39 at 1420 s: hull 100/100, leaks 0, alive 0
+  wave 40 at 1460 s: hull 100/100, leaks 0, alive 5
+  wave 41 at 1489 s: hull 100/100, leaks 0, alive 1
+  wave 42 at 1529 s: hull 92/100, leaks 0, alive 0
+  wave 43 at 1569 s: hull 92/100, leaks 0, alive 4
+  wave 44 at 1609 s: hull 76/100, leaks 0, alive 11
+  wave 45 at 1649 s: hull 60/100, leaks 0, alive 24
+        4M |    1 |           45 |    1657 | yes
+        4M | mean |         45.0

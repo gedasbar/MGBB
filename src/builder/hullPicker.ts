@@ -185,7 +185,7 @@ export class HullPicker {
       face.addChild(new Graphics().rect(lx, ly, 20, 15).fill(THEME.warn).moveTo(lx + 4, ly).lineTo(lx + 4, ly - 5).arc(lx + 10, ly - 5, 6, Math.PI, 0).lineTo(lx + 16, ly).stroke({ color: THEME.warn, width: 3 }));
       face.alpha = UNOWNED_ALPHA;
     }
-    const cores = makeText(`${fmtBig(this.cores)} ${CURRENCY_CORES_NAME}`, 16, UI.color.accent, { fontWeight: 'bold' });
+    const cores = makeText(`${fmtBig(this.cores)} ${CURRENCY_CORES_NAME}`, 16, UI.color.cores, { fontWeight: 'bold' });
     cores.anchor.set(1, 0);
     cores.position.set(rc.x + rc.w - 14, rc.y + 12);
     this.entryC.addChild(face, cores);

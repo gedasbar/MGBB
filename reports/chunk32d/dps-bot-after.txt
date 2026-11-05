@@ -1,0 +1,11 @@
+zenith standard build: est DPS 1.9K; each row scales its damage to the target. Cap 3600 s.
+target DPS | seed | wave reached | seconds | died
+        1M |    1 |           35 |    1273 | yes
+        1M |    2 |           35 |    1279 | yes
+        1M | mean |         35.0
+        4M |    1 |           43 |    1620 | yes
+        4M |    2 |           42 |    1575 | yes
+        4M | mean |         42.5
+       16M |    1 |           48 |    1770 | yes
+       16M |    2 |           48 |    1794 | yes
+       16M | mean |         48.0

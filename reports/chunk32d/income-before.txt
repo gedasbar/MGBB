@@ -1,0 +1,7 @@
+BEFORE
+wave | Cores a run | run minutes | Cores an hour | Cores for this wave
+  10 |          95 |           7 |           777 | 4
+  20 |         302 |          14 |          1264 | 8
+  30 |         658 |          21 |          1851 | 17
+  45 |        1613 |          32 |          3056 | 55
+  60 |        5858 |          42 |          8303 | 174

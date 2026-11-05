@@ -89,7 +89,7 @@ async function aim(page, s) {
   s = await state(page);
   check(s.kills > 0 && s.credits > 0, `kills pay credits during the run (kills ${s.kills}, credits ${s.credits}, ${s.hud.credits}, ${s.hud.tier})`);
   check(shotFly, 'a yellow +N popup was on screen (screenshot fly_hud_popup.png)');
-  check(/^Credits \+\d+/.test(s.hud.credits) && /^Tier \d+/.test(s.hud.tier), 'HUD shows Credits and Tier');
+  check(/^\d/.test(s.hud.credits) && /^\d/.test(s.hud.cores), 'HUD shows credits and Cores as numbers next to their icons (chunk 32d: no Tier line)');
   const creditsAtEnd = s.credits;
 
   // ---- end the run: Set hull to 1 and look away so rocks reach the ship or the bottom edge

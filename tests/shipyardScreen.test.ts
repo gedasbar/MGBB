@@ -81,7 +81,7 @@ describe('ShipyardEditor: placing, removing, replacing and the counts', () => {
 
   it('buying costs Cores at the growing price and adds a copy; too few Cores is refused', () => {
     const p0 = ed.price('corridor');
-    expect(p0).toBe(Math.round(60 * 1.35 ** 2)); // two owned
+    expect(p0).toBe(Math.round(250 * 1.5 ** 2)); // two owned
     const cores0 = ed.cores();
     expect(ed.buy('corridor').ok).toBe(true);
     expect(ed.owned('corridor')).toBe(3);

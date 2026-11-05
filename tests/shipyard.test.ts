@@ -6,8 +6,9 @@ import {
 } from '../src/shipyard/design';
 import { GENERATOR_COLUMN } from '../src/shipyard/constants';
 import { rotateRows } from '../src/data/shipChunks';
+import { chunkCells, chunkCostLine } from '../src/shipyard/design';
 import { withHull } from '../src/game/gridUtils';
-import { coresForWave, encounterCores, encounterCoresPerBlock, milestoneCores, waveStartCores } from '../src/shipyard/cores';
+import { coresForWave, coresOfRun, encounterCores, encounterCoresPerBlock, milestoneCores, waveStartCores } from '../src/shipyard/cores';
 import { buyChunk, cleanRot, defaultShipyard, generatorRefund, removedChunksNotice, removedChunksRefund, sanitizeShipyard, setDesign } from '../src/shipyard/state';
 import { applyHullTraits, flightProblems, registerCustomHulls } from '../src/shipyard/registry';
 import { CURRENCY_CORES_NAME, MAX_DESIGNS, SHIPYARD_UNLOCK_RING } from '../src/shipyard/constants';
@@ -103,8 +104,9 @@ describe('chunk data', () => {
   it('plain chunks are cheap, guns medium, traits expensive', () => {
     const max = (k: string) => Math.max(...CHUNKS.filter(c => c.kind === k).map(c => c.basePrice));
     const min = (k: string) => Math.min(...CHUNKS.filter(c => c.kind === k).map(c => c.basePrice));
-    expect(max('plain')).toBeLessThan(min('gun'));
-    expect(max('gun')).toBeLessThan(min('trait'));
+    expect(min('plain')).toBeLessThan(min('gun')); // the Ring (1,200) costs more than the cheapest guns: plain is priced by room now
+    expect(min('gun')).toBeLessThan(min('trait'));
+    expect(max('trait')).toBeLessThanOrEqual(6000);
     const growth = { plain: GROWTH_PLAIN, gun: GROWTH_GUN, trait: GROWTH_TRAIT };
     expect(CHUNKS.every(c => c.growth === growth[c.kind])).toBe(true);
   });
@@ -127,12 +129,19 @@ describe('chunk set (31d)', () => {
     expect(validateChunk({ ...CHUNK_BY_ID.corridor, rows: ['___', '___', '___'] })).toEqual([]);
   });
 
-  it('plain chunks are priced by their cell count (about 20 Cores a cell)', () => {
-    for (const c of CHUNKS.filter(k => k.kind === 'plain')) {
-      const cells = c.rows.join('').split('_').length - 1;
-      expect(c.basePrice / cells, c.name).toBeGreaterThanOrEqual(15);
-      expect(c.basePrice / cells, c.name).toBeLessThanOrEqual(25);
-    }
+  it('plain chunks are priced by room, superlinear in cells (chunk 32d): the price per cell never falls as the chunk gets bigger', () => {
+    const plain = CHUNKS.filter(k => k.kind === 'plain').map(c => ({ name: c.name, cells: chunkCells(c), perCell: c.basePrice / chunkCells(c) })).sort((a, b) => a.cells - b.cells);
+    for (let i = 1; i < plain.length; i++) expect(plain[i].perCell, `${plain[i].name} vs ${plain[i - 1].name}`).toBeGreaterThanOrEqual(plain[i - 1].perCell);
+    expect(plain[plain.length - 1].perCell).toBeGreaterThan(plain[0].perCell); // really superlinear, not flat
+    expect(Object.fromEntries(CHUNKS.filter(c => c.kind === 'plain').map(c => [c.id, c.basePrice]))).toEqual({ corridor: 250, corner: 250, tjunction: 400, cross: 600, ring: 1200 });
+  });
+
+  it('every chunk shows its fire-rate cost: cells and -0.04 pulses/s a cell (chunk 32d)', () => {
+    expect(chunkCostLine(CHUNK_BY_ID.corridor)).toBe('3 cells · -0.12 pulses/s');
+    expect(chunkCostLine(CHUNK_BY_ID.ring)).toBe('8 cells · -0.32 pulses/s');
+    expect(chunkCostLine(CHUNK_BY_ID.wide_open)).toBe('9 cells · -0.36 pulses/s');
+    expect(chunkCostLine(CHUNK_BY_ID.core_magnet)).toBe('2 cells · -0.08 pulses/s');
+    for (const c of CHUNKS) expect(chunkCostLine(c), c.id).toMatch(/^\d cells? · -\d\.\d\d pulses\/s$/);
   });
 });
 
@@ -303,11 +312,12 @@ describe('compiling a design into the ROWS layout of a hull', () => {
 });
 
 describe('stats', () => {
-  it('pulses/s = 5.0 - 0.025 x cells, never below 1.5', () => {
+  it('pulses/s = 5.0 - 0.04 x cells, never below 1.5 (chunk 32d: 0.025 before)', () => {
     expect(basePulses(0)).toBe(5);
-    expect(basePulses(20)).toBeCloseTo(4.5, 9);
-    expect(basePulses(80)).toBeCloseTo(3, 9);
-    expect(basePulses(140)).toBe(1.5); // 5 - 3.5 = 1.5 exactly
+    expect(basePulses(20)).toBeCloseTo(4.2, 9);
+    expect(basePulses(50)).toBeCloseTo(3, 9);
+    expect(basePulses(87.5)).toBeCloseTo(1.5, 9); // 5 - 3.5 = 1.5 exactly
+    expect(basePulses(140)).toBe(1.5);
     expect(basePulses(300)).toBe(1.5);
   });
 
@@ -316,7 +326,7 @@ describe('stats', () => {
     // front gun 2 cells (the E is not a cell), Full 9: 11 (the fixed generator's G is not a cell)
     expect(s.cells).toBe(11);
     expect(s.ejectors).toBe(1);
-    expect(s.pulsesPerSec).toBeCloseTo(5 - 0.025 * 11 - 0.2, 9); // the Wide Open trait: -0.2 pulses/s
+    expect(s.pulsesPerSec).toBeCloseTo(5 - 0.04 * 11 - 0.2, 9); // the Wide Open trait: -0.2 pulses/s
     expect(s.shotSpeed).toBe(1);
     expect(s.size).toBe('small'); // 2 chunks
     expect(s.chunks).toBe(2);
@@ -377,24 +387,24 @@ describe('stats', () => {
 
 describe('ownership and prices', () => {
   it('the n-th copy costs base x growth^(copies owned), growth by kind', () => {
-    expect(chunkPrice('corridor', 0)).toBe(60);
-    expect(chunkPrice('corridor', 1)).toBe(81); // 60 x 1.35
-    expect(chunkPrice('corridor', 2)).toBe(109); // 109.35
-    expect(chunkPrice('front_gun', 2)).toBe(Math.round(300 * 1.6 ** 2)); // guns grow faster
-    expect(chunkPrice('wide_open', 2)).toBe(3200); // traits double each copy
-    expect(chunkPrice('overdrive', 3)).toBe(Math.round(2500 * 2 ** 3));
+    expect(chunkPrice('corridor', 0)).toBe(250);
+    expect(chunkPrice('corridor', 1)).toBe(375); // 250 x 1.5
+    expect(chunkPrice('corridor', 2)).toBe(563); // 562.5
+    expect(chunkPrice('front_gun', 2)).toBe(Math.round(700 * 1.6 ** 2)); // guns grow faster
+    expect(chunkPrice('wide_open', 2)).toBe(8000); // traits double each copy
+    expect(chunkPrice('overdrive', 3)).toBe(Math.round(4000 * 2 ** 3));
     expect(chunkPrice('nope', 0)).toBe(Infinity);
   });
 
   it('buying takes Cores and adds a copy; not enough Cores changes nothing', () => {
     const p = defaultShipyard();
-    p.cores = 100;
-    expect(buyChunk(p, 'corridor', SHIPYARD_UNLOCK_RING)).toEqual({ ok: true, price: 60 });
-    expect(p.cores).toBe(40);
+    p.cores = 300;
+    expect(buyChunk(p, 'corridor', SHIPYARD_UNLOCK_RING)).toEqual({ ok: true, price: 250 });
+    expect(p.cores).toBe(50);
     expect(p.chunks.corridor).toBe(1);
-    const r = buyChunk(p, 'corridor', SHIPYARD_UNLOCK_RING); // 81 > 40
+    const r = buyChunk(p, 'corridor', SHIPYARD_UNLOCK_RING); // 375 > 50
     expect(r.ok).toBe(false);
-    expect(p.cores).toBe(40);
+    expect(p.cores).toBe(50);
     expect(p.chunks.corridor).toBe(1);
     expect(buyChunk(p, 'warp_drive', SHIPYARD_UNLOCK_RING)).toEqual({ ok: false, error: 'Not for sale' });
   });
@@ -475,20 +485,24 @@ describe('unlock at ring 150 and the hull picker', () => {
 
   it('Cores accumulate before the unlock (the bank is there when it opens)', () => {
     const s = new ProgressStore(null);
-    s.recordRun({ credits: 10, cores: 60, kills: 3, time: 100, tier: 3, wave: 3 });
-    expect(s.data.cores).toBe(60);
+    s.recordRun({ credits: 10, cores: 250, kills: 3, time: 100, tier: 3, wave: 3 });
+    expect(s.data.cores).toBe(250);
     expect(s.shipyardOpen).toBe(false);
     reachRing(s, SHIPYARD_UNLOCK_RING);
     expect(s.buyChunk('corridor').ok).toBe(true);
-    expect(s.data.cores).toBe(60 - 60);
+    expect(s.data.cores).toBe(250 - 250);
   });
 });
 
 describe('earning Cores (Free Fly only)', () => {
-  it('per wave: 2 x 1.08^(wave-2), none for wave 1; milestones add 2 x wave, every time', () => {
-    expect([1, 2, 3, 10, 20, 30, 50].map(coresForWave)).toEqual([0, 2, 2, 4, 8, 17, 80]);
-    expect([4, 5, 10, 15, 20, 30, 40, 50, 51].map(milestoneCores)).toEqual([0, 10, 20, 30, 40, 60, 80, 100, 0]);
-    expect(waveStartCores(5)).toBe(coresForWave(5) + 10);
+  it('per wave: 3.2 + 0.05 x (wave-2) rounded, none for wave 1 (linear since chunk 32d); milestones add 1 x wave, every time', () => {
+    expect([1, 2, 3, 10, 20, 30, 50, 60].map(coresForWave)).toEqual([0, 3, 3, 4, 4, 5, 6, 6]);
+    expect([4, 5, 10, 15, 20, 30, 40, 50, 51].map(milestoneCores)).toEqual([0, 5, 10, 15, 20, 30, 40, 50, 0]);
+    expect(waveStartCores(5)).toBe(coresForWave(5) + 5);
+  });
+
+  it('a whole run to wave 10 / 30 / 60 pays 45 / 193 / 446 Cores (waves 2.. and milestones; the linear curve of chunk 32d, about 500 an hour with bosses)', () => {
+    expect([10, 30, 60].map(coresOfRun)).toEqual([45, 193, 446]);
   });
 
   it('a Free Fly run earns Cores when each wave starts, and quitting keeps what was earned', () => {

@@ -3,7 +3,7 @@ import { fmtBig } from '../ui/format';
 import { VIEW_W, Rect, LAYOUT, View, cellFromPoint, fitView } from '../builder/layout';
 import type { SheetContent } from '../builder/paletteLogic';
 import { CHUNK_CELLS, CURRENCY_CORES_NAME, DESIGN_SLOTS, GENERATOR_COLUMN } from './constants';
-import { NO_CELL_ABOVE_GENERATOR, type DesignStats } from './design';
+import { chunkCostLine, NO_CELL_ABOVE_GENERATOR, type DesignStats } from './design';
 import type { ShipyardEditor } from './editor';
 
 /** Chunk 31b: the pure part of the Shipyard screen (geometry, the text of the status strip and of a chunk's info sheet). No Pixi in here. */
@@ -105,7 +105,7 @@ export function chunkSheet(ed: ShipyardEditor, id: string): SheetContent {
   const price = ed.price(id);
   return {
     title: c.name,
-    levelLine: '',
+    levelLine: chunkCostLine(c),
     body: c.text,
     stack: '',
     ownedLine: `Owned ${ed.owned(id)} · free ${free}`,

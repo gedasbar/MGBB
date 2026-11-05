@@ -1,0 +1,6 @@
+wave | Cores a run | run minutes | Cores an hour | Cores for this wave
+  10 |          61 |           7 |           499 | 4
+  20 |         152 |          14 |           636 | 4
+  30 |         245 |          21 |           689 | 5
+  45 |         380 |          32 |           720 | 5
+  60 |         566 |          42 |           802 | 6
