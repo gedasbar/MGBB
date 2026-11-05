@@ -10,6 +10,7 @@ const lib = require('./lib.cjs');
 const { check, state, waitFor } = lib;
 
 const OUT = path.join(__dirname, '..', 'reports', 'chunk32a');
+const ENEMY_CAP = 240; // ENEMY_BULLET_CAP in src/data/enemyBullets.ts
 fs.mkdirSync(OUT, { recursive: true });
 
 async function canvasShot(page) {
@@ -151,8 +152,21 @@ async function montage(page, shots, captions, file) {
   const full = await waitFor(async () => { const s = await state(page); return s.bullets.count >= 230 && s.bullets.drawn === s.bullets.count ? s : null; }, { timeout: 5000 });
   check(!!full, `at the cap: ${full && full.bullets.count} bullets alive and all drawn`);
   const fps1 = await fps(2000);
+  // The cost of one Fly-screen update (simulation + sprite sync, no drawing) with the pool full, against an empty pool.
+  const upd = (fill) => page.evaluate((fill) => {
+    clearInterval(window.__fill);
+    const sm = window.__mgbmSm, scr = sm.currentScreen, b = scr.world.enemyBullets;
+    const top = () => { while (b.count < b.max) { const l = Math.random() < 0.5; b.spawn(l ? -10 : 550, 100 + Math.random() * 500, l ? 230 : -230, 0); } };
+    b.clear();
+    for (let i = 0; i < 60; i++) { if (fill) top(); scr.update(1 / 60, 1 / 60, performance.now()); }
+    const t0 = performance.now();
+    for (let i = 0; i < 300; i++) { if (fill) top(); scr.update(1 / 60, 1 / 60, performance.now()); }
+    return (performance.now() - t0) / 300;
+  }, fill);
+  const u0 = await upd(false), u1 = await upd(true);
   await page.evaluate(() => clearInterval(window.__fill));
-  console.log(`INFO  frame rate (headless software rendering): ${fps0.toFixed(1)} fps with no bullets, ${fps1.toFixed(1)} fps with the pool full`);
+  console.log(`INFO  frame rate (headless software rendering, capped at 60): ${fps0.toFixed(1)} fps with no bullets, ${fps1.toFixed(1)} fps with the pool full`);
+  console.log(`INFO  one Fly-screen update (simulation + sprite sync): ${u0.toFixed(3)} ms with no bullets, ${u1.toFixed(3)} ms with ${ENEMY_CAP} bullets (+${(u1 - u0).toFixed(3)} ms)`);
 
   const file = await montage(page, shots, caps, path.join(OUT, 'sheet_ingame.png'));
   check(shots.length === 4 && fs.statSync(file).size > 5000, `in-game contact sheet with ${shots.length} frames (${file})`);
