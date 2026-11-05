@@ -126,6 +126,7 @@ const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
     if (i > 0) { await page.reload(); await page.waitForFunction(() => !!window.__mgbm); await page.waitForTimeout(300); }
     await openMap();
     // God mode (the debug panel's box): the wall is moved over the ship below, and a crash would end the run before the shot.
+    await lib.waitFor(() => page.evaluate(() => !!document.getElementById('dbg-god')), { timeout: 8000 }); // the cheat panel is loaded lazily
     await page.evaluate(() => { const g = document.getElementById('dbg-god'); g.checked = true; g.dispatchEvent(new Event('change')); });
     await seed(page, range(1, 100), range(1, f.tier - 1)); // strict order: everything before the tier is passed
     await reopenMap();

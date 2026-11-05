@@ -9,7 +9,7 @@ for (const [k, v] of [['debug', 1], ['stats', 0]]) {
 }
 process.env.GAME_URL = url;
 const lib = require('./lib.cjs');
-const { check, tap } = lib;
+const { check, tap, waitFor } = lib;
 
 const OUT = path.join(__dirname, '..', 'reports', 'chunk21a');
 fs.mkdirSync(OUT, { recursive: true });
@@ -205,14 +205,14 @@ const world = (page) => page.evaluate(() => {
 
   // ---- 4. Upturn over Ship Magnet: the magnets alone make a swarm round the ship; with Upturn the shots leave straight up after 0.4 s.
   await fillAndFly(page, [['flat_plus', 4, 8], ['magnetized', 4, 7], ['magnetized', 4, 6], ['magnetized', 4, 5]]);
-  await page.waitForTimeout(1800);
+  await waitFor(() => page.evaluate(() => window.__mgbm.state().time >= 4), { timeout: 15000 }); // game time, not a fixed wait: the count depends on how long the run has flown
   await page.evaluate(() => window.__mgbm.setTimeScale(0));
   w = await world(page);
   const swarm = w.shots.length;
   shots.push(await snap(page)); caps.push('Ship Magnet x3 alone: ' + swarm + ' shots\nstay in the lane round the ship');
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
   await fillAndFly(page, [['flat_plus', 4, 8], ['magnetized', 4, 7], ['magnetized', 4, 6], ['magnetized', 4, 5], ['upturn', 4, 4]]);
-  await page.waitForTimeout(1800);
+  await waitFor(() => page.evaluate(() => window.__mgbm.state().time >= 4), { timeout: 15000 });
   await page.evaluate(() => window.__mgbm.setTimeScale(0));
   w = await world(page);
   const upFx = await page.evaluate(() => window.__mgbm.world.projSys.fx.upturnTurns);
@@ -231,13 +231,15 @@ const world = (page) => page.evaluate(() => {
     }, 8);
   });
   await page.waitForTimeout(900);
-  await page.evaluate(() => window.__mgbm.setTimeScale(0));
-  await page.waitForTimeout(150);
-  const looks = await page.evaluate(() => {
+  const readLooks = () => page.evaluate(() => {
     const sm = window.__mgbmSm, scr = sm.currentScreen, p = scr.world.pool, out = {};
     for (let i = 0; i < p.max; i++) if (p.active[i]) { const s = scr.projSprites[i]; out[p.modIndex[i]] = { w: s.width, h: s.height, bolt: s.texture !== scr.projSprites[0].texture && false }; }
     return out;
   });
+  const heights = (l) => Object.values(l).map(x => Math.round(x.h)).sort((a, b) => a - b).join(',');
+  // wait until the sprites have caught up with the damages (a drawn frame after the last change), not a fixed 150 ms
+  let looks = await readLooks();
+  await waitFor(async () => { looks = await readLooks(); return heights(looks) === '14,22,26'; }, { timeout: 5000 }); // the run keeps flying: sprites follow the damages within a frame or two
   const sizes = Object.values(looks).map(l => `${Math.round(l.w)}x${Math.round(l.h)}`).sort().join(' ');
   check(Object.keys(looks).length === 3 && sizes === '10x26 12x32 6x14'.split(' ').sort().join(' ') || true, `three lanes drawn at ${sizes}`);
   const bandSizes = Object.values(looks).map(l => Math.round(l.h)).sort((a, b) => a - b);
