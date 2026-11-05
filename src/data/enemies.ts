@@ -172,4 +172,20 @@ export const ENEMIES: Record<string, EnemyDef> = {
     id: 'budder', name: 'Budder', tierMin: 1, weight: 0, size: 'L', hpMul: 1.5, armorMul: 0, shieldMul: 0,
     move: 'drift', traits: ['buds'], reward: 1, contactDamage: 10, palette: ['#d1a860', '#9e7a3c', '#634b24'],
   },
+
+  // ---- Chunk 32a: Gunner, Shielder, Leech (movement and numbers in data/species.ts).
+  gunner: {
+    id: 'gunner', name: 'Gunner', tierMin: 1, weight: 0, size: 'L', hpMul: 2.2, armorMul: 0, shieldMul: 0,
+    move: 'drift',
+    split: { trigger: 'onDeath', children: 2, childDefId: 'mitotic_rock', hpShare: 0.3, shape: 'binary', childRadius: 15 },
+    traits: ['shoots'], reward: 1, contactDamage: 10, palette: ['#8f98a8', '#5f6878', '#3a404c'],
+  },
+  shielder: {
+    id: 'shielder', name: 'Shielder', tierMin: 1, weight: 0, size: 'M', hpMul: 1.3, armorMul: 0, shieldMul: 0,
+    move: 'drift', traits: ['shields'], reward: 1, contactDamage: 10, palette: ['#a9c9d1', '#6f98a3', '#3f5f69'],
+  },
+  leech: {
+    id: 'leech', name: 'Leech', tierMin: 1, weight: 0, size: 'S', hpMul: 0.45, armorMul: 0, shieldMul: 0,
+    move: 'sine', traits: ['heals'], reward: 1, contactDamage: 10, palette: ['#c9899a', '#965f70', '#5e3a46'],
+  },
 };

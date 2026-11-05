@@ -30,6 +30,8 @@ export interface EnemyArtDef {
   stretch?: Pt;
   /** Angular jitter of the vertices, in steps (absent = 0.55, the basic rock's). Low = regular, like a Warden's hexagon. */
   jitter?: number;
+  /** A small extra drawing in unit radius (chunk 32a): the Gunner's muzzle wedge under the body, the Shielder's ring. */
+  mark?: 'muzzle' | 'ring';
 }
 
 export const ENEMY_ART: Record<string, EnemyArtDef> = {
@@ -81,6 +83,25 @@ export const ENEMY_ART: Record<string, EnemyArtDef> = {
     shades: { edge: 0xd1a860, mid: 0x9e7a3c, inner: 0x634b24 },
     crackColor: 0x1a1208, cracksMin: 2, cracksMax: 3, fragments: [3, 4],
     crackFirst: 0.25, crackStep: 0.25, widenAt: 0.85,
+  },
+  // Chunk 32a: the shooter and the two support enemies (docs/freefly-v2.md section 2). Cold or pale colours so they read as "not a plain rock".
+  gunner: {
+    id: 'gunner', vertsMin: 8, vertsMax: 8, radius: [0.9, 1.0], stretch: [1.0, 0.88], jitter: 0.12, mark: 'muzzle',
+    shades: { edge: 0x8f98a8, mid: 0x5f6878, inner: 0x3a404c },
+    crackColor: 0x0f1218, cracksMin: 3, cracksMax: 4, fragments: [4, 5],
+    crackFirst: 0.2, crackStep: 0.2, widenAt: 0.85,
+  },
+  shielder: {
+    id: 'shielder', vertsMin: 8, vertsMax: 8, radius: [0.97, 1.0], jitter: 0.02, mark: 'ring',
+    shades: { edge: 0xa9c9d1, mid: 0x6f98a3, inner: 0x3f5f69 },
+    crackColor: 0x0d1a1e, cracksMin: 1, cracksMax: 2, fragments: [3, 4],
+    crackFirst: 0.3, crackStep: 0.3, widenAt: 0.85,
+  },
+  leech: {
+    id: 'leech', vertsMin: 5, vertsMax: 6, radius: [0.8, 1.0], stretch: [0.68, 1.0], jitter: 0.35,
+    shades: { edge: 0xc9899a, mid: 0x965f70, inner: 0x5e3a46 },
+    crackColor: 0x1a0c12, cracksMin: 1, cracksMax: 1, fragments: [2, 2],
+    crackFirst: 0.5, crackStep: 0.25, widenAt: 0.85,
   },
 };
 
@@ -183,6 +204,8 @@ export class RockView {
       .poly(flat(this.shape.outer)).fill(s.edge)
       .poly(flat(this.shape.mid)).fill(s.mid)
       .poly(flat(this.shape.inner)).fill(s.inner);
+    if (this.def.mark === 'muzzle') body.poly([-0.3, 0.42, 0.3, 0.42, 0.14, 0.97, -0.14, 0.97]).fill(0x7a2a2a).poly([-0.1, 0.8, 0.1, 0.8, 0.1, 0.97, -0.1, 0.97]).fill(0x2a0d0d);
+    else if (this.def.mark === 'ring') body.circle(0, 0, 0.58).stroke({ width: 0.09, color: 0x5fd4e8 });
     this.flashG = new Graphics().poly(flat(this.shape.outer)).fill(0xffffff);
     this.flashG.visible = false;
     this.statusG = new Graphics().poly(flat(this.shape.outer)).fill(0xffffff);

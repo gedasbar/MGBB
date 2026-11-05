@@ -8,6 +8,7 @@ import { rockHp, rockReward } from '../src/econ/economy';
 import { buildTwinGrid } from '../src/game/gridUtils';
 import { place } from '../src/game/starter';
 import { loadProgress, ProgressStore, PROGRESS_VERSION, serializeProgress, defaultProgress } from '../src/econ/progress';
+import { themeAt } from '../src/data/waveThemes';
 import { planWave, unlockedAt, WaveDirector, PlannedSpawn } from '../src/game/waves';
 import { ALIVE_HOLD, FREEFLY_REWARD_TIER_SCALE, freeFlyRewardTier, specialKind, SPECIAL_BUDGET_MUL, WAVE_TIME, waveBonus, waveBudget } from '../src/data/waves';
 
@@ -183,7 +184,7 @@ describe('Free Fly wave director', () => {
       expect(waveBudget(wave)).toBeGreaterThanOrEqual(prev);
       prev = waveBudget(wave);
       if (specialKind(wave) === 'mothers') continue;
-      const budget = waveBudget(wave) * (specialKind(wave) ? SPECIAL_BUDGET_MUL : 1);
+      const budget = waveBudget(wave) * (specialKind(wave) ? SPECIAL_BUDGET_MUL : (themeAt(wave)?.budgetMul ?? 1));
       const spent = pointsOf(planWave(11, wave));
       expect(spent).toBeLessThanOrEqual(budget + 1e-9);
       expect(spent).toBeGreaterThan(budget - 1); // the leftover is spent on 1-point pebbles

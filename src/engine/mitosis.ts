@@ -38,6 +38,8 @@ export interface MitosisEnemy {
   spillDepth?: number;
   scN?: number;
   scFirst?: number;
+  /** Chunk 32a: set each frame while a Shielder protects this body (damage taken x this); absent otherwise. */
+  dmgTakenMul?: number;
 }
 
 export class MitosisSystem {

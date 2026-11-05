@@ -2,6 +2,7 @@ import { CONFIG, shipHalfW } from '../config';
 import { PointerState } from '../input';
 import type { World } from '../game/world';
 import { PROJECTILE_SPEED } from '../game/fire';
+import { ENEMY_BULLET_RADIUS } from '../data/enemyBullets';
 
 /** Tuning of the balance bot (it stands in for a decent player, not a perfect one). */
 const BOT = {
@@ -16,6 +17,9 @@ const BOT = {
   /** Candidate positions every STEP px. */
   STEP: 6,
 };
+
+/** Chunk 32a: whether the bot also steps around enemy bullets (the balance script switches it off to show what the bullets cost). */
+export const BOT_OPTS = { dodgeBullets: true };
 
 /**
  * A deterministic Free Fly pilot for the balance script and tests: it dodges whatever would touch the ship soon and
@@ -47,6 +51,19 @@ class FreeFlyBot {
           const reach = e.radius + hitR + BOT.CLEARANCE;
           const d = Math.hypot(x - ex, BOT.Y - ey);
           if (d < reach) cost += (100 * (reach - d)) / reach / (1 + k);
+        }
+      }
+      // Enemy bullets fly straight (chunk 32a): the same look-ahead as for a body, with the bullet's own radius.
+      const eb = w.enemyBullets;
+      if (BOT_OPTS.dodgeBullets && eb && eb.count > 0) {
+        for (let i = 0; i < eb.max; i++) {
+          if (!eb.active[i]) continue;
+          for (let k = 0; k <= 4; k++) {
+            const t = (BOT.LOOKAHEAD * k) / 4;
+            const reach = ENEMY_BULLET_RADIUS + hitR + BOT.CLEARANCE;
+            const d = Math.hypot(x - (eb.x[i] + eb.vx[i] * t), BOT.Y - (eb.y[i] + eb.vy[i] * t));
+            if (d < reach) cost += (100 * (reach - d)) / reach / (1 + k);
+          }
         }
       }
       if (cost < bestCost) { bestCost = cost; bestX = x; }

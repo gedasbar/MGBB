@@ -38,6 +38,9 @@ import { BuildScreen } from './BuildScreen';
 import { RESULT_DELAY_CLEARED, RESULT_DELAY_FAILED } from '../wall/constants';
 import { ARC_MAX } from '../engine/projectiles';
 import { DEBUG_ON } from '../debug/enabled';
+import { EnemyBulletSprites, enemyBulletTexture } from '../ui/enemyBulletSprites';
+import { drawSupportLinks } from '../ui/supportLinks';
+import { THEME_BY_ID } from '../data/waveThemes';
 
 /** Status tints of a rock: burning is a redder orange, frozen a pale blue. */
 const BURN_COLOR = 0xff4a1a;
@@ -56,6 +59,10 @@ const BANNER_W = 220;
 const BANNER_H = 72;
 /** Seconds the SECOND CHANCE hint blinks. */
 const HINT_TIME = 1.2;
+/** The wave THEME banner (chunk 32a): sits above the "WAVE N" banner, same time on screen. */
+const THEME_BANNER_Y = BANNER_Y - BANNER_H / 2 - 38;
+const THEME_BANNER_H = 56;
+const THEME_BANNER_COLOR = 0xe87a5a;
 
 interface DmgNum { t: Text; life: number; }
 
@@ -71,6 +78,9 @@ export class FlyScreen implements Screen {
   private arcG = new Graphics();
   /** Residue Seed clouds and Gravity Well rings. */
   private fieldG = new Graphics();
+  /** Shielder / Leech links (chunk 32a) and the enemy bullets, drawn above the rocks. */
+  private linkG = new Graphics();
+  private bulletSprites!: EnemyBulletSprites;
   
   ship: ShipView;
   hullBarBg = new Graphics().rect(0, 0, 100, 10).fill(0xff0000);
@@ -102,6 +112,11 @@ export class FlyScreen implements Screen {
   private bannerTitle = makeText('WAVE 1', 30, THEME.text, { fontWeight: 'bold' });
   private bannerSub = makeText('', 14, THEME.textDim, { fontWeight: 'bold' });
   private bannerT = 0;
+  /** Theme banner of a themed wave (chunk 32a): the theme's name, its one line and the Cores bonus. */
+  private themeBanner = new Container();
+  private themeTitle = makeText('', 20, THEME_BANNER_COLOR, { fontWeight: 'bold' });
+  private themeSub = makeText('', 12, THEME.textDim, { fontWeight: 'bold' });
+  private themeT = 0;
   /** Medal milestone banner ("+2 Medals") and the Second Chance hint (a short blink). */
   private medalBanner = new Container();
   private medalTitle = makeText('', 20, THEME.currency, { fontWeight: 'bold' });
@@ -168,7 +183,9 @@ export class FlyScreen implements Screen {
     this.container.addChild(this.projLayer, this.enemyLayer, this.fragLayer);
     this.ship = new ShipView(this.screenManager.app.renderer, grid.hullId ?? 'shuttle');
     this.container.addChild(this.ship.container, this.fxLayer, this.uiLayer);
-    this.fxLayer.addChild(this.fieldG, this.arcG);
+    this.fxLayer.addChild(this.fieldG, this.arcG, this.linkG);
+    this.bulletSprites = new EnemyBulletSprites(this.world.enemyBullets.max, enemyBulletTexture(this.screenManager.app));
+    this.fxLayer.addChild(this.bulletSprites.container);
     if (this.bgForced !== 'off') {
       this.bg = new BackgroundView(this.screenManager.app.renderer, this.bgForced ?? (fr?.spike ? 'ember' : freeFlyThemeAt(0)));
       this.container.addChildAt(this.bg.container, 0);
@@ -213,6 +230,15 @@ export class FlyScreen implements Screen {
     this.banner.position.set(CONFIG.VIEW.W / 2, BANNER_Y);
     this.banner.visible = false;
     this.uiLayer.addChild(this.banner);
+    const tPanel = new Graphics().rect(-BANNER_W / 2, -THEME_BANNER_H / 2, BANNER_W, THEME_BANNER_H).fill(THEME.panel).stroke({ color: THEME_BANNER_COLOR, width: 1.5 });
+    this.themeTitle.anchor.set(0.5);
+    this.themeTitle.position.set(0, -10);
+    this.themeSub.anchor.set(0.5);
+    this.themeSub.position.set(0, 14);
+    this.themeBanner.addChild(tPanel, this.themeTitle, this.themeSub);
+    this.themeBanner.position.set(CONFIG.VIEW.W / 2, THEME_BANNER_Y);
+    this.themeBanner.visible = false;
+    this.uiLayer.addChild(this.themeBanner);
     const mPanel = new Graphics().rect(-BANNER_W / 2, -22, BANNER_W, 44).fill(THEME.panel).stroke({ color: THEME.currency, width: 1.5 });
     this.medalTitle.anchor.set(0.5);
     this.medalBanner.addChild(mPanel, this.medalTitle);
@@ -236,6 +262,9 @@ export class FlyScreen implements Screen {
           hull: this.world.hull, credits: this.world.credits, tier: this.world.tier, kills: this.world.kills, time: this.world.time,
           hud: { credits: this.creditsText.text, tier: this.tierText.text, wave: this.waveText.text, kills: this.killsText.text, cores: this.coresText.text, spike: this.spikeBadge.visible, plateW: this.hudPlateW },
           wave: this.world.wave, waveTimeLeft: this.world.waveTimeLeft, seed: this.world.seed,
+          bullets: { count: this.world.enemyBullets.count, drawn: this.bulletSprites.visibleCount, hits: this.world.bulletHits, list: Array.from({ length: this.world.enemyBullets.max }, (_, i) => i).filter(i => this.world.enemyBullets.active[i]).map(i => ({ x: this.world.enemyBullets.x[i], y: this.world.enemyBullets.y[i] })) },
+          links: this.world.links.map(l => ({ kind: l.kind, id: l.id })),
+          themeBanner: this.themeBanner.visible ? { title: this.themeTitle.text, sub: this.themeSub.text } : null,
           banner: this.banner.visible ? { title: this.bannerTitle.text, sub: this.bannerSub.text, alpha: this.banner.alpha } : null,
           species: this.world.mitosis.enemies.map(e => e.defId),
           popups: this.dmgNums.filter(d => d.life > 0 && d.t.text.startsWith('+')).map(d => ({ text: d.t.text, alpha: d.t.alpha })),
@@ -263,7 +292,7 @@ export class FlyScreen implements Screen {
     o.enemies = w.mitosis.enemies.length;
     o.fx = fx;
     o.kills = w.kills;
-    o.extra = `wave ${w.wave}  tier ${w.tier}  t ${w.time.toFixed(0)}s`;
+    o.extra = `wave ${w.wave}  tier ${w.tier}  t ${w.time.toFixed(0)}s  eb ${w.enemyBullets.count}`;
   }
 
   /** The fragment pool in a species' colours (its art def), made on first use. */
@@ -361,6 +390,12 @@ export class FlyScreen implements Screen {
       this.bannerSub.text = [kind === 'swarm' ? 'SWARM' : kind === 'mothers' ? 'MOTHERS' : '', ev.bonus > 0 ? `+${fmtBig(ev.bonus)} credits` : ''].filter(Boolean).join('  ');
       this.bannerSub.style.fill = ev.bonus > 0 ? THEME.currency : THEME.textDim;
       this.bannerT = BANNER_TIME;
+      if (ev.theme) {
+        const th = THEME_BY_ID[ev.theme];
+        this.themeTitle.text = th.name;
+        this.themeSub.text = ev.cores > 0 ? `${th.line}  +${fmtBig(Math.round(ev.cores))} ${CURRENCY_CORES_NAME}` : th.line;
+        this.themeT = BANNER_TIME;
+      }
       // Free Fly Medal milestones (first time only per save). A run started at a later wave by a cheat earns none.
       if ((this.opts.startWave ?? 1) <= 1) {
         const award = getProgressStore().claimFlyMilestone(ev.wave, this.mods.medalDouble);
@@ -385,6 +420,11 @@ export class FlyScreen implements Screen {
       this.hintT -= frameTime;
       // A blink: on for 0.15 s, off for 0.15 s.
       this.hint.visible = this.hintT > 0 && Math.floor(this.hintT / 0.15) % 2 === 0;
+    }
+    if (this.themeT > 0) {
+      this.themeT -= frameTime;
+      this.themeBanner.visible = this.themeT > 0;
+      this.themeBanner.alpha = Math.min(1, Math.max(0, this.themeT) / BANNER_FADE);
     }
     if (this.bannerT > 0) {
       this.bannerT -= frameTime;
@@ -435,6 +475,8 @@ export class FlyScreen implements Screen {
       }
     }
 
+    this.bulletSprites.sync(this.world.enemyBullets);
+    drawSupportLinks(this.linkG, this.world.links, this.world.time);
     const proj = this.world.projSys;
     drawFieldFx(this.fieldG, proj);
     this.arcG.clear();
