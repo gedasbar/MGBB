@@ -20,7 +20,10 @@ export type AchievementMetric =
   | 'hullFilled'      // 1 once a circuit filled every buildable cell of a hull with at least FILL_MIN_CELLS cells
   | 'hullsOwned'      // hulls owned (of 19)
   | 'ordinaryOwned'   // ordinary (non-legendary) blocks owned at least once
-  | 'flyWave';        // best Free Fly wave
+  | 'flyWave'        // best Free Fly wave
+  | 'bossHive' | 'bossBastion' | 'bossQueen' | 'bossColossus' // 1 once that Free Fly boss has been beaten (chunk 32b)
+  | 'bossKilled'      // different Free Fly bosses beaten (of 4)
+  | 'bossNoHit';      // Free Fly boss fights won without the hull being hit
 
 export type AchievementGroup = 'Campaign' | 'Frontier' | 'Hero and skills' | 'Builder' | 'Collection' | 'Free Fly';
 
@@ -99,6 +102,12 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'wave_20', name: 'Rock crusher', text: 'Reach wave 20.', group: 'Free Fly', metric: 'flyWave', goal: 20, reward: m(2) },
   { id: 'wave_30', name: 'Rock reaper', text: 'Reach wave 30.', group: 'Free Fly', metric: 'flyWave', goal: 30, reward: m(4) },
   { id: 'wave_50', name: 'Endless', text: 'Reach wave 50.', group: 'Free Fly', metric: 'flyWave', goal: 50, reward: m(6) },
+  // Chunk 32b: the Free Fly bosses (waves 10, 20, 30, 40, then again).
+  { id: 'boss_hive', name: 'Mother of rocks', text: 'Defeat the Hive Mother (wave 10).', group: 'Free Fly', metric: 'bossHive', goal: 1, reward: m(2) },
+  { id: 'boss_bastion', name: 'Through the gap', text: 'Defeat the Bastion (wave 20).', group: 'Free Fly', metric: 'bossBastion', goal: 1, reward: m(3) },
+  { id: 'boss_queen', name: 'Off with her escorts', text: 'Defeat the Swarm Queen (wave 30).', group: 'Free Fly', metric: 'bossQueen', goal: 1, reward: m(4) },
+  { id: 'boss_colossus', name: 'Fell the giant', text: 'Defeat the Colossus (wave 40).', group: 'Free Fly', metric: 'bossColossus', goal: 1, reward: m(5) },
+  { id: 'boss_untouched', name: 'Not a scratch', text: 'Defeat a boss without being hit.', group: 'Free Fly', metric: 'bossNoHit', goal: 1, reward: m(4) },
 ];
 
 export const ACHIEVEMENT_GROUPS: readonly AchievementGroup[] = ['Campaign', 'Frontier', 'Hero and skills', 'Builder', 'Collection', 'Free Fly'];

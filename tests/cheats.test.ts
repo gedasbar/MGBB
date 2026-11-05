@@ -75,7 +75,7 @@ describe('dev cheats', () => {
     expect(w.time).toBeCloseTo(9 * WAVE_TIME, 1);
     expect(w.tier).toBe(1 + Math.floor(9 * WAVE_TIME / 15));
     w.update(1.5, ptr);
-    expect(w.mitosis.enemies.some(e => e.defId === 'mother')).toBe(true);
+    expect(w.boss?.def.id).toBe('hive'); // wave 10 is a boss wave (chunk 32b)
     w.reset(); w.update(1 / 60, ptr);
     expect(w.wave).toBe(10);
     const g = new World({ autoSpawn: false });

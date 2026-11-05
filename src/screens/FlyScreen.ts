@@ -41,6 +41,8 @@ import { DEBUG_ON } from '../debug/enabled';
 import { EnemyBulletSprites, enemyBulletTexture } from '../ui/enemyBulletSprites';
 import { drawSupportLinks } from '../ui/supportLinks';
 import { THEME_BY_ID } from '../data/waveThemes';
+import { BossView, BOSS_BAR } from '../ui/bossArt';
+import { BOSS_BY_ID } from '../data/bosses';
 
 /** Status tints of a rock: burning is a redder orange, frozen a pale blue. */
 const BURN_COLOR = 0xff4a1a;
@@ -63,6 +65,8 @@ const HINT_TIME = 1.2;
 const THEME_BANNER_Y = BANNER_Y - BANNER_H / 2 - 38;
 const THEME_BANNER_H = 56;
 const THEME_BANNER_COLOR = 0xe87a5a;
+const BOSS_ENRAGE_COLOR = 0xe84a3a;
+const BOSS_BAR_COLOR = 0xe8a03a;
 
 interface DmgNum { t: Text; life: number; }
 
@@ -117,6 +121,11 @@ export class FlyScreen implements Screen {
   private themeTitle = makeText('', 20, THEME_BANNER_COLOR, { fontWeight: 'bold' });
   private themeSub = makeText('', 12, THEME.textDim, { fontWeight: 'bold' });
   private themeT = 0;
+  /** Free Fly bosses (chunk 32b): the drawing, the health bar with its name line, and the colour the theme banner wears for a boss moment. */
+  private bossView = new BossView();
+  private bossBarG = new Graphics();
+  private bossName = makeText('', 14, THEME.text, { fontWeight: 'bold' });
+  private bossInfo = makeText('', 12, THEME.textDim, { fontWeight: 'bold' });
   /** Medal milestone banner ("+2 Medals") and the Second Chance hint (a short blink). */
   private medalBanner = new Container();
   private medalTitle = makeText('', 20, THEME.currency, { fontWeight: 'bold' });
@@ -180,7 +189,8 @@ export class FlyScreen implements Screen {
     
     this.fragPools.set('mitotic_rock', this.fragments);
     this.fragLayer.addChild(this.fragments.container);
-    this.container.addChild(this.projLayer, this.enemyLayer, this.fragLayer);
+    this.container.addChild(this.projLayer, this.enemyLayer, this.bossView.container, this.fragLayer);
+    this.bossView.container.visible = false;
     this.ship = new ShipView(this.screenManager.app.renderer, grid.hullId ?? 'shuttle');
     this.container.addChild(this.ship.container, this.fxLayer, this.uiLayer);
     this.fxLayer.addChild(this.fieldG, this.arcG, this.linkG);
@@ -239,6 +249,11 @@ export class FlyScreen implements Screen {
     this.themeBanner.position.set(CONFIG.VIEW.W / 2, THEME_BANNER_Y);
     this.themeBanner.visible = false;
     this.uiLayer.addChild(this.themeBanner);
+    this.bossName.position.set(BOSS_BAR.x, BOSS_BAR.y - 18);
+    this.bossInfo.anchor.set(1, 0);
+    this.bossInfo.position.set(BOSS_BAR.x + BOSS_BAR.w, BOSS_BAR.y - 18);
+    this.bossBarG.visible = this.bossName.visible = this.bossInfo.visible = false;
+    this.uiLayer.addChild(this.bossBarG, this.bossName, this.bossInfo);
     const mPanel = new Graphics().rect(-BANNER_W / 2, -22, BANNER_W, 44).fill(THEME.panel).stroke({ color: THEME.currency, width: 1.5 });
     this.medalTitle.anchor.set(0.5);
     this.medalBanner.addChild(mPanel, this.medalTitle);
@@ -264,6 +279,8 @@ export class FlyScreen implements Screen {
           wave: this.world.wave, waveTimeLeft: this.world.waveTimeLeft, seed: this.world.seed,
           bullets: { count: this.world.enemyBullets.count, drawn: this.bulletSprites.visibleCount, hits: this.world.bulletHits, list: Array.from({ length: this.world.enemyBullets.max }, (_, i) => i).filter(i => this.world.enemyBullets.active[i]).map(i => ({ x: this.world.enemyBullets.x[i], y: this.world.enemyBullets.y[i] })) },
           links: this.world.links.map(l => ({ kind: l.kind, id: l.id })),
+          boss: this.world.boss ? { id: this.world.boss.def.id, hp: this.world.boss.hp, maxHp: this.world.boss.maxHp, enraged: this.world.boss.enraged, entering: this.world.boss.entering, coreOpen: this.world.boss.coreOpen, x: this.world.boss.anchorX, y: this.world.boss.anchorY, round: this.world.boss.round, parts: this.world.boss.parts.length, escorts: this.world.boss.escorts.filter(Boolean).length, bar: this.bossBarG.visible, name: this.bossName.text } : null,
+          bossesDefeated: this.world.bossesDefeated.map(b => ({ ...b })),
           themeBanner: this.themeBanner.visible ? { title: this.themeTitle.text, sub: this.themeSub.text } : null,
           banner: this.banner.visible ? { title: this.bannerTitle.text, sub: this.bannerSub.text, alpha: this.banner.alpha } : null,
           species: this.world.mitosis.enemies.map(e => e.defId),
@@ -279,6 +296,28 @@ export class FlyScreen implements Screen {
         world: this.world,
       };
     }
+  }
+
+  /** Shows the themed banner with a title, a line and a colour (themes, boss moments). */
+  private showThemeBanner(title: string, sub: string, color: number) {
+    this.themeTitle.text = title;
+    this.themeTitle.style.fill = color;
+    this.themeSub.text = sub;
+    this.themeT = BANNER_TIME;
+  }
+
+  /** The boss drawing and its health bar (name left, seconds to the enrage right) follow the world's boss, or hide. */
+  private syncBoss(frameTime: number) {
+    const b = this.world.boss;
+    this.bossView.container.visible = !!b;
+    this.bossBarG.visible = this.bossName.visible = this.bossInfo.visible = !!b;
+    if (!b) return;
+    this.bossView.update(b, frameTime);
+    this.bossName.text = `${b.def.name}${b.round > 0 ? `  (round ${b.round + 1})` : ''}`;
+    this.bossInfo.text = b.enraged ? 'ENRAGED' : `enrages in ${fmtTime(Math.ceil(b.enrageIn))}`;
+    this.bossInfo.style.fill = b.enraged ? BOSS_ENRAGE_COLOR : THEME.textDim;
+    const { x, y, w, h } = BOSS_BAR;
+    this.bossBarG.clear().rect(x, y, w, h).fill({ color: THEME.bg, alpha: 0.8 }).rect(x, y, w * b.fraction, h).fill(b.enraged ? BOSS_ENRAGE_COLOR : BOSS_BAR_COLOR).rect(x, y, w, h).stroke({ color: THEME.border, width: 1.5 });
   }
 
   statsInfo(o: StatsInfo) {
@@ -377,7 +416,7 @@ export class FlyScreen implements Screen {
       const left = Math.max(0, enc.duration - this.world.time);
       this.waveText.text = `${FRONTIER_NAME} encounter  survive ${fmtTime(Math.ceil(left))}`;
       this.timeBarFg.clear().rect(0, 0, (CONFIG.VIEW.W - 40) * (left / enc.duration), 6).fill(this.world.time >= enc.duration * FREEFLY_PASS_SHARE ? PROGRESS_COLOR : THEME.currency);
-    } else this.waveText.text = `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
+    } else this.waveText.text = this.world.boss ? `Wave ${this.world.wave}  BOSS` : `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
     this.killsText.text = `Kills ${this.world.kills}`;
     this.coresText.text = `${CURRENCY_CORES_NAME} +${fmtBig(this.world.cores)}`;
     this.spikeBadge.position.set(20 + this.tierText.width + 12, 56 + (this.tierText.height - SPIKE_BADGE.h) / 2);
@@ -387,9 +426,10 @@ export class FlyScreen implements Screen {
       sfx.play('wave');
       const kind = specialKind(ev.wave);
       this.bannerTitle.text = `WAVE ${ev.wave}`;
-      this.bannerSub.text = [kind === 'swarm' ? 'SWARM' : kind === 'mothers' ? 'MOTHERS' : '', ev.bonus > 0 ? `+${fmtBig(ev.bonus)} credits` : ''].filter(Boolean).join('  ');
+      this.bannerSub.text = [ev.boss ? 'BOSS' : kind === 'swarm' ? 'SWARM' : kind === 'mothers' ? 'MOTHERS' : '', ev.bonus > 0 ? `+${fmtBig(ev.bonus)} credits` : ''].filter(Boolean).join('  ');
       this.bannerSub.style.fill = ev.bonus > 0 ? THEME.currency : THEME.textDim;
       this.bannerT = BANNER_TIME;
+      if (ev.boss) this.showThemeBanner(BOSS_BY_ID[ev.boss].name, BOSS_BY_ID[ev.boss].line, THEME_BANNER_COLOR);
       if (ev.theme) {
         const th = THEME_BY_ID[ev.theme];
         this.themeTitle.text = th.name;
@@ -409,6 +449,15 @@ export class FlyScreen implements Screen {
       }
     }
     this.world.waveEvents.length = 0;
+    for (const ev of this.world.bossEvents) {
+      if (ev.kind === 'enrage') { sfx.play('wave'); this.showThemeBanner('ENRAGED', `${ev.name} attacks faster and sinks`, BOSS_ENRAGE_COLOR); }
+      else {
+        sfx.play('medal');
+        this.showThemeBanner(`${ev.name} DEFEATED`, `+${fmtBig(Math.round(ev.cores))} ${CURRENCY_CORES_NAME}  +${fmtBig(Math.round(ev.credits))} credits${ev.noHit ? '  NO HIT' : ''}`, THEME.good);
+      }
+    }
+    this.world.bossEvents.length = 0;
+    this.syncBoss(frameTime);
     if (this.medalT > 0) {
       this.medalT -= frameTime;
       this.medalBanner.visible = this.medalT > 0;
@@ -450,6 +499,7 @@ export class FlyScreen implements Screen {
 
     const alive = new Set<number>();
     for (const e of this.world.mitosis.enemies) {
+      if (e.bossRole === 'conduit' || e.bossRole === 'plate') continue; // drawn by the boss view
       alive.add(e.id);
       let s = this.enemySprites.get(e.id);
       if (!s) {

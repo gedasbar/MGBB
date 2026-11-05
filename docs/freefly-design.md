@@ -46,7 +46,7 @@ rose, Ironclad grey-brown, Warden pale sand, Budder amber-moss). Cracks, hit fla
   Rock and two pebbles). When more than 90 bodies are alive the director holds new spawns.
 - **Special waves (every 5th):** odd multiples of 5 (5, 15, 25 ...) are a **Swarm**: budget x1.25 spent only on
   Darters and Pebbles (a basic rock born at generation 3, radius 15, 1 point), spawned within 20 s. Even multiples
-  (10, 20 ...) are a **Mother event**: budget x1.25 spent on Mothers only (at least 2), in two groups at 0 s and 12 s.
+  (10, 20 ... until chunk 32b, which made them boss waves: see `docs/freefly-bosses.md`; the text below is the old rule) are a **Mother event**: budget x1.25 spent on Mothers only (at least 2), in two groups at 0 s and 12 s.
 - **Difficulty vs tier:** Free Fly keeps its world tier (1 + one per 15 s survived). A spawn's HP is
   `species HP x rockHp(tier) x 1.08^(N-1)`; the extra 8 % per wave makes HP pressure grow ~1.45x per wave
   (tier ~1.15, wave HP 1.08, count ~1.15), so a gun with 4x the DPS lasts about 3.5 waves longer, not forever.

@@ -93,7 +93,7 @@ describe('coverage weight (18b)', () => {
 describe('Free Fly needs', () => {
   it('grow with the wave', () => {
     let last = 0;
-    for (const w of [1, 5, 10, 20, 30]) { const k = flyNeeds(w).keepUp; expect(k).toBeGreaterThan(last); last = k; }
+    for (const w of [1, 5, 11, 21, 31]) { const k = flyNeeds(w).keepUp; expect(k).toBeGreaterThan(last); last = k; }
   });
 });
 

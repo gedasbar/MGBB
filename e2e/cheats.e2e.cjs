@@ -53,15 +53,15 @@ const TAB = { build: [54, 932], shop: [162, 932], map: [916, 932] };
   check((await saved()).passedTiers.length === 0, 'reset campaign progress empties the passed tiers');
   await tap(page, ...TAB.build);
 
-  // ---- Free Fly at wave 10: a Mother event
+  // ---- Free Fly at wave 10: a boss wave (the Hive Mother, chunk 32b)
   await page.evaluate(() => { document.getElementById('dbg-wave-n').value = '10'; });
   await click('dbg-start-wave');
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await click('dbg-god');
   await page.evaluate(() => window.__mgbm.setTimeScale(1));
-  await page.waitForFunction(() => window.__mgbm.state().species.includes('mother'), null, { timeout: 8000 });
+  await page.waitForFunction(() => window.__mgbm.state().boss, null, { timeout: 8000 });
   s = await state(page);
-  check(s.wave === 10 && s.species.includes('mother') && /^Wave 10/.test(s.hud.wave), `Free Fly started at wave ${s.wave}, species now: ${[...new Set(s.species)].join(',')}, HUD "${s.hud.wave}"`);
+  check(s.wave === 10 && s.boss.id === 'hive' && /^Wave 10/.test(s.hud.wave), `Free Fly started at wave ${s.wave}, boss ${s.boss && s.boss.id}, HUD "${s.hud.wave}"`);
   check(s.time >= 360 && s.tier === 1 + Math.floor(s.time / 15), `run time ${s.time.toFixed(0)} s, tier ${s.tier}`);
 
   // ---- spawn a chosen species, god mode, kill all

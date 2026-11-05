@@ -40,6 +40,8 @@ export interface MitosisEnemy {
   scFirst?: number;
   /** Chunk 32a: set each frame while a Shielder protects this body (damage taken x this); absent otherwise. */
   dmgTakenMul?: number;
+  /** Chunk 32b: a body of a Free Fly boss (src/game/boss.ts): 'conduit' carries the boss's HP, 'plate' is invulnerable, 'escort' has its own HP. The generic enemy loop skips these. */
+  bossRole?: 'conduit' | 'plate' | 'escort';
 }
 
 export class MitosisSystem {

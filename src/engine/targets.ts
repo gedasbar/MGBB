@@ -90,7 +90,7 @@ export class EnemyField implements TargetField {
     let bdx = 0, bdy = 0;
     for (let k = 0; k < buf.length; k++) {
       const e = this.ids.get(buf[k]);
-      if (!e || e.hp <= 0) continue;
+      if (!e || e.hp <= 0 || e.bossRole === 'plate') continue; // a plate takes no damage: not a target to home on
       const dx = e.x - px, dy = e.y - py;
       const d2 = dx * dx + dy * dy;
       if (d2 > best) continue;
@@ -119,7 +119,7 @@ export class EnemyField implements TargetField {
 
   collectNear(_x: number, _y: number, _range: number, out: EnemyEntity[]) {
     out.length = 0;
-    for (const e of this.enemies) if (e.hp > 0) out.push(e);
+    for (const e of this.enemies) if (e.hp > 0 && e.bossRole !== 'plate') out.push(e);
   }
 
   /** A rock is a circle: the contact normal points from its centre to the hit. */

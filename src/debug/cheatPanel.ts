@@ -145,6 +145,12 @@ export function addCheats(parent: HTMLElement) {
     debugHooks.startFly(int(waveN, 1));
     say(`Free Fly from wave ${int(waveN, 1)}`);
   });
+  button(ff, 'dbg-jump-wave', 'Jump to wave (running)', () => {
+    const w = debugHooks.world;
+    if (!w) return say('start Free Fly first');
+    w.jumpToWave(int(waveN, 1));
+    say(`jumped to wave ${int(waveN, 1)}`);
+  });
   const sel = document.createElement('select');
   sel.id = 'dbg-species';
   sel.style.cssText = INPUT + ';width:auto';

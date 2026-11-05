@@ -63,7 +63,7 @@ async function reloadToBuild(page) {
 }
 
 /** Starts Free Fly at wave 10 (the cheat panel), god mode on, and flies for `seconds` at 6x with the pointer under the lowest rock. */
-async function flyWave10(page, seconds, wave = 10) {
+async function flyWave10(page, seconds, wave = 11) {
   await page.evaluate((n) => { document.getElementById('dbg-wave-n').value = String(n); document.getElementById('dbg-start-wave').click(); }, wave);
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.world && window.__mgbm.state().viewW, null, { timeout: 5000 });
   await page.evaluate(() => { const g = document.getElementById('dbg-god'); if (!g.checked) g.click(); });
@@ -141,7 +141,7 @@ async function flyWave10(page, seconds, wave = 10) {
   check(strip.length >= 4, `stats strip with the new blocks: ${strip.slice(0, 4).join(' | ')}`);
   let r = await flyWave10(page, 22);
   const fxA = r.fx;
-  check(r.wave >= 10 && r.mothers > 0, `Free Fly ran at wave ${r.wave}, a Mother was on screen in ${r.mothers} polls`);
+  check(r.wave >= 11, `Free Fly ran at wave ${r.wave} (wave 10 is a boss wave since 32b, so the script flies wave 11; Mothers seen in ${r.mothers} polls)`);
   check(fxA.cullingHits > 0, `Culling Bolt added damage ${fxA.cullingHits} times`);
   check(fxA.residueClouds > 0 && fxA.residueTicks > 0, `Residue Seed left ${fxA.residueClouds} clouds that ticked ${fxA.residueTicks} times`);
   check(fxA.staticPulses > 0, `Static Charge released ${fxA.staticPulses} pulses`);
