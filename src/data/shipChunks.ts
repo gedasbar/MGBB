@@ -1,4 +1,5 @@
 import { CHUNK_CELLS } from '../shipyard/constants';
+import { CORE_MAGNET_RADIUS_PER_COPY } from './coreCrystals';
 
 /**
  * SHIP CHUNKS - the building bricks of custom hulls (Shipyard, chunk 31a; rules in shipyard/design.ts, note in docs/shipyard.md).
@@ -27,8 +28,10 @@ export interface ChunkEffect {
   damage?: number;
   /** Crashes forgiven per run. */
   lives?: number;
-  /** Cores earned change as a fraction (0.1 = +10%). */
+  /** Cores earned change as a fraction (0.1 = +10%). No chunk uses it since 32e (Core Magnet became `pickup`); kept so the field and old tests still work. */
   cores?: number;
+  /** Chunk 32e: Core crystal pickup radius change per copy as a fraction (0.6 = +60%). */
+  pickup?: number;
   /** Shot speed change as a fraction (0.2 = +20%). */
   shotSpeed?: number;
   // ---- Free Fly trait effects (chunk 32c). They act in normal Free Fly only: walls and Frontier squares ignore them (see shipyard/flyTraits.ts).
@@ -99,8 +102,8 @@ export const CHUNKS: readonly ChunkDef[] = [
     rows: ['___', '___', '___'], effect: { pulses: -0.2, damage: -0.3 } },
   { id: 'long_barrel', name: 'Long Barrel', kind: 'trait', basePrice: 2500, growth: GROWTH_TRAIT, text: '+20% shot speed.',
     rows: ['__.', '__.', '...'], effect: { shotSpeed: 0.2 } },
-  { id: 'core_magnet', name: 'Core Magnet', kind: 'trait', basePrice: 2500, growth: GROWTH_TRAIT, text: '+10% Cores earned.',
-    rows: ['__.', '...', '...'], effect: { cores: 0.1 } },
+  { id: 'core_magnet', name: 'Core Magnet', kind: 'trait', basePrice: 2500, growth: GROWTH_TRAIT, text: '+60% Core crystal pickup radius per copy.',
+    rows: ['__.', '...', '...'], effect: { pickup: CORE_MAGNET_RADIUS_PER_COPY } },
   { id: 'overdrive', name: 'Overdrive', kind: 'trait', basePrice: 4000, growth: GROWTH_TRAIT, text: '+0.5 pulses/s.',
     rows: ['._.', '._.', '...'], effect: { pulses: 0.5 } },
   { id: 'extra_life', name: 'Extra Life', kind: 'trait', basePrice: 5000, growth: GROWTH_TRAIT, text: 'One crash forgiven per run.',

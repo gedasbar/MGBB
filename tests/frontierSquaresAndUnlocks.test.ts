@@ -1,7 +1,7 @@
 import { ACHIEVEMENTS } from '../src/data/achievements';
 import { TIER_LOCKS } from '../src/data/tierLocks';
 import { describe, expect, it } from 'vitest';
-import { FRONTIER_SEED, FREEFLY_SHARE, FREEFLY_SQUARE_SECONDS, FF_WAVE_CAP, PROGRESS_COLOR } from '../src/frontier/constants';
+import { FRONTIER_SEED, FREEFLY_SHARE, FREEFLY_SQUARE_SECONDS, FF_WAVE_CAP, FF_LATE_FROM, FF_LATE_SLOPE, PROGRESS_COLOR } from '../src/frontier/constants';
 import { squareKind, squareLevel } from '../src/frontier/level';
 import { encounterOutcome, planEncounter, waveEquivalent } from '../src/frontier/encounter';
 import { FrontierWorld, ring, sector, sqKey } from '../src/frontier/world';
@@ -67,7 +67,9 @@ describe('Free Fly squares: encounter', () => {
       expect(w).toBeLessThanOrEqual(FF_WAVE_CAP);
       prev = w;
     }
-    expect(waveEquivalent(400)).toBe(FF_WAVE_CAP);
+    expect(waveEquivalent(400)).toBe(Math.round(FF_LATE_FROM + (FF_WAVE_CAP - FF_LATE_FROM) * FF_LATE_SLOPE)); // 24: flatter above wave 20 since 32e
+    expect(waveEquivalent(60)).toBe(15); // unchanged below the knee
+    expect(waveEquivalent(100)).toBe(22);
     expect(waveEquivalent(45)).toBeGreaterThan(waveEquivalent(25));
   });
 

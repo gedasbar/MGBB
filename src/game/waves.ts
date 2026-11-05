@@ -171,6 +171,9 @@ export class WaveDirector {
     return waveRng(this.seed ^ 0x5b1b, wave).next() < this.skipChance;
   }
 
+  /** Spawns planned but not yet sent (chunk 32e: the crystal pool is shared with them). */
+  get pending(): readonly PlannedSpawn[] { return this.queue.slice(this.next); }
+
   /** Seconds left until the next wave starts (a boss wave has no timer: it ends when the boss dies). */
   timeToNext(time: number): number { return this.holding ? 0 : Math.max(0, this.start + this.waveTime - time); }
 

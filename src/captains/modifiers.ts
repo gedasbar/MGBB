@@ -34,6 +34,8 @@ export interface RunModifiers {
   chanceInvuln: number;
   /** Chunk 31a: multiplier on the Cores a Free Fly run earns (the Core Magnet chunk; 1 = none). */
   coresMul: number;
+  /** Chunk 32e: x the Core crystal pickup radius (the Core Magnet chunk: +60% a copy; 1 = none). */
+  pickupMul: number;
   /** Chunk 32c: the Free Fly trait chunks of the hull (normal Free Fly only; neutral = no change). */
   fly: FlyTraits;
   /** Seconds added to the spawn invulnerability. */
@@ -52,7 +54,7 @@ export interface RunModifiers {
 export function neutralModifiers(): RunModifiers {
   return {
     baseDamage: 0, damageMul: 1, fireRateMul: 1, projSpeedMul: 1, vsArmor: 0, vsShield: 0, vsFragment: 0, wallDamageMul: 1,
-    creditMul: 1, wallCreditMul: 1, waveBonusMul: 1, passCredits: 0, medalDouble: 0, secondChances: 0, chanceInvuln: SECOND_CHANCE_INVULN, coresMul: 1, fly: NEUTRAL_FLY, spawnInvuln: 0,
+    creditMul: 1, wallCreditMul: 1, waveBonusMul: 1, passCredits: 0, medalDouble: 0, secondChances: 0, chanceInvuln: SECOND_CHANCE_INVULN, coresMul: 1, pickupMul: 1, fly: NEUTRAL_FLY, spawnInvuln: 0,
     hullMul: 1, killHeal: 0, boostZone: 1, furthestRing: 0, skills: NO_SKILLS,
   };
 }

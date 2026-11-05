@@ -28,7 +28,7 @@ export function sandboxProgress(real: Progress): Progress {
 export function registerCellTest(rows: string[]) {
   const cells = rows.join('').split('_').length - 1;
   setCustomHull(CELL_TEST_HULL, {
-    name: 'Cell test', rows, damageMul: 1, lives: 0, coresMul: 1,
+    name: 'Cell test', rows, damageMul: 1, lives: 0, coresMul: 1, pickupMul: 1,
     stats: { name: 'Cell test', price: 0, pulsesPerSec: basePulses(cells), shotSpeed: 1, size: sizeOfChunks(Math.ceil(cells / 9)) },
   });
   HULL_BUILDERS[CELL_TEST_HULL] = () => withHull(CELL_TEST_HULL, rows);

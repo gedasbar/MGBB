@@ -6,7 +6,7 @@ Part 1 (chunk 31a) builds the rules and the data of the Shipyard: a new currency
 
 - Display name is one constant, `CURRENCY_CORES_NAME` = "Cores" (`src/shipyard/constants.ts`). Code says `cores`.
 - **Earned only in Free Fly and in Frontier Free Fly squares**, on top of the credits. Earned from the first minute of the game, so the bank is full when the Shipyard opens (ring 150).
-- Free Fly: when wave `w` starts (w >= 2, so wave `w - 1` was survived) the run earns `round(2 x 1.08^(w-2))` Cores (wave 2: 2, wave 10: 4, wave 20: 8, wave 30: 17, wave 50: 80). Reaching a Medal-wave milestone (5, 10, 15, 20, 30, 40, 50) adds `2 x wave` more, EVERY time (the Medal itself is still once per save). The Core Magnet trait multiplies the run's earnings.
+- Free Fly: when wave `w` starts (w >= 2, so wave `w - 1` was survived) the run earns `round(2 x 1.08^(w-2))` Cores (wave 2: 2, wave 10: 4, wave 20: 8, wave 30: 17, wave 50: 80). Reaching a Medal-wave milestone (5, 10, 15, 20, 30, 40, 50) adds `2 x wave` more, EVERY time (the Medal itself is still once per save). (Chunk 32e: the Core Magnet no longer multiplies the earnings; it widens the pickup radius of the Core crystals, `docs/core-pickups.md`.)
 - Frontier Free Fly square: one `coresForWave(min(wave equivalent, 30))` for every full 40 s survived, no milestone bonus (a square has no waves; the cap keeps a late square from paying more than a good normal run).
 - Quitting mid-run keeps what the run has earned so far, like credits.
 - Shown in the Free Fly HUD (`Cores +N`), on the run summary (a line under the credits total) and on the Free Fly home screen ("Cores: used in the Shipyard, which opens at Frontier ring 150").
@@ -19,7 +19,7 @@ A chunk is a 3x3 pattern (`_` buildable, `.` outside, `G` generator, `E` ejector
 |---|---|
 | Plain | Corridor, Corner, T-junction, Cross, Ring (priced by cell count, about 20 Cores a cell) |
 | Guns | Front Gun (1 ejector, top), Twin Gun (2 ejectors, top corners), Side Gun (ejectors left and right, they fire sideways since 25a) |
-| Traits | Wide Open (the only full 3 x 3 block: 9 cells, -0.2 pulses/s, -30% damage), Overdrive (2 cells, +0.5 pulses/s), Extra Life (1 cell, one crash forgiven), Core Magnet (2 cells, +10% Cores), Long Barrel (4 cells, +20% shot speed). Traits with an upside have small awkward shapes: you pay in room as well as Cores. |
+| Traits | Wide Open (the only full 3 x 3 block: 9 cells, -0.2 pulses/s, -30% damage), Overdrive (2 cells, +0.5 pulses/s), Extra Life (1 cell, one crash forgiven), Core Magnet (2 cells, +60% Core crystal pickup radius a copy since 32e), Long Barrel (4 cells, +20% shot speed). Traits with an upside have small awkward shapes: you pay in room as well as Cores. |
 
 **31d, the set was cleaned up.** Every shape exists once counting rotations (`duplicateShapes()`; a Bar is a Corridor turned, so Bar is gone, and the full block exists only as Wide Open). `Full` and `Bar` were removed in save version 16: owned copies are refunded in Cores at base x 1.5^k (Full 25, Bar 15), leave saved designs (the slot is empty) and a one-time message says so (`removedChunksRefund`, `src/shipyard/state.ts`).
 

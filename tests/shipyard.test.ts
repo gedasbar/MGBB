@@ -332,7 +332,7 @@ describe('stats', () => {
     expect(s.chunks).toBe(2);
   });
 
-  it('traits come after the formula: Overdrive +0.5, Wide Open -0.2 and x0.7 damage, Long Barrel +20% speed, Core Magnet +10%, Extra Life', () => {
+  it('traits come after the formula: Overdrive +0.5, Wide Open -0.2 and x0.7 damage, Long Barrel +20% speed, Core Magnet +60% pickup radius, Extra Life', () => {
     const base = designStats(SMALL())!;
     // A trait chunk goes in the first free slot (and rotation) where the ship stays valid.
     const withTrait = (id: string) => designStats(attach(id)!)!;
@@ -343,7 +343,8 @@ describe('stats', () => {
     expect(wo.pulsesPerSec).toBeCloseTo(basePulses(wo.cells) - 0.4, 9);
     expect(wo.damageMul).toBeCloseTo(0.49, 9);
     expect(withTrait('long_barrel').shotSpeed).toBe(1.2);
-    expect(withTrait('core_magnet').coresMul).toBe(1.1);
+    expect(withTrait('core_magnet').coresMul).toBe(1);
+    expect(withTrait('core_magnet').pickupMul).toBe(1.6);
     expect(withTrait('extra_life').lives).toBe(1);
     expect(base.damageMul).toBeCloseTo(0.7, 9);
     expect(base.lives).toBe(0);
@@ -532,15 +533,16 @@ describe('earning Cores (Free Fly only)', () => {
     expect(store.data.cores).toBe(7);
   });
 
-  it('the Core Magnet multiplies the run\'s Cores (a custom hull with the trait)', () => {
+  it('the Core Magnet widens the pickup radius and no longer changes the Cores paid (a custom hull with the trait)', () => {
     const store = storeAtRing(SHIPYARD_UNLOCK_RING);
     ownAllChunks(store, 2);
     store.setDesign(0, attach('core_magnet')!);
     const plain = new World({ seed: 5 });
     const magnet = new World({ seed: 5, grid: HULL_BUILDERS.custom1() });
     for (const w of [plain, magnet]) for (let t = 0; t < WAVE_TIME * 9 + 2; t += DT) { w.update(DT, idle()); w.hull = w.maxHull; w.mitosis.enemies.length = 0; }
-    expect(magnet.cores).toBe(Math.floor(plain.cores * 1.1 + 1e-9) || 0);
-    expect(magnet.cores).toBeGreaterThan(plain.cores);
+    expect(magnet.cores).toBe(plain.cores);
+    expect(magnet.mods.pickupMul).toBe(1.6);
+    expect(plain.mods.pickupMul).toBe(1);
   });
 });
 

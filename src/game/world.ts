@@ -24,7 +24,9 @@ import { SHIELD_REGEN_DELAY, SHIELD_REGEN_PER_SEC } from '../wall/constants';
 import type { MitosisEnemy } from '../engine/mitosis';
 import { neutralModifiers, RunModifiers } from '../captains/modifiers';
 import { applyHullTraits } from '../shipyard/registry';
-import { encounterCores, waveStartCores } from '../shipyard/cores';
+import { encounterCores, encounterCoresPerBlock, ENCOUNTER_CORES_SECONDS, waveStartCores } from '../shipyard/cores';
+import { CrystalField, killShare, pickupRadius } from '../engine/coreCrystals';
+import { CRYSTAL_SHARE } from '../data/coreCrystals';
 import { REPAIR_IDLE_SECONDS } from '../shipyard/constants';
 import { FlyTraits, NEUTRAL_FLY } from '../shipyard/flyTraits';
 import { EnemyBullets } from '../engine/enemyBullets';
@@ -146,9 +148,13 @@ export class World {
   private coresExact = 0;
   /** Whole Cores this run has earned: Free Fly pays when each wave starts (plus the milestone bonus), a Frontier square one block per full 40 s survived. */
   get cores(): number {
-    const exact = this.encounter ? encounterCores(this.encounter.wave, this.time) * this.mods.coresMul : this.coresExact;
+    const exact = (this.encounter ? encounterCores(this.encounter.wave, this.time) * this.mods.coresMul : this.coresExact) + this.crystals.collected;
     return Math.floor(exact + 1e-9);
   }
+  /** Chunk 32e: the Core crystals the kills drop (docs/core-pickups.md). Their value is CRYSTAL_SHARE of the automatic Cores, collected by flying through them. */
+  readonly crystals = new CrystalField();
+  /** Cores waiting to be dropped as crystals: the automatic pay of the waves started (or of an encounter's seconds) times CRYSTAL_SHARE, spent by the kills in proportion to their reward. */
+  private crystalPool = 0;
   /** Waves that started during the last update() calls (the screen shows a banner); consumers clear it. */
   waveEvents: { wave: number; bonus: number; theme: ThemeId | null; cores: number; boss: BossId | null; skipped?: boolean }[] = [];
   private kicks = new Map<number, { vx: number; vy: number }>();
@@ -309,6 +315,22 @@ export class World {
     this.applyStartWave();
   }
 
+  /** The credit reward a body would pay, before the run's multipliers (the weight of its share of the crystal pool). */
+  private bodyReward(tier: number, generation: number, defId: string): number {
+    return rockReward(freeFlyRewardTier(tier), generation) * speciesOf(defId).rewardMul;
+  }
+
+  /** A kill drops a crystal worth its share of the pool (the bodies still alive and the spawns still queued share the rest). */
+  private dropCrystal(dead: { id: number; x: number; y: number; tier: number; generation: number; defId: string }) {
+    if (!(this.crystalPool > 0)) return;
+    let others = 0;
+    for (const o of this.mitosis.enemies) if (o.id !== dead.id && o.hp > 0 && !o.bossRole) others += this.bodyReward(o.tier, o.generation, o.defId);
+    for (const q of this.director.pending) others += this.bodyReward(this.tier, q.generation, q.defId);
+    const value = this.crystalPool * killShare(this.bodyReward(dead.tier, dead.generation, dead.defId), others);
+    this.crystalPool -= value;
+    this.crystals.drop(dead.x, dead.y, value);
+  }
+
   /** The boss of wave `wave` arrives (chunk 32b). */
   private startBoss(wave: number) {
     const b = bossAt(wave);
@@ -363,6 +385,8 @@ export class World {
     this.survived = false;
     this.bonusCredits = 0;
     this.coresExact = 0;
+    this.crystals.clear();
+    this.crystalPool = 0;
     this.waveEvents.length = 0;
     this.hull = this.maxHull;
     this.lastHurtT = -Infinity;
@@ -600,6 +624,10 @@ export class World {
     this.shipX = Math.max(mx, Math.min(VW - mx, baseX + this.knockX));
     this.shipY = Math.max(m, Math.min(CONFIG.VIEW.H - m, baseY + this.knockY));
 
+    // --- Core crystals (chunk 32e): they drift and fade; the ship's path this step collects those within the pickup radius
+    if (this.encounter) this.crystalPool += CRYSTAL_SHARE * encounterCoresPerBlock(this.encounter.wave) / ENCOUNTER_CORES_SECONDS * this.mods.coresMul * dt;
+    this.crystals.update(dt, fromX, fromY, this.shipX, this.shipY, pickupRadius(this.mods.pickupMul));
+
     // --- Auto-fire (the gun also releases shots a Delay Line held back)
     this.projSys.shipX = this.shipX;
     this.projSys.shipY = this.shipY;
@@ -625,7 +653,11 @@ export class World {
         const boss = this.encounter ? null : bossAt(started);
         this.waveEvents.push({ wave: started, bonus, theme: theme ? theme.id : null, cores: themed, boss: boss ? boss.def.id : null });
         if (boss) this.startBoss(started);
-        if (!this.encounter) this.coresExact += waveStartCores(started) * this.mods.coresMul * this.flyT.wavePayMul + themed;
+        if (!this.encounter) {
+          const pay = waveStartCores(started) * this.mods.coresMul * this.flyT.wavePayMul + themed;
+          this.coresExact += pay;
+          this.crystalPool += CRYSTAL_SHARE * pay;
+        }
       }
       const hpMul = waveHpMul(this.director.wave) * (this.encounter ? this.encounter.hpMul : this.flyT.enemyHpMul);
       for (const s of this.due) {
@@ -803,6 +835,7 @@ export class World {
         }
         this.creditsExact += reward;
         this.killEvents.push({ x: e.x, y: e.y, reward, generation: e.generation });
+        this.dropCrystal(e);
         const firstChildId = this.mitosis.nextId;
         this.mitosis.handleDeath(e, -e.hp);
         const childIds: number[] = [];

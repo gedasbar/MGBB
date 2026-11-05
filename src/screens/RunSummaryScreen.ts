@@ -13,6 +13,7 @@ import { shotLines } from '../ui/runStats';
 import { textButton } from '../ui/hud';
 import { THEME, UI } from '../ui/theme';
 import { CURRENCY_CORES_NAME } from '../shipyard/constants';
+import { crystalLine } from '../engine/coreCrystals';
 import { coresIcon } from '../ui/icons';
 import { DEBUG_ON } from '../debug/enabled';
 
@@ -33,6 +34,8 @@ const MEDAL_Y = 278;
 /** Gap between the last row and the Total credits line, and between that and the captain line. */
 const TOTAL_GAP = 28;
 const CAPTAIN_GAP = 30;
+/** Chunk 32e: the "Cores collected" line sits under the Total credits line and pushes the captain line down by this much. */
+const COLLECT_GAP = 26;
 /** Gap under the captain line before the "Unlocked" line. */
 const UNLOCK_GAP = 20;
 /** Top of the buttons (they are 64 high); the e2e scripts tap their centre. */
@@ -76,6 +79,8 @@ export class RunSummaryScreen implements Screen {
   private toast = new Toast();
   private buttons: UIButton[] = [];
   private gestures: GestureTracker | null = null;
+  /** Chunk 32e: the "Cores collected" line (empty when the run dropped no crystals). */
+  private crystalText = '';
   private rows: { label: string; value: string; best: boolean }[];
 
   constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean; newBestEarnings?: boolean }, readonly wall?: WallSummary, readonly captain?: CaptainSummary, readonly unlocked: string = '', readonly challenge: ChallengeSummary | null = null) {
@@ -169,11 +174,20 @@ export class RunSummaryScreen implements Screen {
         this.container.addChild(d);
       }
     }
+    // Chunk 32e: how much of the dropped Core crystals the player collected.
+    const crystalShift = result.crystals && result.crystals.dropped > 0 ? COLLECT_GAP : 0;
+    if (crystalShift) {
+      const cl = makeText(crystalLine(result.crystals!.collected, result.crystals!.dropped), 16, UI.color.cores, { fontWeight: 'bold' });
+      this.crystalText = cl.text;
+      cl.anchor.set(0.5);
+      cl.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + COLLECT_GAP);
+      this.container.addChild(cl);
+    }
     if (captain) {
       const line = `${captain.name}: +${captain.killsAdded} kills (${captain.killsTotal} in all)${captain.note ? `   ${captain.note}` : ''}`;
       const c = makeText(line, 16, THEME.textDim, { fontWeight: 'bold' });
       c.anchor.set(0.5);
-      c.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + CAPTAIN_GAP);
+      c.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + crystalShift + CAPTAIN_GAP);
       this.container.addChild(c);
     }
 
@@ -181,7 +195,7 @@ export class RunSummaryScreen implements Screen {
     if (unlocked) {
       const u = makeText(unlocked, 17, THEME.good, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: VIEW_W - 80, lineHeight: 22 });
       u.anchor.set(0.5, 0);
-      u.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + CAPTAIN_GAP + UNLOCK_GAP);
+      u.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + crystalShift + CAPTAIN_GAP + UNLOCK_GAP);
       this.container.addChild(u);
     }
 
@@ -218,7 +232,7 @@ export class RunSummaryScreen implements Screen {
     if (DEBUG_ON) {
       (window as any).__mgbm = {
         screen: 'summary',
-        state: () => ({ title: title.text, cores: result.cores ?? 0, unlocked, challenge, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
+        state: () => ({ title: title.text, cores: result.cores ?? 0, crystals: this.crystalText, unlocked, challenge, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
       };
     }
   }

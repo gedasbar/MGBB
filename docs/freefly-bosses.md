@@ -48,16 +48,16 @@ All bullets are the 32a enemy bullets (they outlive the boss, cannot be shot, 8 
 ## 4. Rewards
 
 A boss kill pays once (`rewarded`, and the boss is removed): **credits** = the parent reward at the Free Fly reward tier x `BOSS_CREDIT_MUL` 60 (x the captain's and skills' credit multipliers, like a rock),
-**Cores** = `coresForWave(wave)` x `BOSS_CORES_MUL` 10 (x the Core Magnet). The run result and the records keep each boss id and whether the hull stayed untouched.
+**Cores** = `coresForWave(wave)` x `BOSS_CORES_MUL` 4 since chunk 32d (it was 10; x Boss Bounty). The run result and the records keep each boss id and whether the hull stayed untouched.
 
-Next to a normal wave (`npx vite-node scripts/boss-pay.ts`; "wave credits" counts every rock of the wave as a parent, which over-counts, so the real figure is lower):
+Next to a normal wave (`npx vite-node scripts/boss-pay.ts`, numbers of chunk 32e with the linear Cores income of 32d; "wave credits" counts every rock of the wave as a parent, which over-counts, so the real figure is lower):
 
 | Wave | Boss | Tier | Boss credits | Boss Cores | Wave credits | Wave-start Cores |
 |---|---|---|---|---|---|---|
-| 10 | Hive Mother | 25 | 295 | 40 | 41 | 24 |
-| 20 | Bastion | 51 | 490 | 80 | 129 | 48 |
-| 30 | Swarm Queen | 78 | 830 | 170 | 322 | 77 |
-| 40 | Colossus | 105 | 1,407 | 370 | 721 | 117 |
+| 10 | Hive Mother | 25 | 295 | 16 | 41 | 14 |
+| 20 | Bastion | 51 | 490 | 16 | 129 | 24 |
+| 30 | Swarm Queen | 78 | 830 | 20 | 322 | 35 |
+| 40 | Colossus | 105 | 1,407 | 20 | 721 | 45 |
 | 50 | Hive Mother (round 2) | 131 | 2,336 | 800 | 1,489 | 180 |
 | 80 | Colossus (round 2) | 211 | 11,133 | 8,090 | 11,272 | 809 |
 

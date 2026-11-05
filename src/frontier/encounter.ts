@@ -5,7 +5,7 @@ import { SPAWN_EDGE, SPAWN_WINDOW, WAVE_TIME, waveBudget } from '../data/waves';
 import { tierOfTime } from '../econ/economy';
 import { PlannedSpawn, unlockedAt } from '../game/waves';
 import {
-  FF_RAMP_END, FF_START_SHARE, FF_START_SPREAD, FF_WAVE_AT_BASE, FF_WAVE_CAP, FF_WAVES_PER_TIER, FREEFLY_PASS_SHARE, MAP_BASE_TIER,
+  FF_LATE_FROM, FF_LATE_SLOPE, FF_RAMP_END, FF_START_SHARE, FF_START_SPREAD, FF_WAVE_AT_BASE, FF_WAVE_CAP, FF_WAVES_PER_TIER, FREEFLY_PASS_SHARE, MAP_BASE_TIER,
 } from './constants';
 
 /**
@@ -32,7 +32,8 @@ export interface EncounterParams {
 
 /** Wave equivalent of an effective tier: monotonic, at least 1, capped at FF_WAVE_CAP. */
 export function waveEquivalent(tier: number): number {
-  return Math.max(1, Math.min(FF_WAVE_CAP, Math.round(FF_WAVE_AT_BASE + (tier - MAP_BASE_TIER) * FF_WAVES_PER_TIER)));
+  const raw = Math.max(1, Math.min(FF_WAVE_CAP, Math.round(FF_WAVE_AT_BASE + (tier - MAP_BASE_TIER) * FF_WAVES_PER_TIER)));
+  return raw <= FF_LATE_FROM ? raw : Math.round(FF_LATE_FROM + (raw - FF_LATE_FROM) * FF_LATE_SLOPE);
 }
 
 /** The tier normal Free Fly has when `wave` starts (HP and rewards of an encounter at that wave). */
@@ -88,6 +89,8 @@ export class EncounterDirector {
   held = 0;
   constructor(readonly wave: number, private plan: PlannedSpawn[], private aliveHold: number) {}
   jumpTo() { /* encounters always start at 0 */ }
+  /** Spawns planned but not yet sent (chunk 32e). */
+  get pending(): readonly PlannedSpawn[] { return this.plan.slice(this.next); }
   timeToNext(): number { return Infinity; }
   update(time: number, alive: number, out: PlannedSpawn[]): number {
     while (this.next < this.plan.length && this.plan[this.next].at <= time) {

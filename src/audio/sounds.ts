@@ -45,7 +45,7 @@ const HIT_RATE = 8;
 
 export const SOUND_IDS = [
   'shot', 'shotSoft', 'tick', 'rockHit', 'rockPop', 'split', 'blockDestroyed', 'armorPing', 'shieldHit', 'shieldBreak', 'chain', 'well',
-  'bounce', 'crash', 'cleared', 'medal', 'wave', 'uiTap', 'purchase', 'denied', 'pickerOpen', 'pickerClose',
+  'bounce', 'crash', 'cleared', 'medal', 'wave', 'uiTap', 'purchase', 'denied', 'pickerOpen', 'pickerClose', 'crystal',
 ] as const;
 export type SfxId = (typeof SOUND_IDS)[number];
 /** The ids as a plain array (the engine indexes its rate-limit table by position). */
@@ -94,6 +94,7 @@ export const SOUNDS: Record<SfxId, SoundDef> = {
     P('square', 1047, 1047, 0.36, 0.34, 0.07), P('triangle', 1319, 1319, 0.36, 0.34, 0.08),
   ] },
   wave: { priority: 1, minInterval: 0.3, parts: [P('sine', 440, 440, 0, 0.12, 0.09), P('sine', 587, 587, 0.12, 0.18, 0.09)] },
+  crystal: { priority: 0, minInterval: 0.05, pitchVar: 0.03, parts: [P('sine', 988, 988, 0, 0.07, 0.06), P('sine', 1319, 1319, 0.05, 0.12, 0.05)] },
   uiTap: { priority: 1, minInterval: 0.03, parts: [P('square', 700, 600, 0, 0.03, 0.04)] },
   purchase: { priority: 1, minInterval: 0, parts: [P('triangle', 660, 660, 0, 0.07, 0.09), P('triangle', 990, 990, 0.07, 0.14, 0.09)] },
   denied: { priority: 1, minInterval: 0.1, parts: [P('square', 200, 150, 0, 0.14, 0.07, { filter: { type: 'lowpass', freq: 1200 } })] },
