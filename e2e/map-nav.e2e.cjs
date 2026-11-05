@@ -8,20 +8,6 @@ const { check, state, tap, drag, waitFor } = lib;
 const MAP_TAB = [486, 930], BUILD_TAB = [54, 930], SHOP_TAB = [162, 930];
 const screen = (page) => page.evaluate(() => window.__mgbm && window.__mgbm.screen);
 const waitScreen = (page, name, timeout = 8000) => waitFor(async () => (await screen(page)) === name, { timeout });
-// A swipe that ends with the finger held still. The carousel adds a flick (release speed) to the drag: Playwright's twelve moves arrive within a few milliseconds, which
-// reads as a very fast swipe and carries the carousel TWO cards on when the frame rate is high (it only stopped at one card on a slow machine: the map-nav / chunk21a
-// failures of 24d-33a). Holding the pointer still for a moment adds samples at the same x, so the release speed is about 0 and the carousel snaps to the nearest card.
-async function swipeLeft(page, fromX, toX, y, wantPos) {
-  const a = await lib.gameToClient(page, fromX, y), b = await lib.gameToClient(page, toX, y);
-  await page.mouse.move(a.x, a.y);
-  await page.mouse.down();
-  await page.mouse.move(b.x, b.y, { steps: 12 });
-  await waitFor(async () => (await state(page)).pos >= wantPos, { timeout: 3000 });
-  for (let i = 0; i < 6; i++) { await page.waitForTimeout(40); await page.mouse.move(b.x, b.y); } // still: samples at the same x
-  await page.mouse.up();
-  await lib.park(page);
-  await page.waitForTimeout(150);
-}
 const centre = async (page) => (await state(page)).mode;
 
 (async () => {
@@ -45,7 +31,7 @@ const centre = async (page) => (await state(page)).mode;
   // ---- Swipe with the mouse: a drag left of about one card moves one card; a small drag springs back.
   await drag(page, 400, 420, 330, 420);
   check(await waitFor(async () => Math.abs((await state(page)).pos) < 0.01, { timeout: 3000 }) && (await centre(page)) === 'campaign', 'a short drag (70 px) springs back to Campaign');
-  await swipeLeft(page, 420, 110, 420, 0.6);
+  await drag(page, 420, 420, 110, 420, 12, 250); // held still before release: no flick, so it lands on the next card whatever the machine's speed
   check(await waitFor(async () => (await centre(page)) === 'frontier', { timeout: 3000 }), 'a drag left by one card width moves to the Frontier card');
   check(await waitFor(async () => Math.abs((await state(page)).pos - 1) < 0.01, { timeout: 3000 }), 'and the carousel settles exactly on it');
   await page.keyboard.press('ArrowRight');
@@ -60,13 +46,13 @@ const centre = async (page) => (await state(page)).mode;
 
   // ---- A locked card: the centre tap only explains.
   await page.keyboard.press('ArrowLeft');
-  await waitFor(async () => (await centre(page)) === 'frontier', { timeout: 3000 });
+  await waitFor(async () => (await centre(page)) === 'frontier' && Math.abs((await state(page)).pos - 1) < 0.01, { timeout: 3000 }); // settled before the tap
   await tap(page, 270, 420);
   check(await waitFor(async () => /tier 25/.test((await state(page)).toast), { timeout: 3000 }) && (await screen(page)) === 'carousel', 'tapping the locked Frontier card shows what unlocks it and stays on the carousel');
 
   // ---- Free Fly: the centre card opens its own screen; best wave, medal waves, START.
   await page.keyboard.press('ArrowRight');
-  await waitFor(async () => (await centre(page)) === 'freefly', { timeout: 3000 });
+  await waitFor(async () => (await centre(page)) === 'freefly' && Math.abs((await state(page)).pos - 2) < 0.01, { timeout: 3000 }); // settled before the tap
   await tap(page, 270, 420);
   check(await waitScreen(page, 'freefly-home'), 'the centre card opens the Free Fly screen');
   s = await state(page);
@@ -110,7 +96,7 @@ const centre = async (page) => (await state(page)).mode;
 
   // ---- Campaign card: tapping the centre card opens the tier list; "<" in its header returns.
   await page.keyboard.press('ArrowLeft'); await page.keyboard.press('ArrowLeft');
-  await waitFor(async () => { const st = await state(page); return st.mode === 'campaign' && Math.abs(st.pos) < 0.01; }, { timeout: 3000 }); // settled: a tap on a gliding card can land on its neighbour
+  await waitFor(async () => (await centre(page)) === 'campaign' && Math.abs((await state(page)).pos) < 0.01, { timeout: 3000 }); // settled: a tap on a card that is still gliding misses it
   await tap(page, 270, 420);
   check(await waitScreen(page, 'map'), 'the Campaign card opens the tier list');
   await tap(page, 30, 26);
