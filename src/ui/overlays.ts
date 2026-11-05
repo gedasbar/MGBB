@@ -5,6 +5,7 @@ import { sfx } from '../audio';
 import { THEME, UI } from './theme';
 import { drawButtonFace, drawCheckbox, drawModal } from './widgets';
 import { FRAME_LIMITS, TOUCH_GAIN_MAX, TOUCH_GAIN_MIN, TOUCH_GAIN_STEP, TRAIL_MODES, WEAPON_SOUNDS } from './settings';
+import { PARTICLE_MODES, SHAKE_MODES } from '../data/feel';
 import type { ScreenManager } from '../screens/ScreenManager';
 import { PROGRESS_KEY } from '../econ/progress';
 import { LEGACY_KEY, STORAGE_KEY } from '../builder/persist';
@@ -340,6 +341,16 @@ ${a.length === 1 ? rewardText(first.reward) : `${medals} Medal${medals === 1 ? '
       const i = TRAIL_MODES.indexOf(sfx.settings.trails);
       sfx.set('trails', TRAIL_MODES[(i + 1) % TRAIL_MODES.length]);
     });
+    const MODE_WORD: Record<string, string> = { off: 'Off', low: 'Low', normal: 'Normal', high: 'High' };
+    toggle('shake', () => `Screen shake: ${MODE_WORD[sfx.settings.shake]}`, () => {
+      const i = SHAKE_MODES.indexOf(sfx.settings.shake);
+      sfx.set('shake', SHAKE_MODES[(i + 1) % SHAKE_MODES.length]);
+    });
+    toggle('particles', () => `Particles: ${MODE_WORD[sfx.settings.particles]}`, () => {
+      const i = PARTICLE_MODES.indexOf(sfx.settings.particles);
+      sfx.set('particles', PARTICLE_MODES[(i + 1) % PARTICLE_MODES.length]);
+    });
+    check('hitStop', 'Hit stop', () => sfx.settings.hitStop !== false, () => sfx.set('hitStop', !sfx.settings.hitStop));
     check('backgrounds', 'Backgrounds', () => sfx.settings.backgrounds !== false, () => sfx.set('backgrounds', !sfx.settings.backgrounds));
     check('damageNumbers', 'Damage numbers', () => sfx.settings.damageNumbers !== false, () => sfx.set('damageNumbers', !sfx.settings.damageNumbers));
     check('statsToggle', 'Stats overlay', () => this.sm.stats.enabled, () => this.sm.stats.toggle());
