@@ -54,12 +54,14 @@ async function tap(page, gx, gy, { pause = 120 } = {}) {
   await page.waitForTimeout(pause);
 }
 
-async function drag(page, gx0, gy0, gx1, gy1, steps = 12) {
+/** `settleMs` > 0: hold still that long before letting go, so the release speed is 0 (a carousel that flicks by release speed then lands where the drag ended; a fast headless drag would count as a flick). */
+async function drag(page, gx0, gy0, gx1, gy1, steps = 12, settleMs = 0) {
   const a = await gameToClient(page, gx0, gy0);
   const b = await gameToClient(page, gx1, gy1);
   await page.mouse.move(a.x, a.y);
   await page.mouse.down();
   await page.mouse.move(b.x, b.y, { steps });
+  if (settleMs > 0) { await page.waitForTimeout(settleMs); await page.mouse.move(b.x, b.y); }
   await page.mouse.up();
   await park(page);
   await page.waitForTimeout(150);
