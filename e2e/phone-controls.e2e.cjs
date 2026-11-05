@@ -1,3 +1,4 @@
+// area: controls, wall, pause, settings
 // Chunk 24a: phone controls on a 360 x 740 touch screen, with real touch events through the browser's input pipeline.
 // The ship moves by the finger's movement (never jumps to it), keeps the wall scrolling at a side after the finger lifts, ignores a press on the
 // pause button, the pause button is there from the start, and "Direct" in Settings brings the old behaviour back (with the speed cap).

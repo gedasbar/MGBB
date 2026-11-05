@@ -1,3 +1,4 @@
+// area: late-tiers, wall, map
 // Chunk 27a end-to-end test: the locked "What happens after 100?" entry with its progress count, tiers 101-200 appearing in the
 // list once every tier 1-100 is cleared (type name on the tile, name + line in the panel), and one tier of each layout type
 // (Monolith, Maze, Fortress, Drift) in flight on the real wall screen. Contact sheet: reports/chunk27a/sheet_27a.png.

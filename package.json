@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "node scripts/run-e2e.cjs smoke",
     "test:e2e:all": "node scripts/run-e2e.cjs all",
+    "test:e2e:sheets": "node scripts/run-e2e.cjs sheets",
     "audit": "vite-node scripts/block-audit.ts",
     "balance-econ": "vite-node scripts/balance-econ.ts",
     "spike-botcheck": "vite-node scripts/spike-botcheck.ts",

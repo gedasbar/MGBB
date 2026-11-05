@@ -1,3 +1,4 @@
+// area: frontier, map
 // Chunk 15a-fix end-to-end test: the Frontier's neutral square look. Both tile styles ('plate', 'flat') at the default zoom
 // with every state on screen, and a far-zoom (5 px a square) crop of each, in one contact sheet
 // (reports/chunk15a/sheet_tile_styles.png). Checks by screen pixels that locked and available squares are easy to tell

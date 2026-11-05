@@ -1,3 +1,4 @@
+// area: economy, shop, builder, freefly
 // Chunk 5 end-to-end test: the economy loop with real pointer events.
 // fresh progress -> picker shows only owned blocks -> Fly (kills pay) -> Run Summary -> Build -> Shop (buy, upgrade, hull) -> Build.
 // Needs the Vite dev server. Run: GAME_URL="http://localhost:5173/?debug=1" node e2e/economy.e2e.cjs

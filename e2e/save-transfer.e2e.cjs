@@ -1,3 +1,4 @@
+// area: save, settings
 // Chunk 24b: the Import / Export save dialog on a phone-size touch screen (390 x 844): the import field is selectable and takes typed and pasted text,
 // the Paste button falls back to a hint when the clipboard cannot be read, "Load file" reads a save file (with a header line and wrapped lines),
 // "Save as file" downloads the string, and the whole path ends with the save moved into a fresh browser.

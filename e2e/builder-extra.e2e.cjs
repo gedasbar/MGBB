@@ -1,3 +1,4 @@
+// area: builder, hulls
 // Second builder end-to-end script: ledger tooltip, hull picker, multi-stream flight, picker details.
 // Same rules as builder.e2e.cjs: real pointer events, positions computed here. Requires `npm run dev`.
 const lib = require('./lib.cjs');

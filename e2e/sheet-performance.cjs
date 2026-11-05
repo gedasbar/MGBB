@@ -2,7 +2,7 @@
 // overload of the projectile pool. Flies the build of scripts/lib/perfBuild.ts in Free Fly (wave 15) and on tier 100 with the stats overlay
 // on, samples its numbers twice a second and prints the mean frame cost by number of shots alive. Headless Chromium draws with a software
 // renderer, so the numbers say which part grows, not how a phone feels.
-//   node e2e/performance.e2e.cjs            (SECS=n seconds flown per scenario, default 24; OUT=name for the numbers file)
+//   node e2e/sheet-performance.cjs            (SECS=n seconds flown per scenario, default 24; OUT=name for the numbers file)
 // Needs the Vite dev server (npm run dev).
 const path = require('path');
 const fs = require('fs');

@@ -1,3 +1,4 @@
+// area: late-tiers, wall
 // Chunk 27b end-to-end test: the five effect types of tiers 101-200 in flight on the real wall screen: Strong Wind (115), Crosswind (118), Fog (121), Regrowth (124),
 // Mitosis Wall (127). Each tier panel says what it does, and each effect is read off the running world (a shot leaves backwards, a shot drifts, a far block is hidden,
 // a hurt block heals, a destroyed block splits). Contact sheet: reports/chunk27b/sheet_27b.png (the Map list with the icons, then one picture per type in flight).

@@ -1,3 +1,4 @@
+// area: blocks, shop, builder, freefly
 // Chunk 9a end-to-end test: buy the new blocks in the Shop with real taps, place them in the Build screen with real taps, fly,
 // and confirm through the debug hook counters that each effect happened at least once in Free Fly. Then three staged
 // screenshots (picker, a Free Fly frame with an arc and status tints, a Wall frame with a corroded block and a mine).

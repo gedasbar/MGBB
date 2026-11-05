@@ -1,3 +1,4 @@
+// area: blocks, shop, frontier, freefly
 // Chunk 20a end-to-end: the legendary blocks in the real game. Shop tiles (locked and unlocked), the two-price info sheet and a
 // purchase that takes credits AND Medals, the Frontier Unlocks panel with the new rings, and Mirror / Zigzag in real Free Fly flight.
 // Contact sheet: reports/chunk20a/sheet_legendaries.png. Needs the Vite dev server. Run: node e2e/legendaries.e2e.cjs

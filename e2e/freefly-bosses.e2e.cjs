@@ -1,3 +1,4 @@
+// area: freefly, bosses
 // Chunk 32b end-to-end test: the four Free Fly bosses in the real game, reached through the debug panel ("Jump to wave").
 // Checks each boss's arrival (banner, health bar, HUD), its own mechanic, the enrage, the kill (rewards, defeat banner, the next
 // wave) and writes a contact sheet to reports/chunk32b/sheet_bosses.png. Needs the Vite dev server.

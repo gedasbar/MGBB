@@ -1,3 +1,4 @@
+// area: builder
 // Builder end-to-end test. Real pointer events on the real canvas; positions are computed here from the
 // documented layout (540x960, fit view: cell 48 px, grid origin (6,204)) and never read back from game code.
 // Requires the Vite dev server: `npm run dev`.   Run: node e2e/builder.e2e.cjs

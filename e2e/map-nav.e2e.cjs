@@ -1,3 +1,4 @@
+// area: map, builder, challenges
 // Chunk 29b end-to-end test: the Map tab's mode carousel (swipe, arrows, keys, centre card opens its mode), the Free Fly screen, the "<" path, the remembered mode
 // (across tabs, a finished run and a page reload), the run summary's Map button, the builder without FLY / CAMPAIGN and the challenge bar at the bottom with its START.
 // Needs the Vite dev server. Run: GAME_URL="http://localhost:5173/?debug=1" node e2e/map-nav.e2e.cjs
