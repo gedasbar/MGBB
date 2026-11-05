@@ -26,7 +26,7 @@ const click = (page, id) => page.evaluate((i) => document.getElementById(i).clic
   await page.evaluate(() => {
     const s = window.__mgbm.model.store;
     s.data.cores = 4200;
-    for (const c of ['full', 'corridor', 'bar', 'corner', 'tjunction', 'cross', 'ring', 'front_gun', 'twin_gun', 'side_gun', 'overdrive', 'core_magnet']) s.data.chunks[c] = 2;
+    for (const c of ['corridor', 'corner', 'tjunction', 'cross', 'ring', 'front_gun', 'twin_gun', 'side_gun', 'overdrive', 'core_magnet']) s.data.chunks[c] = 2;
     s.commit();
   });
   // The achievements the cheats grant show a toast for a few seconds; let it go before the pictures (a plain wait: this is a picture generator, not a test).
@@ -43,9 +43,9 @@ const click = (page, id) => page.evaluate((i) => document.getElementById(i).clic
   // A ship with rotated chunks: Twin Gun upside down over a Full chunk (over the generator), a Cross turned, a Corner turned, two Bars, a Side Gun.
   await sy(() => {
     const e = window.__mgbm.shipyard;
-    e.ed.place(8, 'front_gun'); e.ed.place(12, 'full');
+    e.ed.place(8, 'front_gun'); e.ed.place(12, 'wide_open');
     e.ed.place(4, 'cross'); e.ed.place(0, 'twin_gun'); e.ed.rotate(0, 1);
-    e.ed.place(13, 'bar'); e.ed.place(10, 'side_gun'); e.ed.rotate(10, -1);
+    e.ed.place(13, 'long_barrel'); e.ed.place(10, 'side_gun'); e.ed.rotate(10, -1);
     e.ed.place(14, 'tjunction'); e.ed.rotate(14, 1);
     e.selectedSlot = 10; e.refresh();
   });

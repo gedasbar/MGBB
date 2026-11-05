@@ -78,7 +78,7 @@ export function ownAllChunks(store: ProgressStore, copies: number) {
 
 /** Chunk 31a: saves a small valid sample design in slot 1 (a Front Gun over a Full chunk: the ejector is straight above the fixed generator, so it fires with no block). Needs the Shipyard open and the chunks owned to fly. */
 export function saveSampleDesign(store: ProgressStore) {
-  store.setDesign(0, designOf([[], [], ['front_gun'], ['full']]));
+  store.setDesign(0, designOf([[], [], ['front_gun'], ['wide_open']]));
 }
 
 /** Marks tiers 1..100 passed (the Map opens them all; tiers 101-200 also need every tier cleared, see clearAllTiers). No Medal, nothing cleared, no best times. */

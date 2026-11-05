@@ -55,7 +55,7 @@ describe('save', () => {
     expect(p.passedTiers).toEqual([5, 150, 200]);
     const old = sanitizeProgress({ ...d, version: 12, clearedTiers: [1, 2, 3], passedTiers: [1, 2, 3, 4] });
     expect(old.clearedTiers).toEqual([1, 2, 3]);
-    expect(old.version).toBe(15);
+    expect(old.version).toBe(16);
   });
 });
 

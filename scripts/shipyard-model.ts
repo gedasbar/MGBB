@@ -23,9 +23,9 @@ function cost(list: Record<string, number>): number {
 }
 
 const ships: Record<string, Record<string, number>> = {
-  'starter (3 chunks)': { generator: 1, corridor: 1, front_gun: 1 },
-  'sensible full ship (9 chunks, 2 traits)': { generator: 1, twin_gun: 1, front_gun: 1, cross: 3, corridor: 2, overdrive: 1, core_magnet: 1 },
-  'maxed (16 chunks, guns, 3 Overdrive)': { generator: 1, front_gun: 2, twin_gun: 2, full: 8, overdrive: 3 },
+  'starter (a Front Gun and 6 plain chunks)': { front_gun: 1, corridor: 2, corner: 2, tjunction: 1, cross: 1 },
+  'full 16-slot ship (2 Front, 2 Twin, 12 plain, no traits)': { front_gun: 2, twin_gun: 2, corridor: 3, corner: 2, tjunction: 2, cross: 3, ring: 2 },
+  'full 16-slot ship with traits (2 Twin, 1 Front, 9 plain, 4 traits)': { front_gun: 1, twin_gun: 2, corridor: 3, tjunction: 2, cross: 2, ring: 2, overdrive: 2, core_magnet: 1, extra_life: 1 },
   'every chunk x3 (the whole shop)': Object.fromEntries(CHUNKS.map(c => [c.id, 3])),
 };
 const perHour = [['a casual hour (runs to wave 12)', Math.round((coresOfRun(12) / ((11 * WAVE_TIME + OVERHEAD_S))) * 3600)], ['a good hour (runs to wave 25)', Math.round((coresOfRun(25) / ((24 * WAVE_TIME + OVERHEAD_S))) * 3600)]] as const;
@@ -33,4 +33,11 @@ console.log('\nPRICES (Cores) and hours of Free Fly');
 for (const [name, list] of Object.entries(ships)) {
   const c = cost(list);
   console.log(`${name}: ${c} Cores = ${perHour.map(([l, r]) => `${(c / r).toFixed(1)} h at ${l.split(' (')[0]} (${r}/h)`).join(', ')}`);
+}
+
+// Free Fly RUNS needed (not hours): the price divided by the Cores one run pays, rounded up.
+console.log('\nRUNS of Free Fly (price / Cores a run pays, rounded up)');
+for (const [name, list] of Object.entries(ships)) {
+  const c = cost(list);
+  console.log(`${name}: ${[12, 25].map(w => `${Math.ceil(c / coresOfRun(w))} runs to wave ${w} (${coresOfRun(w)} each)`).join(', ')}`);
 }
