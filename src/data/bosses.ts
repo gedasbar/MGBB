@@ -54,7 +54,7 @@ export const BOSS_ENTRY_SPEED = 90;
 export const BOSS_BREATHER = 4;
 /** Reward of a kill: credits = rockReward(reward tier, 1) x BOSS_CREDIT_MUL; Cores = coresForWave(wave) x BOSS_CORES_MUL (both then x the usual multipliers). */
 export const BOSS_CREDIT_MUL = 60;
-export const BOSS_CORES_MUL = 5;
+export const BOSS_CORES_MUL = 10;
 
 // ---------------------------------------------------------------- the four bosses' numbers
 export const HIVE = {

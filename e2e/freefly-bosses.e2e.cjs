@@ -122,7 +122,7 @@ async function jump(page, wave) {
   const eb = await waitFor(async () => { const s = await state(page); return s.themeBanner && s.themeBanner.title === 'ENRAGED' ? s : null; }, { timeout: 3000 });
   check(!!eb, 'Bastion: the ENRAGED banner showed');
   await page.evaluate(() => { const w = window.__mgbm.world; w.boss.hp = w.boss.maxHp * 0.4; });
-  await waitFor(() => page.evaluate(() => window.__mgbm.world.time > 0) && new Promise(r => setTimeout(() => r(true), 350))); // let the hit flash of the HP change fade (an animation, not a readiness wait)
+  await page.waitForTimeout(350); // lets the white hit flash of the HP change fade before the screenshot (an animation, not a readiness wait)
   shots.push(await canvasShot(page)); caps.push('Bastion ENRAGED (red, banner), 40% HP');
 
   const before = await page.evaluate(() => { const w = window.__mgbm.world; return { credits: w.creditsExact, cores: w.cores, wave: w.wave, kills: w.kills }; });
