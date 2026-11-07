@@ -12,7 +12,7 @@ import { fmtBig } from '../ui/format';
 import { shotLines } from '../ui/runStats';
 import { textButton } from '../ui/hud';
 import { THEME } from '../ui/theme';
-import { moneyLabel } from '../ui/widgets';
+import { amountLabel } from '../ui/widgets';
 import { DEBUG_ON } from '../debug/enabled';
 
 export function fmtTime(seconds: number): string {
@@ -90,7 +90,7 @@ export class RunSummaryScreen implements Screen {
     title.anchor.set(0.5);
     title.position.set(VIEW_W / 2, 70);
     // Chunk 34b: the credits coin sits left of the big number.
-    const credits = moneyLabel(`+${fmtBig(result.credits)}`, 80, 'credits', { align: 'center', color: THEME.currency });
+    const credits = amountLabel(`+${fmtBig(result.credits)}`, 80, 'credits', { align: 'center', color: THEME.currency });
     credits.position.set(VIEW_W / 2, 190);
     const creditsLabel = makeText('credits earned', 18, THEME.textDim, { fontWeight: 'bold' });
     creditsLabel.anchor.set(0.5);
@@ -142,7 +142,7 @@ export class RunSummaryScreen implements Screen {
       }
     });
 
-    const total = moneyLabel(fmtBig(getProgressStore().data.credits), 20, 'credits', { align: 'center', color: THEME.currency, prefix: 'Total credits:' });
+    const total = amountLabel(fmtBig(getProgressStore().data.credits), 20, 'credits', { align: 'center', color: THEME.currency, prefix: 'Total credits:' });
     const rowsEnd = top + (this.rows.length - 1) * step + rowH;
     total.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP);
     this.container.addChild(total);
@@ -152,14 +152,13 @@ export class RunSummaryScreen implements Screen {
     const hasCores = (result.cores ?? 0) > 0;
     const both = hasCores && medals > 0;
     if (hasCores) {
-      const k = moneyLabel(`+${fmtBig(result.cores!)}`, 24, 'cores', { align: 'center' });
+      const k = amountLabel(`+${fmtBig(result.cores!)}`, 24, 'cores', { align: 'center' });
       k.position.set(both ? VIEW_W * 0.3 : VIEW_W / 2, MEDAL_Y);
       this.container.addChild(k);
       this.coresLabel = k.amount.text;
     }
     if (medals > 0) {
-      const m = makeText(`+${medals} Medal${medals === 1 ? '' : 's'}`, 22, THEME.currency, { fontWeight: 'bold' });
-      m.anchor.set(0.5);
+      const m = amountLabel(`+${medals}`, 22, 'medals', { align: 'center' });
       const mx = both ? VIEW_W * 0.7 : VIEW_W / 2;
       m.position.set(mx, MEDAL_Y);
       this.container.addChild(m);

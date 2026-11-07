@@ -7,8 +7,9 @@ import { CHALLENGES } from '../data/challenges';
 import { progressOf, rewardText } from '../achievements/rules';
 import { challengeCounts, challengeDone, challengeRewardText, challengeUnlocked, ruleLines } from '../challenges/rules';
 import { fmtBig } from '../ui/format';
+import { sinceLine, statSections } from '../stats/stats';
 import { THEME, UI } from '../ui/theme';
-import { drawButtonFace, drawCheckbox, drawSegmented, faceTextColor, segmentRects } from '../ui/widgets';
+import { amountLabel, drawButtonFace, drawCheckbox, drawSegmented, faceTextColor, segmentRects } from '../ui/widgets';
 import { sfx } from '../audio';
 import { drawHubFrame, hubBodyRect, hubTabAt, HubTab, HUB_PANEL, HUB_TAB_H } from './hub';
 
@@ -26,7 +27,8 @@ const GROUP_H = 34;
 const BAR_H = 8;
 const EARNED = THEME.good;
 
-export type AchView = 'achievements' | 'challenges';
+export type AchView = 'achievements' | 'challenges' | 'stats';
+const VIEWS: readonly AchView[] = ['achievements', 'challenges', 'stats'];
 
 interface Hit { id: string; rect: Rect; enabled: boolean; act: () => void; fixed?: boolean }
 
@@ -142,7 +144,7 @@ export class AchievementsPanel {
     this.listC.mask = this.maskG;
     this.container.addChild(this.maskG);
     this.drawControls();
-    if (this.view === 'achievements') this.drawAchievements(); else this.drawChallenges();
+    if (this.view === 'achievements') this.drawAchievements(); else if (this.view === 'challenges') this.drawChallenges(); else this.drawStats();
     this.applyScroll();
   }
 
@@ -152,6 +154,14 @@ export class AchievementsPanel {
     t.position.set(x, y);
     layer.addChild(t);
     return t;
+  }
+
+  /** A reward line: Medals as an amount (medal icon + number), a cosmetic as text. */
+  private reward(layer: Container, medals: number | null, text: string, x: number, y: number) {
+    if (medals === null) { this.label(layer, `Reward: ${text}`, x, y, 12, THEME.currency); return; }
+    const a = amountLabel(String(medals), 12, 'medals', { align: 'left', prefix: 'Reward:' });
+    a.position.set(x, y + 8);
+    layer.addChild(a);
   }
 
   private box(layer: Container, r: Rect, border: number = THEME.border, fill: number = UI.color.tile) {
@@ -176,26 +186,65 @@ export class AchievementsPanel {
     const p = getProgressStore().data;
     const cc = challengeCounts(p);
     const b = this.body;
-    const segW = w - 2 * PAD - GAP - BOX;
+    const stats = this.view === 'stats';
+    // The "show completed" checkbox belongs to the two lists only; the Stats view uses the whole width for the switch.
+    const segW = stats ? w - 2 * PAD : w - 2 * PAD - GAP - BOX;
     const seg: Rect = { x: b.x + PAD, y: b.y + SEG_Y, w: segW, h: SEG_H };
-    const active = this.view === 'achievements' ? 0 : 1;
-    L.addChild(drawSegmented(new Graphics(), seg, active, 2));
-    const names = [`Achievements ${p.achievements.length} / ${ACHIEVEMENTS.length}`, `Challenges ${cc.done} / ${cc.total}`];
-    segmentRects(seg, 2).forEach((r, i) => {
+    const active = VIEWS.indexOf(this.view);
+    L.addChild(drawSegmented(new Graphics(), seg, active, 3));
+    const names = [`Achievements ${p.achievements.length}/${ACHIEVEMENTS.length}`, `Challenges ${cc.done}/${cc.total}`, 'Stats'];
+    segmentRects(seg, 3).forEach((r, i) => {
       const t = makeText(names[i], UI.text.body, i === active ? UI.color.onSelected : UI.color.text, { fontWeight: 'bold' });
       t.anchor.set(0.5);
+      if (t.width > r.w - 8) t.scale.set((r.w - 8) / t.width);
       t.position.set(r.x + r.w / 2, r.y + r.h / 2);
       L.addChild(t);
-      this.hits.push({ id: i === 0 ? 'viewAchievements' : 'viewChallenges', rect: { x: r.x - b.x, y: r.y - b.y, w: r.w, h: r.h }, enabled: true, act: () => this.show(i === 0 ? 'achievements' : 'challenges'), fixed: true });
+      this.hits.push({ id: ['viewAchievements', 'viewChallenges', 'viewStats'][i], rect: { x: r.x - b.x, y: r.y - b.y, w: r.w, h: r.h }, enabled: true, act: () => this.show(VIEWS[i]), fixed: true });
     });
+    const rowY = b.y + SEG_Y + SEG_H + UI.space.xs;
+    // Chunk 34c: the Medals balance is the shared amount widget (medal icon + number) centred on its row.
+    const medals = amountLabel(fmtBig(p.medals), UI.text.header, 'medals', { align: 'left', prefix: 'Medals' });
+    medals.position.set(b.x + PAD + 2, rowY + 11);
+    L.addChild(medals);
+    if (stats) return;
     // The checkbox: ticked = finished entries are shown. Same height as the switch so the row reads as one.
     const cb: Rect = { x: b.x + w - PAD - BOX, y: b.y + SEG_Y + (SEG_H - BOX) / 2, w: BOX, h: BOX };
     L.addChild(drawCheckbox(new Graphics(), cb, this.showCompleted));
     this.hits.push({ id: 'showCompleted', rect: { x: cb.x - b.x, y: cb.y - b.y, w: cb.w, h: cb.h }, enabled: true, act: () => this.setShowCompleted(!this.showCompleted), fixed: true });
-    const rowY = b.y + SEG_Y + SEG_H + UI.space.xs;
-    this.label(L, `Medals ${p.medals}`, b.x + PAD + 2, rowY, UI.text.header, UI.color.accent);
     const d = this.label(L, 'Done', cb.x + cb.w / 2, rowY + 2, UI.text.small, UI.color.textDim);
     d.anchor.set(0.5, 0);
+  }
+
+  /** Chunk 34c: the Stats view: grouped lifetime numbers (`statSections`), counted rows marked with a star, a "since" line at the end. */
+  private drawStats() {
+    const p = getProgressStore().data;
+    const L = this.listC;
+    const W = HUB_PANEL.w - 2 * PAD;
+    const ROW_H = 30;
+    let y = PAD;
+    for (const sec of statSections(p)) {
+      this.label(L, sec.title, PAD + 2, y + 4, 18, THEME.text);
+      y += GROUP_H;
+      const r: Rect = { x: PAD, y, w: W, h: sec.rows.length * ROW_H + 8 };
+      this.box(L, r);
+      sec.rows.forEach((row, i) => {
+        const cy = r.y + 4 + i * ROW_H + ROW_H / 2;
+        const l = makeText(row.counted ? `${row.label} *` : row.label, UI.text.body + 1, THEME.textDim, { fontWeight: 'bold' });
+        l.anchor.set(0, 0.5); l.position.set(r.x + 12, cy); L.addChild(l);
+        if (typeof row.value === 'string') {
+          const v = makeText(row.value, UI.text.body + 1, UI.color.text, { fontWeight: 'bold' });
+          v.anchor.set(1, 0.5); v.position.set(r.x + r.w - 12, cy); L.addChild(v);
+        } else {
+          const a = amountLabel(row.value.text, UI.text.body + 1, row.value.kind, { align: 'right' });
+          a.position.set(r.x + r.w - 12, cy); L.addChild(a);
+        }
+        this.rows.push({ id: row.label, title: row.label, text: typeof row.value === 'string' ? row.value : `${row.value.kind}:${row.value.text}`, earned: false, open: true, value: 0, goal: 0 });
+      });
+      y += r.h + GAP;
+    }
+    const since = makeText(sinceLine(p.stats), UI.text.small, THEME.textDim, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: W });
+    since.position.set(PAD + 2, y); L.addChild(since);
+    this.contentH = y + since.height + PAD;
   }
 
   private drawAchievements() {
@@ -229,7 +278,7 @@ export class AchievementsPanel {
         L.addChild(new Graphics().rect(r.x + 12, r.y + 56, barW, BAR_H).fill(THEME.border));
         const frac = earned ? 1 : secret ? 0 : pr.goal > 0 ? pr.value / pr.goal : 0;
         if (frac > 0) L.addChild(new Graphics().rect(r.x + 12, r.y + 56, Math.max(2, barW * Math.min(1, frac)), BAR_H).fill(earned ? EARNED : THEME.currency));
-        this.label(L, `Reward: ${rewardText(a.reward)}`, r.x + 12, r.y + 68, 12, THEME.currency);
+        this.reward(L, 'medals' in a.reward ? a.reward.medals : null, rewardText(a.reward), r.x + 12, r.y + 68);
         y += ACH_H + GAP;
       }
       y += 4;
@@ -258,7 +307,7 @@ export class AchievementsPanel {
       this.label(L, c.name, r.x + 12, r.y + 8, 18, open ? THEME.text : THEME.textDim);
       let ty = r.y + 32;
       for (const t of texts) { t.position.set(r.x + 12, ty); L.addChild(t); ty += t.height + 2; }
-      this.label(L, `Reward: ${challengeRewardText(c)}`, r.x + 12, r.y + h - 22, 12, THEME.currency);
+      this.reward(L, 'medals' in c.reward ? c.reward.medals : null, challengeRewardText(c), r.x + 12, r.y + h - 22);
       if (done) this.label(L, 'DONE', r.x + r.w - 12, r.y + 10, 15, EARNED, 0, 1).anchor.set(1, 0);
       const btn: Rect = { x: r.x + r.w - 112, y: r.y + h - 48, w: 100, h: 38 };
       this.button(L, `start:${c.id}`, btn, done ? 'Again' : 'Start', open, () => this.events.start(c.id), { size: 16 });

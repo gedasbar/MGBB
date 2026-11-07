@@ -25,6 +25,14 @@ export function coresIcon(size = 14, color: number = UI.color.cores): Graphics {
   return new Graphics().poly(hexPoints(r, r, r)).fill(color).poly(hexPoints(r, r, r * 0.5)).fill(0x1c3a36);
 }
 
+/** Chunk 34c: the Medal icon: a round medal in its own warm orange (`UI.color.medal`) with a darker five-point star. */
+export function medalIcon(size = 14, color: number = UI.color.medal): Graphics {
+  const r = size / 2;
+  const star: number[] = [];
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5; const rr = i % 2 === 0 ? r * 0.62 : r * 0.26; star.push(r + Math.cos(a) * rr, r + Math.sin(a) * rr); }
+  return new Graphics().circle(r, r, r).fill(color).poly(star).fill(0x4a2a10);
+}
+
 /** The hull wrench: a diagonal handle with an open jaw at the top right. */
 export function wrenchIcon(size = 14, color = 0xd4d4d8): Graphics {
   const s = size / 14;

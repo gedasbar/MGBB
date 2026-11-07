@@ -15,8 +15,8 @@ import { Pausable, Screen, ScreenManager } from './ScreenManager';
 import { Grid } from '../engine/compiler';
 import { CATEGORY_COLOR, THEME, UI } from '../ui/theme';
 import { CURRENCY_CORES_NAME } from '../shipyard/constants';
-import { coresIcon, creditIcon, wrenchIcon } from '../ui/icons';
-import { moneyIconSize } from '../ui/widgets';
+import { wrenchIcon } from '../ui/icons';
+import { amountLabel, moneyIconSize } from '../ui/widgets';
 import { HIT_CLOUD } from '../engine/projectiles';
 import { fmtBig, fmtDamage } from '../ui/format';
 import { makeText } from '../builder/ui';
@@ -83,6 +83,8 @@ const HULL_BAR_EMPTY = 0x3a3a3e;
 /** The HUD box rows (chunk 32d): the boss bar owns the top row beside the pause button, so the box starts below it. */
 const HUD_ROW = { hull: 40, money: 60, wave: 82, kills: 102, bottom: 124 } as const;
 const HUD_ICON = moneyIconSize(16);
+/** The money row's centre line (the row starts at HUD_ROW.money and is one 16 px text line tall). */
+const HUD_MONEY_Y = HUD_ROW.money + 9;
 
 interface DmgNum extends NumSlot { t: Text }
 /** Chunk 34a: the shards of a crashing ship (its four greys) and the muzzle flash colour. */
@@ -134,15 +136,16 @@ export class FlyScreen implements Screen {
   private prevShots = 0;
   private shipBroken = false;
   
-  creditsText = makeText('0', 16, THEME.currency, { fontWeight: 'bold' });
+  /** Chunk 34c: credits and Cores are shared amount widgets (icon and number centred on one line, origin = the row's centre). */
+  private creditsLabel = amountLabel('0', 16, 'credits', { align: 'left' });
+  private coresLabel = amountLabel('0', 16, 'cores', { align: 'left' });
+  get creditsText(): Text { return this.creditsLabel.amount; }
   /** Not drawn since chunk 32d (the HUD box no longer shows the tier); kept for the stats overlay's source and the dev hook. */
   tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
   waveText = makeText('Wave 1', 16, THEME.text, { fontWeight: 'bold' });
   killsText = makeText('Kills 0', 16, THEME.textDim, { fontWeight: 'bold' });
   /** Chunk 31a: the Cores this run has earned (Free Fly and Frontier Free Fly squares pay them). */
-  coresText = makeText('0', 16, UI.color.cores, { fontWeight: 'bold' });
-  private creditIc = creditIcon(HUD_ICON);
-  private coresIc = coresIcon(HUD_ICON);
+  get coresText(): Text { return this.coresLabel.amount; }
   private wrenchIc = wrenchIcon(HUD_ICON);
   /** Chunk 24a: a dim plate behind the HUD rows (like the wall's), and the SPIKE badge of a Frontier spike square inside it. */
   private hudPlate = new Graphics();
@@ -268,12 +271,11 @@ export class FlyScreen implements Screen {
     }
 
     // Credits and Cores share one line, each with its own icon; Wave and Kills follow (no Tier line since chunk 32d).
-    this.creditIc.position.set(20, HUD_ROW.money + 2);
-    this.creditsText.position.set(20 + HUD_ICON + 5, HUD_ROW.money);
+    this.creditsLabel.position.set(20, HUD_MONEY_Y);
     this.waveText.position.set(20, HUD_ROW.wave);
     this.killsText.position.set(20, HUD_ROW.kills);
     this.spikeBadge.visible = !!opts.frontier?.spike;
-    this.uiLayer.addChild(this.creditIc, this.creditsText, this.coresIc, this.coresText, this.spikeBadge, this.waveText, this.killsText);
+    this.uiLayer.addChild(this.creditsLabel, this.coresLabel, this.spikeBadge, this.waveText, this.killsText);
     const panel = new Graphics().rect(-BANNER_W / 2, -BANNER_H / 2, BANNER_W, BANNER_H).fill(THEME.panel).stroke({ color: THEME.border, width: 1.5 });
     this.bannerTitle.anchor.set(0.5);
     this.bannerTitle.position.set(0, -8);
@@ -550,14 +552,11 @@ export class FlyScreen implements Screen {
     if (coresNow > this.prevCores) this.coresBump = FEEL.PICKUPS.BUMP_TIME;
     this.prevCores = coresNow;
     // Cores sit next to the credits on the same line.
-    const coresX = this.creditsText.x + this.creditsText.width + 14;
-    this.coresIc.position.set(coresX, HUD_ROW.money + 2);
-    this.coresText.pivot.set(0, this.coresText.height / (this.coresText.scale.y || 1) / 2);
-    this.coresText.position.set(coresX + HUD_ICON + 5, HUD_ROW.money + this.coresText.height / (this.coresText.scale.y || 1) / 2);
+    this.coresLabel.position.set(this.creditsLabel.x + this.creditsLabel.width + 14, HUD_MONEY_Y);
     this.coresBump = Math.max(0, this.coresBump - frameTime);
     this.coresText.scale.set(bumpScale(this.coresBump));
     this.spikeBadge.position.set(20 + this.killsText.width + 12, HUD_ROW.kills + (this.killsText.height - SPIKE_BADGE.h) / 2);
-    const plateW = Math.round(Math.max(190, this.spikeBadge.visible ? this.spikeBadge.x + SPIKE_BADGE.w + 14 : 0, ...[this.coresText, this.waveText, this.killsText].map(t => t.x + t.width + 14)));
+    const plateW = Math.round(Math.max(190, this.spikeBadge.visible ? this.spikeBadge.x + SPIKE_BADGE.w + 14 : 0, this.coresLabel.x + this.coresLabel.width + 14, ...[this.waveText, this.killsText].map(t => t.x + t.width + 14)));
     if (plateW !== this.hudPlateW) { this.hudPlateW = plateW; this.hudPlate.clear().rect(10, HUD_ROW.hull - 6, plateW - 10, HUD_ROW.bottom - HUD_ROW.hull + 6).fill({ color: THEME.bg, alpha: 0.72 }); }
     for (const ev of this.world.waveEvents) {
       sfx.play('wave');
@@ -716,7 +715,7 @@ export class FlyScreen implements Screen {
     const fr = this.opts.frontier!;
     const w = this.world;
     this.outcome = encounterOutcome(w.time, fr.params.duration, w.survived);
-    const r = getProgressStore().recordFrontierFly({ x: fr.x, y: fr.y, credits: w.credits, cores: w.cores, kills: w.kills, outcome: this.outcome, medalDouble: this.mods.medalDouble, shots: { ...w.projSys.runStats }, time: w.time });
+    const r = getProgressStore().recordFrontierFly({ x: fr.x, y: fr.y, hull: w.hullId, credits: w.credits, cores: w.cores, kills: w.kills, outcome: this.outcome, medalDouble: this.mods.medalDouble, shots: { ...w.projSys.runStats }, time: w.time });
     this.banker.flush(w.kills);
     return { medals: r.medals, doubled: r.medalDoubled, newBestEarnings: r.newBestEarnings };
   }

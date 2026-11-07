@@ -1,6 +1,5 @@
 import { CONFIG, shipHalfW } from '../config';
-import { creditIcon } from '../ui/icons';
-import { moneyIconSize } from '../ui/widgets';
+import { amountLabel } from '../ui/widgets';
 import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { Grid } from '../engine/compiler';
 import { clientToGame } from '../input';
@@ -135,7 +134,9 @@ export class WallScreen implements Screen {
   private popups: Popup[] = [];
   private progressBg = new Graphics().rect(VIEW_W - 8, 20, 4, VIEW_H - 40).fill(THEME.border);
   private progressFg = new Graphics();
-  private creditsText = makeText('+0', 16, THEME.currency, { fontWeight: 'bold' });
+  /** Chunk 34c: the shared amount widget (coin + number centred on one line); its origin is the row's vertical centre. */
+  private creditsLabel = amountLabel('+0', 16, 'credits', { align: 'left' });
+  private get creditsText(): Text { return this.creditsLabel.amount; }
   /** Chunk 34b: the credits coin and the amount, one HUD row. */
   private creditsRow = new Container();
   private tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
@@ -235,8 +236,8 @@ export class WallScreen implements Screen {
     this.spikeBadge.visible = !!levelDef.spike;
     this.nameText.text = levelDef.name ? `Wall: ${levelDef.name}` : '';
     // A dim plate behind the HUD text so it stays readable over the blocks. Everything, the SPIKE badge too, sits inside it.
-    this.creditsRow.addChild(creditIcon(moneyIconSize(16)), this.creditsText);
-    this.creditsText.position.set(moneyIconSize(16) + 5, 0);
+    this.creditsRow.addChild(this.creditsLabel);
+    this.creditsLabel.y = Math.round(this.tierText.height / 2);
     this.hudBox.addChild(this.hudPlate, this.creditsRow, this.tierText, this.spikeBadge, this.squareText, this.nameText, this.blocksText);
     this.hint.anchor.set(0.5);
     this.hint.position.set(VIEW_W / 2, 250);

@@ -1,3 +1,4 @@
+import { amountLabel } from '../ui/widgets';
 import { Container, Graphics } from 'pixi.js';
 import { Screen, ScreenManager } from './ScreenManager';
 import { FlyScreen } from './FlyScreen';
@@ -27,7 +28,7 @@ import { customHullInfo } from '../data/hulls';
 import { parseLayout, withHull } from '../game/gridUtils';
 import { CellEditor } from '../shipyard/cellMode';
 import { drawChunkFace } from '../shipyard/chunkArt';
-import { CELL_TEST_HULL, CURRENCY_CORES_NAME, DESIGN_SLOTS, MAX_DESIGNS, SHIPYARD_UNLOCK_RING } from '../shipyard/constants';
+import { CELL_TEST_HULL, DESIGN_SLOTS, MAX_DESIGNS, SHIPYARD_UNLOCK_RING } from '../shipyard/constants';
 import { assemble } from '../shipyard/design';
 import { openNameDialog, openTextDialog } from '../shipyard/dialogs';
 import { ShipyardEditor } from '../shipyard/editor';
@@ -67,7 +68,7 @@ export class ShipyardScreen implements Screen {
   private overlayG = new Graphics();
   private chromeG = new Graphics();
   private titleT = makeText('SHIPYARD', UI.text.title, UI.color.text, { fontWeight: 'bold' });
-  private coresT = makeText('', UI.text.header, UI.color.cores, { fontWeight: 'bold' });
+  private coresLabel = amountLabel('0', UI.text.header, 'cores', { align: 'right' });
   private nameT = makeText('', UI.text.header, UI.color.text, { fontWeight: 'bold' });
   private errorT = makeText('', 15, UI.color.text, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: SY_ERROR.w, lineHeight: 18 });
   private statsT = makeText('', 14, UI.color.text, { fontWeight: 'bold' });
@@ -93,10 +94,10 @@ export class ShipyardScreen implements Screen {
     this.container.addChild(new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill(UI.color.page));
     this.chromeG.rect(0, 0, VIEW_W, SY_HEADER_H).fill(UI.color.panel).rect(0, SY_HEADER_H - 1, VIEW_W, 1).fill(UI.color.border);
     this.titleT.anchor.set(0, 0.5); this.titleT.position.set(64, 27);
-    this.coresT.anchor.set(1, 0.5); this.coresT.position.set(VIEW_W - 14, 27);
+    this.coresLabel.position.set(VIEW_W - 14, 27);
     this.nameT.anchor.set(0, 0.5);
     this.errorT.position.set(SY_ERROR.x, SY_ERROR.y);
-    this.container.addChild(this.chromeG, this.titleT, this.coresT, this.gridR.container, this.overlayG, this.nameT, this.errorT, this.statsT);
+    this.container.addChild(this.chromeG, this.titleT, this.coresLabel, this.gridR.container, this.overlayG, this.nameT, this.errorT, this.statsT);
 
     this.add(textButton('shipyardBack', { x: 6, y: 6, w: 46, h: 40 }, '<', () => this.leave(), 24));
     for (let i = 0; i < MAX_DESIGNS; i++) {
@@ -321,7 +322,7 @@ export class ShipyardScreen implements Screen {
   /** Redraws everything that depends on the design, the selection or the mode. */
   refresh() {
     const open = this.palette.isOpen;
-    this.coresT.text = `${fmtBig(this.store.data.cores)} ${CURRENCY_CORES_NAME}`;
+    this.coresLabel.setAmount(fmtBig(this.store.data.cores));
     for (const b of this.designTabs) b.container.visible = !this.cellMode;
     this.designTabs.forEach((b, i) => { b.active = i === this.ed.slot; b.redraw(); });
     for (const b of [this.clearB, this.rotLB, this.rotRB, this.undoB, this.redoB, this.useB]) b.container.visible = !this.cellMode;

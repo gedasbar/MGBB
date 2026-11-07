@@ -63,7 +63,7 @@ export function scrollSpeed(base: number, shipY: number, zoneMul = 1): number {
 
 /** What the world needs from the progress store at the end of a level. */
 export interface WallBank {
-  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; shots?: { bestShot: number; totalDamage: number } }): { medal: boolean; medals?: number; medalDoubled?: boolean; newBestEarnings?: boolean } | void;
+  recordWallRun(run: { credits: number; kills: number; hull?: string; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; shots?: { bestShot: number; totalDamage: number } }): { medal: boolean; medals?: number; medalDoubled?: boolean; newBestEarnings?: boolean } | void;
   /** Chunk 22a (Salvage skills): the multiplier on a finished level's credits (replay, beats the best). Absent = 1. */
   creditBonusMul?(kind: 'tier' | 'square', key: string, credits: number): number;
 }
@@ -303,6 +303,8 @@ export class WallWorld {
   get pulseRate(): number { return CONFIG.PULSE.BASE_RATE * this.fireRateMul; }
   /** Radius of the invisible hit circle: set by the hull's size class (SHIP_HIT_R for a small hull). */
   hitR = SHIP_HIT_R;
+  /** Chunk 34c: the id of the ship design flown (the Stats page counts runs per hull). */
+  hullId = '';
   private pulseTimer = 0;
 
   /** Events produced by update(); consumers clear them. */
@@ -328,6 +330,7 @@ export class WallWorld {
     this.shipX = this.worldW / 2;
     this.projSys.wrapW = this.ring ? this.worldW : 0;
     const hullGrid = opts.grid ?? buildStarterGrid();
+    this.hullId = hullGrid.hullId ?? '';
     this.fireRateMul = fireRateMul(hullGrid.hullId) * this.mods.fireRateMul;
     const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage, furthestRing: this.mods.furthestRing, projSpeedMul: this.mods.projSpeedMul, skills: this.mods.skills });
     this.projSys.skills = this.mods.skills;
@@ -574,7 +577,7 @@ export class WallWorld {
       if (m > 1) { this.fx.skillBonus = this.creditsExact * (m - 1); this.creditsExact *= m; }
     }
     const res = store.recordWallRun({
-      credits: this.credits, kills: this.destroyed,
+      credits: this.credits, kills: this.destroyed, hull: this.hullId,
       ...(campaign ? { tier: this.level.tier, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed', medalDouble: this.mods.medalDouble, shots: { ...this.projSys.runStats } } : {}),
       ...(square ? { square: { x: square.x, y: square.y }, destroyed: this.destroyed, total: this.total, time: this.time, passed: this.state === 'passed', medalDouble: this.mods.medalDouble, shots: { ...this.projSys.runStats } } : {}),
     });

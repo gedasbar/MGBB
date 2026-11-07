@@ -1,3 +1,5 @@
+import { buttonLabel, ButtonLabel } from '../ui/widgets';
+import type { Cost } from '../ui/amountLayout';
 import { Container, Graphics, Text } from 'pixi.js';
 import { drawX } from './draw';
 import { drawPlate } from '../ui/blockArt';
@@ -73,7 +75,7 @@ interface TileView {
   key: string;
 }
 
-interface SheetButtonView { c: Container; bg: Graphics; label: Text; rect: Rect }
+interface SheetButtonView { c: Container; bg: Graphics; label: ButtonLabel; rect: Rect }
 
 /** The affordability dot: bottom-right corner of the tile. */
 const DOT_R = 6;
@@ -312,8 +314,7 @@ export class TilePalette {
   private makeSheetButton(): SheetButtonView {
     const c = new Container();
     const bg = new Graphics();
-    const label = makeText('', 13, THEME.text, { fontWeight: 'bold', align: 'center', lineHeight: 17 });
-    label.anchor.set(0.5);
+    const label = buttonLabel(13, 17);
     c.addChild(bg, label);
     return { c, bg, label, rect: { x: 0, y: 0, w: 0, h: 0 } };
   }
@@ -342,14 +343,13 @@ export class TilePalette {
     this.infoStack.text = c.stack;
     this.infoOwned.text = c.lockText ? `Locked: ${c.lockText}` : c.ownedLine;
     this.infoOwned.style.fill = c.lockText ? THEME.warn : THEME.textDim;
-    const specs: Record<SheetButtonId, { label: string; enabled: boolean } | null> = { place: c.place, buy: c.buy, upgrade: c.upgrade };
+    const specs: Record<SheetButtonId, { label: string; enabled: boolean; costs?: Cost[] } | null> = { place: c.place, buy: c.buy, upgrade: c.upgrade };
     for (const id of ALL_BUTTONS) {
       const v = this.infoButtons[id];
       const spec = this.buttonIds.includes(id) ? specs[id] : null;
       v.c.visible = !!spec;
       if (!spec) continue;
-      v.label.text = spec.label;
-      v.label.style.fill = spec.enabled ? THEME.text : THEME.disabled;
+      v.label.set(spec.label, 'costs' in spec ? (spec as { costs?: Cost[] }).costs : undefined, spec.enabled);
       v.bg.clear().rect(1, 1, v.rect.w - 2, v.rect.h - 2).fill(THEME.buttonFill).stroke({ color: spec.enabled ? THEME.buttonLine : THEME.disabled, width: 1.5 });
     }
   }

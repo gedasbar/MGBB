@@ -96,6 +96,8 @@ export class World {
   /** Radius of the invisible hit circle: set by the hull's size class (HIT_RADIUS for a small hull). */
   hitR = HIT_RADIUS;
   hull = BASE_HULL;
+  /** Chunk 34c: the id of the ship design flown (the Stats page counts runs per hull). */
+  hullId = '';
   readonly maxHull: number;
   /** The active captain's effects for this run (neutral when none was given). */
   readonly mods: RunModifiers;
@@ -198,6 +200,7 @@ export class World {
     const compiled = compile(opts.grid ?? buildStarterGrid(), { baseDamage: this.mods.baseDamage, furthestRing: this.mods.furthestRing, projSpeedMul: this.mods.projSpeedMul, skills: this.mods.skills });
     this.projSys.skills = this.mods.skills;
     const hull = opts.grid ?? buildStarterGrid();
+    this.hullId = hull.hullId ?? '';
     this.recipes = compiled.recipes;
     this.fireRateMul = fireRateMul(hull.hullId) * this.mods.fireRateMul;
     this.spawnOffsets = spawnOffsetsFor(this.recipes, hull);

@@ -1,3 +1,4 @@
+import { Stats, defaultStats, sanitizeStats, noteRunStats, noteMedalsEarned } from '../stats/stats';
 import { MAX_TIER } from '../wall/generator';
 import { CLASSIC_TIERS, LATE_CLEAR_MEDALS } from '../data/lateTiers';
 import { applySquareRun, defaultFrontier, FrontierSave, sanitizeFrontier, SquareRunOutcome } from '../frontier/state';
@@ -28,12 +29,12 @@ import {
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version (17, chunk 32b: `records` gains `bosses` (Free Fly bosses beaten) and `bossNoHit`; older saves start with none; 16, chunk 31d: the Full and Bar Shipyard chunks are removed, their copies refunded in Cores and cleared from saved designs; 15, chunk 31c: each placed Shipyard chunk has a rotation, the Generator chunk is gone and its copies are refunded in Cores; older designs have rotation 0): 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none), 12 adds `timePlayed`, `newBlocks` and `skillPointsSeen` (chunk 24a: seconds played with the page visible; blocks unlocked and not yet looked at; skill points the player has seen. Older saves start at 0 / none / the points they already have, so nothing is marked new), 13 adds `achievements`, `records`, `challengesDone` and `cosmetics` (chunk 28a: earned achievement ids; the best hit / average DPS / circuit size records the achievements read; challenges done; cosmetic ids earned. A save from before starts with none and the game grants what it has already reached when it loads), 14 adds `cores`, `chunks` and `designs` (chunk 31a, the Shipyard: Cores earned in Free Fly, the chunk inventory and up to three saved custom hull designs; older saves start with 0 Cores, no chunks, no designs). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 17;
+/** Save format version (18, chunk 34c: `stats`, the lifetime counters, counted from the day the save moved to 18 (`stats.since`); older saves start them at 0; 17, chunk 32b: `records` gains `bosses` (Free Fly bosses beaten) and `bossNoHit`; older saves start with none; 16, chunk 31d: the Full and Bar Shipyard chunks are removed, their copies refunded in Cores and cleared from saved designs; 15, chunk 31c: each placed Shipyard chunk has a rotation, the Generator chunk is gone and its copies are refunded in Cores; older designs have rotation 0): 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none), 12 adds `timePlayed`, `newBlocks` and `skillPointsSeen` (chunk 24a: seconds played with the page visible; blocks unlocked and not yet looked at; skill points the player has seen. Older saves start at 0 / none / the points they already have, so nothing is marked new), 13 adds `achievements`, `records`, `challengesDone` and `cosmetics` (chunk 28a: earned achievement ids; the best hit / average DPS / circuit size records the achievements read; challenges done; cosmetic ids earned. A save from before starts with none and the game grants what it has already reached when it loads), 14 adds `cores`, `chunks` and `designs` (chunk 31a, the Shipyard: Cores earned in Free Fly, the chunk inventory and up to three saved custom hull designs; older saves start with 0 Cores, no chunks, no designs). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 18;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 17;
+  version: 18;
   /** A one-time message for the next screen that can show it (the economy refund of the version 8 migration); cleared when taken. */
   notice?: string;
   credits: number;
@@ -85,6 +86,8 @@ export interface Progress {
   cores: number;
   chunks: Record<string, number>;
   designs: (Design | null)[];
+  /** Chunk 34c (save version 18): lifetime counters (runs per mode, blocks, rocks, bosses, damage, currencies earned, runs per hull), counted from `stats.since`. */
+  stats: Stats;
 }
 
 export interface StorageLike {
@@ -98,10 +101,10 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 17, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    version: 18, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, wallBestCredits: {}, squareBestCredits: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
     frontier: defaultFrontier(), skills: [], timePlayed: 0, newBlocks: [], skillPointsSeen: 0,
-    achievements: [], records: defaultRecords(), challengesDone: [], cosmetics: [], ...defaultShipyard(),
+    achievements: [], records: defaultRecords(), challengesDone: [], cosmetics: [], ...defaultShipyard(), stats: defaultStats(),
   };
 }
 
@@ -182,6 +185,8 @@ export function sanitizeProgress(raw: unknown): Progress {
   out.records = sanitizeRecords(r.records);
   // v14 (chunk 31a): Cores, chunks and designs. A save from before has none of them: 0 Cores, no chunks, no designs.
   Object.assign(out, sanitizeShipyard(typeof r.version === 'number' && r.version >= 14 ? r : null));
+  // v18 (chunk 34c): the counters. A save from before starts them at 0 and says since when.
+  out.stats = sanitizeStats(typeof r.version === 'number' && r.version >= 18 ? r.stats : undefined);
   out.highestCleared = out.clearedTiers.length ? out.clearedTiers[out.clearedTiers.length - 1] : 0;
   // A save older than v8 still holds the levels of blocks that lost them: read them with the old ceiling so the migration can refund them.
   const migrating = !(typeof r.version === 'number' && r.version >= 8);
@@ -424,7 +429,7 @@ export function buyHull(p: Progress, id: string): BuyResult {
   return { ok: true, price };
 }
 
-export interface RunResult { credits: number; /** Chunk 31a: Cores earned (Free Fly and Frontier Free Fly squares only). */ cores?: number; kills: number; time: number; tier: number; /** Free Fly wave reached. */ wave?: number; /** Chunk 21a: the run's largest hit and total damage (shown on the summary, never saved). */ shots?: { bestShot: number; totalDamage: number }; /** Chunk 32e: Core crystals collected and dropped this run (Cores, shown on the summary, never saved). */ crystals?: { collected: number; dropped: number }; /** Chunk 32b: Free Fly bosses killed this run (the records keep each id and the no-hit count). */ bosses?: { id: string; noHit: boolean }[] }
+export interface RunResult { credits: number; /** Chunk 34c: the hull flown (counted per hull on the Stats page). */ hull?: string; /** Chunk 31a: Cores earned (Free Fly and Frontier Free Fly squares only). */ cores?: number; kills: number; time: number; tier: number; /** Free Fly wave reached. */ wave?: number; /** Chunk 21a: the run's largest hit and total damage (shown on the summary, never saved). */ shots?: { bestShot: number; totalDamage: number }; /** Chunk 32e: Core crystals collected and dropped this run (Cores, shown on the summary, never saved). */ crystals?: { collected: number; dropped: number }; /** Chunk 32b: Free Fly bosses killed this run (the records keep each id and the no-hit count). */ bosses?: { id: string; noHit: boolean }[] }
 
 /** The progress object plus its storage. Every change goes through `commit()`, which saves and notifies. */
 export class ProgressStore {
@@ -433,6 +438,8 @@ export class ProgressStore {
 
   /** Frontier reach per sector as of the last commit (directional unlocks), and the unlocks it produced not yet shown. */
   private reach: Reach;
+  /** Chunk 34c: the Medal balance at the last commit; a rise is Medals earned (the Stats page), a fall is spending and not counted. */
+  private lastMedals = 0;
   /** Highest passed tier as of the last commit (tier-locked blocks, chunk 20b). */
   private tierReach: number;
   unlockNotices: string[] = [];
@@ -450,6 +457,7 @@ export class ProgressStore {
     try { raw = storage?.getItem(PROGRESS_KEY) ?? null; } catch { /* storage unavailable */ }
     this.data = initial ?? loadProgress(raw);
     this.reach = reachBySector(this.data.frontier);
+    this.lastMedals = this.data.medals;
     this.tierReach = highestPassed(this.data.passedTiers);
     this.skillPts = skillPointsFor(furthestRing(this.reach));
     this.syncCustomHulls();
@@ -563,6 +571,8 @@ export class ProgressStore {
     // Chunk 28a: achievements are checked whenever progress changes; each one earned is paid at once and queued for a toast.
     const earned = newlyEarned(this.data);
     if (earned.length > 0) { grantAchievements(this.data, earned); this.achToasts.push(...earned); }
+    if (this.data.medals > this.lastMedals) noteMedalsEarned(this.data.stats, this.data.medals - this.lastMedals);
+    this.lastMedals = this.data.medals;
     try { this.storage?.setItem(PROGRESS_KEY, serializeProgress(this.data)); } catch { /* quota or private mode */ }
     for (const l of this.listeners) l();
   }
@@ -575,12 +585,14 @@ export class ProgressStore {
   /** Back to the new-game state (debug and tests). */
   reset() {
     this.data = defaultProgress();
+    this.lastMedals = 0;
     this.commit();
   }
 
   /** Books a Frontier Free Fly encounter (chunk 15b). Returns the square outcome (Medal paid on a first clear). */
-  recordFrontierFly(run: { x: number; y: number; credits: number; cores?: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number; shots?: { bestShot: number; totalDamage: number }; time?: number }): SquareRunOutcome & { newBestEarnings: boolean } {
+  recordFrontierFly(run: { x: number; y: number; hull?: string; credits: number; cores?: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number; shots?: { bestShot: number; totalDamage: number }; time?: number }): SquareRunOutcome & { newBestEarnings: boolean } {
     noteRunRecords(this.data.records, run.shots, run.time ?? 0);
+    noteRunStats(this.data.stats, { mode: 'frontier', rocks: run.kills, damage: run.shots?.totalDamage, credits: run.credits, cores: run.cores, hull: run.hull });
     const r = applyFrontierOutcome(this.data, { ...run, medalDouble: this.squareMedalChance(run.medalDouble), ...outcomeFlags(run.outcome) });
     this.data.cores += Math.floor(run.cores ?? 0);
     this.commit();
@@ -671,6 +683,7 @@ export class ProgressStore {
     if (newBestTime) d.bestTime = run.time;
     noteRunRecords(d.records, run.shots, run.time);
     noteBossRecords(d.records, run.bosses);
+    noteRunStats(d.stats, { mode: 'freefly', rocks: run.kills, damage: run.shots?.totalDamage, credits: run.credits, cores: run.cores, hull: run.hull, bosses: run.bosses });
     this.commit();
     return { newBestTier, newBestTime, newBestWave };
   }
@@ -680,8 +693,9 @@ export class ProgressStore {
    * tier's best result and awards the first-clear Medal. Best tier and best time belong to Free Fly and are not touched.
    * Call exactly once per level (WallWorld.bank guards this).
    */
-  recordWallRun(run: { credits: number; kills: number; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; rand?: () => number; shots?: { bestShot: number; totalDamage: number } }): { medal: boolean; medals: number; medalDoubled: boolean; newBestEarnings: boolean } {
+  recordWallRun(run: { credits: number; kills: number; hull?: string; tier?: number; square?: { x: number; y: number }; destroyed?: number; total?: number; time?: number; passed?: boolean; medalDouble?: number; rand?: () => number; shots?: { bestShot: number; totalDamage: number } }): { medal: boolean; medals: number; medalDoubled: boolean; newBestEarnings: boolean } {
     noteRunRecords(this.data.records, run.shots, run.time ?? 0);
+    noteRunStats(this.data.stats, { mode: run.square ? 'frontier' : 'campaign', blocks: run.kills, damage: run.shots?.totalDamage, credits: run.credits, hull: run.hull });
     let newBestEarnings = false;
     let medal = false;
     let medals = 0;

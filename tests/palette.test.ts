@@ -159,9 +159,9 @@ describe('info sheet content', () => {
     expect(c.levelLine).toBe('Level 1/5');
     expect(c.ownedLine).toBe('Owned 3');
     expect(c.lockText).toBeNull();
-    expect(c.buy).toEqual({ label: 'Buy +1\n40', enabled: true });
+    expect(c.buy).toEqual({ label: 'Buy +1\n40', enabled: true, costs: [{ kind: 'credits', text: '40' }] });
     // 100 credits: Buy (40) is affordable, Upgrade (120) is not.
-    expect(c.upgrade).toEqual({ label: 'Upgrade L1→L2\n120', enabled: false });
+    expect(c.upgrade).toEqual({ label: 'Upgrade L1→L2\n120', enabled: false, costs: [{ kind: 'credits', text: '120' }] });
     expect(c.place.enabled).toBe(true);
   });
 

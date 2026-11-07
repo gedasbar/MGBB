@@ -1,3 +1,4 @@
+import { amountLabel } from '../ui/widgets';
 import { Container, Graphics } from 'pixi.js';
 import { CONFIG } from '../config';
 import { clientToGame } from '../input';
@@ -15,7 +16,7 @@ import { getProgressStore } from '../econ/progress';
 import { textButton, TextButton } from '../ui/hud';
 import { drawPlate } from '../ui/blockArt';
 import { fmtBig } from '../ui/format';
-import { THEME } from '../ui/theme';
+import { THEME, UI } from '../ui/theme';
 import { BLOCKS } from '../data/blocks';
 import { PATHS, SKILL_BY_ID, SKILL_NODES, SkillNode } from '../data/skillTree';
 import { PROGRESS_COLOR, WHEEL_ZOOM_RATE } from '../frontier/constants';
@@ -181,7 +182,7 @@ export class SkillsScreen implements Screen {
     const c = THEME.text;
     switch (n.glyph) {
       case 'coin': g.rect(-11, -11, 22, 22).fill(THEME.currency).rect(-5, -5, 10, 10).stroke({ color: THEME.panel, width: 3 }); break;
-      case 'medal': g.circle(0, 0, 12).fill(THEME.currency).circle(0, 0, 5).stroke({ color: THEME.panel, width: 3 }); break;
+      case 'medal': g.circle(0, 0, 12).fill(UI.color.medal).circle(0, 0, 5).stroke({ color: THEME.panel, width: 3 }); break;
       case 'refresh': g.arc(0, 0, 11, 0.5, 5.4).stroke({ color: c, width: 4 }).poly([4, -17, 14, -9, 3, -5]).fill(c); break;
       case 'hero': g.poly([0, -13, 13, 11, 0, 4, -13, 11]).fill(c); break;
       default: g.poly([0, -14, 4, -4, 14, 0, 4, 4, 0, 14, -4, 4, -14, 0, -4, -4]).fill(c); // 'star'
@@ -288,9 +289,14 @@ export class SkillsScreen implements Screen {
     const shade = new Graphics().rect(0, 0, VIEW_W, CONFIG.VIEW.H).fill({ color: 0x000000, alpha: 0.6 }).rect(x, y, w, h).fill(THEME.panel).stroke({ color: THEME.buttonLine, width: 2 });
     const t = makeText('Respec', 24, THEME.text, { fontWeight: 'bold' });
     t.position.set(x + 20, y + 16);
-    const body = makeText(`Take back all ${this.owned.length} skills and get every point back.\nCost: ${cost} Medals (you have ${fmtBig(have)}).${can ? '' : '\nNot enough Medals.'}`, 17, can ? THEME.textDim : THEME.bad, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: w - 40 });
+    const body = makeText(`Take back all ${this.owned.length} skills and get every point back.${can ? '' : ' Not enough Medals.'}`, 17, can ? THEME.textDim : THEME.bad, { fontWeight: 'bold', wordWrap: true, wordWrapWidth: w - 40 });
     body.position.set(x + 20, y + 56);
-    this.dialog.addChild(shade, t, body);
+    // Chunk 34c: the price and the balance are amounts (medal icon + number).
+    const costRow = amountLabel(fmtBig(cost), 17, 'medals', { align: 'left', prefix: 'Cost:' });
+    costRow.position.set(x + 20, y + 56 + body.height + 18);
+    const haveRow = amountLabel(fmtBig(have), 17, 'medals', { align: 'left', prefix: 'You have:' });
+    haveRow.position.set(x + 20, y + 56 + body.height + 18 + 28);
+    this.dialog.addChild(shade, t, body, costRow, haveRow);
     const yes = textButton('skillsRespecYes', { x: x + 20, y: y + h - 70, w: (w - 60) / 2, h: 52 }, 'Respec', () => this.confirmRespec(), 20);
     const no = textButton('skillsRespecNo', { x: x + 40 + (w - 60) / 2, y: y + h - 70, w: (w - 60) / 2, h: 52 }, 'Cancel', () => this.closeRespec(), 20);
     yes.setEnabled(can);

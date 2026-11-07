@@ -111,7 +111,7 @@ export function chunkSheet(ed: ShipyardEditor, id: string): SheetContent {
     ownedLine: `Owned ${ed.owned(id)} · free ${free}`,
     lockText: null,
     place: { label: 'Place', enabled: free > 0 },
-    buy: { label: `Buy +1\n${fmtBig(price)} ${CURRENCY_CORES_NAME}`, enabled: ed.canAfford(id) },
+    buy: { label: `Buy +1\n${fmtBig(price)} ${CURRENCY_CORES_NAME}`, enabled: ed.canAfford(id), costs: [{ kind: 'cores', text: fmtBig(price) }] },
     upgrade: null,
   };
 }

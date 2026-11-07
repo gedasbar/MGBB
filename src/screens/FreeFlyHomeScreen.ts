@@ -1,3 +1,4 @@
+import { amountLabel } from '../ui/widgets';
 import { Container, Graphics } from 'pixi.js';
 import { Screen, ScreenManager } from './ScreenManager';
 import { makeText, Toast, UIButton } from '../builder/ui';
@@ -58,7 +59,7 @@ export class FreeFlyHomeScreen implements Screen {
       y += ROW_H + ROW_GAP;
     }
     // Chunk 31a: Cores, the Shipyard's currency, earned only in Free Fly.
-    this.container.addChild(this.row(y, CURRENCY_CORES_NAME, fmtBig(p.cores), UI.color.cores));
+    this.container.addChild(this.row(y, CURRENCY_CORES_NAME, fmtBig(p.cores), UI.color.cores, false, 'cores'));
     y += ROW_H + ROW_GAP;
     const coresHint = makeText(CORES_HINT, UI.text.small, UI.color.textDim);
     coresHint.position.set(PAD, y - 2);
@@ -86,14 +87,21 @@ export class FreeFlyHomeScreen implements Screen {
   }
 
   /** One panel row: the label at the left, the value at the right; `tick` adds a small tick mark before the label. */
-  private row(y: number, label: string, value: string, valueColor: number, tick = false): Container {
+  private row(y: number, label: string, value: string, valueColor: number, tick = false, amount?: 'cores'): Container {
     const c = new Container();
     c.addChild(drawTileFace(new Graphics(), { x: PAD, y, w: VIEW_W - 2 * PAD, h: ROW_H }));
     const l = makeText(label, UI.text.header, UI.color.text, { fontWeight: 'bold' });
     l.anchor.set(0, 0.5);
     l.position.set(PAD + 14 + (tick ? 26 : 0), y + ROW_H / 2);
-    const v = makeText(value, UI.text.header, valueColor, { fontWeight: 'bold' });
-    v.anchor.set(1, 0.5);
+    let v: Container;
+    if (amount) {
+      // Chunk 34c: Cores are the shared amount (hexagon + number).
+      v = amountLabel(value, UI.text.header, amount, { align: 'right' });
+    } else {
+      const t = makeText(value, UI.text.header, valueColor, { fontWeight: 'bold' });
+      t.anchor.set(1, 0.5);
+      v = t;
+    }
     v.position.set(VIEW_W - PAD - 14, y + ROW_H / 2);
     c.addChild(l, v);
     if (tick) c.addChild(new Graphics().moveTo(PAD + 14, y + ROW_H / 2).lineTo(PAD + 21, y + ROW_H / 2 + 8).lineTo(PAD + 34, y + ROW_H / 2 - 8).stroke({ color: UI.color.good, width: 3 }));

@@ -548,9 +548,9 @@ describe('earning Cores (Free Fly only)', () => {
 
 describe('save version 14 to 15 to 16', () => {
   it('an older save migrates to 0 Cores, no chunks, no designs; everything else is kept', () => {
-    expect(PROGRESS_VERSION).toBe(17);
+    expect(PROGRESS_VERSION).toBe(18);
     const old = loadProgress(JSON.stringify({ version: 13, credits: 99, passedTiers: [1, 2], bestWave: 7, cores: 5000, chunks: { wide_open: 3 }, designs: [SMALL(), null, null] }));
-    expect(old.version).toBe(17);
+    expect(old.version).toBe(18);
     expect(old.credits).toBe(99);
     expect(old.bestWave).toBe(7);
     // A v13 save cannot hold Shipyard data; whatever such fields it carries are not trusted.
@@ -579,7 +579,7 @@ describe('save version 14 to 15 to 16', () => {
       version: 14, cores: 100, chunks: { generator: 3, wide_open: 2 },
       designs: [{ slots: ['front_gun', null, null, null, null, null, null, null, null, null, null, null, 'generator', null, null, null], name: 'Old' }, null, null],
     }));
-    expect(old.version).toBe(17);
+    expect(old.version).toBe(18);
     expect(old.cores).toBe(100 + 285);
     expect(old.chunks).toEqual({ wide_open: 2 }); // no generator key left
     expect(old.designs[0]!.slots[12]).toBeNull(); // the Generator chunk left the design
@@ -604,7 +604,7 @@ describe('save version 14 to 15 to 16', () => {
       version: 15, cores: 10, chunks: { full: 3, bar: 2, ring: 1 },
       designs: [{ slots: ['front_gun', null, null, null, null, null, null, null, null, null, null, null, 'full', 'bar', null, null], name: 'Old' }, null, null],
     }));
-    expect(old.version).toBe(17);
+    expect(old.version).toBe(18);
     expect(old.cores).toBe(10 + 119 + 38);
     expect(old.chunks).toEqual({ ring: 1 });
     expect(old.designs[0]!.slots[12]).toBeNull(); // that slot is empty now
