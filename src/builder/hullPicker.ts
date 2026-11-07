@@ -2,7 +2,7 @@ import { Container, Graphics } from 'pixi.js';
 import { inRect, Rect } from './layout';
 import { makeText } from './ui';
 import { THEME, UI } from '../ui/theme';
-import { drawTileFace, moneyLabel } from '../ui/widgets';
+import { drawTileFace, amountLabel, buttonLabel } from '../ui/widgets';
 import { fmtBig } from '../ui/format';
 import { CATEGORY_COLOR } from './draw';
 import { shipThumbnail, TextureMaker } from '../ui/shipArt';
@@ -12,7 +12,7 @@ import {
   hullBuyLabel, hullBuyRect, hullContentH, HULL_PANEL, HULL_TITLE_H, hullListRect, hullRowRects, hullRows, HullRow, hullSheetLines, hullSheetRect, hullSummary, hullTraitLine,
   shipyardEntryRect, shipyardEntryText,
 } from './hullPickerLogic';
-import { CURRENCY_CORES_NAME, SHIPYARD_UNLOCK_RING } from '../shipyard/constants';
+import { SHIPYARD_UNLOCK_RING } from '../shipyard/constants';
 import { clampScroll, scrollToReveal } from './paletteLogic';
 import { drawHubFrame, hubTabAt, HubTab } from './hub';
 
@@ -157,7 +157,7 @@ export class HullPicker {
       sum.position.set(rc.x + 76, rc.y + 42);
       // Chunk 34b: an unowned hull's price wears the credits coin.
       const priced = !r.current && !r.owned;
-      const tag: Container = priced ? moneyLabel(fmtBig(r.price), 16, 'credits', { align: 'right', color: THEME.currency }) : makeText(r.current ? 'Current' : 'Owned', 16, r.current ? THEME.good : THEME.textDim, { fontWeight: 'bold' });
+      const tag: Container = priced ? amountLabel(fmtBig(r.price), 16, 'credits', { align: 'right', color: THEME.currency }) : makeText(r.current ? 'Current' : 'Owned', 16, r.current ? THEME.good : THEME.textDim, { fontWeight: 'bold' });
       if (priced) tag.position.set(rc.x + rc.w - 14, rc.y + 12 + 10);
       else { (tag as any).anchor.set(1, 0); tag.position.set(rc.x + rc.w - 14, rc.y + 12); }
       const content = new Container();
@@ -187,9 +187,8 @@ export class HullPicker {
       face.addChild(new Graphics().rect(lx, ly, 20, 15).fill(THEME.warn).moveTo(lx + 4, ly).lineTo(lx + 4, ly - 5).arc(lx + 10, ly - 5, 6, Math.PI, 0).lineTo(lx + 16, ly).stroke({ color: THEME.warn, width: 3 }));
       face.alpha = UNOWNED_ALPHA;
     }
-    const cores = makeText(`${fmtBig(this.cores)} ${CURRENCY_CORES_NAME}`, 16, UI.color.cores, { fontWeight: 'bold' });
-    cores.anchor.set(1, 0);
-    cores.position.set(rc.x + rc.w - 14, rc.y + 12);
+    const cores = amountLabel(fmtBig(this.cores), 16, 'cores', { align: 'right' });
+    cores.position.set(rc.x + rc.w - 14, rc.y + 12 + 9);
     this.entryC.addChild(face, cores);
   }
 
@@ -207,7 +206,7 @@ export class HullPicker {
     const bg = new Graphics().rect(s.x, s.y, s.w, s.h).fill(THEME.panel).rect(s.x, s.y, s.w, 2).fill(THEME.border);
     const title = makeText(row.name, 22, THEME.text, { fontWeight: 'bold' });
     title.position.set(s.x + 14, s.y + 10);
-    const price = moneyLabel(fmtBig(row.price), 20, 'credits', { align: 'right', color: THEME.currency });
+    const price = amountLabel(fmtBig(row.price), 20, 'credits', { align: 'right', color: THEME.currency });
     price.position.set(s.x + s.w - 14, s.y + 12 + 12);
     const lines = makeText(hullSheetLines(row).join('\n'), 16, THEME.text, { lineHeight: 26 });
     lines.position.set(s.x + 14, s.y + 48);
@@ -219,8 +218,8 @@ export class HullPicker {
     const b = hullBuyRect();
     const buy = hullBuyLabel(row, credits);
     const btn = new Graphics().rect(b.x + 1, b.y + 1, b.w - 2, b.h - 2).fill(THEME.buttonFill).stroke({ color: buy.enabled ? THEME.buttonLine : THEME.disabled, width: 1.5 });
-    const label = makeText(buy.label, 18, buy.enabled ? THEME.text : THEME.disabled, { fontWeight: 'bold', align: 'center', lineHeight: 22 });
-    label.anchor.set(0.5);
+    const label = buttonLabel(18, 22);
+    label.set(buy.label, buy.costs, buy.enabled);
     label.position.set(b.x + b.w / 2, b.y + b.h / 2);
     this.sheetC.addChild(bg, title, price, lines, preview, btn, label);
     if (trait) this.sheetC.addChild(trait);

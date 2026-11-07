@@ -1,3 +1,4 @@
+import { amountLabel } from '../ui/widgets';
 import { Container, Graphics } from 'pixi.js';
 import { CONFIG } from '../config';
 import { clientToGame } from '../input';
@@ -59,8 +60,7 @@ export class MapCarouselScreen implements Screen {
     const bg = new Graphics().rect(0, 0, VIEW_W, VIEW_H).fill(UI.color.page);
     const bar = new Graphics().rect(0, 0, VIEW_W, HEADER_H).fill(UI.color.panel).rect(0, HEADER_H - 1, VIEW_W, 1).fill(UI.color.border)
       .rect(LAYOUT.tabs.x, LAYOUT.tabs.y, LAYOUT.tabs.w, LAYOUT.tabs.h).fill(UI.color.panel).rect(LAYOUT.tabs.x, LAYOUT.tabs.y, LAYOUT.tabs.w, 1).fill(UI.color.border);
-    const medals = makeText(`Medals ${p.medals}`, UI.text.header + 5, UI.color.text, { fontWeight: 'bold' });
-    medals.anchor.set(0, 0.5);
+    const medals = amountLabel(String(p.medals), UI.text.header + 5, 'medals', { align: 'left', prefix: 'Medals' });
     medals.position.set(14, 27);
     this.credits.set(p.credits);
 

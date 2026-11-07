@@ -127,7 +127,7 @@ describe('copy caps and prices (step 4)', () => {
   it('the sheet reads owned / cap and the Buy button becomes a disabled Max at the cap', () => {
     const at = (owned: number, cap: number) => sheetContent({ id: 'x', name: 'X', desc: '', owned, available: owned, level: 1, maxLevel: 10, credits: 1e9, copyPrice: 10, upgradePrice: 10, lock: null, cap });
     expect(at(3, 10).ownedLine).toBe('Owned 3 / 10');
-    expect(at(3, 10).buy).toEqual({ label: 'Buy +1\n10', enabled: true });
+    expect(at(3, 10).buy).toEqual({ label: 'Buy +1\n10', enabled: true, costs: [{ kind: 'credits', text: '10' }] });
     expect(at(10, 10).buy).toEqual({ label: 'Max', enabled: false });
     expect(at(40, Infinity).ownedLine).toBe('Owned 40');
     const builder = sheetContent({ id: 'x', name: 'X', desc: '', owned: 4, available: 1, level: 1, maxLevel: 1, credits: 0, copyPrice: 1, upgradePrice: 1, lock: null, cap: 8, showFree: true });
@@ -487,8 +487,8 @@ describe('save version 8: upgrades and copies over the caps are refunded (step 8
   it('refunds levels of blocks that lost them at the OLD upgrade price and sets them to level 1', () => {
     const raw = { version: 7, credits: 1000, owned: { piercing: 2, homing: 1, flat_plus: 3, percent_mult: 2 }, levels: { piercing: 5, homing: 3, flat_plus: 4, percent_mult: 7 } };
     const p = loadProgress(JSON.stringify(raw));
-    expect(p.version).toBe(17);
-    expect(PROGRESS_VERSION).toBe(17);
+    expect(p.version).toBe(18);
+    expect(PROGRESS_VERSION).toBe(18);
     expect(p.levels.piercing).toBe(1);
     expect(p.levels.homing).toBe(1);
     expect(p.levels.flat_plus).toBe(4); // keeps upgrades
@@ -519,7 +519,7 @@ describe('save version 8: upgrades and copies over the caps are refunded (step 8
     expect(store.takeNotice()).toBeNull();
     const again = new ProgressStore(st);
     expect(again.data.credits).toBe(credits); // not refunded a second time
-    expect(again.data.version).toBe(17);
+    expect(again.data.version).toBe(18);
     expect(again.data.notice).toBeUndefined();
     const raw = { ...JSON.parse(serializeProgress(defaultProgress())), owned: { turn_l: 99 }, levels: { piercing: 1 } };
     expect(loadProgress(JSON.stringify(raw)).owned.turn_l).toBe(99); // v8 data is trusted (the cheat panel may exceed caps)

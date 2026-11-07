@@ -1,6 +1,7 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { UI } from './theme';
-import { coresIcon, creditIcon } from './icons';
+import { coresIcon, creditIcon, medalIcon } from './icons';
+import { amountIconSize, amountLayout, costRowLayout, AmountKind, Cost } from './amountLayout';
 import { makeText } from '../builder/ui';
 
 /** Chunk 29a: the shared control drawings. Pure drawing into a Graphics; hit testing stays with each screen. */
@@ -54,39 +55,86 @@ export function drawCheckbox(g: Graphics, r: WRect, checked: boolean): Graphics 
   return g;
 }
 
-/** Chunk 34b: the currency icon size that goes with a text size (one rule everywhere: 0.8 x the font size, at least 10 px). */
-export const moneyIconSize = (fontSize: number): number => Math.max(10, Math.round(fontSize * 0.8));
-/** Gap between the icon and its number. */
-const MONEY_GAP = 5;
+/** Chunk 34c: the one rule for an icon beside text (0.8 x the font size, at least 10 px); layout maths in `amountLayout.ts`. */
+export const moneyIconSize = amountIconSize;
 
-export interface MoneyLabel extends Container { amount: Text; setAmount(text: string): void }
+const kindColor = (k: AmountKind): number => (k === 'cores' ? UI.color.cores : k === 'medals' ? UI.color.medal : UI.color.accent);
+const kindIcon = (k: AmountKind, size: number): Graphics => (k === 'cores' ? coresIcon(size) : k === 'medals' ? medalIcon(size) : creditIcon(size));
+
+export interface AmountLabel extends Container { amount: Text; icon: Graphics; setAmount(text: string): void }
 
 /**
- * Chunk 34b: an amount of money with its icon, `prefix` (optional, same colour) + coin or Cores hexagon + number. The container's origin is the
- * anchor point: `align` says whether it is the left, centre or right end of the row; the row is centred on y = 0.
+ * Chunk 34b / 34c: an amount with its icon (coin = credits, hexagon = Cores, medal = Medals): optional `prefix` + icon + number. The
+ * container's origin is the anchor point (`align`: left, centre or right end of the row); icon and number are centred on y = 0
+ * (`amountLayout`, unit-tested). The number is `amount` (its `text` is what the e2e scripts read).
  */
-export function moneyLabel(amount: string, fontSize: number, kind: 'credits' | 'cores', o: { align?: 'left' | 'center' | 'right'; color?: number; prefix?: string } = {}): MoneyLabel {
-  const color = o.color ?? (kind === 'cores' ? UI.color.cores : UI.color.accent);
-  const box = new Container() as MoneyLabel;
-  const size = moneyIconSize(fontSize);
+export function amountLabel(amount: string, fontSize: number, kind: AmountKind, o: { align?: 'left' | 'center' | 'right'; color?: number; prefix?: string } = {}): AmountLabel {
+  const color = o.color ?? kindColor(kind);
+  const box = new Container() as AmountLabel;
+  const size = amountIconSize(fontSize);
   const pre = o.prefix ? makeText(o.prefix, fontSize, color, { fontWeight: 'bold' }) : null;
-  const icon = kind === 'cores' ? coresIcon(size) : creditIcon(size);
+  const icon = kindIcon(kind, size);
   const text = makeText(amount, fontSize, color, { fontWeight: 'bold' });
   pre?.anchor.set(0, 0.5);
   text.anchor.set(0, 0.5);
-  box.amount = text;
+  box.amount = text; box.icon = icon;
   if (pre) box.addChild(pre);
   box.addChild(icon, text);
   const layout = () => {
-    let x = 0;
-    if (pre) { pre.position.set(0, 0); x = pre.width + MONEY_GAP; }
-    icon.position.set(x, -size / 2);
-    text.position.set(x + size + MONEY_GAP, 0);
-    const w = text.x + text.width;
-    const shift = o.align === 'right' ? -w : o.align === 'center' ? -w / 2 : 0;
-    for (const c of box.children) c.x += shift;
+    const l = amountLayout({ fontSize, textW: text.width, prefixW: pre ? pre.width : 0, align: o.align });
+    if (pre) pre.position.set(l.prefixX, l.textCentreY);
+    icon.position.set(l.iconX, l.iconTop);
+    text.position.set(l.textX, l.textCentreY);
   };
   box.setAmount = (t: string) => { text.text = t; layout(); };
   layout();
+  return box;
+}
+
+/**
+ * Chunk 34c: a price of one or two currencies ("1.2K", or "50K + 15 medals" for a legendary block) as amounts with a "+" between them,
+ * the row centred on the origin. `setCosts` redraws; `dim` greys it (a button that cannot be pressed).
+ */
+export interface CostLabel extends Container { setCosts(costs: readonly Cost[], dim?: boolean): void }
+export function costLabel(costs: readonly Cost[], fontSize: number, o: { color?: number } = {}): CostLabel {
+  const box = new Container() as CostLabel;
+  box.setCosts = (list, dim = false) => {
+    for (const c of box.removeChildren()) c.destroy({ children: true });
+    const parts = list.map(c => amountLabel(c.text, fontSize, c.kind, { align: 'left', color: o.color && c.kind === 'credits' ? o.color : undefined }));
+    const plus = list.length > 1 ? makeText('+', fontSize, UI.color.text, { fontWeight: 'bold' }) : null;
+    const row = costRowLayout(parts.map(p => amountLayout({ fontSize, textW: p.amount.width }).width), plus ? plus.width : 0);
+    parts.forEach((p, i) => { p.position.set(row.xs[i], 0); box.addChild(p); });
+    row.plusXs.forEach(x => { const t = makeText('+', fontSize, UI.color.text, { fontWeight: 'bold' }); t.anchor.set(0, 0.5); t.position.set(x, 0); box.addChild(t); });
+    plus?.destroy();
+    box.alpha = dim ? 0.45 : 1;
+  };
+  box.setCosts(costs);
+  return box;
+}
+
+/**
+ * Chunk 34c: the label of a button that may carry a price. Without costs it is the plain text, centred; with costs the label's first line
+ * sits over the price drawn as amounts (coin / hexagon / medal + number). The origin is the button's centre. The full `label` text stays in
+ * each screen's debug state; this only draws it.
+ */
+export interface ButtonLabel extends Container { set(label: string, costs: readonly Cost[] | undefined, enabled: boolean): void }
+export function buttonLabel(fontSize: number, lineHeight = Math.round(fontSize * 1.3)): ButtonLabel {
+  const box = new Container() as ButtonLabel;
+  const title = makeText('', fontSize, UI.color.text, { fontWeight: 'bold', align: 'center', lineHeight });
+  title.anchor.set(0.5);
+  const cost = costLabel([], fontSize);
+  box.addChild(title, cost);
+  box.set = (label, costs, enabled) => {
+    title.style.fill = enabled ? UI.color.text : UI.color.disabled;
+    if (costs && costs.length > 0) {
+      title.text = label.split('\n')[0];
+      title.y = -lineHeight / 2;
+      cost.setCosts(costs, !enabled);
+      cost.y = lineHeight / 2;
+      cost.visible = true;
+    } else {
+      title.text = label; title.y = 0; cost.visible = false;
+    }
+  };
   return box;
 }

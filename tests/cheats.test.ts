@@ -62,7 +62,8 @@ describe('dev cheats', () => {
     expect(model.place(0, 1, 'flat_plus').ok).toBe(true);
     expect(model.grid.cells.some(c => c.blockId)).toBe(true);
     resetEverything(store, model);
-    expect(store.data).toEqual(defaultProgress());
+    // (the counters' start date is "now", so only that one field is set aside)
+    expect({ ...store.data, stats: { ...store.data.stats, since: 0 } }).toEqual({ ...defaultProgress(), stats: { ...defaultProgress().stats, since: 0 } });
     expect(model.hullId).toBe('dart');
     expect(model.grid.cells.some(c => c.blockId)).toBe(false);
     expect(JSON.parse(m[PROGRESS_KEY]).credits).toBe(0);

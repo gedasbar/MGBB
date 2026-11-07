@@ -117,7 +117,7 @@ describe('persistence', () => {
     ['wrong types', JSON.stringify({ credits: 'lots', owned: 5, levels: [], ownedHulls: 'fan', runs: -3 })],
   ];
   it.each(bad)('falls back to defaults on %s', (_n, raw) => {
-    expect(loadProgress(raw)).toEqual(defaultProgress());
+    expect({ ...loadProgress(raw), stats: null }).toEqual({ ...defaultProgress(), stats: null }); // (stats.since is "now")
   });
   it('keeps what is valid and drops what is not (levels clamped, unknown hulls and ids ignored)', () => {
     const p = loadProgress(JSON.stringify({ credits: 50.9, owned: { splitter_2: 2, nope: 9, turn_l: -1 }, levels: { flat_plus: 99, homing: 3 }, ownedHulls: ['fan', 'ghost'] }));
@@ -133,7 +133,7 @@ describe('persistence', () => {
   it('an old save (builder circuit, no progress key) loads with new-game progress and does not crash', () => {
     const st = mem({ 'mgbm.builder.v2': JSON.stringify({ version: 2, hulls: { shuttle: { active: 'A', slots: { A: [], B: [] } } } }) });
     const m = new BuilderModel(st);
-    expect(m.store.data).toEqual(defaultProgress());
+    expect({ ...m.store.data, stats: { ...m.store.data.stats, since: 0 } }).toEqual({ ...defaultProgress(), stats: { ...defaultProgress().stats, since: 0 } });
   });
 });
 

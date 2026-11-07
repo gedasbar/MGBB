@@ -1,3 +1,4 @@
+import { amountLabel } from '../ui/widgets';
 import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CONFIG } from '../config';
 import { clientToGame } from '../input';
@@ -90,7 +91,7 @@ export class FrontierScreen implements Screen {
   private unsub: (() => void) | null = null;
 
   private title = makeText(FRONTIER_NAME, 22, THEME.text, { fontWeight: 'bold' });
-  private medalsText = makeText('', 16, THEME.currency, { fontWeight: 'bold' });
+  private medalsLabel = amountLabel('0', 16, 'medals', { align: 'left', prefix: 'Medals' });
   private line1 = makeText('', 20, THEME.text, { fontWeight: 'bold' });
   private line2 = makeText('', 16, THEME.textDim, { fontWeight: 'bold' });
   private stateText = makeText('', 16, THEME.text, { fontWeight: 'bold' });
@@ -118,8 +119,7 @@ export class FrontierScreen implements Screen {
 
     this.title.anchor.set(0, 0.5);
     this.title.position.set(64, 27);
-    this.medalsText.anchor.set(0, 0.5);
-    this.medalsText.position.set(64 + this.title.width + 16, 28);
+    this.medalsLabel.position.set(64 + this.title.width + 16, 28);
 
     const back = textButton('frontierBack', { x: 6, y: 6, w: 46, h: 40 }, '<', () => backToCarousel(this.sm, 'frontier'), 24);
     const bw = Math.floor((VIEW_W - 5 * 8) / 4);
@@ -142,7 +142,7 @@ export class FrontierScreen implements Screen {
     this.countText.position.set(lx, PANEL_Y + 172);
     this.earnText.position.set(lx, PANEL_Y + 123);
 
-    this.container.addChild(bg, this.tiles, this.ringG, this.selG, chrome, this.title, this.medalsText, this.credits.container,
+    this.container.addChild(bg, this.tiles, this.ringG, this.selG, chrome, this.title, this.medalsLabel, this.credits.container,
       this.line1, this.line2, this.stateText, this.medalText, this.spikeText, this.countText, this.earnText);
     for (const b of this.buttons) this.container.addChild(b.container);
     this.unlocksC.visible = false;
@@ -361,7 +361,7 @@ export class FrontierScreen implements Screen {
     const p = this.store.data;
     this.credits.set(p.credits);
     const counts = frontierCounts(this.f);
-    this.medalsText.text = `Medals ${fmtBig(p.medals)}`;
+    this.medalsLabel.setAmount(fmtBig(p.medals));
     this.countText.text = `${fmtBig(counts.cleared)} cleared · ${fmtBig(counts.passed - counts.cleared)} passed`;
     const kind = squareKind(x, y, this.f.seed);
     this.line1.text = `(${fmtBig(x)}, ${fmtBig(y)})` + (kind === 'freefly' ? `  ·  Free Fly, survive ${FREEFLY_SQUARE_SECONDS} s` : kind === 'wall' ? '  ·  Wall' : '');
@@ -395,7 +395,7 @@ export class FrontierScreen implements Screen {
     const p = this.store.data;
     this.credits.set(p.credits);
     const counts = frontierCounts(this.f);
-    this.medalsText.text = `Medals ${fmtBig(p.medals)}`;
+    this.medalsLabel.setAmount(fmtBig(p.medals));
     this.countText.text = `${fmtBig(counts.cleared)} cleared · ${fmtBig(counts.passed - counts.cleared)} passed`;
     this.countText.style.fill = THEME.textDim;
     this.line1.text = NO_SELECTION_HINT;

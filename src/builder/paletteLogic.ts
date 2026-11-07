@@ -1,6 +1,7 @@
 import { BlockCategory } from '../engine/compilerTypes';
 import { LAYOUT, Rect, VIEW_W } from './layout';
 import { fmtBig } from '../ui/format';
+import type { Cost } from '../ui/amountLayout';
 
 /** Chunk 16b: the pure part of the block palette (layout math, filtering, badge and sheet text). No Pixi in here. */
 
@@ -113,7 +114,8 @@ export interface SheetInput {
   showFree?: boolean;
 }
 
-interface SheetButton { label: string; enabled: boolean }
+/** `costs` (chunk 34c): the price as amounts (icon + number); the view draws the label's first line and these under it. `label` keeps the full text for tests. */
+export interface SheetButton { label: string; enabled: boolean; costs?: Cost[] }
 
 export interface SheetContent {
   title: string;
@@ -152,11 +154,12 @@ export function sheetContent(i: SheetInput): SheetContent {
     lockText: null,
     buy: atCap ? { label: 'Max', enabled: false } : {
       label: `Buy +1\n${priceText(i.copyPrice, i.medalPrice)}`,
+      costs: [{ kind: 'credits', text: fmtBig(i.copyPrice) }, ...((i.medalPrice ?? 0) > 0 ? [{ kind: 'medals' as const, text: String(i.medalPrice) }] : [])],
       enabled: i.credits >= i.copyPrice && (i.medals ?? 0) >= (i.medalPrice ?? 0),
     },
     upgrade: !hasLevels ? null : atMax
       ? { label: 'Upgrade\nMAX', enabled: false }
-      : { label: `Upgrade L${i.level}→L${i.level + 1}\n${fmtBig(i.upgradePrice)}`, enabled: i.credits >= i.upgradePrice },
+      : { label: `Upgrade L${i.level}→L${i.level + 1}\n${fmtBig(i.upgradePrice)}`, enabled: i.credits >= i.upgradePrice, costs: [{ kind: 'credits', text: fmtBig(i.upgradePrice) }] },
   };
 }
 

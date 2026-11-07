@@ -1,3 +1,4 @@
+import { amountLabel } from '../ui/widgets';
 import { Container, Graphics } from 'pixi.js';
 import { CONFIG } from '../config';
 import { clientToGame } from '../input';
@@ -56,7 +57,7 @@ export class CaptainScreen implements Screen {
   private listC = new Container();
   private mask = new Graphics();
   private fixedC = new Container();
-  private medalsText = makeText('', 22, THEME.currency, { fontWeight: 'bold' });
+  private medalsLabel = amountLabel('0', 22, 'medals', { align: 'left', prefix: 'Medals' });
   private activeText = makeText('', 14, THEME.textDim, { fontWeight: 'bold' });
   private gestures: GestureTracker | null = null;
   private unsubscribe: (() => void) | null = null;
@@ -77,13 +78,12 @@ export class CaptainScreen implements Screen {
     const title = makeText('Captain', 30, THEME.text, { fontWeight: 'bold' });
     title.anchor.set(0.5);
     title.position.set(VIEW_W / 2, 27);
-    this.medalsText.anchor.set(0, 0.5);
-    this.medalsText.position.set(12, 27);
+    this.medalsLabel.position.set(12, 27);
     this.activeText.anchor.set(1, 0.5);
     this.activeText.position.set(VIEW_W - 12, 27);
 
     this.mask.rect(0, LIST_TOP, VIEW_W, BOTTOM - LIST_TOP).fill(0xffffff);
-    this.container.addChild(bg, this.listC, this.fixedC, bar, title, this.medalsText, this.activeText);
+    this.container.addChild(bg, this.listC, this.fixedC, bar, title, this.medalsLabel, this.activeText);
     this.tabs = makeTabButtons('tabCaptain', (id) => this.tapTab(id));
     for (const b of this.tabs) this.container.addChild(b.container);
     this.container.addChild(this.toast.container);
@@ -127,7 +127,7 @@ export class CaptainScreen implements Screen {
       captainScreen: this,
       state: () => ({
         view: this.view, selected: this.selected, scrollY: this.scrollY, contentH: this.contentH, toast: this.toast.message,
-        medals: this.store.data.medals, medalsText: this.medalsText.text, activeText: this.activeText.text,
+        medals: this.store.data.medals, medalsText: `Medals ${this.medalsLabel.amount.text}`, activeText: this.activeText.text,
         buttons: this.hits.map(h => ({ id: h.id, enabled: h.enabled, label: h.label, rect: this.screenRect(h) })),
       }),
     };
@@ -189,7 +189,7 @@ export class CaptainScreen implements Screen {
   private rebuild() {
     this.clear();
     const p = this.store.data;
-    this.medalsText.text = `Medals ${p.medals}`;
+    this.medalsLabel.setAmount(String(p.medals));
     const act = CAPTAIN_BY_ID[p.captains.selected];
     this.activeText.text = `Active: ${act?.name ?? p.captains.selected}`;
     this.activeText.style.fill = act?.accent ?? THEME.textDim;
@@ -213,21 +213,29 @@ export class CaptainScreen implements Screen {
   }
 
   /** A sharp rectangular button face with a centred label; registers the hit. */
-  private button(layer: Container, id: string, r: Rect, label: string, enabled: boolean, act: () => void, opts: { fixed?: boolean; size?: number; accent?: number } = {}) {
+  private button(layer: Container, id: string, r: Rect, label: string, enabled: boolean, act: () => void, opts: { fixed?: boolean; size?: number; accent?: number; cost?: { prefix: string; text: string } } = {}) {
     const g = new Graphics();
     g.rect(r.x + 1, r.y + 1, r.w - 2, r.h - 2).fill(THEME.buttonFill).stroke({ color: enabled ? (opts.accent ?? THEME.buttonLine) : THEME.disabled, width: 1.5 });
-    const t = makeText(label, opts.size ?? 14, enabled ? THEME.text : THEME.disabled, { fontWeight: 'bold', align: 'center' });
-    t.anchor.set(0.5);
-    t.position.set(r.x + r.w / 2, r.y + r.h / 2);
-    layer.addChild(g, t);
+    if (opts.cost) {
+      // Chunk 34c: "Unlock -" + medal icon + number (the label string stays for the tests).
+      const a = amountLabel(opts.cost.text, opts.size ?? 14, 'medals', { align: 'center', prefix: opts.cost.prefix, color: enabled ? THEME.text : THEME.disabled });
+      a.position.set(r.x + r.w / 2, r.y + r.h / 2);
+      a.alpha = enabled ? 1 : 0.6;
+      layer.addChild(g, a);
+    } else {
+      const t = makeText(label, opts.size ?? 14, enabled ? THEME.text : THEME.disabled, { fontWeight: 'bold', align: 'center' });
+      t.anchor.set(0.5);
+      t.position.set(r.x + r.w / 2, r.y + r.h / 2);
+      layer.addChild(g, t);
+    }
     this.hits.push({ id, rect: r, enabled, label, act, fixed: opts.fixed });
   }
 
-  private statusLine(def: CaptainDef): { text: string; color: number } {
+  private statusLine(def: CaptainDef): { text: string; color: number; medals?: string; prefix?: string } {
     const c = this.store.data.captains;
     if (c.selected === def.id) return { text: 'ACTIVE', color: THEME.good };
     if (isCaptainOwned(c, def.id)) return { text: 'Owned', color: THEME.text };
-    return { text: `Locked - ${def.unlockCost} Medals`, color: THEME.currency };
+    return { text: `Locked - ${def.unlockCost} Medals`, color: THEME.currency, medals: String(def.unlockCost), prefix: 'Locked -' };
   }
 
   // ---- list view
@@ -250,8 +258,8 @@ export class CaptainScreen implements Screen {
       theme.anchor.set(0.5, 0);
       theme.style.align = 'center';
       const st = this.statusLine(def);
-      const s = this.label(this.listC, st.text, r.x + r.w / 2, r.y + CARD_H - 44, 15, st.color, 0, 0.5);
-      s.anchor.set(0.5, 0);
+      if (st.medals) { const a = amountLabel(st.medals, 15, 'medals', { align: 'center', prefix: st.prefix }); a.position.set(r.x + r.w / 2, r.y + CARD_H - 44 + 9); this.listC.addChild(a); }
+      else this.label(this.listC, st.text, r.x + r.w / 2, r.y + CARD_H - 44, 15, st.color, 0, 0.5).anchor.set(0.5, 0);
       const sub = this.label(this.listC, `Level ${fmtBig(hero.level)}  -  ${fmtBig(hero.kills)} kills`, r.x + r.w / 2, r.y + CARD_H - 24, 12, THEME.textDim, 0, 0.5);
       sub.anchor.set(0.5, 0);
       this.hits.push({ id: `card:${def.id}`, rect: r, enabled: true, label: def.name, act: () => this.show('detail', def.id), fixed: true });
@@ -285,13 +293,14 @@ export class CaptainScreen implements Screen {
     this.label(L, def.name, idR.x + 116, idR.y + 10, 26, THEME.text);
     this.label(L, def.theme, idR.x + 116, idR.y + 44, 14, THEME.textDim, idR.w - 128);
     const st = this.statusLine(def);
-    this.label(L, st.text, idR.x + 116, idR.y + 68, 14, st.color);
+    if (st.medals) { const a = amountLabel(st.medals, 14, 'medals', { align: 'left', prefix: st.prefix }); a.position.set(idR.x + 116, idR.y + 68 + 8); L.addChild(a); }
+    else this.label(L, st.text, idR.x + 116, idR.y + 68, 14, st.color);
     const bx = idR.x + 116, bw = idR.w - 128;
     const isActive = c.selected === def.id;
     if (owned) {
       this.button(L, 'select', { x: bx, y: idR.y + 90, w: bw, h: 34 }, isActive ? 'Active captain' : 'Make active', !isActive, () => { if (!isActive) this.selectCaptain(def.id); });
     } else {
-      this.button(L, 'unlock', { x: bx, y: idR.y + 90, w: bw, h: 34 }, `Unlock - ${def.unlockCost} Medals`, medals >= def.unlockCost, () => this.unlockCaptain(def.id), { accent: THEME.currency });
+      this.button(L, 'unlock', { x: bx, y: idR.y + 90, w: bw, h: 34 }, `Unlock - ${def.unlockCost} Medals`, medals >= def.unlockCost, () => this.unlockCaptain(def.id), { accent: THEME.currency, cost: { prefix: 'Unlock -', text: String(def.unlockCost) } });
     }
     y += idR.h + 8;
 
@@ -303,7 +312,7 @@ export class CaptainScreen implements Screen {
     const cost = heroCostWith(hero.level, skillEffects(this.store.data.skills).heroDiscount);
     this.label(L, `Each level: +${HERO_LEVEL_BASE_DAMAGE} base damage`, hR.x + 12, hR.y + 62, 13, THEME.textDim);
     const upLabel = `Upgrade +${HERO_LEVEL_BASE_DAMAGE} - ${fmtBig(cost)} Medal${cost === 1 ? '' : 's'}`;
-    this.button(L, 'hero', { x: hR.x + hR.w - 232, y: hR.y + 28, w: 220, h: 44 }, upLabel, owned && medals >= cost, () => this.upgradeHero(def.id));
+    this.button(L, 'hero', { x: hR.x + hR.w - 232, y: hR.y + 28, w: 220, h: 44 }, upLabel, owned && medals >= cost, () => this.upgradeHero(def.id), { cost: { prefix: `Upgrade +${HERO_LEVEL_BASE_DAMAGE} -`, text: fmtBig(cost) } });
     y += hR.h + 8;
 
     // ---- kills and progress
@@ -334,13 +343,15 @@ export class CaptainScreen implements Screen {
         this.label(L, describeOption(opt), r.x + 10, r.y + 34, 13, dim ? THEME.disabled : THEME.textDim, r.w - 20);
         const tag = state === 'active' ? { t: 'ACTIVE', c: THEME.good } : state === 'owned' ? { t: 'OWNED', c: THEME.text } : state === 'locked' ? { t: 'LOCKED', c: THEME.disabled } : { t: 'AVAILABLE', c: THEME.currency };
         this.label(L, tag.t, r.x + 10, r.y + 96, 13, tag.c);
-        this.label(L, `${price} Medals`, r.x + r.w - 10, r.y + 96, 13, state === 'owned' || state === 'active' ? THEME.disabled : THEME.currency, 0, 1).anchor.set(1, 0);
+        const priceTag = amountLabel(String(price), 13, 'medals', { align: 'right', color: state === 'owned' || state === 'active' ? THEME.disabled : undefined });
+        priceTag.position.set(r.x + r.w - 10, r.y + 96 + 8);
+        L.addChild(priceTag);
         const br: Rect = { x: r.x + 8, y: r.y + r.h - 40, w: r.w - 16, h: 32 };
         if (state === 'locked') this.button(L, `opt:${opt.id}`, br, `Needs ${fmtBig(tierKillsNeeded(t))} kills (have ${fmtBig(hero.kills)})`, false, () => this.denied(`Needs ${fmtBig(tierKillsNeeded(t))} kills (have ${fmtBig(hero.kills)})`), { size: 12 });
         else if (state === 'active') this.button(L, `opt:${opt.id}`, br, 'Active', false, () => {});
         else if (state === 'owned') this.button(L, `opt:${opt.id}`, br, 'Activate (free)', true, () => this.activate(opt.id));
         else if (!owned) this.button(L, `opt:${opt.id}`, br, 'Unlock the captain first', false, () => this.denied('Unlock this captain first'), { size: 12 });
-        else this.button(L, `opt:${opt.id}`, br, `Buy - ${price} Medals`, medals >= price, () => this.buy(opt.id), { accent: THEME.currency });
+        else this.button(L, `opt:${opt.id}`, br, `Buy - ${price} Medals`, medals >= price, () => this.buy(opt.id), { accent: THEME.currency, cost: { prefix: 'Buy -', text: String(price) } });
         // A disabled button still answers a tap with the reason (toast + denied sound): the hit stays enabled for taps.
       });
       y += 164 + 8;

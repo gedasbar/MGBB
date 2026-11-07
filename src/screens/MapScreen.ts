@@ -1,3 +1,4 @@
+import { amountLabel } from '../ui/widgets';
 import { Container, Graphics } from 'pixi.js';
 import { CONFIG } from '../config';
 import { clientToGame } from '../input';
@@ -58,7 +59,7 @@ export class MapScreen implements Screen {
   private buttons: UIButton[] = [];
   private startButton: UIButton;
   private gestures: GestureTracker | null = null;
-  private medalsText = makeText('', 22, THEME.text, { fontWeight: 'bold' });
+  private medalsLabel = amountLabel('0', 22, 'medals', { align: 'left', prefix: 'Medals' });
   private title = makeText('', 20, THEME.text, { fontWeight: 'bold' });
   private hint = makeText('', 14, THEME.textDim, { wordWrap: true, wordWrapWidth: VIEW_W - 28, lineHeight: 17 });
   /** The spike warning, or (tiers 101-200) the type's one short line. */
@@ -83,8 +84,7 @@ export class MapScreen implements Screen {
     this.listC.mask = this.mask;
 
     this.credits.set(p.credits);
-    this.medalsText.anchor.set(0, 0.5);
-    this.medalsText.position.set(64, 27);
+    this.medalsLabel.position.set(64, 27);
 
     // Chunk 29b: "<" returns to the mode carousel (the Frontier has its own card there, so the header button is gone).
     const back = textButton('mapBack', { x: 6, y: 6, w: 46, h: 40 }, '<', () => backToCarousel(this.sm, 'campaign'), 24);
@@ -103,7 +103,7 @@ export class MapScreen implements Screen {
 
     const tabs = makeTabButtons('tabMap', (id) => this.tapTab(id));
     this.buttons.push(...tabs);
-    this.container.addChild(bg, this.listC, this.mask, bar, this.medalsText, this.credits.container, back.container, this.sheet);
+    this.container.addChild(bg, this.listC, this.mask, bar, this.medalsLabel, this.credits.container, back.container, this.sheet);
     for (const t of tabs) this.container.addChild(t.container);
     this.toast.container.y = -80; // the toast's usual spot is behind the bottom sheet here
     this.container.addChild(this.toast.container);
@@ -171,7 +171,7 @@ export class MapScreen implements Screen {
     this.applyScroll();
     this.updateSheet();
     const p = this.store.data;
-    this.medalsText.text = `Medals ${p.medals}`;
+    this.medalsLabel.setAmount(String(p.medals));
     this.credits.set(p.credits);
   }
 
@@ -302,7 +302,7 @@ export class MapScreen implements Screen {
       screen: 'map',
       state: () => ({
         selected: this.selected, scrollY: this.scrollY, medals: this.store.data.medals, credits: this.store.data.credits,
-        medalsText: this.medalsText.text,
+        medalsText: `Medals ${this.medalsLabel.amount.text}`,
         tiles: Array.from({ length: this.shownTiers() }, (_, i) => this.tileInfo(i + 1)),
         lockedEntry: this.lockedEntry() ? { cleared: classicClearedCount(this.store.data), of: CLASSIC_TIERS, rect: { ...this.lockedEntryRect(), y: GRID_TOP + this.lockedEntryRect().y - this.scrollY } } : null,
         sheet: { title: this.title.text, hint: this.hint.text, spike: this.spikeLine.text, typeLine: this.spikeLine.text, best: this.bestLine.text, earned: this.earnLine.text, startLabel: this.startLabel(), startEnabled: this.startButton.enabled },
