@@ -5,7 +5,8 @@ import { backgroundsOn, damageNumbersOn, touchGain, touchMode } from '../ui/touc
 import { World } from '../game/world';
 import { FeelHub } from '../fx/hub';
 import { FxView } from '../fx/fxView';
-import { bannerPunch, mergeNumber, popScale, NumSlot } from '../fx/feel';
+import { bannerPunch, bumpScale, mergeNumber, popScale, NumSlot } from '../fx/feel';
+import { crystalPopText } from '../engine/coreCrystals';
 import { FEEL } from '../data/feel';
 import { specialKind } from '../data/waves';
 import type { StatsInfo } from '../ui/stats';
@@ -15,6 +16,7 @@ import { Grid } from '../engine/compiler';
 import { CATEGORY_COLOR, THEME, UI } from '../ui/theme';
 import { CURRENCY_CORES_NAME } from '../shipyard/constants';
 import { coresIcon, creditIcon, wrenchIcon } from '../ui/icons';
+import { moneyIconSize } from '../ui/widgets';
 import { HIT_CLOUD } from '../engine/projectiles';
 import { fmtBig, fmtDamage } from '../ui/format';
 import { makeText } from '../builder/ui';
@@ -59,6 +61,8 @@ const FLASH_TIME = 0.08;
 /** Free Fly background scroll in px/s (before each layer's parallax). */
 const BG_SCROLL = 60;
 const DMG_NUMBER_LIFE = 0.6;
+/** Chunk 34b: the key of the "+N" Cores popup in the number pool (damage numbers use the enemy id, credits -1). */
+const CRYSTAL_POP_KEY = -2;
 /** The "WAVE N" banner: seconds on screen, the fade at its end, and where it sits. */
 const BANNER_TIME = 1.5;
 const BANNER_FADE = 0.3;
@@ -78,7 +82,7 @@ const HULL_BAR_FULL = 0xd4d4d8;
 const HULL_BAR_EMPTY = 0x3a3a3e;
 /** The HUD box rows (chunk 32d): the boss bar owns the top row beside the pause button, so the box starts below it. */
 const HUD_ROW = { hull: 40, money: 60, wave: 82, kills: 102, bottom: 124 } as const;
-const HUD_ICON = 14;
+const HUD_ICON = moneyIconSize(16);
 
 interface DmgNum extends NumSlot { t: Text }
 /** Chunk 34a: the shards of a crashing ship (its four greys) and the muzzle flash colour. */
@@ -104,6 +108,9 @@ export class FlyScreen implements Screen {
   private linkG = new Graphics();
   private bulletSprites!: EnemyBulletSprites;
   private crystalSprites!: CrystalSprites;
+  /** Chunk 34b: the Cores total last frame and the seconds left of the HUD number's bump. */
+  private prevCores = 0;
+  private coresBump = 0;
   
   ship: ShipView;
   /** Chunk 32d: the hull bar is light grey when full, the empty part dark grey, with a small wrench at its left. */
@@ -316,6 +323,7 @@ export class FlyScreen implements Screen {
           hull: this.world.hull, credits: this.world.credits, tier: this.world.tier, kills: this.world.kills, time: this.world.time,
           hud: { credits: this.creditsText.text, tier: this.tierText.text, wave: this.waveText.text, kills: this.killsText.text, cores: this.coresText.text, spike: this.spikeBadge.visible, plateW: this.hudPlateW },
           wave: this.world.wave, waveTimeLeft: this.world.waveTimeLeft, seed: this.world.seed,
+          corePops: this.dmgNums.filter(d => d.life > 0 && d.key === CRYSTAL_POP_KEY).map(d => d.t.text),
           crystals: { count: this.world.crystals.list.length, drawn: this.crystalSprites.visibleCount, collected: this.world.crystals.collected, dropped: this.world.crystals.dropped, list: this.world.crystals.list.map(c => ({ x: c.x, y: c.y, v: c.value, age: c.age })) },
           bullets: { count: this.world.enemyBullets.count, drawn: this.bulletSprites.visibleCount, hits: this.world.bulletHits, list: Array.from({ length: this.world.enemyBullets.max }, (_, i) => i).filter(i => this.world.enemyBullets.active[i]).map(i => ({ x: this.world.enemyBullets.x[i], y: this.world.enemyBullets.y[i] })) },
           links: this.world.links.map(l => ({ kind: l.kind, id: l.id })),
@@ -324,7 +332,7 @@ export class FlyScreen implements Screen {
           themeBanner: this.themeBanner.visible ? { title: this.themeTitle.text, sub: this.themeSub.text } : null,
           banner: this.banner.visible ? { title: this.bannerTitle.text, sub: this.bannerSub.text, alpha: this.banner.alpha } : null,
           species: this.world.mitosis.enemies.map(e => e.defId),
-          popups: this.dmgNums.filter(d => d.life > 0 && d.t.text.startsWith('+')).map(d => ({ text: d.t.text, alpha: d.t.alpha })),
+          popups: this.dmgNums.filter(d => d.life > 0 && d.key !== CRYSTAL_POP_KEY && d.t.text.startsWith('+')).map(d => ({ text: d.t.text, alpha: d.t.alpha })),
           effects: { ...this.world.projSys.fx, ...this.world.gun.fx, ...this.world.fx },
           captain: { id: this.banker.captainId, mods: this.mods, medalsRun: this.medalsRun, killsHanded: this.banker.added, maxHull: this.world.maxHull, secondChancesLeft: this.world.secondChancesLeft, medalBanner: this.medalBanner.visible ? this.medalTitle.text : null },
           arcs: Array.from(this.world.projSys.arcT).filter(t => t > 0).length,
@@ -430,6 +438,17 @@ export class FlyScreen implements Screen {
     this.styleNumber(slot);
   }
 
+  /** Chunk 34b: a teal "+N" at the ship for a collected crystal; collections inside POP_MERGE seconds add into one number. */
+  private showCorePop(value: number) {
+    const P = FEEL.PICKUPS;
+    const m = mergeNumber(this.dmgNums, CRYSTAL_POP_KEY, value, false, P.POP_MERGE, P.POP_LIFE) as DmgNum | null;
+    if (m) { m.t.text = crystalPopText(m.value); m.t.alpha = 1; return; }
+    const slot = this.showNumber(this.world.shipX, this.world.shipY + P.POP_Y, crystalPopText(value), P.POP_COLOR, P.POP_SIZE);
+    slot.key = CRYSTAL_POP_KEY;
+    slot.value = value;
+    slot.life = P.POP_LIFE;
+  }
+
   private styleNumber(d: DmgNum) {
     d.t.text = fmtDamage(d.value);
     d.t.style.fill = d.big ? FEEL.NUMBERS.BIG_COLOR : 0xffffff;
@@ -526,10 +545,17 @@ export class FlyScreen implements Screen {
     } else this.waveText.text = this.world.boss ? `Wave ${this.world.wave}  BOSS` : `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
     this.killsText.text = `Kills ${this.world.kills}`;
     this.coresText.text = fmtBig(this.world.cores);
+    // Chunk 34b: a tiny bump of the Cores number when the exact total goes up (scaled round its left-middle).
+    const coresNow = this.world.cores;
+    if (coresNow > this.prevCores) this.coresBump = FEEL.PICKUPS.BUMP_TIME;
+    this.prevCores = coresNow;
     // Cores sit next to the credits on the same line.
     const coresX = this.creditsText.x + this.creditsText.width + 14;
     this.coresIc.position.set(coresX, HUD_ROW.money + 2);
-    this.coresText.position.set(coresX + HUD_ICON + 5, HUD_ROW.money);
+    this.coresText.pivot.set(0, this.coresText.height / (this.coresText.scale.y || 1) / 2);
+    this.coresText.position.set(coresX + HUD_ICON + 5, HUD_ROW.money + this.coresText.height / (this.coresText.scale.y || 1) / 2);
+    this.coresBump = Math.max(0, this.coresBump - frameTime);
+    this.coresText.scale.set(bumpScale(this.coresBump));
     this.spikeBadge.position.set(20 + this.killsText.width + 12, HUD_ROW.kills + (this.killsText.height - SPIKE_BADGE.h) / 2);
     const plateW = Math.round(Math.max(190, this.spikeBadge.visible ? this.spikeBadge.x + SPIKE_BADGE.w + 14 : 0, ...[this.coresText, this.waveText, this.killsText].map(t => t.x + t.width + 14)));
     if (plateW !== this.hudPlateW) { this.hudPlateW = plateW; this.hudPlate.clear().rect(10, HUD_ROW.hull - 6, plateW - 10, HUD_ROW.bottom - HUD_ROW.hull + 6).fill({ color: THEME.bg, alpha: 0.72 }); }
@@ -647,6 +673,12 @@ export class FlyScreen implements Screen {
 
     this.bulletSprites.sync(this.world.enemyBullets);
     this.crystalSprites.sync(this.world.crystals);
+    this.crystalSprites.update(frameTime);
+    for (const p of this.world.crystals.pickups) {
+      this.crystalSprites.flash(p.x, p.y);
+      this.feel.pickupSparks(p.x, p.y, UI.color.cores);
+      this.showCorePop(p.value);
+    }
     if (this.world.crystals.pickedUp > 0) sfx.play('crystal', { pitch: 1 + Math.min(this.world.crystals.pickedUp - 1, 3) * 0.06 });
     drawSupportLinks(this.linkG, this.world.links, this.world.time);
     const proj = this.world.projSys;
@@ -664,9 +696,10 @@ export class FlyScreen implements Screen {
       if (d.life <= 0) continue;
       d.life -= frameTime;
       d.age += frameTime;
-      d.t.y -= (d.big ? FEEL.NUMBERS.BIG_RISE : FEEL.NUMBERS.RISE) * frameTime;
-      d.t.scale.set(d.key >= 0 ? popScale(d.age, d.big) : 1);
-      d.t.alpha = Math.max(0, d.life / (d.big ? FEEL.NUMBERS.BIG_LIFE : d.key >= 0 ? FEEL.NUMBERS.LIFE : DMG_NUMBER_LIFE));
+      const pop = d.key === CRYSTAL_POP_KEY;
+      d.t.y -= (pop ? FEEL.PICKUPS.POP_RISE : d.big ? FEEL.NUMBERS.BIG_RISE : FEEL.NUMBERS.RISE) * frameTime;
+      d.t.scale.set(d.key >= 0 || pop ? popScale(d.age, d.big) : 1);
+      d.t.alpha = Math.max(0, d.life / (pop ? FEEL.PICKUPS.POP_LIFE : d.big ? FEEL.NUMBERS.BIG_LIFE : d.key >= 0 ? FEEL.NUMBERS.LIFE : DMG_NUMBER_LIFE));
       if (d.life <= 0) { d.t.visible = false; d.used = false; }
     }
     if (this.world.gameOver && !this.finished) {

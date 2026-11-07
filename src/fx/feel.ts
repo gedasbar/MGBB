@@ -78,13 +78,13 @@ export class FrameBudget {
 export interface NumSlot { key: number; value: number; age: number; life: number; big: boolean; used: boolean }
 
 /** Adds `value` to the live number of the same `key` that is younger than the merge window; returns its slot, or null when there is none. */
-export function mergeNumber(slots: NumSlot[], key: number, value: number, big: boolean): NumSlot | null {
+export function mergeNumber(slots: NumSlot[], key: number, value: number, big: boolean, window: number = FEEL.NUMBERS.MERGE_WINDOW, life?: number): NumSlot | null {
   for (const s of slots) {
-    if (!s.used || s.key !== key || s.age > FEEL.NUMBERS.MERGE_WINDOW) continue;
+    if (!s.used || s.key !== key || s.age > window) continue;
     s.value += value;
     s.big ||= big;
     s.age = 0;
-    s.life = s.big ? FEEL.NUMBERS.BIG_LIFE : FEEL.NUMBERS.LIFE;
+    s.life = life ?? (s.big ? FEEL.NUMBERS.BIG_LIFE : FEEL.NUMBERS.LIFE);
     return s;
   }
   return null;
@@ -104,4 +104,18 @@ export function bannerPunch(age: number): { dy: number; scale: number } {
   const t = Math.min(1, Math.max(0, age / B.SLIDE_TIME));
   const ease = 1 - (1 - t) * (1 - t) * (1 - t);
   return { dy: -(1 - ease) * B.SLIDE_DIST, scale: 1 + (B.PUNCH_SCALE - 1) * (1 - t) };
+}
+
+/** Chunk 34b: scale of the HUD Cores number `left` seconds before its bump ends (1 when idle). */
+export function bumpScale(left: number): number {
+  const B = FEEL.PICKUPS;
+  const t = Math.min(1, Math.max(0, left / B.BUMP_TIME));
+  return 1 + (B.BUMP_SCALE - 1) * t;
+}
+
+/** Chunk 34b: the absorb flash: scale and alpha of a flash `age` seconds old (alpha 0 once it is over). */
+export function flashLook(age: number): { scale: number; alpha: number } {
+  const B = FEEL.PICKUPS;
+  const t = Math.min(1, Math.max(0, age / B.FLASH_TIME));
+  return { scale: 1 + (B.FLASH_SCALE - 1) * t, alpha: 1 - t };
 }

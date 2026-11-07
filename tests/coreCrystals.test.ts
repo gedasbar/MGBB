@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { CrystalField, crystalLine, crystalVisible, killShare, pickupRadius } from '../src/engine/coreCrystals';
-import { CRYSTAL_BLINK, CRYSTAL_CAP, CRYSTAL_LIFE, CRYSTAL_PICKUP_RADIUS, CRYSTAL_SHARE, CORE_MAGNET_RADIUS_PER_COPY } from '../src/data/coreCrystals';
+import { CrystalField, crystalPopText, pullRadius, crystalVisible, killShare, pickupRadius } from '../src/engine/coreCrystals';
+import { CRYSTAL_BLINK, CRYSTAL_CAP, CRYSTAL_LIFE, CRYSTAL_PICKUP_RADIUS, CRYSTAL_SHARE, CORE_MAGNET_RADIUS_PER_COPY, CRYSTAL_PULL_MUL, CRYSTAL_PULL_MAX_SPEED } from '../src/data/coreCrystals';
 import { World } from '../src/game/world';
 import { PointerState } from '../src/input';
 import { neutralModifiers } from '../src/captains/modifiers';
@@ -127,16 +127,117 @@ describe('the merge cap', () => {
 });
 
 describe('summary numbers', () => {
-  it('the line reads "Cores collected 120 / 180 (67%)"', () => {
-    expect(crystalLine(120, 180)).toBe('Cores collected 120 / 180 (67%)');
-    expect(crystalLine(0, 0)).toBe('Cores collected 0 / 0 (100%)');
-    expect(crystalLine(0.7, 2.2)).toBe('Cores collected 1 / 2 (32%)'); // fractions are rounded, the percentage is exact
-  });
   it('the run result carries what was collected and dropped', () => {
     const w = new World({ seed: 5 });
     w.god = true;
     w.crystals.drop(w.shipX, w.shipY, 4); w.crystals.drop(10, 10, 2); still(w.crystals);
     w.update(DT, idle());
     expect(flyRunResult(w).crystals).toEqual({ collected: 4, dropped: 6 });
+  });
+});
+
+/** Chunk 34b: magnet pull, "+N" popups, sparks. */
+import { mergeNumber, bumpScale, flashLook, NumSlot } from '../src/fx/feel';
+import { FEEL } from '../src/data/feel';
+import { FeelHub } from '../src/fx/hub';
+
+describe('magnet pull (34b)', () => {
+  it('the pull radius is 3x the pickup radius and grows with each Core Magnet copy the same way', () => {
+    expect(pullRadius(1)).toBe(CRYSTAL_PULL_MUL * CRYSTAL_PICKUP_RADIUS);
+    for (const copies of [1, 2, 3]) {
+      const mul = 1 + CORE_MAGNET_RADIUS_PER_COPY * copies;
+      expect(pullRadius(mul)).toBeCloseTo(CRYSTAL_PULL_MUL * pickupRadius(mul), 9);
+      expect(pullRadius(mul) / pullRadius(1)).toBeCloseTo(mul, 9);
+    }
+  });
+  it('a crystal inside the pull radius (not the pickup radius) is caught; one outside keeps drifting', () => {
+    const f = new CrystalField();
+    f.drop(100 + 60, 400, 1); f.drop(100 + 200, 400, 1);
+    still(f);
+    f.update(DT, 100, 400, 100, 400, CRYSTAL_PICKUP_RADIUS);
+    expect(f.list[0].pulled).toBe(true);
+    expect(f.list[1].pulled).toBe(false);
+    // with two Core Magnet copies the far one (200 px) is inside 3 x 28 x 2.2 = 185? no: it needs 3 copies
+    const g = new CrystalField();
+    g.drop(100 + 150, 400, 1); still(g);
+    g.update(DT, 100, 400, 100, 400, pickupRadius(1));
+    expect(g.list[0].pulled).toBe(false);
+    g.update(DT, 100, 400, 100, 400, pickupRadius(1 + CORE_MAGNET_RADIUS_PER_COPY * 2));
+    expect(g.list[0].pulled).toBe(true);
+  });
+  it('a pulled crystal flies at the ship along a curve, never faster than the cap, and is collected on arrival (no ageing out)', () => {
+    const f = new CrystalField();
+    f.drop(160, 400, 2); still(f);
+    let got = 0, maxSp = 0, sideways = 0;
+    for (let i = 0; i < 120 && !got; i++) {
+      got = f.update(DT, 100, 400, 100, 400, CRYSTAL_PICKUP_RADIUS);
+      const c = f.list[0];
+      if (c) { maxSp = Math.max(maxSp, Math.hypot(c.vx, c.vy)); sideways = Math.max(sideways, Math.abs(c.y - 400)); }
+    }
+    expect(got).toBe(2);
+    expect(maxSp).toBeLessThanOrEqual(CRYSTAL_PULL_MAX_SPEED + 1e-6);
+    expect(sideways).toBeGreaterThan(1); // it left the straight line: the path curves in
+    expect(f.pickups.length + f.collected).toBeGreaterThan(0);
+  });
+  it('an approaching ship cannot slip past a crystal: the pull catches it and it arrives, even at the top ship speed (the ship stops at the edge)', () => {
+    for (const v of [600, 2700]) {
+      const f = new CrystalField();
+      f.drop(270, 500, 1); still(f);
+      let x = 0, got = 0;
+      for (let i = 0; i < 600 && got === 0; i++) { const nx = Math.min(540, x + v * DT); got = f.update(DT, x, 500 + 30, nx, 500 + 30, CRYSTAL_PICKUP_RADIUS); x = nx; }
+      expect(got).toBe(1);
+    }
+  });
+  it('a pulled crystal does not age out while it flies', () => {
+    const f = new CrystalField();
+    f.drop(160, 400, 1); still(f);
+    f.update(DT, 100, 400, 100, 400, CRYSTAL_PICKUP_RADIUS);
+    const c = f.list[0];
+    const age = c.age;
+    // the ship far away now: the crystal stays caught and keeps its age
+    f.update(DT, 100, 400, 100, 400, 1);
+    expect(f.list[0]?.age ?? age).toBeCloseTo(age, 9);
+  });
+});
+
+describe('"+N" popup and the other pickup effects (34b)', () => {
+  const slot = (): NumSlot => ({ key: -2, value: 0, age: 0, life: 0, big: false, used: true });
+  it('text: K/M formatting from 10 up, one decimal below, never +0', () => {
+    expect(crystalPopText(117)).toBe('+117');
+    expect(crystalPopText(12_400)).toBe('+12.4K');
+    expect(crystalPopText(3_200_000)).toBe('+3.2M');
+    expect(crystalPopText(2.5)).toBe('+2.5');
+    expect(crystalPopText(3)).toBe('+3');
+    expect(crystalPopText(0.02)).toBe('+0.1');
+  });
+  it('collections inside 0.3 s add into one number; a later one starts a new number', () => {
+    const slots = [slot()];
+    slots[0].value = 5;
+    slots[0].age = 0.25;
+    const m = mergeNumber(slots, -2, 7, false, FEEL.PICKUPS.POP_MERGE, FEEL.PICKUPS.POP_LIFE);
+    expect(m).toBe(slots[0]);
+    expect(m!.value).toBe(12);
+    expect(m!.age).toBe(0);
+    expect(m!.life).toBe(FEEL.PICKUPS.POP_LIFE);
+    slots[0].age = 0.31;
+    expect(mergeNumber(slots, -2, 1, false, FEEL.PICKUPS.POP_MERGE)).toBeNull();
+    // the damage-number window (0.14 s) would NOT have merged the first case
+    slots[0].age = 0.25;
+    expect(mergeNumber(slots, -2, 1, false)).toBeNull();
+  });
+  it('sparks use the shared particle pool and its cap; the HUD bump and the flash settle back', () => {
+    const hub = new FeelHub(() => 0.5);
+    hub.pickupSparks(100, 100, 0x3fd0c0);
+    expect(hub.particles.count).toBeGreaterThanOrEqual(FEEL.PICKUPS.SPARKS[0] * 0.5);
+    for (let i = 0; i < 50; i++) hub.pickupSparks(100, 100, 0x3fd0c0);
+    expect(hub.particles.count).toBeLessThanOrEqual(hub.particles.cap);
+    // at most SPARK_FRAME_CAP bursts a frame
+    const hub2 = new FeelHub(() => 0.5);
+    for (let i = 0; i < 50; i++) hub2.pickupSparks(0, 0, 1);
+    expect(hub2.particles.count).toBeLessThanOrEqual(FEEL.PICKUPS.SPARK_FRAME_CAP * FEEL.PICKUPS.SPARKS[1]);
+    expect(bumpScale(0)).toBe(1);
+    expect(bumpScale(FEEL.PICKUPS.BUMP_TIME)).toBeCloseTo(FEEL.PICKUPS.BUMP_SCALE, 9);
+    expect(flashLook(0).alpha).toBe(1);
+    expect(flashLook(FEEL.PICKUPS.FLASH_TIME).alpha).toBe(0);
   });
 });

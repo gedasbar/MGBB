@@ -62,6 +62,13 @@ export const FEEL = {
   RINGS: { CAP: 28, AOE_LIFE: 0.22, SHOCK_LIFE: 0.45, SHOCK_RADIUS: 70, WIDTH: 2 },
   /** Damage numbers: a hit on the same target inside MERGE_WINDOW adds to the number already showing. */
   NUMBERS: { MERGE_WINDOW: 0.14, POP_TIME: 0.12, POP_SCALE: 1.35, BIG_SCALE: 1.6, RISE: 40, BIG_RISE: 34, LIFE: 0.7, BIG_LIFE: 1.0, SIZE: 18, BIG_SIZE: 26, BIG_COLOR: 0xffd23c },
+  /** Chunk 34b: Core pickups. The "+N" merges collections inside POP_MERGE seconds; sparks are teal; the crystal flashes once as it is absorbed; the HUD Cores number bumps. */
+  PICKUPS: {
+    POP_MERGE: 0.3, POP_LIFE: 0.8, POP_RISE: 46, POP_SIZE: 20, POP_COLOR: 0x3fd0c0, POP_Y: -26,
+    SPARKS: [4, 6] as [number, number], SPARK_SPEED: [70, 190] as [number, number], SPARK_SIZE: [2, 4] as [number, number], SPARK_LIFE: 0.3, SPARK_FRAME_CAP: 6,
+    FLASH_TIME: 0.14, FLASH_SCALE: 2, FLASH_MAX: 12,
+    BUMP_TIME: 0.18, BUMP_SCALE: 1.3,
+  },
   /** Auto-drop to Low particles: a frame slower than FRAME_BUDGET seconds for DROP_AFTER seconds in a row (an average over that time). */
   BUDGET: { FRAME_BUDGET: 0.038, DROP_AFTER: 3 },
   /** Stamp ("CLEARED" / "PASSED") and flash before the summary; extra seconds added to the result delay so it can be read. */

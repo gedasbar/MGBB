@@ -21,6 +21,7 @@ export class FeelHub {
   readonly budget = new FrameBudget();
   private blasts: Blast[] = [];
   private sparksThisFrame = 0;
+  private pickupBurstsThisFrame = 0;
   /** Boss damage tracking for the small shake of big boss hits. */
   private bossLost = 0;
   private bossWindow = 0;
@@ -57,6 +58,15 @@ export class FeelHub {
     const P = FEEL.PARTICLES;
     if (this.sparksThisFrame >= P.SPARK_FRAME_CAP) return;
     this.sparksThisFrame++;
+    const n = P.SPARKS[0] + Math.floor(this.rnd() * (P.SPARKS[1] - P.SPARKS[0] + 1));
+    this.particles.burst(x, y, n, [color], this.rnd, P.SPARK_SPEED, P.SPARK_SIZE, P.SPARK_LIFE);
+  }
+
+  /** Chunk 34b: a few small sparks where a Core crystal was taken (the shared pool, so they count in its cap). */
+  pickupSparks(x: number, y: number, color: number) {
+    const P = FEEL.PICKUPS;
+    if (this.pickupBurstsThisFrame >= P.SPARK_FRAME_CAP) return;
+    this.pickupBurstsThisFrame++;
     const n = P.SPARKS[0] + Math.floor(this.rnd() * (P.SPARKS[1] - P.SPARKS[0] + 1));
     this.particles.burst(x, y, n, [color], this.rnd, P.SPARK_SPEED, P.SPARK_SIZE, P.SPARK_LIFE);
   }
@@ -119,6 +129,7 @@ export class FeelHub {
   /** Once a frame with the real frame time. Returns true if the simulation must be frozen this frame. */
   update(frameTime: number): boolean {
     this.sparksThisFrame = 0;
+    this.pickupBurstsThisFrame = 0;
     if (this.budget.step(frameTime)) { this.autoDropped = true; this.particles.mode = 'low'; }
     this.shake.update(frameTime);
     this.particles.update(frameTime);
