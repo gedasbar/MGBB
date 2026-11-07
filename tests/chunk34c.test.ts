@@ -115,7 +115,7 @@ describe('stats counters (chunk 34c)', () => {
 
 describe('stats in the save (version 18)', () => {
   it('the save is version 18 and the counters survive a save and load', () => {
-    expect(PROGRESS_VERSION).toBe(18);
+    expect(PROGRESS_VERSION).toBe(19);
     const store = new ProgressStore(null, defaultProgress());
     store.recordRun({ credits: 10, kills: 4, time: 5, tier: 1, wave: 1, hull: 'dart' });
     const back = loadProgress(serializeProgress(store.data));
@@ -127,7 +127,7 @@ describe('stats in the save (version 18)', () => {
     delete old.stats;
     const before = Date.now();
     const p = loadProgress(JSON.stringify(old));
-    expect(p.version).toBe(18);
+    expect(p.version).toBe(19);
     expect(p.stats).toMatchObject({ runsCampaign: 0, runsFrontier: 0, runsFreeFly: 0, blocks: 0, rocks: 0, damage: 0, credits: 0, cores: 0, medals: 0, bossKills: {}, hullRuns: {} });
     expect(p.stats.since).toBeGreaterThanOrEqual(before);
     expect(p.stats.since).toBeLessThanOrEqual(Date.now());

@@ -92,8 +92,29 @@ function freeFlyArt(): ModeArt {
   };
 }
 
+/** Chunk 35a: DAILY's picture: a calendar page (a header bar and a grid of days, a few ticked) with today's square pulsing in the currency yellow. */
+function dailyArt(): ModeArt {
+  const c = new Container();
+  const w = 200, h = 168, x0 = -w / 2, y0 = -h / 2 - 4;
+  const page = new Graphics().rect(x0, y0, w, h).fill(0x26262a).stroke({ color: 0x55555a, width: 3 }).rect(x0, y0, w, 34).fill(0x55555a);
+  const days = new Graphics();
+  const cols = 7, rows = 3, cell = 20, gap = 6;
+  const gx = -(cols * (cell + gap) - gap) / 2, gy = y0 + 50;
+  for (let r = 0; r < rows; r++) for (let k = 0; k < cols; k++) {
+    const i = r * cols + k;
+    const done = i < 11 && i % 3 !== 2;
+    days.rect(gx + k * (cell + gap), gy + r * (cell + gap), cell, cell).fill(done ? 0x7bcf8a : 0x3a3a3f);
+  }
+  // Today: the 12th square.
+  const ti = 11, tx = gx + (ti % cols) * (cell + gap), ty = gy + Math.floor(ti / cols) * (cell + gap);
+  const today = new Graphics().rect(tx - 3, ty - 3, cell + 6, cell + 6).stroke({ color: UI.color.accent, width: 3 }).rect(tx, ty, cell, cell).fill(UI.color.accent);
+  const rings = new Graphics().rect(x0 + 18, y0 + 12, 22, 10).fill(0x1c1c1e).rect(x0 + w - 40, y0 + 12, 22, 10).fill(0x1c1c1e);
+  c.addChild(page, days, today, rings);
+  return { container: c, tick(t) { today.alpha = 0.6 + 0.4 * Math.sin(t * 3) ** 2; } };
+}
+
 export function makeModeArt(mode: MapMode): ModeArt {
-  return mode === 'campaign' ? campaignArt() : mode === 'frontier' ? frontierArt() : freeFlyArt();
+  return mode === 'campaign' ? campaignArt() : mode === 'frontier' ? frontierArt() : mode === 'daily' ? dailyArt() : freeFlyArt();
 }
 
 /** A padlock, centred at (0,0), about 40 px tall. */

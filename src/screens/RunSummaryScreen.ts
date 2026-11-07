@@ -14,6 +14,7 @@ import { textButton } from '../ui/hud';
 import { THEME } from '../ui/theme';
 import { amountLabel } from '../ui/widgets';
 import { DEBUG_ON } from '../debug/enabled';
+import type { MapMode } from '../map/constants';
 
 export function fmtTime(seconds: number): string {
   const s = Math.floor(seconds);
@@ -68,6 +69,9 @@ export interface ChallengeSummary { text: string; ok: boolean }
 /** Top of the challenge line (under the Unlocked line, above the buttons at SUMMARY_BUTTONS_Y). */
 const CHALLENGE_Y = 736;
 
+/** Chunk 35a: what makes a finished run the daily run's summary: its title, the extra lines (best wave of the day, reward tiers paid) and where Fly again / Map go. */
+export interface DailySummary { title: string; /** Today's best wave of the daily run, and whether this run set it. */ best: number; newBest: boolean; flyAgain: () => void; mapMode: MapMode }
+
 /** Shown when the hull reaches 0. The run has already been banked into the progress by FlyScreen. */
 export class RunSummaryScreen implements Screen {
   statsName = 'Summary';
@@ -79,12 +83,12 @@ export class RunSummaryScreen implements Screen {
   private coresLabel = '';
   private rows: { label: string; value: string; best: boolean }[];
 
-  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean; newBestEarnings?: boolean }, readonly wall?: WallSummary, readonly captain?: CaptainSummary, readonly unlocked: string = '', readonly challenge: ChallengeSummary | null = null) {
+  constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean; newBestEarnings?: boolean }, readonly wall?: WallSummary, readonly captain?: CaptainSummary, readonly unlocked: string = '', readonly challenge: ChallengeSummary | null = null, readonly daily?: DailySummary) {
     const bg = new Graphics().rect(0, 0, CONFIG.VIEW.W, CONFIG.VIEW.H).fill(THEME.bg);
     this.container.addChild(bg);
 
     const enc = wall?.encounter;
-    const titleText = enc ? `Encounter ${wall!.result === 'cleared' ? 'cleared' : wall!.result === 'passed' ? 'passed' : 'failed'}`
+    const titleText = daily ? daily.title : enc ? `Encounter ${wall!.result === 'cleared' ? 'cleared' : wall!.result === 'passed' ? 'passed' : 'failed'}`
       : wall ? (wall.result === 'cleared' ? 'Tier cleared' : wall.result === 'passed' ? 'Tier passed' : 'Crashed') : 'Run Summary';
     const title = makeText(titleText, 32, THEME.text, { fontWeight: 'bold' });
     title.anchor.set(0.5);
@@ -113,10 +117,10 @@ export class RunSummaryScreen implements Screen {
       { label: 'Result', value: wall.result === 'crashed' ? 'Not passed' : wall.result === 'passed' ? 'Passed' : 'Cleared', best: false },
     ] : [
       // Free Fly (chunk 10a): the wave reached leads; four rows, so they are packed a little tighter.
-      { label: 'Wave reached', value: String(result.wave ?? 1), best: !!marks.newBestWave },
+      { label: 'Wave reached', value: String(result.wave ?? 1), best: !!marks.newBestWave && !daily },
       { label: 'Time survived', value: fmtTime(result.time), best: marks.newBestTime },
       { label: 'Kills', value: String(result.kills), best: false },
-      { label: 'Highest tier', value: String(result.tier), best: marks.newBestTier },
+      daily ? { label: "Today's best wave", value: String(daily.best), best: daily.newBest } : { label: 'Highest tier', value: String(result.tier), best: marks.newBestTier },
     ];
     // Chunk 21a / 21b: the run's largest hit and its average damage per second are two more rows of the same style.
     const lines = shotLines(result.shots, result.time);
@@ -205,8 +209,8 @@ export class RunSummaryScreen implements Screen {
       })()
       : [
         // Chunk 29b: a Free Fly run's summary also has Map (the Free Fly screen, where the run came from).
-        textButton('summaryFly', { x: 20, y: SUMMARY_BUTTONS_Y, w: 160, h: 64 }, 'Fly again', () => this.flyAgain(), 20),
-        textButton('summaryMap', { x: 190, y: SUMMARY_BUTTONS_Y, w: 160, h: 64 }, 'Map', () => openModeScreen(this.sm, 'freefly'), 20),
+        textButton('summaryFly', { x: 20, y: SUMMARY_BUTTONS_Y, w: 160, h: 64 }, 'Fly again', () => (daily ? daily.flyAgain() : this.flyAgain()), 20),
+        textButton('summaryMap', { x: 190, y: SUMMARY_BUTTONS_Y, w: 160, h: 64 }, 'Map', () => openModeScreen(this.sm, daily ? daily.mapMode : 'freefly'), 20),
         textButton('summaryBuild', { x: 360, y: SUMMARY_BUTTONS_Y, w: 160, h: 64 }, 'Build', () => this.sm.switchTo(new BuildScreen(this.sm)), 20),
       ];
     for (const b of buttons) {

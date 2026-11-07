@@ -47,7 +47,9 @@ export const THEME_CORES_SHARE = 0.5;
 export const themeEligible = (wave: number) => wave >= THEME_FIRST_WAVE && wave % THEME_EVERY === 0 && specialKind(wave) === null;
 
 /** The theme of a wave, or null. The n-th eligible wave takes the n-th table entry, repeating. */
-export function themeAt(wave: number): ThemeDef | null {
+export function themeAt(wave: number, gunners?: { from: number; every: number }): ThemeDef | null {
+  // Chunk 35a, the daily run's Gunner Day: from `from`, every `every` waves is a GUNNERS wave (never a Swarm / Mother / boss wave).
+  if (gunners && wave >= gunners.from && (wave - gunners.from) % gunners.every === 0 && specialKind(wave) === null) return THEME_BY_ID.gunners;
   if (!themeEligible(wave)) return null;
   let n = 0;
   for (let w = THEME_FIRST_WAVE; w < wave; w++) if (themeEligible(w)) n++;
@@ -55,4 +57,4 @@ export function themeAt(wave: number): ThemeDef | null {
 }
 
 /** Cores a theme wave pays on top (before the Core Magnet); 0 for a plain wave. */
-export const themeCores = (wave: number) => (themeAt(wave) ? Math.max(1, Math.round(coresForWave(wave) * THEME_CORES_SHARE)) : 0);
+export const themeCores = (wave: number, gunners?: { from: number; every: number }) => (themeAt(wave, gunners) ? Math.max(1, Math.round(coresForWave(wave) * THEME_CORES_SHARE)) : 0);

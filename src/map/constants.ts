@@ -18,11 +18,11 @@ export const CAROUSEL = {
   velocityWindow: 0.1,
 } as const;
 
-/** The three modes, in carousel order. */
-export const MAP_MODES = ['campaign', 'frontier', 'freefly'] as const;
+/** The four modes, in carousel order (chunk 35a added DAILY after Free Fly). */
+export const MAP_MODES = ['campaign', 'frontier', 'freefly', 'daily'] as const;
 export type MapMode = (typeof MAP_MODES)[number];
 
-export const MODE_TITLE: Record<MapMode, string> = { campaign: 'CAMPAIGN', frontier: 'FRONTIER', freefly: 'FREE FLY' };
+export const MODE_TITLE: Record<MapMode, string> = { campaign: 'CAMPAIGN', frontier: 'FRONTIER', freefly: 'FREE FLY', daily: 'DAILY' };
 /** The mode a fresh save opens the carousel on. */
 export const DEFAULT_MODE: MapMode = 'campaign';
 /** localStorage key of the remembered mode (UI state, not part of the save). */

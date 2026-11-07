@@ -101,19 +101,20 @@ export const COLOSSUS_HALF_W = ((COLOSSUS.count - 1) * COLOSSUS.spacing) / 2 + C
 export const COLOSSUS_HALF_H = COLOSSUS.radius * 0.9;
 
 // ---------------------------------------------------------------- functions
-export const isBossWave = (wave: number) => wave >= BOSS_EVERY && wave % BOSS_EVERY === 0;
+/** `every` is BOSS_EVERY unless the daily run's Boss Rush twist (chunk 35a) makes it shorter. */
+export const isBossWave = (wave: number, every: number = BOSS_EVERY) => wave >= every && wave % every === 0;
 
 /** The boss of a wave and its round (0 = first time round), or null on any other wave. */
-export function bossAt(wave: number): { def: BossDef; round: number } | null {
-  if (!isBossWave(wave)) return null;
-  const n = wave / BOSS_EVERY - 1;
+export function bossAt(wave: number, every: number = BOSS_EVERY): { def: BossDef; round: number } | null {
+  if (!isBossWave(wave, every)) return null;
+  const n = wave / every - 1;
   return { def: BOSSES[n % BOSSES.length], round: Math.floor(n / BOSSES.length) };
 }
 
 /** Max HP of the boss of `wave` when it arrives at run tier `tier`: the plain wave's total HP x hpWaves x the round's multiplier. */
-export function bossMaxHp(id: BossId, wave: number, tier: number): number {
-  const b = bossAt(wave);
-  const round = b && b.def.id === id ? b.round : Math.floor((wave / BOSS_EVERY - 1) / BOSSES.length);
+export function bossMaxHp(id: BossId, wave: number, tier: number, every: number = BOSS_EVERY): number {
+  const b = bossAt(wave, every);
+  const round = b && b.def.id === id ? b.round : Math.floor((wave / every - 1) / BOSSES.length);
   const rocks = waveBudget(wave) / 4;
   return wholeRockHp(rocks * rockHp(tier) * waveHpMul(wave) * BOSS_BY_ID[id].hpWaves * Math.pow(BOSS_ROUND_HP_MUL, round));
 }

@@ -3,10 +3,11 @@ import { CONFIG } from '../config';
 import { ROSTER, SPECIES, SpeciesDef } from '../data/species';
 import { ENEMIES } from '../data/enemies';
 import {
-  ALIVE_HOLD, MOTHER_EVENT_MIN, MOTHER_EVENT_SECOND_GROUP, PEBBLE_COST, PEBBLE_GENERATION, PEBBLE_RADIUS, SPAWN_EDGE, SPAWN_JITTER,
+  SpecialKind, ALIVE_HOLD, MOTHER_EVENT_MIN, MOTHER_EVENT_SECOND_GROUP, PEBBLE_COST, PEBBLE_GENERATION, PEBBLE_RADIUS, SPAWN_EDGE, SPAWN_JITTER,
   SPAWN_WINDOW, SPECIAL_BUDGET_MUL, specialKind, SWARM_WINDOW, WAVE_TIME, waveBudget,
 } from '../data/waves';
 import { BOSS_BREATHER, isBossWave } from '../data/bosses';
+import type { TwistEffects } from '../data/dailyRun';
 import { ARMORED_ARMOR, ARMORED_SHARE, GUNNER_THEME_SHARE, LEECH_THEME_SHARE, SHIELD_WALL_ESCORTS, SHIELD_WALL_SPREAD, SWARM_DARTER_SHARE, themeAt } from '../data/waveThemes';
 
 /** One body the director will send: `at` seconds into its wave, entering from just above the top edge at `x`. */
@@ -24,6 +25,15 @@ export interface PlannedSpawn {
 
 /** HP share of a basic rock at a generation (its split rule's share per split). */
 const genShare = (g: number) => Math.pow(ENEMIES.mitotic_rock.split!.hpShare, g - 1);
+
+/** The part of a daily-run twist that changes which waves are what (chunk 35a). Empty = the normal game. */
+export type WaveRules = Pick<TwistEffects, 'bossEvery' | 'swarmEvery' | 'gunners'>;
+
+/** Swarm / Mother wave or none; the Swarm Day twist makes every `swarmEvery`-th wave a swarm too. */
+export function waveKindOf(wave: number, rules: WaveRules = {}): SpecialKind {
+  const k = specialKind(wave);
+  return k === null && rules.swarmEvery && wave >= rules.swarmEvery && wave % rules.swarmEvery === 0 ? 'swarm' : k;
+}
 
 /** Species the director may draw in a wave (unlocked by then). */
 export const unlockedAt = (wave: number): SpeciesDef[] => ROSTER.filter(s => s.firstWave <= wave);
@@ -51,11 +61,11 @@ const spawnX = (radius: number, rnd: Mulberry32) => {
  * Normal waves draw unlocked species by weight until the budget is spent (a species' first wave always has it, first)
  * and spread them over SPAWN_WINDOW; a leftover below the cheapest pick becomes pebbles. Every 5th wave is special: a Swarm (Darters and pebbles) or a Mother event.
  */
-export function planWave(seed: number, wave: number): PlannedSpawn[] {
-  if (isBossWave(wave)) return []; // chunk 32b: a boss wave has no normal spawns; the boss is the wave
+export function planWave(seed: number, wave: number, rules: WaveRules = {}): PlannedSpawn[] {
+  if (isBossWave(wave, rules.bossEvery)) return []; // chunk 32b: a boss wave has no normal spawns; the boss is the wave
   const rnd = waveRng(seed, wave);
-  const kind = specialKind(wave);
-  const theme = kind ? null : themeAt(wave);
+  const kind = waveKindOf(wave, rules);
+  const theme = kind ? null : themeAt(wave, rules.gunners);
   let budget = waveBudget(wave) * (kind ? SPECIAL_BUDGET_MUL : theme ? theme.budgetMul : 1);
   const total = budget;
   const picks: { defId: string; generation: number; radius: number; hpMul: number; armor?: number; group?: number; leader?: boolean }[] = [];
@@ -153,7 +163,7 @@ export class WaveDirector {
    * @param waveTime seconds a wave lasts (WAVE_TIME; the Faster / Longer Waves chunks change it)
    * @param skipChance chance a normal wave is skipped (Wave Skipper): its wave number comes and the next wave starts at once, nothing is sent
    */
-  constructor(readonly seed: number, readonly waveTime: number = WAVE_TIME, readonly skipChance: number = 0) {}
+  constructor(readonly seed: number, readonly waveTime: number = WAVE_TIME, readonly skipChance: number = 0, readonly rules: WaveRules = {}) {}
 
   /** Dev: start the run at wave `wave` (its spawns begin on the next update; earlier waves are skipped, not caught up). */
   jumpTo(wave: number) {
@@ -167,7 +177,7 @@ export class WaveDirector {
 
   /** True when `wave` is skipped: never wave 1, never a boss wave; otherwise a fixed pseudo-random draw per (seed, wave) below `skipChance`. */
   skipsWave(wave: number): boolean {
-    if (!(this.skipChance > 0) || wave <= 1 || isBossWave(wave)) return false;
+    if (!(this.skipChance > 0) || wave <= 1 || isBossWave(wave, this.rules.bossEvery)) return false;
     return waveRng(this.seed ^ 0x5b1b, wave).next() < this.skipChance;
   }
 
@@ -204,9 +214,9 @@ export class WaveDirector {
         continue;
       }
       started = this.wave;
-      this.queue = isBossWave(this.wave) ? [] : [...rest, ...planWave(this.seed, this.wave)];
+      this.queue = isBossWave(this.wave, this.rules.bossEvery) ? [] : [...rest, ...planWave(this.seed, this.wave, this.rules)];
       this.next = 0;
-      if (isBossWave(this.wave)) this.holding = true;
+      if (isBossWave(this.wave, this.rules.bossEvery)) this.holding = true;
     }
     while (this.next < this.queue.length && this.start + this.queue[this.next].at <= time) {
       if (alive >= ALIVE_HOLD) { this.held++; break; }
