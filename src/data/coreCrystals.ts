@@ -21,3 +21,12 @@ export const CRYSTAL_DRAG = 0.6;
 export const CRYSTAL_SIZE = 12;
 /** Core Magnet chunk: +60% pickup radius per copy placed. */
 export const CORE_MAGNET_RADIUS_PER_COPY = 0.6;
+
+/** Chunk 34b: magnet pull. Inside PULL_MUL x the pickup radius (Core Magnet copies grow both the same way) a crystal stops drifting and flies at the ship. */
+export const CRYSTAL_PULL_MUL = 3;
+/** Pull acceleration (px/s^2) and top speed (px/s; above the ship's own top speed, so a crystal cannot be outrun). */
+export const CRYSTAL_PULL_ACCEL = 5200;
+export const CRYSTAL_PULL_MAX_SPEED = 3200;
+/** Sideways kick when the pull starts, as a share of the straight-in speed it gives (makes the path curve in). */
+export const CRYSTAL_PULL_CURVE = 0.6;
+export const CRYSTAL_PULL_KICK = 260;

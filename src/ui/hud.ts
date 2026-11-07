@@ -1,5 +1,6 @@
 import { Container, Graphics, Text } from 'pixi.js';
 import { THEME } from './theme';
+import { creditIcon } from './icons';
 import { fmtBig } from './format';
 import { makeText, UIButton } from '../builder/ui';
 import { Rect, VIEW_W } from '../builder/layout';
@@ -8,7 +9,7 @@ import { Rect, VIEW_W } from '../builder/layout';
 export class CreditsBadge {
   readonly container = new Container();
   private money = makeText('0', 28, THEME.currency, { fontWeight: 'bold' });
-  private coin = new Graphics();
+  private coin = new Container();
 
   constructor() {
     this.money.anchor.set(1, 0.5);
@@ -20,7 +21,10 @@ export class CreditsBadge {
   set(credits: number) {
     this.money.text = fmtBig(credits);
     const coinX = VIEW_W - 12 - this.money.width - 10 - 18;
-    this.coin.clear().rect(coinX, 18, 18, 18).fill(THEME.currency).rect(coinX + 5, 23, 8, 8).stroke({ color: THEME.panel, width: 2 });
+    for (const c of this.coin.removeChildren()) c.destroy();
+    const ic = creditIcon(18, THEME.currency);
+    ic.position.set(coinX, 18);
+    this.coin.addChild(ic);
   }
 
   get text(): string { return this.money.text; }

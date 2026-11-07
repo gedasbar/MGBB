@@ -1,5 +1,7 @@
 import { Application, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { CRYSTAL_SIZE } from '../data/coreCrystals';
+import { FEEL } from '../data/feel';
+import { flashLook } from '../fx/feel';
 import { crystalVisible, CrystalField } from '../engine/coreCrystals';
 import { UI } from './theme';
 import { hexPoints } from './icons';
@@ -27,6 +29,8 @@ export function crystalTexture(app: Application | null | undefined): Texture {
 export class CrystalSprites {
   readonly container = new Container();
   readonly sprites: Sprite[] = [];
+  /** Chunk 34b: the absorb flashes (a white hexagon that grows and fades), a small pool. */
+  private flashes: { s: Sprite; age: number }[] = [];
 
   constructor(max: number, texture: Texture) {
     for (let i = 0; i < max; i++) {
@@ -37,7 +41,42 @@ export class CrystalSprites {
       this.container.addChild(s);
       this.sprites.push(s);
     }
+    for (let i = 0; i < FEEL.PICKUPS.FLASH_MAX; i++) {
+      const s = new Sprite(texture);
+      s.anchor.set(0.5);
+      s.blendMode = 'add';
+      s.visible = false;
+      this.container.addChild(s);
+      this.flashes.push({ s, age: Infinity });
+    }
   }
+
+  /** A crystal was just absorbed at (x, y): flash once. */
+  flash(x: number, y: number) {
+    const f = this.flashes.find(q => q.age >= FEEL.PICKUPS.FLASH_TIME);
+    if (!f) return;
+    f.age = 0;
+    f.s.position.set(x, y);
+    f.s.visible = true;
+    this.paintFlash(f);
+  }
+
+  private paintFlash(f: { s: Sprite; age: number }) {
+    const look = flashLook(f.age);
+    f.s.width = f.s.height = CRYSTAL_SIZE * look.scale;
+    f.s.alpha = look.alpha;
+  }
+
+  /** Advances the flashes by `dt` seconds. */
+  update(dt: number) {
+    for (const f of this.flashes) {
+      if (f.age >= FEEL.PICKUPS.FLASH_TIME) continue;
+      f.age += dt;
+      if (f.age >= FEEL.PICKUPS.FLASH_TIME) f.s.visible = false; else this.paintFlash(f);
+    }
+  }
+
+  get flashCount(): number { return this.flashes.reduce((n, f) => n + (f.s.visible ? 1 : 0), 0); }
 
   sync(f: CrystalField) {
     for (let i = 0; i < this.sprites.length; i++) {

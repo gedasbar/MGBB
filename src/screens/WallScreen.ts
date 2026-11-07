@@ -1,4 +1,6 @@
 import { CONFIG, shipHalfW } from '../config';
+import { creditIcon } from '../ui/icons';
+import { moneyIconSize } from '../ui/widgets';
 import { Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { Grid } from '../engine/compiler';
 import { clientToGame } from '../input';
@@ -133,7 +135,9 @@ export class WallScreen implements Screen {
   private popups: Popup[] = [];
   private progressBg = new Graphics().rect(VIEW_W - 8, 20, 4, VIEW_H - 40).fill(THEME.border);
   private progressFg = new Graphics();
-  private creditsText = makeText('Credits +0', 16, THEME.currency, { fontWeight: 'bold' });
+  private creditsText = makeText('+0', 16, THEME.currency, { fontWeight: 'bold' });
+  /** Chunk 34b: the credits coin and the amount, one HUD row. */
+  private creditsRow = new Container();
   private tierText = makeText('Tier 1', 16, THEME.textDim, { fontWeight: 'bold' });
   private nameText = makeText('', 15, THEME.textDim, { fontWeight: 'bold' });
   private spikeBadge = makeSpikeBadge();
@@ -231,7 +235,9 @@ export class WallScreen implements Screen {
     this.spikeBadge.visible = !!levelDef.spike;
     this.nameText.text = levelDef.name ? `Wall: ${levelDef.name}` : '';
     // A dim plate behind the HUD text so it stays readable over the blocks. Everything, the SPIKE badge too, sits inside it.
-    this.hudBox.addChild(this.hudPlate, this.creditsText, this.tierText, this.spikeBadge, this.squareText, this.nameText, this.blocksText);
+    this.creditsRow.addChild(creditIcon(moneyIconSize(16)), this.creditsText);
+    this.creditsText.position.set(moneyIconSize(16) + 5, 0);
+    this.hudBox.addChild(this.hudPlate, this.creditsRow, this.tierText, this.spikeBadge, this.squareText, this.nameText, this.blocksText);
     this.hint.anchor.set(0.5);
     this.hint.position.set(VIEW_W / 2, 250);
     this.hint.visible = false;
@@ -289,7 +295,7 @@ export class WallScreen implements Screen {
 
   /** Stacks the HUD rows (credits, tier + SPIKE badge, Frontier square, wall name, destroyed) and sizes the plate to the widest one. */
   private layoutHud() {
-    const rows: (Container)[] = [this.creditsText, this.tierText];
+    const rows: (Container)[] = [this.creditsRow, this.tierText];
     const sq = this.squareText.text !== '';
     const nm = this.nameText.text !== '';
     if (sq) rows.push(this.squareText);
@@ -327,7 +333,7 @@ export class WallScreen implements Screen {
     const w = this.world;
     const hudDy = this.sm.stats.hudOffset;
     if (this.hudBox.y !== hudDy) this.hudBox.y = hudDy;
-    this.creditsText.text = `Credits +${fmtBig(w.credits)}`;
+    this.creditsText.text = `+${fmtBig(w.credits)}`;
     const sq = this.levelDef.frontier;
     this.tierText.text = `Tier ${w.tier}`;
     this.squareText.text = sq ? `${FRONTIER_NAME} (${fmtBig(sq.x)}, ${fmtBig(sq.y)})` : this.challengeHud();

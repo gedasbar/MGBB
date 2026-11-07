@@ -1,6 +1,6 @@
 // area: freefly, hud, economy
 // Chunk 32e end-to-end test: Core crystals in the real Free Fly screen. Kills drop teal crystals, flying through them banks Cores (the HUD number ticks up),
-// the run summary says "Cores collected X / Y (Z%)". Writes reports/chunk32e/sheet_crystals.png (three frames). Needs the Vite dev server.
+// the run summary shows the Cores earned (34b: the old "collected X / Y" line is gone). Writes reports/chunk32e/sheet_crystals.png (three frames). Needs the Vite dev server.
 // Run: node e2e/core-pickups.e2e.cjs (adds ?debug=1 itself: the world is a dev hook).
 const path = require('path');
 const fs = require('fs');
@@ -93,8 +93,8 @@ async function montage(page, shots, captions, file) {
   await page.evaluate(() => { const w = window.__mgbm.world; w.hull = 0; w.gameOver = true; });
   await page.waitForFunction(() => window.__mgbm && window.__mgbm.screen === 'summary', null, { timeout: 8000 });
   const sum = await state(page);
-  console.log('INFO  summary crystals line:', sum.crystals);
-  check(/^Cores collected \d+ \/ \d+ \(\d+%\)$/.test(sum.crystals), `summary line: "${sum.crystals}"`);
+  console.log('INFO  summary Cores line:', sum.coresLabel);
+  check(sum.coresLabel === '' || /^\+[\d.]+[KMBT]?$/.test(sum.coresLabel), `summary shows the Cores earned as "+N" under the credits (chunk 34b; no "collected" line): "${sum.coresLabel}"`);
   shots.push(await canvasShot(page)); caps.push('C: run summary');
 
   const file = await montage(page, shots, caps, path.join(OUT, 'sheet_crystals.png'));

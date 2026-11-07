@@ -2,7 +2,7 @@ import { Container, Graphics } from 'pixi.js';
 import { inRect, Rect } from './layout';
 import { makeText } from './ui';
 import { THEME, UI } from '../ui/theme';
-import { drawTileFace } from '../ui/widgets';
+import { drawTileFace, moneyLabel } from '../ui/widgets';
 import { fmtBig } from '../ui/format';
 import { CATEGORY_COLOR } from './draw';
 import { shipThumbnail, TextureMaker } from '../ui/shipArt';
@@ -155,9 +155,11 @@ export class HullPicker {
       name.position.set(rc.x + 76, rc.y + 10);
       const sum = makeText(hullSummary(r), 13, THEME.textDim);
       sum.position.set(rc.x + 76, rc.y + 42);
-      const tag = makeText(r.current ? 'Current' : r.owned ? 'Owned' : fmtBig(r.price), 16, r.current ? THEME.good : r.owned ? THEME.textDim : THEME.currency, { fontWeight: 'bold' });
-      tag.anchor.set(1, 0);
-      tag.position.set(rc.x + rc.w - 14, rc.y + 12);
+      // Chunk 34b: an unowned hull's price wears the credits coin.
+      const priced = !r.current && !r.owned;
+      const tag: Container = priced ? moneyLabel(fmtBig(r.price), 16, 'credits', { align: 'right', color: THEME.currency }) : makeText(r.current ? 'Current' : 'Owned', 16, r.current ? THEME.good : THEME.textDim, { fontWeight: 'bold' });
+      if (priced) tag.position.set(rc.x + rc.w - 14, rc.y + 12 + 10);
+      else { (tag as any).anchor.set(1, 0); tag.position.set(rc.x + rc.w - 14, rc.y + 12); }
       const content = new Container();
       content.addChild(bg, thumb, name, sum, tag);
       if (!r.owned) content.alpha = UNOWNED_ALPHA;
@@ -205,9 +207,8 @@ export class HullPicker {
     const bg = new Graphics().rect(s.x, s.y, s.w, s.h).fill(THEME.panel).rect(s.x, s.y, s.w, 2).fill(THEME.border);
     const title = makeText(row.name, 22, THEME.text, { fontWeight: 'bold' });
     title.position.set(s.x + 14, s.y + 10);
-    const price = makeText(fmtBig(row.price), 20, THEME.currency, { fontWeight: 'bold' });
-    price.anchor.set(1, 0);
-    price.position.set(s.x + s.w - 14, s.y + 12);
+    const price = moneyLabel(fmtBig(row.price), 20, 'credits', { align: 'right', color: THEME.currency });
+    price.position.set(s.x + s.w - 14, s.y + 12 + 12);
     const lines = makeText(hullSheetLines(row).join('\n'), 16, THEME.text, { lineHeight: 26 });
     lines.position.set(s.x + 14, s.y + 48);
     const traitText = hullTraitLine(row);

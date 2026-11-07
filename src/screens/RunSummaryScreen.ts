@@ -11,10 +11,8 @@ import { getProgressStore, RunResult } from '../econ/progress';
 import { fmtBig } from '../ui/format';
 import { shotLines } from '../ui/runStats';
 import { textButton } from '../ui/hud';
-import { THEME, UI } from '../ui/theme';
-import { CURRENCY_CORES_NAME } from '../shipyard/constants';
-import { crystalLine } from '../engine/coreCrystals';
-import { coresIcon } from '../ui/icons';
+import { THEME } from '../ui/theme';
+import { moneyLabel } from '../ui/widgets';
 import { DEBUG_ON } from '../debug/enabled';
 
 export function fmtTime(seconds: number): string {
@@ -34,8 +32,6 @@ const MEDAL_Y = 278;
 /** Gap between the last row and the Total credits line, and between that and the captain line. */
 const TOTAL_GAP = 28;
 const CAPTAIN_GAP = 30;
-/** Chunk 32e: the "Cores collected" line sits under the Total credits line and pushes the captain line down by this much. */
-const COLLECT_GAP = 26;
 /** Gap under the captain line before the "Unlocked" line. */
 const UNLOCK_GAP = 20;
 /** Top of the buttons (they are 64 high); the e2e scripts tap their centre. */
@@ -79,8 +75,8 @@ export class RunSummaryScreen implements Screen {
   private toast = new Toast();
   private buttons: UIButton[] = [];
   private gestures: GestureTracker | null = null;
-  /** Chunk 32e: the "Cores collected" line (empty when the run dropped no crystals). */
-  private crystalText = '';
+  /** Chunk 34b: the text of the Cores line under the credits (empty when the run earned none). */
+  private coresLabel = '';
   private rows: { label: string; value: string; best: boolean }[];
 
   constructor(private sm: ScreenManager, readonly result: RunResult, readonly marks: { newBestTier: boolean; newBestTime: boolean; newBestWave?: boolean; newBestEarnings?: boolean }, readonly wall?: WallSummary, readonly captain?: CaptainSummary, readonly unlocked: string = '', readonly challenge: ChallengeSummary | null = null) {
@@ -93,8 +89,8 @@ export class RunSummaryScreen implements Screen {
     const title = makeText(titleText, 32, THEME.text, { fontWeight: 'bold' });
     title.anchor.set(0.5);
     title.position.set(VIEW_W / 2, 70);
-    const credits = makeText(`+${fmtBig(result.credits)}`, 80, THEME.currency, { fontWeight: 'bold' });
-    credits.anchor.set(0.5);
+    // Chunk 34b: the credits coin sits left of the big number.
+    const credits = moneyLabel(`+${fmtBig(result.credits)}`, 80, 'credits', { align: 'center', color: THEME.currency });
     credits.position.set(VIEW_W / 2, 190);
     const creditsLabel = makeText('credits earned', 18, THEME.textDim, { fontWeight: 'bold' });
     creditsLabel.anchor.set(0.5);
@@ -146,48 +142,39 @@ export class RunSummaryScreen implements Screen {
       }
     });
 
-    const total = makeText(`Total credits: ${fmtBig(getProgressStore().data.credits)}`, 20, THEME.currency, { fontWeight: 'bold' });
-    total.anchor.set(0.5);
+    const total = moneyLabel(fmtBig(getProgressStore().data.credits), 20, 'credits', { align: 'center', color: THEME.currency, prefix: 'Total credits:' });
     const rowsEnd = top + (this.rows.length - 1) * step + rowH;
     total.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP);
     this.container.addChild(total);
 
-    // Chunk 31a: the Cores a Free Fly run earned, at the left of the Medal line.
-    if ((result.cores ?? 0) > 0) {
-      const ic = coresIcon(18);
-      ic.position.set(40, MEDAL_Y - 9);
-      const k = makeText(`+${fmtBig(result.cores!)} ${CURRENCY_CORES_NAME}`, 22, UI.color.cores, { fontWeight: 'bold' });
-      k.anchor.set(0, 0.5);
-      k.position.set(64, MEDAL_Y);
-      this.container.addChild(ic, k);
-    }
+    // Chunk 34b: the Cores of this run sit under the "credits earned" label (smaller, teal, with the hexagon); Medals share the row when there are some.
     const medals = captain?.medals ?? (wall?.medal ? 1 : 0);
+    const hasCores = (result.cores ?? 0) > 0;
+    const both = hasCores && medals > 0;
+    if (hasCores) {
+      const k = moneyLabel(`+${fmtBig(result.cores!)}`, 24, 'cores', { align: 'center' });
+      k.position.set(both ? VIEW_W * 0.3 : VIEW_W / 2, MEDAL_Y);
+      this.container.addChild(k);
+      this.coresLabel = k.amount.text;
+    }
     if (medals > 0) {
       const m = makeText(`+${medals} Medal${medals === 1 ? '' : 's'}`, 22, THEME.currency, { fontWeight: 'bold' });
       m.anchor.set(0.5);
-      m.position.set(VIEW_W / 2, MEDAL_Y);
+      const mx = both ? VIEW_W * 0.7 : VIEW_W / 2;
+      m.position.set(mx, MEDAL_Y);
       this.container.addChild(m);
       if (captain?.doubled) {
         const d = makeText('DOUBLED!', 16, THEME.good, { fontWeight: 'bold' });
         d.anchor.set(0, 0.5);
-        d.position.set(VIEW_W / 2 + m.width / 2 + 10, MEDAL_Y);
+        d.position.set(mx + m.width / 2 + 10, MEDAL_Y);
         this.container.addChild(d);
       }
-    }
-    // Chunk 32e: how much of the dropped Core crystals the player collected.
-    const crystalShift = result.crystals && result.crystals.dropped > 0 ? COLLECT_GAP : 0;
-    if (crystalShift) {
-      const cl = makeText(crystalLine(result.crystals!.collected, result.crystals!.dropped), 16, UI.color.cores, { fontWeight: 'bold' });
-      this.crystalText = cl.text;
-      cl.anchor.set(0.5);
-      cl.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + COLLECT_GAP);
-      this.container.addChild(cl);
     }
     if (captain) {
       const line = `${captain.name}: +${captain.killsAdded} kills (${captain.killsTotal} in all)${captain.note ? `   ${captain.note}` : ''}`;
       const c = makeText(line, 16, THEME.textDim, { fontWeight: 'bold' });
       c.anchor.set(0.5);
-      c.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + crystalShift + CAPTAIN_GAP);
+      c.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + CAPTAIN_GAP);
       this.container.addChild(c);
     }
 
@@ -195,7 +182,7 @@ export class RunSummaryScreen implements Screen {
     if (unlocked) {
       const u = makeText(unlocked, 17, THEME.good, { fontWeight: 'bold', align: 'center', wordWrap: true, wordWrapWidth: VIEW_W - 80, lineHeight: 22 });
       u.anchor.set(0.5, 0);
-      u.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + crystalShift + CAPTAIN_GAP + UNLOCK_GAP);
+      u.position.set(VIEW_W / 2, rowsEnd + TOTAL_GAP + CAPTAIN_GAP + UNLOCK_GAP);
       this.container.addChild(u);
     }
 
@@ -232,7 +219,7 @@ export class RunSummaryScreen implements Screen {
     if (DEBUG_ON) {
       (window as any).__mgbm = {
         screen: 'summary',
-        state: () => ({ title: title.text, cores: result.cores ?? 0, crystals: this.crystalText, unlocked, challenge, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
+        state: () => ({ title: title.text, cores: result.cores ?? 0, coresLabel: this.coresLabel, credits_label: credits.amount.text, unlocked, challenge, shots: lines, wall: wall ?? null, captain: captain ?? null, result, marks, rows: this.rows, credits: getProgressStore().data.credits, toast: this.toast.message }),
       };
     }
   }

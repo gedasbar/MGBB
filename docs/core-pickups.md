@@ -19,7 +19,8 @@ Engine: `src/engine/coreCrystals.ts` (`CrystalField`, no Pixi). Drawing: `src/ui
 - **Cap:** 60 alive. When full, a new drop's value joins the nearest crystal, which gets a fresh 6 s. Nothing is lost.
 - Free Fly and Frontier Free Fly squares both drop crystals. Walls do not.
 - **Core Magnet chunk:** +60 % pickup radius per copy (1 copy 44.8 px, 2 copies 61.6 px). It no longer changes how many Cores a run pays.
-- **Run summary:** "Cores collected 4 / 5 (71%)" under Total credits (collected and dropped rounded, the percentage exact).
+- **Magnet (34b):** within 3 x the pickup radius a crystal is pulled to the ship (curving in, no longer ageing); each Core Magnet copy grows the pull radius like the pickup radius. On collection: a teal "+N" at the ship (collections within 0.3 s add up), a few teal sparks, an absorb flash, a small bump of the HUD Cores number (DECISIONS 627-630).
+- **Run summary (34b):** the Cores earned this run, "+N" with the hexagon, under "credits earned". The old "Cores collected X / Y" line is gone.
 
 ## Frontier squares and the 32d wave table
 `scripts/frontier-vs-wall.ts` compares a Free Fly square with a wall square at the same ring (DECISIONS 612). The steeper wave HP of 32d (x1.45 a wave
