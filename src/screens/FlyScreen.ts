@@ -372,7 +372,7 @@ export class FlyScreen implements Screen {
   /** Per frame, after the world ran: things the world only shows as state (a hurt ship, a crash, a boss, a pulse, an AoE blast). */
   private feelEvents(frameTime: number) {
     const w = this.world;
-    if (w.hull < this.prevHull) this.feel.playerHit();
+    if (w.hull < this.prevHull) { this.feel.playerHit(); sfx.play('hurt'); }
     this.prevHull = w.hull;
     if (w.gameOver && !w.survived && !this.shipBroken) {
       this.shipBroken = true;
@@ -383,6 +383,7 @@ export class FlyScreen implements Screen {
     if (w.gun.shots > this.prevShots && !w.gameOver) this.feel.muzzle(w.shipX, w.shipY - 16, w.pulseRate, MUZZLE_COLOR);
     this.prevShots = w.gun.shots;
     const be = w.projSys.blastEvents;
+    if (be.length > 0) sfx.play('aoe');
     for (const b of be) this.feel.aoe(b.x, b.y, b.r > 0 ? b.r : Math.max(b.w, b.h) / 2, 0xffb070, b.w, b.h);
     be.length = 0;
   }
@@ -566,7 +567,7 @@ export class FlyScreen implements Screen {
     const plateW = Math.round(Math.max(190, this.spikeBadge.visible ? this.spikeBadge.x + SPIKE_BADGE.w + 14 : 0, this.coresLabel.x + this.coresLabel.width + 14, ...[this.waveText, this.killsText].map(t => t.x + t.width + 14)));
     if (plateW !== this.hudPlateW) { this.hudPlateW = plateW; this.hudPlate.clear().rect(10, HUD_ROW.hull - 6, plateW - 10, HUD_ROW.bottom - HUD_ROW.hull + 6).fill({ color: THEME.bg, alpha: 0.72 }); }
     for (const ev of this.world.waveEvents) {
-      sfx.play('wave');
+      sfx.play(ev.boss ? 'bossArrive' : 'wave');
       const kind = waveKindOf(ev.wave, this.world.twist);
       this.bannerTitle.text = `WAVE ${ev.wave}`;
       this.bannerSub.text = ev.skipped ? 'SKIPPED' : [ev.boss ? 'BOSS' : kind === 'swarm' ? 'SWARM' : kind === 'mothers' ? 'MOTHERS' : '', ev.bonus > 0 ? `+${fmtBig(ev.bonus)} credits` : ''].filter(Boolean).join('  ');
@@ -597,7 +598,7 @@ export class FlyScreen implements Screen {
       if (ev.kind === 'enrage') { this.feel.bossEnrage(); sfx.play('wave'); this.showThemeBanner('ENRAGED', `${ev.name} attacks faster and sinks`, BOSS_ENRAGE_COLOR); }
       else {
         this.feel.bossDeath(ev.x, ev.y, 140, 90, BOSS_DEATH_COLORS);
-        sfx.play('medal');
+        sfx.play('bossDeath');
         this.showThemeBanner(`${ev.name} DEFEATED`, `+${fmtBig(Math.round(ev.cores))} ${CURRENCY_CORES_NAME}  +${fmtBig(Math.round(ev.credits))} credits${ev.noHit ? '  NO HIT' : ''}`, THEME.good);
       }
     }

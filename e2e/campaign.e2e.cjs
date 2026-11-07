@@ -80,7 +80,7 @@ async function flyLane(page, { shots = false } = {}) {
   await tap(page, 486, 930, { pause: 300 });
   await waitScreen(page, 'carousel');
   let car = await state(page);
-  check(car.mode === 'campaign' && car.cards.length === 3, `the Map tab opens the carousel on Campaign (${car.cards.map(c => c.mode).join(', ')})`);
+  check(car.mode === 'campaign' && car.cards.length === 4, `the Map tab opens the carousel on Campaign (${car.cards.map(c => c.mode).join(', ')})`);
   await tap(page, 270, 420, { pause: 300 });
   await waitScreen(page, 'map');
   let s = await state(page);

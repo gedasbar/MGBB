@@ -92,6 +92,7 @@ export class DebugPanel {
     row.appendChild(start);
     body.appendChild(row);
     void import('./soundLab').then(m => m.addSoundLab(body));
+    void import('./sfxrTuner').then(m => m.addSfxrTuner(body));
     // Cheats are a dev-build feature: this branch (and the module) is removed from production builds.
     if (DEBUG_ON) void import('./cheatPanel').then(m => m.addCheats(body));
     document.body.appendChild(box);

@@ -383,7 +383,7 @@ export class WallScreen implements Screen {
       if (h.big) { this.feel.bigHit(); this.showBigHit(h.blockId, this.sx(h.x), h.y, h.damage); }
     }
     this.feelEvents();
-    if (w.state !== 'playing' && !this.endSounded) { this.endSounded = true; sfx.play(w.state === 'crashed' ? 'crash' : 'cleared'); }
+    if (w.state !== 'playing' && !this.endSounded) { this.endSounded = true; sfx.play(w.state === 'crashed' ? 'crash' : w.state === 'cleared' ? 'cleared' : 'passed'); }
     // The background scrolls with the real wall speed (top-edge boost included); on a ring also sideways with the camera.
     if (this.bg) this.bg.update(frameTime, w.state === 'playing' ? w.scroll : 0, w.ring ? this.camera.unwrappedX : 0);
 
@@ -448,6 +448,7 @@ export class WallScreen implements Screen {
     if (w.gun.shots > this.prevShots && w.state === 'playing') this.feel.muzzle(w.shipX, w.shipY - 16, w.pulseRate, 0xe8f6ff);
     this.prevShots = w.gun.shots;
     const be = w.projSys.blastEvents;
+    if (be.length > 0) sfx.play('aoe');
     for (const b of be) this.feel.aoe(b.x, b.y, b.r > 0 ? b.r : Math.max(b.w, b.h) / 2, 0xffb070, b.w, b.h);
     be.length = 0;
   }
