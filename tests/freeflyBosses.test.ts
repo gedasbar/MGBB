@@ -43,7 +43,7 @@ const freeze = (b: BossFight) => { Object.defineProperty(b, 'speedScale', { get:
 
 describe('the schedule', () => {
   it('every 10th wave is a boss wave; the four bosses rotate and each round is stronger', () => {
-    expect([1, 5, 9, 11, 15, 19].some(isBossWave)).toBe(false);
+    expect([1, 5, 9, 11, 15, 19].some(w => isBossWave(w))).toBe(false);
     const ids = [10, 20, 30, 40, 50, 60, 70, 80, 90].map(w => bossAt(w)!.def.id);
     expect(ids).toEqual(['hive', 'bastion', 'queen', 'colossus', 'hive', 'bastion', 'queen', 'colossus', 'hive']);
     expect([10, 40, 50, 80, 90].map(w => bossAt(w)!.round)).toEqual([0, 0, 1, 1, 2]);

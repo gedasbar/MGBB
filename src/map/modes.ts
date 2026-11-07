@@ -5,6 +5,8 @@ import { generateLevel } from '../wall/generator';
 import { MapMode } from './constants';
 import { MapMemory } from './memory';
 import { FLY_MEDAL_MILESTONES } from '../captains/data';
+import { dailyCardLine } from '../daily/rules';
+import { gameNow, dayKey } from '../daily/clock';
 
 /** Chunk 29b: what each carousel card says. Pure functions of the save. */
 export interface ModeStatus { line: string; locked: boolean; /** What opens a locked mode ("Pass tier 25"); empty when open. */ unlock: string }
@@ -14,7 +16,8 @@ export function nextLegendaryRing(ring: number): number | null {
   return UNLOCK_RINGS.find(r => r > ring) ?? null;
 }
 
-export function modeStatus(mode: MapMode, p: Progress): ModeStatus {
+export function modeStatus(mode: MapMode, p: Progress, now: number = gameNow()): ModeStatus {
+  if (mode === 'daily') return { line: dailyCardLine(p, dayKey(now)), locked: false, unlock: '' };
   if (mode === 'campaign') {
     const t = nextTier(p);
     return { line: `Tier ${t} · next: ${generateLevel(t).name}`, locked: false, unlock: '' };
@@ -28,7 +31,7 @@ export function modeStatus(mode: MapMode, p: Progress): ModeStatus {
   return { line: p.bestWave > 0 ? `Best wave ${p.bestWave}` : 'Not flown yet', locked: false, unlock: '' };
 }
 
-export const modeTitle = (mode: MapMode): string => (mode === 'frontier' ? FRONTIER_NAME.toUpperCase() : mode === 'campaign' ? 'CAMPAIGN' : 'FREE FLY');
+export const modeTitle = (mode: MapMode): string => (mode === 'frontier' ? FRONTIER_NAME.toUpperCase() : mode === 'campaign' ? 'CAMPAIGN' : mode === 'daily' ? 'DAILY' : 'FREE FLY');
 
 /** Whether a mode can be opened at all. */
 export const modeOpen = (mode: MapMode, p: Progress): boolean => mode !== 'frontier' || isFrontierUnlocked(p);

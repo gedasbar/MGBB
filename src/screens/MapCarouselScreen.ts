@@ -138,7 +138,7 @@ export class MapCarouselScreen implements Screen {
     this.right.setEnabled(this.index < MAP_MODES.length - 1);
     this.dots.clear();
     MAP_MODES.forEach((_, i) => {
-      const x = VIEW_W / 2 + (i - 1) * 24;
+      const x = VIEW_W / 2 + (i - (MAP_MODES.length - 1) / 2) * 24;
       this.dots.circle(x, DOTS_Y, i === this.index ? 6 : 4).fill(i === this.index ? UI.color.selected : UI.color.disabled);
     });
   }

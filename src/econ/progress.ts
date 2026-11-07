@@ -1,3 +1,5 @@
+import { DailySave, DailyEvent, defaultDaily, ensureDay, frontierFlyEvents, freeFlyEvents, noteDailyRun, noteEvents, rerollQuest, sanitizeDaily, wallEvents, DailyRunMarks, RerollResult } from '../daily/rules';
+import { gameNow, dayKey } from '../daily/clock';
 import { Stats, defaultStats, sanitizeStats, noteRunStats, noteMedalsEarned } from '../stats/stats';
 import { MAX_TIER } from '../wall/generator';
 import { CLASSIC_TIERS, LATE_CLEAR_MEDALS } from '../data/lateTiers';
@@ -29,12 +31,12 @@ import {
 
 export const PROGRESS_KEY = 'mgbm.progress.v1';
 
-/** Save format version (18, chunk 34c: `stats`, the lifetime counters, counted from the day the save moved to 18 (`stats.since`); older saves start them at 0; 17, chunk 32b: `records` gains `bosses` (Free Fly bosses beaten) and `bossNoHit`; older saves start with none; 16, chunk 31d: the Full and Bar Shipyard chunks are removed, their copies refunded in Cores and cleared from saved designs; 15, chunk 31c: each placed Shipyard chunk has a rotation, the Generator chunk is gone and its copies are refunded in Cores; older designs have rotation 0): 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none), 12 adds `timePlayed`, `newBlocks` and `skillPointsSeen` (chunk 24a: seconds played with the page visible; blocks unlocked and not yet looked at; skill points the player has seen. Older saves start at 0 / none / the points they already have, so nothing is marked new), 13 adds `achievements`, `records`, `challengesDone` and `cosmetics` (chunk 28a: earned achievement ids; the best hit / average DPS / circuit size records the achievements read; challenges done; cosmetic ids earned. A save from before starts with none and the game grants what it has already reached when it loads), 14 adds `cores`, `chunks` and `designs` (chunk 31a, the Shipyard: Cores earned in Free Fly, the chunk inventory and up to three saved custom hull designs; older saves start with 0 Cores, no chunks, no designs). The storage key stays the same; v1 saves are migrated on load. */
-export const PROGRESS_VERSION = 18;
+/** Save format version (19, chunk 35a: `daily`, the daily quests, the daily run's best wave and history; older saves start with none and the first day draws; 18, chunk 34c: `stats`, the lifetime counters, counted from the day the save moved to 18 (`stats.since`); older saves start them at 0; 17, chunk 32b: `records` gains `bosses` (Free Fly bosses beaten) and `bossNoHit`; older saves start with none; 16, chunk 31d: the Full and Bar Shipyard chunks are removed, their copies refunded in Cores and cleared from saved designs; 15, chunk 31c: each placed Shipyard chunk has a rotation, the Generator chunk is gone and its copies are refunded in Cores; older designs have rotation 0): 1 = Free Fly only, 2 adds the campaign fields, 3 adds passedTiers and wallBestClearTime, 4 adds the Dart (a free hull every save owns; hulls already owned are kept), 5 adds bestWave (Free Fly waves, chunk 10a; older saves start at 0), 6 adds `captains` (chunk 13a) and makes `medals` a spendable balance, 7 adds `frontier` (chunk 15a; older saves load with an empty Frontier), 8 is the 16c-2 economy (blocks without upgrades are reset to level 1 and refunded, copies above the new caps refunded; see econ/migrate.ts), 9 adds the best credits earned in one run per campaign tier and per Frontier square (chunk 19a; older saves start with none), 10 removes the Reverse block (chunk 21a: owned copies are refunded at their price formula, see econ/migrate.ts), 11 adds `skills` (chunk 22a: the owned skill-tree nodes; older saves start with none), 12 adds `timePlayed`, `newBlocks` and `skillPointsSeen` (chunk 24a: seconds played with the page visible; blocks unlocked and not yet looked at; skill points the player has seen. Older saves start at 0 / none / the points they already have, so nothing is marked new), 13 adds `achievements`, `records`, `challengesDone` and `cosmetics` (chunk 28a: earned achievement ids; the best hit / average DPS / circuit size records the achievements read; challenges done; cosmetic ids earned. A save from before starts with none and the game grants what it has already reached when it loads), 14 adds `cores`, `chunks` and `designs` (chunk 31a, the Shipyard: Cores earned in Free Fly, the chunk inventory and up to three saved custom hull designs; older saves start with 0 Cores, no chunks, no designs). The storage key stays the same; v1 saves are migrated on load. */
+export const PROGRESS_VERSION = 19;
 
 /** Everything the player keeps between runs. */
 export interface Progress {
-  version: 18;
+  version: 19;
   /** A one-time message for the next screen that can show it (the economy refund of the version 8 migration); cleared when taken. */
   notice?: string;
   credits: number;
@@ -88,6 +90,8 @@ export interface Progress {
   designs: (Design | null)[];
   /** Chunk 34c (save version 18): lifetime counters (runs per mode, blocks, rocks, bosses, damage, currencies earned, runs per hull), counted from `stats.since`. */
   stats: Stats;
+  /** Chunk 35a (save version 19): today's three quests, the daily run's best wave and reward tiers, and the last days' best waves (src/daily/rules.ts). */
+  daily: DailySave;
 }
 
 export interface StorageLike {
@@ -101,10 +105,10 @@ export function defaultProgress(): Progress {
   const levels: Record<string, number> = {};
   for (const b of pickerBlocks()) { owned[b.id] = DEFAULT_OWNED[b.id] ?? 0; levels[b.id] = 1; }
   return {
-    version: 18, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
+    version: 19, credits: 0, owned, levels, ownedHulls: [STARTER_HULL], bestTier: 0, bestTime: 0, bestWave: 0, totalKills: 0, runs: 0,
     clearedTiers: [], passedTiers: [], wallBestPct: {}, wallBestTime: {}, wallBestClearTime: {}, wallBestCredits: {}, squareBestCredits: {}, medals: 0, highestCleared: 0, captains: defaultCaptains(),
     frontier: defaultFrontier(), skills: [], timePlayed: 0, newBlocks: [], skillPointsSeen: 0,
-    achievements: [], records: defaultRecords(), challengesDone: [], cosmetics: [], ...defaultShipyard(), stats: defaultStats(),
+    achievements: [], records: defaultRecords(), challengesDone: [], cosmetics: [], ...defaultShipyard(), stats: defaultStats(), daily: defaultDaily(),
   };
 }
 
@@ -187,6 +191,8 @@ export function sanitizeProgress(raw: unknown): Progress {
   Object.assign(out, sanitizeShipyard(typeof r.version === 'number' && r.version >= 14 ? r : null));
   // v18 (chunk 34c): the counters. A save from before starts them at 0 and says since when.
   out.stats = sanitizeStats(typeof r.version === 'number' && r.version >= 18 ? r.stats : undefined);
+  // v19 (chunk 35a): the daily state. A save from before has none: the first day draws its quests.
+  out.daily = sanitizeDaily(typeof r.version === 'number' && r.version >= 19 ? r.daily : undefined);
   out.highestCleared = out.clearedTiers.length ? out.clearedTiers[out.clearedTiers.length - 1] : 0;
   // A save older than v8 still holds the levels of blocks that lost them: read them with the old ceiling so the migration can refund them.
   const migrating = !(typeof r.version === 'number' && r.version >= 8);
@@ -429,7 +435,7 @@ export function buyHull(p: Progress, id: string): BuyResult {
   return { ok: true, price };
 }
 
-export interface RunResult { credits: number; /** Chunk 34c: the hull flown (counted per hull on the Stats page). */ hull?: string; /** Chunk 31a: Cores earned (Free Fly and Frontier Free Fly squares only). */ cores?: number; kills: number; time: number; tier: number; /** Free Fly wave reached. */ wave?: number; /** Chunk 21a: the run's largest hit and total damage (shown on the summary, never saved). */ shots?: { bestShot: number; totalDamage: number }; /** Chunk 32e: Core crystals collected and dropped this run (Cores, shown on the summary, never saved). */ crystals?: { collected: number; dropped: number }; /** Chunk 32b: Free Fly bosses killed this run (the records keep each id and the no-hit count). */ bosses?: { id: string; noHit: boolean }[] }
+export interface RunResult { /** Chunk 35a: the hull was never hit during the run (Free Fly), and the run was the daily run (its best wave and reward tiers are booked). */ noHit?: boolean; daily?: boolean; credits: number; /** Chunk 34c: the hull flown (counted per hull on the Stats page). */ hull?: string; /** Chunk 31a: Cores earned (Free Fly and Frontier Free Fly squares only). */ cores?: number; kills: number; time: number; tier: number; /** Free Fly wave reached. */ wave?: number; /** Chunk 21a: the run's largest hit and total damage (shown on the summary, never saved). */ shots?: { bestShot: number; totalDamage: number }; /** Chunk 32e: Core crystals collected and dropped this run (Cores, shown on the summary, never saved). */ crystals?: { collected: number; dropped: number }; /** Chunk 32b: Free Fly bosses killed this run (the records keep each id and the no-hit count). */ bosses?: { id: string; noHit: boolean }[] }
 
 /** The progress object plus its storage. Every change goes through `commit()`, which saves and notifies. */
 export class ProgressStore {
@@ -443,6 +449,9 @@ export class ProgressStore {
   /** Highest passed tier as of the last commit (tier-locked blocks, chunk 20b). */
   private tierReach: number;
   unlockNotices: string[] = [];
+  /** Chunk 35a: daily quest lines ("Daily quest done: +12 Cores") produced by the runs since the last take, and the daily run marks of the last daily run. */
+  private dailyNotes: string[] = [];
+  private dailyRunMarks: DailyRunMarks | null = null;
   /** Chunk 24a: skill points earned since the last takeRunUnlocks (the run summary lists them with the unlocked blocks). */
   private pendingSkillPoints = 0;
   /** Skill points as of the last commit. */
@@ -515,6 +524,22 @@ export class ProgressStore {
     this.pendingSkillPoints = 0;
     return out;
   }
+
+  // ---- Daily quests and the daily run (chunk 35a): rules live in daily/rules.ts, the store commits and notifies.
+  /** The local day key the game is on (the real day, plus the debug panel's "Next day"). */
+  get today(): string { return dayKey(gameNow()); }
+  /** Makes the daily state today's (draws a new day's quests when the day changed). Call when a screen shows it. */
+  refreshDaily(): DailySave {
+    if (ensureDay(this.data, this.today)) this.commit();
+    return this.data.daily;
+  }
+  rerollQuest(index: number): RerollResult { const r = rerollQuest(this.data, this.today, index); if (r.ok || this.data.daily.day === this.today) this.commit(); return r; }
+  /** Books quest progress for events; pays what finished (the caller commits). */
+  private noteDaily(events: readonly DailyEvent[]) { this.dailyNotes.push(...noteEvents(this.data, this.today, events).notes); }
+  /** Quest lines produced since the last call (the run summary shows them). */
+  takeDailyNotes(): string[] { const n = this.dailyNotes; this.dailyNotes = []; return n; }
+  /** The marks of the daily run just booked (best wave, tiers paid), once. */
+  takeDailyRunMarks(): DailyRunMarks | null { const m = this.dailyRunMarks; this.dailyRunMarks = null; return m; }
 
   /** The player opened this block's info: its NEW mark goes away. */
   markBlockSeen(id: string) {
@@ -590,8 +615,9 @@ export class ProgressStore {
   }
 
   /** Books a Frontier Free Fly encounter (chunk 15b). Returns the square outcome (Medal paid on a first clear). */
-  recordFrontierFly(run: { x: number; y: number; hull?: string; credits: number; cores?: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number; shots?: { bestShot: number; totalDamage: number }; time?: number }): SquareRunOutcome & { newBestEarnings: boolean } {
+  recordFrontierFly(run: { x: number; y: number; hull?: string; credits: number; cores?: number; kills: number; outcome: EncounterOutcome; medalDouble?: number; rand?: () => number; shots?: { bestShot: number; totalDamage: number }; time?: number; /** Chunk 35a: Core crystals collected (a daily quest counts them). */ crystals?: number }): SquareRunOutcome & { newBestEarnings: boolean } {
     noteRunRecords(this.data.records, run.shots, run.time ?? 0);
+    this.noteDaily(frontierFlyEvents({ kills: run.kills, shots: run.shots, crystals: run.crystals, passed: run.outcome !== 'failed' }));
     noteRunStats(this.data.stats, { mode: 'frontier', rocks: run.kills, damage: run.shots?.totalDamage, credits: run.credits, cores: run.cores, hull: run.hull });
     const r = applyFrontierOutcome(this.data, { ...run, medalDouble: this.squareMedalChance(run.medalDouble), ...outcomeFlags(run.outcome) });
     this.data.cores += Math.floor(run.cores ?? 0);
@@ -671,9 +697,10 @@ export class ProgressStore {
   /** Adds one finished run to the totals. Call exactly once per run. */
   recordRun(run: RunResult): { newBestTier: boolean; newBestTime: boolean; newBestWave: boolean } {
     const d = this.data;
-    const newBestTier = run.tier > d.bestTier;
-    const newBestTime = run.time > d.bestTime;
-    const newBestWave = (run.wave ?? 0) > d.bestWave;
+    // Chunk 35a: the daily run has twists (shorter waves, a boss every 5), so it never feeds the Free Fly records or the Medal wave milestones.
+    const newBestTier = !run.daily && run.tier > d.bestTier;
+    const newBestTime = !run.daily && run.time > d.bestTime;
+    const newBestWave = !run.daily && (run.wave ?? 0) > d.bestWave;
     if (newBestWave) d.bestWave = run.wave!;
     d.credits += Math.floor(run.credits);
     d.cores += Math.floor(run.cores ?? 0);
@@ -683,6 +710,8 @@ export class ProgressStore {
     if (newBestTime) d.bestTime = run.time;
     noteRunRecords(d.records, run.shots, run.time);
     noteBossRecords(d.records, run.bosses);
+    this.noteDaily(freeFlyEvents(run));
+    if (run.daily) this.dailyRunMarks = noteDailyRun(d, this.today, run.wave ?? 1);
     noteRunStats(d.stats, { mode: 'freefly', rocks: run.kills, damage: run.shots?.totalDamage, credits: run.credits, cores: run.cores, hull: run.hull, bosses: run.bosses });
     this.commit();
     return { newBestTier, newBestTime, newBestWave };
@@ -700,6 +729,8 @@ export class ProgressStore {
     let medal = false;
     let medals = 0;
     let medalDoubled = false;
+    const cleared = run.destroyed !== undefined && run.total !== undefined && run.destroyed >= run.total;
+    this.noteDaily(wallEvents({ kills: run.kills, shots: run.shots, tier: run.tier, square: !!run.square, passed: cleared || !!run.passed, cleared, hull: run.hull }));
     if (run.square && run.destroyed !== undefined && run.total !== undefined) {
       const r = applyFrontierRun(this.data, { ...run.square, medalDouble: this.squareMedalChance(run.medalDouble), destroyed: run.destroyed, total: run.total, credits: run.credits, kills: run.kills, passed: run.passed, rand: run.rand });
       medal = r.medals > 0; medals = r.medals; medalDoubled = r.medalDoubled; newBestEarnings = r.newBestEarnings;

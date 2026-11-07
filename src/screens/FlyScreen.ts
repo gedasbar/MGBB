@@ -8,7 +8,10 @@ import { FxView } from '../fx/fxView';
 import { bannerPunch, bumpScale, mergeNumber, popScale, NumSlot } from '../fx/feel';
 import { crystalPopText } from '../engine/coreCrystals';
 import { FEEL } from '../data/feel';
-import { specialKind } from '../data/waves';
+import { waveKindOf } from '../game/waves';
+import { TWIST_BY_ID, TwistId } from '../data/dailyRun';
+import { runSeedOf } from '../daily/rules';
+import { fogAlpha } from '../daily/fog';
 import type { StatsInfo } from '../ui/stats';
 import { clientToGame, PointerState } from '../input';
 import { Pausable, Screen, ScreenManager } from './ScreenManager';
@@ -202,7 +205,7 @@ export class FlyScreen implements Screen {
     restart: () => {
       if (this.finished) return;
       this.finished = true;
-      if (this.opts.frontier) this.bankEncounter(); else bankFlyRun(this.world, getProgressStore(), this.banker);
+      if (this.opts.frontier) this.bankEncounter(); else bankFlyRun(this.world, getProgressStore(), this.banker, !!this.opts.daily);
       this.screenManager.switchTo(new FlyScreen(this.screenManager, this.grid, this.opts));
     },
     quit: () => { if (!this.finished) this.finish(); },
@@ -213,7 +216,7 @@ export class FlyScreen implements Screen {
   private timeBarFg = new Graphics();
   outcome: EncounterOutcome | null = null;
 
-  constructor(private screenManager: ScreenManager, private grid: Grid, private opts: { startWave?: number; frontier?: { x: number; y: number; params: EncounterParams; spike: boolean; squareTier: number } } = {}) {
+  constructor(private screenManager: ScreenManager, private grid: Grid, private opts: { startWave?: number; /** Chunk 35a: today's daily run (its seed and twist; the run books the daily best and reward tiers). */ daily?: { day: string; twistId: TwistId }; frontier?: { x: number; y: number; params: EncounterParams; spike: boolean; squareTier: number } } = {}) {
     // A new seed per run: the waves are deterministic for a seed (World.seed, shown by the debug hook).
     const store = getProgressStore();
     this.mods = store.runModifiers();
@@ -222,7 +225,8 @@ export class FlyScreen implements Screen {
     // A Frontier encounter plays a fixed plan (its own seed); normal Free Fly is exactly as before.
     const encounter = fr ? { plan: planEncounter(fr.params), wave: fr.params.wave, tier: fr.params.tier, hpMul: fr.params.hpMul, duration: fr.params.duration } : undefined;
     this.world = new World({
-      grid, safeStart: true, seed: fr ? fr.params.seed : (Math.random() * 0x7fffffff) | 0, startWave: fr ? undefined : opts.startWave, modifiers: this.mods,
+      grid, safeStart: true, seed: fr ? fr.params.seed : opts.daily ? runSeedOf(opts.daily.day) : (Math.random() * 0x7fffffff) | 0, startWave: fr ? undefined : opts.startWave, modifiers: this.mods,
+      ...(opts.daily ? { twist: TWIST_BY_ID[opts.daily.twistId].effects } : {}),
       ...(encounter ? { encounter } : {}),
     });
     debugHooks.world = this.world;
@@ -311,6 +315,9 @@ export class FlyScreen implements Screen {
     this.hint.visible = false;
     this.uiLayer.addChild(this.medalBanner, this.hint);
 
+    // Chunk 35a: the daily run announces its twist as the run starts.
+    if (opts.daily) { const t = TWIST_BY_ID[opts.daily.twistId]; this.showThemeBanner(t.name, t.line, THEME_BANNER_COLOR); }
+
     // Dev-only hook
     if (DEBUG_ON) {
       (window as any).__mgbm = {
@@ -324,7 +331,7 @@ export class FlyScreen implements Screen {
           damagePerShot: this.world.recipes.map(r => r.packet.damage),
           hull: this.world.hull, credits: this.world.credits, tier: this.world.tier, kills: this.world.kills, time: this.world.time,
           hud: { credits: this.creditsText.text, tier: this.tierText.text, wave: this.waveText.text, kills: this.killsText.text, cores: this.coresText.text, spike: this.spikeBadge.visible, plateW: this.hudPlateW },
-          wave: this.world.wave, waveTimeLeft: this.world.waveTimeLeft, seed: this.world.seed,
+          wave: this.world.wave, waveTimeLeft: this.world.waveTimeLeft, seed: this.world.seed, daily: this.opts.daily ?? null, twist: this.world.twist, enemyAlphas: this.world.mitosis.enemies.map(e => this.enemySprites.get(e.id)?.container.alpha ?? 1),
           corePops: this.dmgNums.filter(d => d.life > 0 && d.key === CRYSTAL_POP_KEY).map(d => d.t.text),
           crystals: { count: this.world.crystals.list.length, drawn: this.crystalSprites.visibleCount, collected: this.world.crystals.collected, dropped: this.world.crystals.dropped, list: this.world.crystals.list.map(c => ({ x: c.x, y: c.y, v: c.value, age: c.age })) },
           bullets: { count: this.world.enemyBullets.count, drawn: this.bulletSprites.visibleCount, hits: this.world.bulletHits, list: Array.from({ length: this.world.enemyBullets.max }, (_, i) => i).filter(i => this.world.enemyBullets.active[i]).map(i => ({ x: this.world.enemyBullets.x[i], y: this.world.enemyBullets.y[i] })) },
@@ -544,7 +551,7 @@ export class FlyScreen implements Screen {
       const left = Math.max(0, enc.duration - this.world.time);
       this.waveText.text = `${FRONTIER_NAME} encounter  survive ${fmtTime(Math.ceil(left))}`;
       this.timeBarFg.clear().rect(0, 0, (CONFIG.VIEW.W - 40) * (left / enc.duration), 6).fill(this.world.time >= enc.duration * FREEFLY_PASS_SHARE ? PROGRESS_COLOR : THEME.currency);
-    } else this.waveText.text = this.world.boss ? `Wave ${this.world.wave}  BOSS` : `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`;
+    } else this.waveText.text = (this.world.boss ? `Wave ${this.world.wave}  BOSS` : `Wave ${Math.max(1, this.world.wave)}  next ${fmtTime(Math.ceil(this.world.waveTimeLeft))}`) + (this.opts.daily ? `  ${TWIST_BY_ID[this.opts.daily.twistId].name}` : '');
     this.killsText.text = `Kills ${this.world.kills}`;
     this.coresText.text = fmtBig(this.world.cores);
     // Chunk 34b: a tiny bump of the Cores number when the exact total goes up (scaled round its left-middle).
@@ -560,7 +567,7 @@ export class FlyScreen implements Screen {
     if (plateW !== this.hudPlateW) { this.hudPlateW = plateW; this.hudPlate.clear().rect(10, HUD_ROW.hull - 6, plateW - 10, HUD_ROW.bottom - HUD_ROW.hull + 6).fill({ color: THEME.bg, alpha: 0.72 }); }
     for (const ev of this.world.waveEvents) {
       sfx.play('wave');
-      const kind = specialKind(ev.wave);
+      const kind = waveKindOf(ev.wave, this.world.twist);
       this.bannerTitle.text = `WAVE ${ev.wave}`;
       this.bannerSub.text = ev.skipped ? 'SKIPPED' : [ev.boss ? 'BOSS' : kind === 'swarm' ? 'SWARM' : kind === 'mothers' ? 'MOTHERS' : '', ev.bonus > 0 ? `+${fmtBig(ev.bonus)} credits` : ''].filter(Boolean).join('  ');
       this.bannerSub.style.fill = ev.bonus > 0 && !ev.skipped ? THEME.currency : THEME.textDim;
@@ -643,6 +650,7 @@ export class FlyScreen implements Screen {
     this.shots.sync(this.world.pool);
 
     const alive = new Set<number>();
+    const fogR = this.world.twist.fogRadius ?? 0;
     for (const e of this.world.mitosis.enemies) {
       if (e.bossRole === 'conduit' || e.bossRole === 'plate') continue; // drawn by the boss view
       alive.add(e.id);
@@ -653,6 +661,7 @@ export class FlyScreen implements Screen {
         this.enemySprites.set(e.id, s);
       }
       s.container.position.set(e.x, e.y);
+      s.container.alpha = fogR > 0 ? fogAlpha(Math.hypot(e.x - this.world.shipX, e.y - this.world.shipY), fogR) : 1; // the Fog twist (chunk 35a): a drawing rule only
       s.setRadius(e.radius);
       const f = this.flash.get(e.id) ?? 0;
       s.update(e.maxHp > 0 ? 1 - e.hp / e.maxHp : 0, frameTime, f > 0);
@@ -725,14 +734,29 @@ export class FlyScreen implements Screen {
     if (this.opts.frontier) { this.finishEncounter(); return; }
     this.finished = true;
     const store = getProgressStore();
-    const { result, marks } = bankFlyRun(this.world, store, this.banker);
+    const { result, marks } = bankFlyRun(this.world, store, this.banker, !!this.opts.daily);
     const id = this.banker.captainId;
     const captain: CaptainSummary = {
       name: CAPTAIN_BY_ID[id]?.name ?? id, killsAdded: this.banker.added, killsTotal: store.data.captains.heroes[id]?.kills ?? 0,
       medals: this.medalsRun, doubled: this.medalsDoubled,
     };
     const u = store.takeRunUnlocks();
-    this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks, undefined, captain, unlockSummary(u.blocks, u.skillPoints)));
+    const daily = this.dailySummary(store);
+    this.screenManager.switchTo(new RunSummaryScreen(this.screenManager, result, marks, undefined, captain, [unlockSummary(u.blocks, u.skillPoints), ...this.dailyPaidLines, ...store.takeDailyNotes()].filter(Boolean).join('\n'), null, daily));
+  }
+
+  /** Lines for the daily run's reward tiers paid by the run (set by dailySummary). */
+  private dailyPaidLines: string[] = [];
+
+  /** The daily run's summary extras (chunk 35a): its title, the best wave of the day, and Fly again / Map going back to the daily run / Daily screen. */
+  private dailySummary(store: ReturnType<typeof getProgressStore>) {
+    const daily = this.opts.daily;
+    if (!daily) return undefined;
+    const m = store.takeDailyRunMarks();
+    const sm = this.screenManager;
+    const grid = this.grid;
+    this.dailyPaidLines = m ? m.paid.map(t => `Daily run, wave ${t.wave}: +${t.text}`) : [];
+    return { title: TWIST_BY_ID[daily.twistId].name, best: m?.best ?? 0, newBest: !!m?.newBest, flyAgain: () => sm.switchTo(new FlyScreen(sm, grid, { daily })), mapMode: 'daily' as const };
   }
 
   private finishEncounter() {

@@ -19,7 +19,7 @@ import { FRAME_MAX, planSteps } from './game/timestep';
 import { PlayTimeTracker } from './econ/playTime';
 import { getProgressStore } from './econ/progress';
 import { frameLimitFps } from './ui/touchMode';
-import { backToCarousel, openMapTab, openModeScreen, startCampaignTier, startFreeFly } from './map/nav';
+import { backToCarousel, openMapTab, openModeScreen, startCampaignTier, startDailyRun, startFreeFly } from './map/nav';
 import { mapMemory } from './map/memory';
 import { MapMode } from './map/constants';
 
@@ -95,6 +95,8 @@ import { MapMode } from './map/constants';
       backToCarousel: (mode: MapMode) => backToCarousel(screenManager, mode),
       /** Starts Free Fly with the current circuit (what the Free Fly screen's START does): 'ok' | 'noEjector'. */
       startFreeFly: () => startFreeFly(screenManager),
+      /** Chunk 35a: starts today's daily run (what the Daily screen's START does). */
+      startDaily: () => startDailyRun(screenManager),
       /** Starts campaign tier `tier` with the current circuit (what the tier panel's START does): 'ok' | 'locked' | 'noEjector'. */
       startTier: (tier: number) => startCampaignTier(screenManager, tier),
       /** `startMode('freefly')` or `startMode('campaign', tier)`. */

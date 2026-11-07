@@ -3,6 +3,8 @@ import { MapCarouselScreen } from '../screens/MapCarouselScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { FrontierScreen } from '../screens/FrontierScreen';
 import { FreeFlyHomeScreen } from '../screens/FreeFlyHomeScreen';
+import { DailyScreen } from '../screens/DailyScreen';
+import { twistOf } from '../daily/rules';
 import { FlyScreen } from '../screens/FlyScreen';
 import { WallScreen } from '../screens/WallScreen';
 import { getBuilderModel } from '../builder/session';
@@ -27,6 +29,7 @@ export function openModeScreen(sm: ScreenManager, mode: MapMode, opts: { tier?: 
   mapMemory().setOpen(mode);
   if (mode === 'campaign') sm.switchTo(new MapScreen(sm, opts.tier));
   else if (mode === 'frontier') sm.switchTo(new FrontierScreen(sm));
+  else if (mode === 'daily') sm.switchTo(new DailyScreen(sm));
   else sm.switchTo(new FreeFlyHomeScreen(sm));
   return true;
 }
@@ -44,6 +47,17 @@ export function startFreeFly(sm: ScreenManager): StartResult {
   const model = getBuilderModel();
   if (model.compiled.recipes.length === 0) return 'noEjector';
   sm.switchTo(new FlyScreen(sm, model.gridForFlight()));
+  return 'ok';
+}
+
+/** Chunk 35a: starts today's daily run (Free Fly with the day's seed and twist). */
+export function startDailyRun(sm: ScreenManager): StartResult {
+  const model = getBuilderModel();
+  if (model.compiled.recipes.length === 0) return 'noEjector';
+  const store = getProgressStore();
+  store.refreshDaily();
+  const day = store.today;
+  sm.switchTo(new FlyScreen(sm, model.gridForFlight(), { daily: { day, twistId: twistOf(day).id } }));
   return 'ok';
 }
 

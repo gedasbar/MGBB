@@ -4,6 +4,7 @@ import { SPECIES } from '../data/species';
 import { debugHooks } from './hooks';
 import { addCaptainKillsCheat, setHeroLevel, unlockAllCaptains, addCredits, addMedals, ownAllBlocks, ownAllHulls, resetCampaign, resetEverything, unlockAllTiers, clearAllClassicTiers, unlockFrontier, clearFrontierSquare, clearFrontierRing, reachAllDirections, addCores, ownAllChunks, saveSampleDesign } from './cheats';
 import { frontierJump } from '../frontier/session';
+import { getDayOffset, setDayOffset } from '../daily/clock';
 
 /**
  * The Cheats section of the ?debug=1 panel. Only with ?debug=1 on a dev server, or in a production build while ALLOW_DEBUG_IN_PROD is on (src/debug/enabled.ts). Every button works from any screen; each one reports what it did in the
@@ -135,6 +136,19 @@ export function addCheats(parent: HTMLElement) {
     getBuilderModel().refreshCaptain();
     const c = store().data.captains;
     say(`${c.selected}: level ${c.heroes[c.selected].level}`);
+  });
+
+  // ---- Daily (chunk 35a): the clock only moves forward, by whole days, and is never saved.
+  const dly = group('dbg-g-daily', 'Daily');
+  button(dly, 'dbg-next-day', 'Next day', () => {
+    setDayOffset(getDayOffset() + 1);
+    store().refreshDaily();
+    say(`day ${store().today} (+${getDayOffset()})`);
+  });
+  button(dly, 'dbg-today', 'Back to today', () => {
+    setDayOffset(0);
+    store().refreshDaily();
+    say(`day ${store().today}`);
   });
 
   // ---- Free Fly
