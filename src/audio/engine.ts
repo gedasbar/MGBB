@@ -1,5 +1,8 @@
 import { loadSettings, MAX_SOUND_MULT, migrateSettings, saveSettings, Settings, TouchControl, WeaponSound } from '../ui/settings';
-import { PEAK_CAP, PEAK_CAP_PROTECTED, SFX_BOOST, SFX_ORDER, SfxId, SoundDef, SOUNDS } from './sounds';
+import { DEBUG_ON } from '../debug/enabled';
+import { generateSamples, SfxrParams } from './sfxr';
+import { SfxrBank } from './sfxrBank';
+import { PEAK_CAP, PEAK_CAP_PROTECTED, SFXR_LEVEL, SFX_BOOST, SFX_ORDER, SfxId, SoundDef, SOUNDS } from './sounds';
 
 /** At most this many sounds sound at once; the lowest-priority, oldest one is stolen for a newer one. */
 export const VOICE_CAP = 16;
@@ -32,6 +35,8 @@ export interface SfxEngineOptions {
   clock?: () => number;
   /** Where volume and mute persist (defaults to localStorage); pass null to disable. */
   storage?: Pick<Storage, 'getItem' | 'setItem'> | null;
+  /** Designed sounds (chunk 35b); defaults to the shared bank. A slot with an entry plays its sfxr sound instead of sounds.ts. */
+  bank?: SfxrBank;
 }
 
 /**
@@ -56,12 +61,17 @@ export class SfxEngine {
   private readonly storage: Pick<Storage, 'getItem' | 'setItem'> | null | undefined;
   private readonly clockFn: (() => number) | null;
   private readonly makeCtx: () => AudioContext | null;
+  /** The designed sounds. */
+  readonly bank: SfxrBank;
+  /** Rendered samples per slot, kept while the slot's params object is the same one. */
+  private readonly rendered = new Map<string, { params: SfxrParams; buffer: AudioBuffer }>();
 
   constructor(opts: SfxEngineOptions = {}) {
     this.storage = opts.storage;
     this.settings = opts.storage === undefined ? loadSettings() : loadSettings(opts.storage);
     this.clockFn = opts.clock ?? null;
     this.makeCtx = opts.createContext ?? defaultContext;
+    this.bank = opts.bank ?? sharedBank;
     SFX_ORDER.forEach((id, i) => this.index.set(id, i));
     const slots = new Map<string, number>();
     this.limitSlot = new Int32Array(SFX_ORDER.length);
@@ -197,7 +207,10 @@ export class SfxEngine {
     const cap = def.priority === 2 ? PEAK_CAP_PROTECTED : PEAK_CAP;
     let end = 0;
     const t0 = ctx.currentTime;
-    for (const p of def.parts) {
+    const designed = this.bank.get(id);
+    if (designed) {
+      end = this.startDesigned(v, ctx, this.renderFor(id, designed, ctx), gain, pitch);
+    } else for (const p of def.parts) {
       const at = t0 + p.at;
       const g = ctx.createGain();
       const peak = Math.max(SILENT * 2, Math.min(cap, p.peak * gain));
@@ -245,6 +258,50 @@ export class SfxEngine {
     return true;
   }
 
+  /** Plays a design that is not (yet) in a slot, for the tuner: no rate limit, always heard. Returns whether it started. */
+  preview(params: SfxrParams): boolean {
+    const ctx = this.ctx;
+    if (ctx && ctx.state !== 'running') this.retryResume();
+    if (!ctx || ctx.state !== 'running' || !this.sfx || this.settings.muted || this.settings.masterVolume <= 0 || this.settings.sfxVolume <= 0) return false;
+    const t = this.now();
+    const v = this.acquire(2, t);
+    if (!v) return false;
+    const end = this.startDesigned(v, ctx, this.makeBuffer(ctx, params), SFX_BOOST, 1);
+    v.live = true; v.id = -1; v.priority = 2; v.start = t; v.end = t + end;
+    return true;
+  }
+
+  private makeBuffer(ctx: AudioContext, params: SfxrParams): AudioBuffer {
+    const samples = generateSamples(params, ctx.sampleRate);
+    const buf = ctx.createBuffer(1, Math.max(1, samples.length), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < samples.length; i++) d[i] = samples[i] * SFXR_LEVEL;
+    return buf;
+  }
+
+  private renderFor(id: string, params: SfxrParams, ctx: AudioContext): AudioBuffer {
+    const hit = this.rendered.get(id);
+    if (hit && hit.params === params) return hit.buffer;
+    const buffer = this.makeBuffer(ctx, params);
+    this.rendered.set(id, { params, buffer });
+    return buffer;
+  }
+
+  /** Starts a rendered buffer on the voice; returns its length in seconds (the voice's lifetime). */
+  private startDesigned(v: Voice, ctx: AudioContext, buffer: AudioBuffer, gain: number, pitch: number): number {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.setValueAtTime(pitch, ctx.currentTime);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gain, ctx.currentTime);
+    src.connect(g);
+    g.connect(this.sfx!);
+    v.nodes.push(g);
+    v.sources.push(src);
+    src.start(ctx.currentTime);
+    return buffer.length / buffer.sampleRate / Math.max(0.1, pitch) + 0.02;
+  }
+
   /** A free voice, else the lowest-priority oldest one if it is not more important than the new sound; null = drop. */
   private acquire(priority: number, t: number): Voice | null {
     let victim: Voice | null = null;
@@ -267,6 +324,10 @@ export class SfxEngine {
     v.live = false;
   }
 }
+
+/** Shared designed sounds: the shipped file, plus the tuner's localStorage draft on a debug page. */
+const sharedBank = new SfxrBank(undefined, DEBUG_ON ? safeStorage() : null);
+function safeStorage(): Storage | null { try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; } }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 

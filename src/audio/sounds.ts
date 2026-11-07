@@ -40,12 +40,16 @@ export const SFX_BOOST = 1.8;
 /** Largest peak after boost and tuning multipliers: 0.15 x 1.8, and a little more room for the protected sounds. */
 export const PEAK_CAP = 0.27;
 export const PEAK_CAP_PROTECTED = 0.35;
+/** Loudness of a designed (sfxr) sound: its samples are scaled by this so volume 0.5 sits near the hand-made sounds. */
+export const SFXR_LEVEL = 0.3;
 /** Hit sounds share this many plays per second. */
 const HIT_RATE = 8;
 
 export const SOUND_IDS = [
   'shot', 'shotSoft', 'tick', 'rockHit', 'rockPop', 'split', 'blockDestroyed', 'armorPing', 'shieldHit', 'shieldBreak', 'chain', 'well',
   'bounce', 'crash', 'cleared', 'medal', 'wave', 'uiTap', 'purchase', 'denied', 'pickerOpen', 'pickerClose', 'crystal',
+  // Chunk 35b slots (sound tuner): hurt and aoe are new sounds; passed, bossArrive and bossDeath start as copies of cleared, wave and medal.
+  'hurt', 'aoe', 'passed', 'bossArrive', 'bossDeath',
 ] as const;
 export type SfxId = (typeof SOUND_IDS)[number];
 /** The ids as a plain array (the engine indexes its rate-limit table by position). */
@@ -100,4 +104,20 @@ export const SOUNDS: Record<SfxId, SoundDef> = {
   denied: { priority: 1, minInterval: 0.1, parts: [P('square', 200, 150, 0, 0.14, 0.07, { filter: { type: 'lowpass', freq: 1200 } })] },
   pickerOpen: { priority: 1, minInterval: 0.05, parts: [P('triangle', 400, 700, 0, 0.07, 0.06)] },
   pickerClose: { priority: 1, minInterval: 0.05, parts: [P('triangle', 700, 400, 0, 0.07, 0.06)] },
+  hurt: { priority: 1, minInterval: 0.2, parts: [
+    P('sawtooth', 320, 90, 0, 0.18, 0.12, { filter: { type: 'lowpass', freq: 1500 } }),
+    P('noise', 0, 0, 0, 0.08, 0.07, { filter: { type: 'lowpass', freq: 1200 } }),
+  ] },
+  aoe: { priority: 0, minInterval: 0.1, pitchVar: 0.06, parts: [
+    P('noise', 0, 0, 0, 0.16, 0.07, { filter: { type: 'lowpass', freq: 1400, freq1: 300 } }),
+    P('sine', 130, 60, 0, 0.14, 0.08),
+  ] },
+  passed: { priority: 2, minInterval: 0, parts: [
+    P('triangle', 523, 523, 0, 0.12, 0.1), P('triangle', 659, 659, 0.1, 0.12, 0.1), P('triangle', 784, 784, 0.2, 0.22, 0.1),
+  ] },
+  bossArrive: { priority: 1, minInterval: 0.3, parts: [P('sine', 440, 440, 0, 0.12, 0.09), P('sine', 587, 587, 0.12, 0.18, 0.09)] },
+  bossDeath: { priority: 2, minInterval: 0, parts: [
+    P('triangle', 523, 523, 0, 0.14, 0.1), P('triangle', 659, 659, 0.12, 0.14, 0.1), P('triangle', 784, 784, 0.24, 0.14, 0.1),
+    P('square', 1047, 1047, 0.36, 0.34, 0.07), P('triangle', 1319, 1319, 0.36, 0.34, 0.08),
+  ] },
 };
