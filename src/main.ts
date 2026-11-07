@@ -19,6 +19,7 @@ import { FRAME_MAX, planSteps } from './game/timestep';
 import { PlayTimeTracker } from './econ/playTime';
 import { getProgressStore } from './econ/progress';
 import { frameLimitFps } from './ui/touchMode';
+import { getDayOffset, setDayOffset } from './daily/clock';
 import { backToCarousel, openMapTab, openModeScreen, startCampaignTier, startDailyRun, startFreeFly } from './map/nav';
 import { mapMemory } from './map/memory';
 import { MapMode } from './map/constants';
@@ -61,6 +62,7 @@ import { MapMode } from './map/constants';
     (window as any).__mgbmStats = stats;
     (window as any).__mgbmSm = screenManager;
     (window as any).__mgbmSfx = sfx;
+    (window as any).__mgbmStore = getProgressStore(); // chunk 35a: for the contact-sheet scripts (seeding a day of daily quest progress)
     // For the e2e contact-sheet script: Pixi and the running app, so a sheet can be drawn with the game's own modules.
     void import('pixi.js').then((m) => { (window as any).__pixi = m; (window as any).__app = app; });
   }
@@ -95,6 +97,9 @@ import { MapMode } from './map/constants';
       backToCarousel: (mode: MapMode) => backToCarousel(screenManager, mode),
       /** Starts Free Fly with the current circuit (what the Free Fly screen's START does): 'ok' | 'noEjector'. */
       startFreeFly: () => startFreeFly(screenManager),
+      /** Chunk 35a: the debug panel's "Next day" / "Back to today" without the panel (the clock moves whole days, never saved): returns the day key. */
+      nextDay: () => { setDayOffset(getDayOffset() + 1); getProgressStore().refreshDaily(); return getProgressStore().today; },
+      backToToday: () => { setDayOffset(0); getProgressStore().refreshDaily(); return getProgressStore().today; },
       /** Chunk 35a: starts today's daily run (what the Daily screen's START does). */
       startDaily: () => startDailyRun(screenManager),
       /** Starts campaign tier `tier` with the current circuit (what the tier panel's START does): 'ok' | 'locked' | 'noEjector'. */

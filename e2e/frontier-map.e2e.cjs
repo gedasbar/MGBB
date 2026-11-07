@@ -207,7 +207,7 @@ async function panFps(page, zoom) {
   await page.waitForTimeout(200);
   const back = await state(page);
   const key = setup.x + ',' + setup.y;
-  check(back.sq[key] === 2 && back.medals === medalsBefore + 1, `back on the Frontier: square ${key} cleared, Medals ${medalsBefore} -> ${back.medals}`);
+  check(back.sq[key] === 2 && back.medals >= medalsBefore + 1, `back on the Frontier: square ${key} cleared, Medals ${medalsBefore} -> ${back.medals}`); // chunk 35a: a daily "pass Frontier squares" quest may pay a Medal on top
   check(back.camera.cx === camBefore.cx && back.camera.cy === camBefore.cy && back.camera.zoom === camBefore.zoom && back.selected.x === setup.x && back.selected.y === setup.y, 'camera and selection are where they were');
   check(!back.panel.medal && back.panel.state === 'Cleared' && back.panel.play, `panel: "${back.panel.state}", no medal marker, Replay enabled`);
   shots.push(await canvasShot(page)); caps.push('back: square filled, medal gone');

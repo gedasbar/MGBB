@@ -230,9 +230,9 @@ const state = (page) => page.evaluate(() => window.__mgbm.state());
 
 /**
  * Chunk 29b: navigation through the dev hooks of `window.__mgbmNav` (set in src/main.ts), so a script never depends on where a button sits.
- * openMode('campaign' | 'frontier' | 'freefly') opens that mode's own screen and waits for it; startFreeFly() / startTier(n) start a run with the current circuit.
+ * openMode('campaign' | 'frontier' | 'freefly' | 'daily') opens that mode's own screen and waits for it; startFreeFly() / startTier(n) start a run with the current circuit.
  */
-const MODE_SCREEN = { campaign: 'map', frontier: 'frontier', freefly: 'freefly-home' };
+const MODE_SCREEN = { campaign: 'map', frontier: 'frontier', freefly: 'freefly-home', daily: 'daily' };
 async function openMode(page, mode, tier) {
   const ok = await page.evaluate(([m, t]) => window.__mgbmNav.openMode(m, t), [mode, tier]);
   if (!ok) return false;
